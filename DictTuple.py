@@ -27,9 +27,9 @@ class DictTupleDef:
         self.locked = False
         self.items = {}
         if (items is None): return
-        assert (isinstance(items, list)
+        assert (isinstance(items, list))
         for item in items:
-            assert (isinstance(item, list) and len(item) = 4)
+            assert (isinstance(item, list) and len(item) == 4)
             self.items[item[0]] = self.defineItem(item[0], item[1], item[2], item[3])
 
     def lock(self):
@@ -41,6 +41,10 @@ class DictTupleDef:
         return DictTupleDefItem(name, typ, dft, nullable)
 
 class DictTuple(dict):
+    """A subclass of dict that provides a number of features from defaultdict
+    and namedtuple as well. It can even enforce types for members, allow or
+    prohibit None for members, etc.
+    """
     def __init__(self, dfn):
         super(DictTuple, self).__init__()
         if (not isinstance(dfn, DictTupleDef)):
@@ -174,4 +178,4 @@ For the most recent version, see http://www.derose.net/steve/utilities/.
         [ 'state',  str,    [ 'AK', 'HI', 'WA' ], True ],
         [ 'info',   EmpRecord, None,   True ],
 
-    dt = DictTuple(
+    dt = DictTuple()
