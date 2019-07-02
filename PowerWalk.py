@@ -70,13 +70,13 @@ class PowerWalk:
             self.topLevelItems = [ topLevelItems ]
 
         self.options = {
-            "containers"          : True,
-            "openTar"             : True,
-            "openGzip"            : True,
+            "containers"          : False,
+            "openTar"             : False,
+            "openGzip"            : False,
             "followLinks"         : False,
 
             "maxFiles"            : 0,
-            "maxdepth"            : 0,
+            "maxDepth"            : 0,
 
             "mode"                : "rb",
             "iencoding"           : "utf-8",
@@ -165,7 +165,7 @@ class PowerWalk:
         return
 
     def ttraverse(self, path, depth=0):
-        if (depth > self.options['maxdepth']): return
+        if (self.options['maxDepth'] > 0 and depth > self.options['maxDepth']): return
         if (os.path.isdir(path)):
             if (self.options['containers']): yield(path, "DIR_START")
             self.trySomething('directory', path)
@@ -221,7 +221,7 @@ class PowerWalk:
             ext = ext.strip(". \t\n\r")
 
             if (not self.options['hidden'] and base.startswith(".")):
-                self.trySomething("skip hidden", path, "exclude")
+                self.trySomething("hidden", path, "exclude")
 
             elif (self.options['excludeExtensions'] and ext in
                 self.options['excludeExtensions']):
@@ -311,20 +311,26 @@ handle, to each selected item.
 You can even get things that have to be opened in special ways, such
 as the items in C<gzip> or C<tar> files.
 
-Can be used as an iterator/generator. For example, this just prints an
-outline of the file directory subtree of the current directory, with
-an extra message every 100 items:
+Can be used as an iterator/generator. For example, this prints an
+outline of the file directory subtree of the current directory. Special
+items for opening and closing recursive directories, zip files, and tar files
+are generated because of the 'containers' option:
 
     depth = 0
     pw = PowerWalk(".")
     pw.setOption('recursive', True)
+    pw.setOption('containers', True)
+    pw.setOption('includeExtensions', [ 'txt' ])
     for path, fh in pw.traverse():
-        if (fh == "DIR_END"): depth -= 1
-        print("    " * depth + path)
-        if (fh == "DIR_START"): depth += 1
-        fileNum = pw.stats['itemsReturned']
-        if (fileNum % 100 == 0):
-            sys.stderr.write("At item #%d" % (fileNum)))
+        if (isinstance(fh, str) and fh.endswith("START")):
+            print(" " * depth + "*** %s %s" % (fh, srcFile))
+            depth += 1
+        elif (isinstance(fh, str) and fh.endswith("END")):
+            depth -= 1
+            print(" " * depth + "*** %s %s" % (fh, srcFile))
+        else:
+            print(" " * depth + srcFile)
+            doOneFile(srcFile)
 
 =head1 Methods
 
@@ -373,7 +379,7 @@ This does not include Mac "aliases", weblocs, etc.
 
 Stop after choosing this many files. Default: 0 (unlimited).
 
-=item * "maxdepth"
+=item * "maxDepth"
 
 Do not recurse deeper than this. Default: 0 (unlimited).
 
