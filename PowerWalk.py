@@ -155,7 +155,7 @@ class PowerWalk:
 
 
     def traverse(self):
-        print("At traverse top.")
+        #print("At traverse top.")
         for tl in (self.topLevelItems):
             for item in self.ttraverse(tl):
                 self.stats["nodesTried"] += 1
