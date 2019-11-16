@@ -157,15 +157,19 @@ class PowerWalk:
     def traverse(self):
         #print("At traverse top.")
         for tl in (self.topLevelItems):
-            for item in self.ttraverse(tl):
+            for path, fh in self.ttraverse(tl):
                 self.stats["nodesTried"] += 1
                 if (self.options["maxFiles"] and
                     self.stats["nodesTried"] > self.options["maxFiles"]): return
-                yield item
+                yield path, fh
         return
 
     def ttraverse(self, path, depth=0):
-        if (self.options['maxDepth'] > 0 and depth > self.options['maxDepth']): return
+        lg.vMsg(2, "ttraverse %s" % (path))
+        if (self.options['maxDepth'] > 0 and depth > self.options['maxDepth']):
+            return
+        if (not os.path.exists(path)):
+            raise IOError("Item not found: %s." % (path))
         if (os.path.isdir(path)):
             if (self.options['containers']): yield(path, "DIR_START")
             self.trySomething('directory', path)
@@ -179,7 +183,7 @@ class PowerWalk:
                     yield path2
             if (self.options['containers']): yield(path, "DIR_END")
 
-        elif (tarfile.is_tarfile(path)):
+        elif (False and tarfile.is_tarfile(path)):
             self.trySomething("tar file", path)
             if (self.options['containers']): yield(path, "TAR_START")
             if (self.options['openTar']):
@@ -217,8 +221,12 @@ class PowerWalk:
 
         else:  # regular file?
             base = os.path.basename(path)
-            (root, ext) = os.path.splitext(base)
-            ext = ext.strip(". \t\n\r")
+            # TODO: Directories with dot in name!
+            if (os.path.isdir(base)):
+                (root, ext) = base, ""
+            else:
+                (root, ext) = os.path.splitext(base)
+                ext = ext.strip(". \t\n\r")
 
             if (not self.options['hidden'] and base.startswith(".")):
                 self.trySomething("hidden", path, "exclude")
@@ -237,8 +245,7 @@ class PowerWalk:
 
             else:
                 self.trySomething('regular', path)
-                fh = codecs.open(
-                    path, mode=self.options['mode'], encoding=self.options['iencoding'])
+                fh = codecs.open(path, mode=self.options['mode'], encoding=self.options['iencoding'])
                 # Py 2: codecs.open returns old-style class StreamReaderWriter
                 if (sys.version_info < (3, 0)):
                     if ('__class__' in fh and
@@ -287,8 +294,8 @@ class PowerWalk:
             return True
 
         if (re.search(r'\b(backup|copy|bak)\b', root, re.IGNORECASE)):
-            if (not args.quiet):
-                lg.vMsg(0, "Warning: questionable backup? '%s'" % (path))
+            #if (not args.quiet):
+            #    lg.vMsg(0, "Warning: questionable backup? '%s'" % (path))
             return True
         return False
 
