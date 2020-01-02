@@ -15,104 +15,10 @@ import sys
 import argparse
 import unicodedata
 
-__metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2018-09-04",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2018-09-04",
-}
-__version__ = __metadata__['version_date']
+descr = """
 
-class LooseDict(dict):
-    """A dict also indexable by *normalized* keys (but it keeps the exact keys,
-    too). See also "Emulating container types":
-    https://docs.python.org/2/reference/datamodel.html#emulating-container-types
-    """
-    def __init__(self, key=None):
-        super(LooseDict, self).__init__()
-        if (key): self.keyFunction = key
-        else: self.keyFunction = str.lower
-        self.normKeys = {}  # Map from normalized to real keys
+=pod
 
-    def __setitem__(self, someKey, value):
-        normKey = self.getNormKey(someKey)
-        print("in setitem for '%s', norm='%s', val='%s'." % (someKey, normKey, value))
-        if (normKey in self.normKeys):
-            oldRealKey = self.normKeys[normKey]
-            super(LooseDict, self).__delitem__(oldRealKey)
-        self.normKeys[normKey] = someKey
-        super(LooseDict, self).__setitem__(someKey, value)
-        return
-
-    def __getitem__(self, someKey):
-        normKey = self.getNormKey(someKey)
-        realKey = self.normKeys[normKey]
-        return super(LooseDict, self).__getitem__(realKey)
-
-    def getRealKey(self, someKey):
-        normKey = self.keyFunction(someKey)
-        if (normKey not in self.normKeys): return None
-        return self.normKeys[normKey]
-
-    def getNormKey(self, someKey):
-        return(self.keyFunction(someKey))
-
-    def __has_key__(self, someKey):
-        normKey = self.getNormKey(someKey)
-        return (normKey in self.normKeys)
-
-    def clear(self):
-        self.normKeys.clear()
-        return super(LooseDict, self).clear()
-
-    def copy(self):
-        newld = LooseDict(key=self.keyFunction)
-        for kk in self.keys():
-            newld[kk] = self[kk]
-        return newld
-
-    def __iteritems__(self, sortNorm=False, reverse=False):
-        """Make Python 2 users happy....
-        """
-        if (sortNorm):
-            skeys = self.keys()
-        else:
-            skeys = sorted(self.keys(), key=self.getNormKey, reverse=reverse)
-        for kk in skeys:  yield kk, self[kk]
-        return None
-
-    #def __cmp__(self, dict_):
-    #    return self.__cmp__(self.__dict__, dict_)
-
-    @staticmethod
-    def nfkd(s):
-        return LooseDict.unormalize(s, 'NFKD', ignoreCase=False)
-
-    @staticmethod
-    def nfkdi(s):
-        return LooseDict.unormalize(s, 'NFKD', ignoreCase=True)
-
-    @staticmethod
-    def nfc():
-        return LooseDict.unormalize(s, 'NFC', ignoreCase=False)
-
-    @staticmethod
-    def nfci(s):
-        return LooseDict.unormalize(s, 'NFC', ignoreCase=True)
-
-    @staticmethod
-    def unormalize(s, form="NFC", ignoreCase=True
-        s2 = unicodedata.normalize('NFKD', s)
-        if (case=='I'): s2 = s2..lower()
-        return s2
-
-
-###############################################################################
-###############################################################################
-# Main
-#
-if __name__ == "__main__":
-    descr = """
 =head1 Description
 
 A subclass of C<dict> that stores keys and values exactly as passed,
@@ -203,14 +109,129 @@ The normalizer function must be idempotent. That is, after being applied once,
 additional applications should make no further changes. Or in other words,
 normalizing an already-normalized key should not denormalize it.
 
-=head1 Licensing
+=head1 Ownership
 
-Copyright 2018-09-04 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities> or
+L<http://github/com/sderose>.
+
+
+=head1 History
 
 =head1 Options
+
+=cut
 """
+
+__metadata__ = {
+    'title'        : "LooseDict.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2018-09-04",
+    'modified'     : "2020-01-01",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
+
+
+class LooseDict(dict):
+    """A dict also indexable by *normalized* keys (but it keeps the exact keys,
+    too). See also "Emulating container types":
+    https://docs.python.org/2/reference/datamodel.html#emulating-container-types
+    """
+    def __init__(self, key=None):
+        super(LooseDict, self).__init__()
+        if (key): self.keyFunction = key
+        else: self.keyFunction = str.lower
+        self.normKeys = {}  # Map from normalized to real keys
+
+    def __setitem__(self, someKey, value):
+        normKey = self.getNormKey(someKey)
+        print("in setitem for '%s', norm='%s', val='%s'." % (someKey, normKey, value))
+        if (normKey in self.normKeys):
+            oldRealKey = self.normKeys[normKey]
+            super(LooseDict, self).__delitem__(oldRealKey)
+        self.normKeys[normKey] = someKey
+        super(LooseDict, self).__setitem__(someKey, value)
+        return
+
+    def __getitem__(self, someKey):
+        normKey = self.getNormKey(someKey)
+        realKey = self.normKeys[normKey]
+        return super(LooseDict, self).__getitem__(realKey)
+
+    def getRealKey(self, someKey):
+        normKey = self.keyFunction(someKey)
+        if (normKey not in self.normKeys): return None
+        return self.normKeys[normKey]
+
+    def getNormKey(self, someKey):
+        return(self.keyFunction(someKey))
+
+    def __has_key__(self, someKey):
+        normKey = self.getNormKey(someKey)
+        return (normKey in self.normKeys)
+
+    def clear(self):
+        self.normKeys.clear()
+        return super(LooseDict, self).clear()
+
+    def copy(self):
+        newld = LooseDict(key=self.keyFunction)
+        for kk in self.keys():
+            newld[kk] = self[kk]
+        return newld
+
+    def __iteritems__(self, sortNorm=False, reverse=False):
+        """Make Python 2 users happy....
+        """
+        if (sortNorm):
+            skeys = self.keys()
+        else:
+            skeys = sorted(self.keys(), key=self.getNormKey, reverse=reverse)
+        for kk in skeys:  yield kk, self[kk]
+        return None
+
+    #def __cmp__(self, dict_):
+    #    return self.__cmp__(self.__dict__, dict_)
+
+    @staticmethod
+    def nfkd(s):
+        return LooseDict.unormalize(s, 'NFKD', ignoreCase=False)
+
+    @staticmethod
+    def nfkdi(s):
+        return LooseDict.unormalize(s, 'NFKD', ignoreCase=True)
+
+    @staticmethod
+    def nfc(s):
+        return LooseDict.unormalize(s, 'NFC', ignoreCase=False)
+
+    @staticmethod
+    def nfci(s):
+        return LooseDict.unormalize(s, 'NFC', ignoreCase=True)
+
+    @staticmethod
+    def unormalize(s, form="NFC", ignoreCase=True):
+        if (form == "NFKD"): s2 = unicodedata.normalize('NFKD', s)
+        elif (form == "NFD"): s2 = unicodedata.normalize('NFD', s)
+        elif (form == "NFKC"): s2 = unicodedata.normalize('NFKC', s)
+        elif (form == "NFC"): s2 = unicodedata.normalize('NFC', s)
+        if (ignoreCase): s2 = s2.lower()
+        return s2
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+if __name__ == "__main__":
     def processOptions():
         try:
             from MarkupHelpFormatter import MarkupHelpFormatter

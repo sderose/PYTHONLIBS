@@ -285,13 +285,21 @@ You can specify the I<endAs> option when colorizing A to avoid this.
 ColorManager has no support for 256-color terminals.
 
 
+=head1 Related commands
+
+See L<https://stackoverflow.com/questions/287871/> on "How to print colored text in terminal in python." It references Python modules I<termcolor> (apparently
+no longer maintained?), I<chromalog>, I<Colorama>, and others.
+
+My C<colorstring> shell command
+
 =head1 Ownership
 
 This work by Steven J. DeRose is licensed under a Creative Commons
 Attribution-Share Alike 3.0 Unported License. For further information on
 this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
-For the most recent version, see http://www.derose.net/steve/utilities/.
+For the most recent version, see http://www.derose.net/steve/utilities/
+or L<https://github.com/sderose>.
 
 
 =head1 Options
@@ -306,12 +314,18 @@ For the most recent version, see http://www.derose.net/steve/utilities/.
         "--bold",             action='store_true',
         help='Show samples with bold foreground colors.')
     parser.add_argument(
-        "--effects",           type=str, default=None,
+        "--color",            type=str, default=None,
+        help="Show sample of the specified color combination.")
+    parser.add_argument(
+        "--effects",          type=str, default=None,
         #choices=ColorManager.effectNumbers.keys(),
         help="Show sample only for the given effect(s).")
     parser.add_argument(
         "--pack",             action='store_true',
         help='Pack samples, instead of showing one per line.')
+    parser.add_argument(
+        "--showAll",          action='store_true',
+        help='Show samples of all combinations.')
     parser.add_argument(
         "--version",          action='version', version=__version__,
         help='Display version information, then exit.')
@@ -326,12 +340,35 @@ For the most recent version, see http://www.derose.net/steve/utilities/.
     if (args.pack): ender = " "
     cm = ColorManager(effects=True)
     ctable = cm.getColorStrings()
-    tot = 0
-    for ct in (sorted(ctable.keys())):
-        if (args.effects):
-            keywords = set(re.split('/', ct))
-            if (not effects.intersection(keywords)): continue
-        print(ctable[ct] + ct + ctable['off'], end=ender)
-        tot += 1
-    print("\nDone, %d combinations." % (tot))
+
+    if (args.color):
+        toShow = { args.color: ctable[args.color] };
+    else:
+        toShow = ctable
+
+    """
+    for name1, seq (toShow) {
+        name1 = $b;
+        name2 = "white/$b";
+        name3 = "bold/$b";
+        name4 = "$b/white";
+        warn (sprintf("## %s ## %s ## %s ## %s ##\n",
+            colorize($name1, sprintf("%-14s", $name1)),
+            colorize($name2, sprintf("%-14s", $name2)),
+            colorize($name3, sprintf("%-14s", $name3)),
+            colorize($name4, sprintf("%-14s", $name4))
+        ));
+    }
+    """
+
+    if (args.showAll):
+        tot = 0
+        for ct in (sorted(ctable.keys())):
+            if (args.effects):
+                keywords = set(re.split('/', ct))
+                if (not effects.intersection(keywords)): continue
+            print(ctable[ct] + ct + ctable['off'], end=ender)
+            tot += 1
+        print("\nDone, %d combinations." % (tot))
+
     sys.exit()

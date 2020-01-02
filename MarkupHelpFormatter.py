@@ -1,39 +1,6 @@
 #!/usr/bin/env python
 #
 # MarkupHelpFormatter.py (includes ParagraphHelpFormatter, too).
-# For the most recent version, see http://www.derose.net/steve/utilities/.
-#
-# Thanks to Anthon van der Neut for help on integrating with argparse. Also:
-#     http://stackoverflow.com/questions/3853722
-#     https://bitbucket.org/ruamel/std.argparse/src
-#     http://hg.python.org/cpython/file/2.7/Lib/argparse.py
-#     https://docs.python.org/2/library/textwrap.html
-#
-# Copyright 2014-2018 by Steven J. DeRose.
-# This work is licensed under a Creative Commons
-# Attribution-Share Alike 3.0 Unported License. For further information on
-# this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-#
-# To do:
-#     More testing, especially __main__ and Unicode.
-#     Preserve spaces within quotes and in indented/pre lines.
-#     Prematurely breaks lines sometimes; problem with uncoloredLength()?
-#         Or may not be removing pre-existing LFs right.
-#     Finish sectionNums. Clear list-numbering properly
-#     Add MarkDown and Mediawiki Deflist, Blockquote
-#     Support hanging indent on lists
-#     Indent paragraph immediately following list-item? At least for POD
-#     Option to reset colors for light background (let =SET refer env. vars?)
-#     Integrate mathUnicode.py to get fancy forms.
-#   Low priority:
-#     Support backslash+x etc. in =set ULmarkers.
-#     Option to break URIs and paths at '/' doesn't always work
-#     Option to page the output, or send to 'less'
-#     Finish XHTML output option (and browser as pager)
-#     Is there an easy way to check if terminal supports underlining, etc.?
-#     How best to support links?
-#     Support POD's Z<> (suppress POD) markup
-#     Once HTML generation is done, add =set for css and js to include.
 #
 import os, sys, re, string
 import argparse
@@ -46,10 +13,387 @@ else:
     string_types = str
     def unichr(n): return chr(n)
 
-__version__ = "2018-12-12"
+__metadata__ = {
+    'creator'      : "Steven J. DeRose",
+    'cre_date'     : "2013-04-18",
+    'language'     : "Python 3.7",
+    'version_date' : "2018-12-12",
+}
+__version__ = __metadata__['version_date']
+
+descr = """
+
+=head1 Description
+
+This package defines two classes that can be used with Python's
+I<argparse> package, in order to get better formatting.
+
+=head2 class ParagraphHelpFormatter(argparse.HelpFormatter)
+
+This simple class is like the default formatter except that
+it does I<not> wrap lines across blank lines. That is, blank lines stay there.
+
+To use it:
+    parser = argparse.ArgumentParser(description=""
+    First paragraph of documentation,
+    which wraps to fill output lines.
+
+    Second paragraph.
+    ...
+"",
+    formatter_class=MarkupHelpFormatter
+    )
+
+
+=head2 class MarkupHelpFormatter(argparse.HelpFormatter)
+
+This class is much fancier. It support several markup systems within
+your help text. So you can indicate paragraphs, emphasis, special
+characters, links, headings, and so on, and get distinctive formatting
+for them. Some control of the styles to be applied is available.
+
+To use it:
+    parser = argparse.ArgumentParser(description=""
+
+    ==Description==
+
+    First paragraph of documentation,
+    which wraps to fill output lines.
+
+    Our sole virtue:
+
+    *Surprise
+    *Better formatting
+
+    Our two virtues:
+    *Surprise
+    *Better formatting
+    *An almost ''fanatical'' devotion to markup
+    ...
+"",
+    formatter_class=MarkupHelpFormatter
+    )
+
+=head2 Supported Markup syntax(es)
+
+In short, this class supports most of I<Markdown>, I<POD>, and
+I<MediaWiki> markup (not including embedded HTML (yet)).
+These are all styled using only the
+capabilities of typical ANSI terminal programs, such as fixed-pitch
+fonts, color, bold, and fiendishly clever use of whitepsace.
+
+There is no support for images. Links are visually emphasized,
+but do not function because I don't see any easy way to make C<bash>,
+C<more>, C<less>, etc. deal with them. The user can of course copy
+a URI from a link, and paste it into a browser or other URI-aware tool.
+HTML output is in the works; once finished, you could use a browser to read
+help, and it would support links as well as better formatting.
+
+
+=head2 MediaWiki
+
+B<MediaWiki> markup is what WikiPedia uses.
+Most components are indicated by punctuation marks at the beginning of lines.
+A description is available L<here|"http://www.mediawiki.org/wiki/Markup_spec">.
+
+Paragraphs are simply separated by blank lines.
+
+Headings are indicated by a number of leading and trailing "=" characters,
+equal to the heading level plus 1.
+For example, a second-level heading:
+
+    === Summary ===
+
+Block quotations are indicated by leading ">":
+
+    >As Kierkegaard suggests,
+    >Hume was not always, shall we say, perfectly clear.
+
+Lists are indicated by one or more leading "*" or "#" characters,
+for bulleted/unordered and for numbered/ordered, respectively.
+There is no indicator marking the scope of lists as wholes (among other
+things, this poses problems for adjacent or continued lists; but it's typical):
+
+    * Things that float
+    *# Apples
+    *# Gravy
+    *# Very small rocks
+    *# Ducks
+    * Things that sink
+    *# Villagers
+    *# Swamp castles
+
+List items to be indented but neither bulleted nor numbered, begin with ":".
+
+Definition list items are of the form ";term:definition".
+
+Tables are not yet supported here, but work is in progress.
+MediaWiki tables (see L<here|"https://www.mediawiki.org/wiki/Help:Tables">)
+use "{|...|}" to enclose the entire table,
+"|+" to indicate captions,
+"|-" to separate rows,
+and "|" to start cells within a row (or "!" instead of "|" for header cells).
+Each cell must start on a new line.
+
+Lines that should not be wrapped, such as program code samples,
+should start with whitespace.
+
+Horizontal rules can be invoked via a line starting with
+several "=" or "-" characters.
+
+Inline emphasis uses 2 and/or 3 apostrophes on each side:
+
+    This ''word'' is '''really''' important to '''''me and you'''''.
+
+
+=head3 MarkDown
+
+B<MarkDown> is fairly common. For a description see
+L<here|"http://daringfireball.net/projects/markdown/syntax">.
+It is very similar to MediaWiki format.
+
+Headings use "#" (verses MediaWiki's "="), and "#" is only needed at the
+start, not the end, of heading lines.
+
+Markdown systems sometimes also accept headings indicated
+by "underlining" the heading using "=" or "-" on the next line.
+That variant is not available here:
+
+    Introduction
+    ------------
+
+Block quotations are indicated by a leading ">":
+
+    >As Kierkegaard suggests,
+    >Hume was not always, shall we say, perfectly clear.
+
+Lists work like MediaWiki, except that the indicators
+only include "*" for unordered and "+" for ordered (not "#").
+
+Lines that should not be wrapped should start with whitespace.
+
+Horizontal rules can be produced by giving a line starting with
+several "=", "-", or "*" characters.
+
+Inline emphasis uses "_" or "*" surrounding text:
+
+    This word is *really* important to _me and you_.
+
+
+
+=head2 POD
+
+B<POD> is short for "Plain Old Documentation". A description is available at
+L<here|"http://en.wikipedia.org/wiki/Plain_Old_Documentation">
+
+POD reserves only "=" at start of line, where
+a keyword follows. Some POD software (not including this class)
+requires a blank line preceding any such component.
+Some example components:
+
+    =head2 Knightly challenges
+    =over
+    =item * Bravery
+    =item * Chastity
+    =item * Self-control
+    =back
+    =head2 Hummility and the omission of Gawain
+
+Note that the boundaries of lists as wholes, must be indicated in
+POD using "=over" and "=back" (which can also be used to control
+indentation in general).
+
+Paragraphs are indicated by blank lines just as in MediaWiki and MarkDown.
+
+Inline emphasis of various kinds uses a capital letter
+followed by the relevant text within pointy-brackets:
+
+    B<hello>  for bold
+    I<very>   for italic
+    C<grep>   for program code or commands
+    F</bin>   for filenames and paths
+    L<Intro|"http:...">  for links (to section titles or to URIs). The part
+before the "|" (if present) is the anchor text, and the part after it
+is a URI or the title of some section in the same document (similar to
+the MediaWiki "|" convention in links). Some processors require the 2nd
+portion to be quoted.
+    S<text>   should prevent line-breaking within I<text>
+    X<key>    defines an index entry (unused here)
+    Z<>       a "null" code; may be used, for example, to separate one
+of these key letters from an immediately following "<":  "NZ<><4" for "N<4".
+
+In case of conflict such as needing literal pointy-brackets within one
+of these inline components, one may use <<...>> or <<<...>>>, etc.
+
+Special characters can be encoded as E<name> for:
+    The names 'lt' ("<"), 'gt' (">"), 'verbar' ("|") , and 'sol' ("/")
+    HTML special character names,
+    Character codes such as 0777 (octal), 0xFF (hexadecimal), or 999 (decimal).
+
+
+
+=head1 Options available in MarkupHelpFormatter
+
+A number of options are available, by which you can control how
+markup is recognized and how components are formatted. The options
+can be controlled with the "=set" command, which must appear at the
+start of a line, followed by the name of the option to be set, and then
+the value to set it to (boolean values use 0 or 1):
+
+    =set pod 0
+
+A few options have values that are lists, generally one for each
+heading/section level. In those cases, a level number from 1 to 6
+comes between the option name and the value to set.
+For example, to make the text of first-level headings red:
+
+    =set headFG 1 red
+
+I expect to add a check for a config file (such as F<~/.MarkupHelpFormatter>),
+which will simply be read first, to support global "=set" values.
+
+=head2 Input capabilities and options
+
+    Name          Default       Description
+    "entities"    : True     -- expand HTML character entities and refs
+    "backslashes" : False    -- expand Python-style backslash-codes
+    "pod"         : True     -- recognize POD ("plain old doc") markup
+    "mediawiki"   : True     -- recognize basic MediaWiki markup
+    "markdown"    : True     -- recognize basic Markdown markup
+    "mailEmph"    : True     -- recognize email-style emphasis
+    "defs"        : True     -- recognize BNF-style grammar/deflist markup
+    "tabSize"     : 4        -- interval of incoming tab-stops
+
+
+=head2 Output capabilities and options
+
+    Name          Default       Description
+    "defaults"    : False    -- Show default values for argparse options
+    "width"       : None     -- Window or "set" width (cf. $COLUMNS)
+    "color"       : True     -- Use ANSI terminal color escapes
+    "breakURIs"   : True     -- Allow newline after '/' in URIs
+    "sectionNums" : True     -- Auto-number sections
+    "indentSize"  : 4        -- List indentation increment
+    "DLWidth"     : 12       -- Area left for definitions in deflists
+    "OLPrefix"    : ""       -- Put before list-numbers
+    "OLSuffix"    : ""       -- Put after list-numbers
+    "OLTypes"     : [ "upper-roman", "upper-alpha", "decimal",
+                      "lower-roman", "lower-alpha", "decimal" ]
+    "linkColor"   : "blue"   -- Color to show links in
+    "RFCformat"   : "https://tools.ietf.org/html/rfc%d" -- for [RFC3653] links
+    "ULMarkers"   : [ "*", "-", "o", "." ]    # CSS: disc, circle, square, none
+
+    # Following settings are arrays with entries for heading levels 1-6:
+    "headFG"      : [ "blue",   "blue",   "blue",  "blue",  "blue",  "blue"  ]
+    "headBG"      : [ "white",  "white",  "white", "white", "white", "white" ]
+    "headPrefix"  : [ "\n\n\n", "\n\n\n", "\n\n",  "\n",    "\n",    "\n"    ]
+    "headSuffix"  : [ "\n",     "\n",     "\n",    "\n",    "\n",    "\n"    ]
+
+C<ULMarkers> should accept any Unicode strings; but backslash-x
+or similar escapes for them are not yet supported.
+
+C<RFCformat> is a format-string for use with Python's "%" operator. It is
+used when a link reference such as "RFC1149" (or similar) is found.
+The Python "%" operator is used to fill the RFC number into it and make
+a complete URI. Sadly, many viewers (such as C<less>) do not have much or
+any support for links. If, however, you convert the doc to HTML, the links
+should convert fine and work in a browser.
+
+Options can also be set directly from your Python code, for example:
+
+    MarkupHelpFormatter.InputOptions["mediawiki"] = True
+
+=head1 Using MarkupHelpFormatter in your Python programs
+
+    import MarkupHelpFormatter
+    parser = argparse.ArgumentParser(
+        description='...',
+        epilog='...',
+        formatter_class=MarkupHelpFormatter
+    )
+
+If desired, you can also set options (see above), for example:
+
+    MarkupHelpFormatter.InputOptions["mediawiki"] = True
+
+
+=head2 Notes
+
+It is good to export the environment variables $ROWS and $COLUMNS
+via your F<.bashrc>, F<.bash_profile>, or similar setup file.
+That way this and other programs know how big your terminal window
+is, and can format accordingly. If these are not available,
+the program will guess.
+
+If you send the output to C<more>, you may
+need to specify C<-r> to get color to work, and/or
+fiddle with I<locale> for bullets and other Unicode to work.
+
+This tool is not yet very polished, but I hope it will be useful.
+Bug reports, fixes, and enhancements are welcome.
+
+There are 3 class variables of interest, all dicts:
+
+    MarkupHelpFormatter.DublinCoreMetadata -- info regarding this program.
+    MarkupHelpFormatter.InputOptions -- options for the marked-up input.
+    MarkupHelpFormatter.OutputOptions -- options for output formatting.
+
+
+=head1 Known bugs and limitations
+
+Tables are not yet supported.
+
+Some details of MarkDown, such as "underlined" headings, are not supported.
+
+The program does not try to figure out just which ANSI terminal
+capabilities your terminal program supports. For example, a few
+support italics, blinking text, 256 colors, or even multiple fonts.
+The default formatting avoids uncommon capabilities. You can get at
+some others via "=set" (see above).
+
+
+=head1 Authorship and rights
+
+This program is Copyright 2014-2015 by Steven J. DeRose.
+It is hereby licensed under the Creative Commons
+Attribution-Share-Alike 3.0 unported license.
+For more information on this license, see L<here|"https://creativecommons.org">.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/> or
+L<http://github/com/sderose>.
+
+Thanks to Anthon van der Neut for help on integrating with argparse. Also:
+    http://stackoverflow.com/questions/3853722
+    https://bitbucket.org/ruamel/std.argparse/src
+    http://hg.python.org/cpython/file/2.7/Lib/argparse.py
+    https://docs.python.org/2/library/textwrap.html
+
+=head1 To do
+
+*  More testing, especially __main__ and Unicode.
+*  Preserve spaces within quotes and in indented/pre lines.
+*  Prematurely breaks lines sometimes; problem with uncoloredLength()?
+Or may not be removing pre-existing LFs right.
+*  Finish sectionNums. Clear list-numbering properly
+*  Add MarkDown and Mediawiki Deflist, Blockquote
+*  Support hanging indent on lists
+*  Indent paragraph immediately following list-item? At least for POD
+*  Option to reset colors for light background (let =SET refer env. vars?)
+*  Integrate mathUnicode.py to get fancy forms.
+
+=head2 Low priority
+
+*  Support backslash+x etc. in =set ULmarkers.
+*  Option to break URIs and paths at '/' doesn't always work
+*  Option to page the output, or send to 'less'
+*  Finish XHTML output option (and browser as pager)
+*  Is there an easy way to check if terminal supports underlining, etc.?
+*  How best to support links?
+*  Support POD's Z<> (suppress POD) markup
+*  Once HTML generation is done, add =set for css and js to include.
+"""
 
 verbose = 0
-
 esc = chr(27)
 specialChars = {
     "lsquo":   unichr(0x2018),    "rsquo":   unichr(0x2019),
@@ -95,11 +439,12 @@ romans = [ "",
 ]
 
 def getRoman(n):
-    """Convert to Roman numerals. Only good up to 39.
+    """Convert to Roman numerals. Limited range.
     """
-    return( 'x' * int(n/10) + romans[n % 10])
+    #return( 'x' * int(n/10) + romans[n % 10])
+    return romans[n]
 
-colors = { # ANSI terminal codes. Background is +10
+colors = { # ANSI terminal codes. Background is +10. Switch to ColorManager.py?
     "black"     : 30,
     "red"       : 31,
     "green"     : 32,
@@ -576,7 +921,7 @@ of the source file.
                 blanks = 0
 
             elif (leadPunct[0] in '*+#'):                  # LIST ITEM
-                b = Block(rest, 'ITEM', marker=leadPunct, indent=indent, prevBLock=blocks[-1])
+                b = Block(rest, 'ITEM', marker=leadPunct, indent=indent, prevBlock=blocks[-1])
                 blocks.append(b)
                 blanks = 0
 
@@ -852,7 +1197,7 @@ of the source file.
         return(colorize(matchobj.group(1), fg="red", bold=1))
     def mkLink(self, matchobj):
         if (':' in matchobj.group(1)):
-            anchor, ref = matchobj.group(1).split(':', maxsplit=1)
+            anchor, ref = matchobj.group(1).split(':')
         else:
             anchor = ref = matchobj.group(1)
         ref = ref.strip("\"'")
@@ -903,11 +1248,11 @@ of the source file.
 class Block:
     bTypes = [ 'TEXT', 'ITEM', 'HEAD', 'PRE', 'ROW', 'BNF', 'RULE', 'QUOTE', ]
 
-    def __init__(self, text, type=None, blanks=0, indent="", prevBlock=None, marker=""):
-        assert (type in Block.bTypes)
+    def __init__(self, text, typ=None, blanks=0, indent="", prevBlock=None, marker=""):
+        assert (typ in Block.bTypes)
         self.text = text
         self.columns = []     # For ROW and BNF.
-        self.type = type
+        self.type = typ
         self.level = 0        # For heads
         self.blanks = blanks
         self.indent = indent
@@ -992,349 +1337,3 @@ And back I<out> of B<the> list. Wee.
 
     print("\n*** DONE ***\n")
     sys.exit()
-
-###############################################################################
-#
-
-pod = """
-=head1 Description
-
-This package defines two classes that can be used with Python's
-I<argparse> package, in order to get better formatting.
-
-=head2 class ParagraphHelpFormatter(argparse.HelpFormatter)
-
-This simple class is like the default formatter except that
-it does I<not> wrap lines across blank lines. That is, blank lines stay there.
-
-To use it:
-    parser = argparse.ArgumentParser(description=""
-    First paragraph of documentation,
-    which wraps to fill output lines.
-
-    Second paragraph.
-    ...
-"",
-    formatter_class=MarkupHelpFormatter
-    )
-
-
-
-=head2 class MarkupHelpFormatter(argparse.HelpFormatter)
-
-This class is much fancier. It support several markup systems within
-your help text. So you can indicate paragraphs, emphasis, special
-characters, links, headings, and so on, and get distinctive formatting
-for them. Some control of the styles to be applied is available.
-
-To use it:
-    parser = argparse.ArgumentParser(description=""
-
-    ==Description==
-
-    First paragraph of documentation,
-    which wraps to fill output lines.
-
-    Our sole virtue:
-
-    *Surprise
-    *Better formatting
-
-    Our two virtues:
-    *Surprise
-    *Better formatting
-    *An almost ''fanatical'' devotion to markup
-    ...
-"",
-    formatter_class=MarkupHelpFormatter
-    )
-
-=head2 Supported Markup syntax(es)
-
-In short, this class supports most of I<Markdown>, I<POD>, and
-I<MediaWiki> markup (not including embedded HTML (yet)).
-These are all styled using only the
-capabilities of typical ANSI terminal programs, such as fixed-pitch
-fonts, color, bold, and fiendishly clever use of whitepsace.
-
-There is no support for images. Links are visually emphasized,
-but do not function because I don't see any easy way to make C<bash>,
-C<more>, C<less>, etc. deal with them. The user can of course copy
-a URI from a link, and paste it into a browser or other URI-aware tool.
-HTML output is in the works; once finished, you could use a browser to read
-help, and it would support links as well as better formatting.
-
-
-=head2 MediaWiki
-
-B<MediaWiki> markup is what WikiPedia uses.
-Most components are indicated by punctuation marks at the beginning of lines.
-A description is available L<here|"http://www.mediawiki.org/wiki/Markup_spec">.
-
-Paragraphs are simply separated by blank lines.
-
-Headings are indicated by a number of leading and trailing "=" characters,
-equal to the heading level plus 1.
-For example, a second-level heading:
-
-    === Summary ===
-
-Block quotations are indicated by leading ">":
-
-    >As Kierkegaard suggests,
-    >Hume was not always, shall we say, perfectly clear.
-
-Lists are indicated by one or more leading "*" or "#" characters,
-for bulleted/unordered and for numbered/ordered, respectively.
-There is no indicator marking the scope of lists as wholes (among other
-things, this poses problems for adjacent or continued lists; but it's typical):
-
-    * Things that float
-    *# Apples
-    *# Gravy
-    *# Very small rocks
-    *# Ducks
-    * Things that sink
-    *# Villagers
-    *# Swamp castles
-
-List items to be indented but neither bulleted nor numbered, begin with ":".
-
-Definition list items are of the form ";term:definition".
-
-Tables are not yet supported here, but work is in progress.
-MediaWiki tables (see L<here|"https://www.mediawiki.org/wiki/Help:Tables">)
-use "{|...|}" to enclose the entire table,
-"|+" to indicate captions,
-"|-" to separate rows,
-and "|" to start cells within a row (or "!" instead of "|" for header cells).
-Each cell must start on a new line.
-
-Lines that should not be wrapped, such as program code samples,
-should start with whitespace.
-
-Horizontal rules can be invoked via a line starting with
-several "=" or "-" characters.
-
-Inline emphasis uses 2 and/or 3 apostrophes on each side:
-
-    This ''word'' is '''really''' important to '''''me and you'''''.
-
-
-=head3 MarkDown
-
-B<MarkDown> is fairly common. For a description see
-L<here|"http://daringfireball.net/projects/markdown/syntax">.
-It is very similar to MediaWiki format.
-
-Headings use "#" (verses MediaWiki's "="), and "#" is only needed at the
-start, not the end, of heading lines.
-
-Markdown systems sometimes also accept headings indicated
-by "underlining" the heading using "=" or "-" on the next line.
-That variant is not available here:
-
-    Introduction
-    ------------
-
-Block quotations are indicated by a leading ">":
-
-    >As Kierkegaard suggests,
-    >Hume was not always, shall we say, perfectly clear.
-
-Lists work like MediaWiki, except that the indicators
-only include "*" for unordered and "+" for ordered (not "#").
-
-Lines that should not be wrapped should start with whitespace.
-
-Horizontal rules can be produced by giving a line starting with
-several "=", "-", or "*" characters.
-
-Inline emphasis uses "_" or "*" surrounding text:
-
-    This word is *really* important to _me and you_.
-
-
-
-=head2 POD
-
-B<POD> is short for "Plain Old Documentation". A description is available at
-L<here|"http://en.wikipedia.org/wiki/Plain_Old_Documentation">
-
-POD reserves only "=" at start of line, where
-a keyword follows. Some POD software (not including this class)
-requires a blank line preceding any such component.
-Some example components:
-
-    =head2 Knightly challenges
-    =over
-    =item * Bravery
-    =item * Chastity
-    =item * Self-control
-    =back
-    =head2 Hummility and the omission of Gawain
-
-Note that the boundaries of lists as wholes, must be indicated in
-POD using "=over" and "=back" (which can also be used to control
-indentation in general).
-
-Paragraphs are indicated by blank lines just as in MediaWiki and MarkDown.
-
-Inline emphasis of various kinds uses a capital letter
-followed by the relevant text within pointy-brackets:
-
-    B<hello>  for bold
-    I<very>   for italic
-    C<grep>   for program code or commands
-    F</bin>   for filenames and paths
-    L<Intro|"http:...">  for links (to section titles or to URIs). The part
-before the "|" (if present) is the anchor text, and the part after it
-is a URI or the title of some section in the same document (similar to
-the MediaWiki "|" convention in links). Some processors require the 2nd
-portion to be quoted.
-    S<text>   should prevent line-breaking within I<text>
-    X<key>    defines an index entry (unused here)
-    Z<>       a "null" code; may be used, for example, to separate one
-of these key letters from an immediately following "<":  "NZ<><4" for "N<4".
-
-In case of conflict such as needing literal pointy-brackets within one
-of these inline components, one may use <<...>> or <<<...>>>, etc.
-
-Special characters can be encoded as E<name> for:
-    The names 'lt' ("<"), 'gt' (">"), 'verbar' ("|") , and 'sol' ("/")
-    HTML special character names,
-    Character codes such as 0777 (octal), 0xFF (hexadecimal), or 999 (decimal).
-
-
-
-=head1 Options available in MarkupHelpFormatter
-
-A number of options are available, by which you can control how
-markup is recognized and how components are formatted. The options
-can be controlled with the "=set" command, which must appear at the
-start of a line, followed by the name of the option to be set, and then
-the value to set it to (boolean values use 0 or 1):
-
-    =set pod 0
-
-A few options have values that are lists, generally one for each
-heading/section level. In those cases, a level number from 1 to 6
-comes between the option name and the value to set.
-For example, to make the text of first-level headings red:
-
-    =set headFG 1 red
-
-I expect to add a check for a config file (such as F<~/.MarkupHelpFormatter>),
-which will simply be read first, to support global "=set" values.
-
-=head2 Input capabilities and options
-
-    Name          Default       Description
-    "entities"    : True     -- expand HTML character entities and refs
-    "backslashes" : False    -- expand Python-style backslash-codes
-    "pod"         : True     -- recognize POD ("plain old doc") markup
-    "mediawiki"   : True     -- recognize basic MediaWiki markup
-    "markdown"    : True     -- recognize basic Markdown markup
-    "mailEmph"    : True     -- recognize email-style emphasis
-    "defs"        : True     -- recognize BNF-style grammar/deflist markup
-    "tabSize"     : 4        -- interval of incoming tab-stops
-
-
-=head2 Output capabilities and options
-
-    Name          Default       Description
-    "defaults"    : False    -- Show default values for argparse options
-    "width"       : None     -- Window or "set" width (cf. $COLUMNS)
-    "color"       : True     -- Use ANSI terminal color escapes
-    "breakURIs"   : True     -- Allow newline after '/' in URIs
-    "sectionNums" : True     -- Auto-number sections
-    "indentSize"  : 4        -- List indentation increment
-    "DLWidth"     : 12       -- Area left for definitions in deflists
-    "OLPrefix"    : ""       -- Put before list-numbers
-    "OLSuffix"    : ""       -- Put after list-numbers
-    "OLTypes"     : [ "upper-roman", "upper-alpha", "decimal",
-                      "lower-roman", "lower-alpha", "decimal" ]
-    "linkColor"   : "blue"   -- Color to show links in
-    "RFCformat"   : "https://tools.ietf.org/html/rfc%d" -- for [RFC3653] links
-    "ULMarkers"   : [ "*", "-", "o", "." ]    # CSS: disc, circle, square, none
-
-    # Following settings are arrays with entries for heading levels 1-6:
-    "headFG"      : [ "blue",   "blue",   "blue",  "blue",  "blue",  "blue"  ]
-    "headBG"      : [ "white",  "white",  "white", "white", "white", "white" ]
-    "headPrefix"  : [ "\n\n\n", "\n\n\n", "\n\n",  "\n",    "\n",    "\n"    ]
-    "headSuffix"  : [ "\n",     "\n",     "\n",    "\n",    "\n",    "\n"    ]
-
-C<ULMarkers> should accept any Unicode strings; but backslash-x
-or similar escapes for them are not yet supported.
-
-C<RFCformat> is a format-string for use with Python's "%" operator. It is
-used when a link reference such as "RFC1149" (or similar) is found.
-The Python "%" operator is used to fill the RFC number into it and make
-a complete URI. Sadly, many viewers (such as C<less>) do not have much or
-any support for links. If, however, you convert the doc to HTML, the links
-should convert fine and work in a browser.
-
-Options can also be set directly from your Python code, for example:
-
-    MarkupHelpFormatter.InputOptions["mediawiki"] = True
-
-=head1 Using MarkupHelpFormatter in your Python programs
-
-    import MarkupHelpFormatter
-    parser = argparse.ArgumentParser(
-        description='...',
-        epilog='...',
-        formatter_class=MarkupHelpFormatter
-    )
-
-If desired, you can also set options (see above), for example:
-
-    MarkupHelpFormatter.InputOptions["mediawiki"] = True
-
-
-=head2 Notes
-
-It is good to export the environment variables $ROWS and $COLUMNS
-via your F<.bashrc>, F<.bash_profile>, or similar setup file.
-That way this and other programs know how big your terminal window
-is, and can format accordingly. If these are not available,
-the program will guess.
-
-If you send the output to C<more>, you may
-need to specify C<-r> to get color to work, and/or
-fiddle with I<locale> for bullets and other Unicode to work.
-
-This tool is not yet very polished, but I hope it will be useful.
-Bug reports, fixes, and enhancements are welcome.
-
-There are 3 class variables of interest, all dicts:
-
-    MarkupHelpFormatter.DublinCoreMetadata -- info regarding this program.
-    MarkupHelpFormatter.InputOptions -- options for the marked-up input.
-    MarkupHelpFormatter.OutputOptions -- options for output formatting.
-
-
-
-=head1 Known bugs and limitations
-
-Tables are not yet supported.
-
-Some details of MarkDown, such as "underlined" headings, are not supported.
-
-The program does not try to figure out just which ANSI terminal
-capabilities your terminal program supports. For example, a few
-support italics, blinking text, 256 colors, or even multiple fonts.
-The default formatting avoids uncommon capabilities. You can get at
-some others via "=set" (see above).
-
-
-
-=head1 Authorship and rights
-
-This program is Copyright 2014-2015 by Steven J. DeRose.
-It is hereby licensed under the Creative Commons
-Attribution-Share-Alike 3.0 unported license.
-For more information on this license, see L<here|"https://creativecommons.org">.
-Information about this program is available in the class variable
-MarkupHelpFormatter.DublinCoreMetadata.
-"""

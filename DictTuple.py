@@ -177,5 +177,6 @@ For the most recent version, see http://www.derose.net/steve/utilities/.
         [ 'age',    int,    None,      True ],
         [ 'state',  str,    [ 'AK', 'HI', 'WA' ], True ],
         [ 'info',   EmpRecord, None,   True ],
+    ]
 
-    dt = DictTuple()
+    dt = DictTuple(myItems)

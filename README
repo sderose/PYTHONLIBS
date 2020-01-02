@@ -33,8 +33,8 @@ tar and zip files, filtering files by various criteria, etc.
 
 ReadAny.py -- meh
 
-RealDOM.py -- a half-done implementation of a DOM for Python, 'cuz I'm not fond
-of the ones already there.
+RealDOM.py -- an implementation of DOM for Python. Renamed BaseDom.py, and
+now moved to the XML/BINARY repo.
 
 SimplifyUnicode.py -- meh
 
