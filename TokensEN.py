@@ -584,8 +584,7 @@ class TokensEN:
 #
 if __name__ == "__main__":
     import argparse
-    def processOptions():
-        descr = """
+    descr = """
 =pod
 
 =head1 Description
@@ -656,7 +655,7 @@ A few more items are derived automatically from the lists already described:
     self.expr = "|".join(self.contractionList.keys())
     self.contExpr = r'\b(' + self.expr + r')\b'
     self.srexpr = "|".join(self.semiRegularContractionList.keys())
-    self.srContExpr = r'(\w)(' + self.srexpr + r')\b'  # Remember \\1
+    self.srContExpr = r'(\\w)(' + self.srexpr + r')\b'  # Remember \\1
     self.whContrExpr = r'\b(who|where|what|when|why|how)(\'re|\'s|\'d)\b'
 
 And finally, one method:
@@ -683,7 +682,8 @@ Creative Commons Attribution-Share-alike 3.0 unported license.
 See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
 
 =head1 Options
-"""
+    """
+    def processOptions():
         try:
             from MarkupHelpFormatter import MarkupHelpFormatter
             formatter = MarkupHelpFormatter

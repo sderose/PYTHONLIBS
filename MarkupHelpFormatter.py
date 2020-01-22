@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
 # MarkupHelpFormatter.py (includes ParagraphHelpFormatter, too).
+# Upgrades for Python argparse, that don't forcibly wrap all text.
 #
 import os, sys, re, string
 import argparse
@@ -14,21 +15,25 @@ else:
     def unichr(n): return chr(n)
 
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2013-04-18",
+    'title'        : "MarkupHelpFormatter.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
-    'version_date' : "2018-12-12",
+    'created'      : "2013-04-18",
+    'modified'     : "2020-01-02",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['version_date']
+__version__ = __metadata__['modified']
 
 descr = """
-
-=head1 Description
+=Description=
 
 This package defines two classes that can be used with Python's
 I<argparse> package, in order to get better formatting.
 
-=head2 class ParagraphHelpFormatter(argparse.HelpFormatter)
+==class ParagraphHelpFormatter(argparse.HelpFormatter)==
 
 This simple class is like the default formatter except that
 it does I<not> wrap lines across blank lines. That is, blank lines stay there.
@@ -44,8 +49,7 @@ To use it:
     formatter_class=MarkupHelpFormatter
     )
 
-
-=head2 class MarkupHelpFormatter(argparse.HelpFormatter)
+==class MarkupHelpFormatter(argparse.HelpFormatter)==
 
 This class is much fancier. It support several markup systems within
 your help text. So you can indicate paragraphs, emphasis, special
@@ -74,7 +78,7 @@ To use it:
     formatter_class=MarkupHelpFormatter
     )
 
-=head2 Supported Markup syntax(es)
+==Supported Markup syntax(es)==
 
 In short, this class supports most of I<Markdown>, I<POD>, and
 I<MediaWiki> markup (not including embedded HTML (yet)).
@@ -90,7 +94,7 @@ HTML output is in the works; once finished, you could use a browser to read
 help, and it would support links as well as better formatting.
 
 
-=head2 MediaWiki
+==MediaWiki==
 
 B<MediaWiki> markup is what WikiPedia uses.
 Most components are indicated by punctuation marks at the beginning of lines.
@@ -181,7 +185,7 @@ Inline emphasis uses "_" or "*" surrounding text:
 
 
 
-=head2 POD
+==POD==
 
 B<POD> is short for "Plain Old Documentation". A description is available at
 L<here|"http://en.wikipedia.org/wiki/Plain_Old_Documentation">
@@ -232,7 +236,7 @@ Special characters can be encoded as E<name> for:
 
 
 
-=head1 Options available in MarkupHelpFormatter
+=Options available in MarkupHelpFormatter=
 
 A number of options are available, by which you can control how
 markup is recognized and how components are formatted. The options
@@ -252,7 +256,7 @@ For example, to make the text of first-level headings red:
 I expect to add a check for a config file (such as F<~/.MarkupHelpFormatter>),
 which will simply be read first, to support global "=set" values.
 
-=head2 Input capabilities and options
+==Input capabilities and options==
 
     Name          Default       Description
     "entities"    : True     -- expand HTML character entities and refs
@@ -265,7 +269,7 @@ which will simply be read first, to support global "=set" values.
     "tabSize"     : 4        -- interval of incoming tab-stops
 
 
-=head2 Output capabilities and options
+==Output capabilities and options==
 
     Name          Default       Description
     "defaults"    : False    -- Show default values for argparse options
@@ -303,7 +307,7 @@ Options can also be set directly from your Python code, for example:
 
     MarkupHelpFormatter.InputOptions["mediawiki"] = True
 
-=head1 Using MarkupHelpFormatter in your Python programs
+=Using MarkupHelpFormatter in your Python programs=
 
     import MarkupHelpFormatter
     parser = argparse.ArgumentParser(
@@ -317,7 +321,7 @@ If desired, you can also set options (see above), for example:
     MarkupHelpFormatter.InputOptions["mediawiki"] = True
 
 
-=head2 Notes
+==Notes==
 
 It is good to export the environment variables $ROWS and $COLUMNS
 via your F<.bashrc>, F<.bash_profile>, or similar setup file.
@@ -338,8 +342,11 @@ There are 3 class variables of interest, all dicts:
     MarkupHelpFormatter.InputOptions -- options for the marked-up input.
     MarkupHelpFormatter.OutputOptions -- options for output formatting.
 
+=Related commands and libraries=
 
-=head1 Known bugs and limitations
+A different Python Markdown formatter: [https://pypi.org/project/markdown-formatter/]
+
+=Known bugs and limitations=
 
 Tables are not yet supported.
 
@@ -352,7 +359,7 @@ The default formatting avoids uncommon capabilities. You can get at
 some others via "=set" (see above).
 
 
-=head1 Authorship and rights
+=Rights=
 
 This program is Copyright 2014-2015 by Steven J. DeRose.
 It is hereby licensed under the Creative Commons
@@ -363,34 +370,35 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/> or
 L<http://github/com/sderose>.
 
 Thanks to Anthon van der Neut for help on integrating with argparse. Also:
-    http://stackoverflow.com/questions/3853722
-    https://bitbucket.org/ruamel/std.argparse/src
-    http://hg.python.org/cpython/file/2.7/Lib/argparse.py
-    https://docs.python.org/2/library/textwrap.html
+    [http://stackoverflow.com/questions/3853722]
+    [https://bitbucket.org/ruamel/std.argparse/src]
+    [http://hg.python.org/cpython/file/2.7/Lib/argparse.py]
+    [https://docs.python.org/2/library/textwrap.html]
 
-=head1 To do
+=To do=
 
-*  More testing, especially __main__ and Unicode.
-*  Preserve spaces within quotes and in indented/pre lines.
-*  Prematurely breaks lines sometimes; problem with uncoloredLength()?
+* Add a way to move the autogenerated 'Options' section to a given location.
+* More testing, especially __main__ and Unicode.
+* Preserve spaces within quotes and in indented/pre lines.
+* Prematurely breaks lines sometimes; problem with uncoloredLength()?
 Or may not be removing pre-existing LFs right.
-*  Finish sectionNums. Clear list-numbering properly
-*  Add MarkDown and Mediawiki Deflist, Blockquote
-*  Support hanging indent on lists
-*  Indent paragraph immediately following list-item? At least for POD
-*  Option to reset colors for light background (let =SET refer env. vars?)
-*  Integrate mathUnicode.py to get fancy forms.
+* Finish sectionNums. Clear list-numbering properly
+* Add MarkDown and Mediawiki Deflist, Blockquote
+* Support hanging indent on lists
+* Indent paragraph immediately following list-item? At least for POD
+* Option to reset colors for light background (let =SET refer env. vars?)
+* Integrate mathUnicode.py to get fancy forms.
 
-=head2 Low priority
+==Low priority==
 
-*  Support backslash+x etc. in =set ULmarkers.
-*  Option to break URIs and paths at '/' doesn't always work
-*  Option to page the output, or send to 'less'
-*  Finish XHTML output option (and browser as pager)
-*  Is there an easy way to check if terminal supports underlining, etc.?
-*  How best to support links?
-*  Support POD's Z<> (suppress POD) markup
-*  Once HTML generation is done, add =set for css and js to include.
+* Support backslash+x etc. in =set ULmarkers.
+* Option to break URIs and paths at '/' doesn't always work
+* Option to page the output, or send to 'less'
+* Finish XHTML output option (and browser as pager)
+* Is there an easy way to check if terminal supports underlining, etc.?
+* How best to support links?
+* Support POD's Z<> (suppress POD) markup
+* Once HTML generation is done, add =set for css and js to include.
 """
 
 verbose = 0
@@ -941,7 +949,7 @@ of the source file.
                 if (line.startswith('==') and              # Markdown heads
                     (self.InputOptions["markdown"] or
                      self.InputOptions["mediawiki"])):
-                    mat = re.match(r'(=+)', code)
+                    mat = re.match(r'(=+)', line)
                     headLevel = len(mat.group(1)) - 1
                     line = line[len(mat.group(1)):]
                     self.resetLists()
@@ -951,7 +959,7 @@ of the source file.
                         b = Block(line, 'TEXT')
                         blocks.append(b)
                         continue
-                    line, headLevel = self.handlePODCode(line,mat.group(1))
+                        line, headLevel = self.handlePODCode(line,mat.group(1))
 
                 if (headLevel):
                     b = Block(line, 'HEAD')
@@ -1197,7 +1205,7 @@ of the source file.
         return(colorize(matchobj.group(1), fg="red", bold=1))
     def mkLink(self, matchobj):
         if (':' in matchobj.group(1)):
-            anchor, ref = matchobj.group(1).split(':')
+            anchor, ref = matchobj.group(1).split(':', maxsplit=1)
         else:
             anchor = ref = matchobj.group(1)
         ref = ref.strip("\"'")

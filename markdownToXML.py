@@ -11,42 +11,87 @@
 # Creative Commons Attribution-Share-alike 3.0 unported license.
 # See http://creativecommons.org/licenses/by-sa/3.0/.
 #
-# To do:
-#
 from __future__ import print_function
 import sys, os
 import argparse
 import re
-#import string
-#import math
-#import subprocess
-#import gzip
-#from collections import namedtuple
 import htmlentitydefs
-
-#import pudb
-#pudb.set_trace()
-
-#from sjdUtils import sjdUtils
-from alogging import ALogger
-import XmlOutput
 import StringIO
+
+import XmlOutput
+from alogging import ALogger
+lg = ALogger(1)
 
 try:
     x = unichr(0x0a)
 except NameError:
     def unichr(n): return chr(n)
+    def unicode(s, encoding='utf-8', errors='strict'): return str(s, encoding, errors)
 
-__version__ = "2018-05-18"
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2018-05-18",
+    'title'        : "markDownToXML.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 2.7.6",
-    'version_date' : "2018-05-18",
+    'created'      : "2018-05-18",
+    'modified'     : "2018-05-18",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
+__version__ = __metadata__['modified']
 
-#su = sjdUtils()
-lg = ALogger(1)
+descr = """
+=Description=
+
+Convert MediaWiki's MarkDown-like markup system to HTML/XML, trying to
+retain most of the underlying information.
+
+See L<https://www.mediawiki.org/wiki/Markup_spec#Can_be_used_anywhere>.
+
+In particular (and quite unlike many other packages):
+
+    * Leave existing HTML untouched
+    * Convert macros and their arguments (even deeply nested)
+    * Convert [[]], ISBN, and other links
+    * Convert MediaWiki mark(up/down) conventions
+
+=Known bugs and limitations=
+
+Does not handle <nowiki> to suppress conversion.
+
+Does nothing with <math>.
+
+=Related Commands=
+
+There are many, many parsers and converters for Mediawiki data.
+The "reference" one, the Wikipedia parser, is in PHP.
+A list of 'parsers' is at L<https://www.mediawiki.org/wiki/Alternative_parsers>.
+I looked at a lot, and most seems to be extremely specialized.
+
+There are also Python packages that "convert" MarkDown and/or MediaWiki
+to HTML; but the ones I tried all failed in various ways.
+
+    https://github.com/trentm/python-markdown2
+    import markdown2
+    buf = markdown2.markdown(self.rawText)
+    return buf.encode('utf-8')
+
+    https://github.com/dcramer/py-wikimarkup
+    from wikimarkup import parse
+    return parse(self.rawText)
+
+=Rights=
+
+Copyright 2018, Steven J. DeRose. This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github/com/sderose].
+
+=Options=
+"""
 
 blockTypes = set([
     'BLANK',       # whitespace-only (block-separator)
@@ -60,9 +105,9 @@ blockTypes = set([
     'PARA',        # unindented (continuation) line
     ])
 
+
 ###############################################################################
 #
-
 class markdownToXML:
     def __init__(self):
         self.options = {
@@ -318,56 +363,6 @@ class markdownToXML:
 if __name__ == "__main__":
     import codecs
 
-    descr = """
-=head1 Description
-
-Convert MediaWiki's MarkDown-like markup system to HTML/XML, trying to
-retain all the underlying information.
-
-See L<https://www.mediawiki.org/wiki/Markup_spec#Can_be_used_anywhere>.
-
-In particular (and quite unlike many other packages):
-
-    * Leave existing HTML untouched
-    * Convert macros and their arguments (even deeply nested)
-    * Convert [[]], ISBN, and other links
-    * Convert MediaWiki mark(up/down) conventions
-
-=head1 Known bugs and limitations
-
-Does not handle <nowiki> to suppress conversion.
-
-Does nothing with <math>.
-=head1 Related Commands
-
-There are many, many parsers and converters for Mediawiki data.
-The "reference" one, the Wikipedia parser, is in PHP.
-A list of 'parsers' is at L<https://www.mediawiki.org/wiki/Alternative_parsers>.
-I looked at a lot, and most seems to be extremely specialized.
-
-There are also Python packages that "convert" MarkDown and/or MediaWiki
-to HTML; but the ones I tried all failed in various ways.
-
-    https://github.com/trentm/python-markdown2
-    import markdown2
-    buf = markdown2.markdown(self.rawText)
-    return buf.encode('utf-8')
-
-    https://github.com/dcramer/py-wikimarkup
-    from wikimarkup import parse
-    return parse(self.rawText)
-
-=head1 Known bugs and Limitations
-
-=head1 Licensing
-
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
-
-=head1 Options
-    """
-
     def processOptionsMDX():
         try:
             from MarkupHelpFormatter import MarkupHelpFormatter
@@ -378,26 +373,11 @@ See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
             description=descr, formatter_class=formatter)
 
         parser.add_argument(
-            "--color",  # Don't default. See below.
-            help='Colorize the output.')
-        parser.add_argument(
             "--iencoding",        type=str, metavar='E', default="utf-8",
             help='Assume this character set for input files. Default: utf-8.')
         parser.add_argument(
-            "--ignoreCase", "-i", action='store_true',
-            help='Disregard case distinctions.')
-        parser.add_argument(
-            "--oencoding",        type=str, metavar='E',
-            help='Use this character set for output files.')
-        parser.add_argument(
             "--quiet", "-q",      action='store_true',
             help='Suppress most messages.')
-        parser.add_argument(
-            "--recursive",        action='store_true',
-            help='Descend into subdirectories.')
-        parser.add_argument(
-            "--tickInterval",     type=int, metavar='N', default=10000,
-            help='Report progress every n records.')
         parser.add_argument(
             "--unicode",          action='store_const',  dest='iencoding',
             const='utf8', help='Assume utf-8 for input files.')
@@ -414,9 +394,6 @@ See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
             help='Path(s) to input file(s)')
 
         args0 = parser.parse_args()
-        if (args0.color == None):
-            args0.color = ("USE_COLOR" in os.environ and sys.stderr.isatty())
-        lg.setColors(args0.color)
         if (args0.verbose): lg.setVerbose(args0.verbose)
         return(args0)
 

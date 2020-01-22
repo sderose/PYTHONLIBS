@@ -8,13 +8,67 @@ from __future__ import print_function
 from collections import namedtuple
 
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2018-06-09",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2018-11-15",
+    'title'        : "DictTuple.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2018-06-09",
+    'modified'     : "2020-01-02",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['version_date']
+__version__ = __metadata__['modified']
 
+descr = """
+=Description=
+
+This is a subclass of ''dict'', that is a cross between ''namedtuple>''
+Features include:
+
+* Like ''namedtuple'', you create a new class that knows a specific
+set of named items. Instances can contain only those items.
+
+* Like ''dict'', it is mutable, and the members are unordered.
+
+* Like ''defaultdict'', you can set a default (for each item).
+
+* Like none of these, you can specify a datatype (for each item),
+and whether an assigned value must be exactly that type, a subclass,
+or castable (not yet implemented).
+
+* You can also specify whether None is an acceptable value.
+
+=Usage=
+
+To instantiate a DictTuple, you need to pass a name, and a list of the allowed
+items. This is like ''namedtuple'', except that each item is more than just
+a name; it is a 4-tuple containing these 4 features:
+    ['name', 'type', 'default', 'nullable' ]
+
+This 4-tuple is internally defined as a namedtuple called ''DictTupleItem''. You
+can make these ahead of time, or just pass in lists or tuples of the 4 featurs.
+
+=Methods=
+
+=Known bugs and limitations=
+
+'''Unfinished'''
+
+Need to be clear about the notion of constraining what keys are allowed in the
+dict, and what the structure of the values is. This should be just about the former.
+
+=Rights=
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see http://www.derose.net/steve/utilities/
+or L<http://github.com/sderose>.
+
+=Options=
+"""
 
 ###############################################################################
 #
@@ -83,60 +137,6 @@ class DictTuple(dict):
 # Main
 #
 if __name__ == "__main__":
-    descr = """
-=pod
-
-=head1 Description
-
-This is a subclass of I<dict>, that is a cross between I<namedtuple> and I<dict>.
-Features include:
-
-=over
-
-=item * Like I<namedtuple>, you create a new class that knows a specific
-set of named items. Instances can contain only those items.
-
-=item * Like I<dict>, it is mutable, and the members are unordered.
-
-=item * Like I<defaultdict>, you can set a default (for each item).
-
-=item * Like none of these, you can specify a datatype (for each item),
-and whether an assigned value must be exactly that type, a subclass,
-or castable (not yet implemented).
-
-=item * You can also specify whether None is an acceptable value.
-
-=back
-
-=head1 Usage
-
-To instantiate a DictTuple, you need to pass a name, and a list of the allowed
-items. This is like I<namedtuple>, except that each item is more than just
-a name; it is a 4-tuple containing these 4 features:
-    ['name', 'type', 'default', 'nullable' ]
-
-This 4-tuple is internally defined as a namedtuple called I<DictTupleItem>. You
-can make these ahead of time, or just pass in lists or tuples of the 4 featurs.
-
-=head1 Methods
-
-=head1 Known bugs and limitations
-
-B<Unfinished>
-
-Need to be clear about the notion of constraining what keys are allowed in the
-dict, and what the structure of the values is. This should be just about the former.
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-
-For the most recent version, see http://www.derose.net/steve/utilities/.
-
-=cut
-"""
     import argparse
 
     def processOptions():

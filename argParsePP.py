@@ -2,15 +2,7 @@
 #
 # By Steven J. DeRose, started ~2014-06.
 #
-# Copyright 2014, Steven J. DeRose.
-#
-#
-# To do:
-#     argparsePP: way to add "choices" values as independent options !
-#     entailment
-#     set options for MarkupFormatter etc.
-#     method to 'add' synonym to previously-defined option
-#     option for output to $PAGER (incl. links when possible?)
+#pylint: disable=W0613, W0212, W0622
 #
 from __future__ import print_function
 import sys
@@ -21,10 +13,21 @@ import argparse
 
 from MarkupHelpFormatter import MarkupHelpFormatter
 
+__metadata__ = {
+    'title'        : "argParsePP.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2004-06",
+    'modified'     : "2020-01-09",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
 
-class ArgumentParserPP(argparse.ArgumentParser):
-    """
-=head1 ArgumentParserPP
+descr = """
+=ArgumentParserPP=
 
 An improved ArgumentParser and argparse:
 
@@ -34,36 +37,39 @@ An improved ArgumentParser and argparse:
     Supports alternative hyphen conventions
     Supports adding 'toggle' attributes, without changeable 'no-' prefix
 
+=Related Commands=
 
-
-=head1 Usage
-
-
-=head1 Related Commands
-
-
-=head1 Known bugs and limitations
+=Known bugs and limitations=
 
 Unfinished.
 
+=To do=
 
-=head1 Ownership
+* argparsePP: way to add "choices" values as independent options !
+* entailment
+* set options for MarkupFormatter etc.
+* method to 'add' synonym to previously-defined option
+* option for output to $PAGER (incl. links when possible?)
+
+=Ownership=
 
 This work by Steven J. DeRose is licensed under a Creative Commons
 Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+this license, see [http://creativecommons.org/licenses/by-sa/3.0].
 
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+For the most recent version, see [http://www.derose.net/steve/utilities]
+or [http://github.com/sderose].
 
-=head1 Options
+=Options=
     """
 
+class ArgumentParserPP(argparse.ArgumentParser):
     def __init__(self,
         prog=None,
         usage=None,
         description=None,
         epilog=None,
-        parents=[],
+        parents=None,
         formatter_class=MarkupHelpFormatter,
         prefix_chars='-',
         fromfile_prefix_chars=None,
@@ -89,7 +95,7 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
         self.entailments      = {}
         self.gnuStyle         = False
 
-        super.__init__(
+        super(ArgumentParserPP, self).__init__(
             prog=prog,
             usage=usage,
             description=description,
@@ -111,7 +117,7 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
         nargs=None,
         const=None,
         default=None,
-        type=None,
+        typ=None,
         choices=None,
         required=None,
         help=None,
@@ -134,7 +140,7 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
                  nargs=nargs,
                  const=const,
                  default=default,
-                 type=type,
+                 type=typ,
                  choices=choices,
                  required=required,
                  help=help,
@@ -147,7 +153,7 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
             nargs=nargs,
             const=const,
             default=default,
-            type=type,
+            type=typ,
             choices=choices,
             required=required,
             help=help,
@@ -192,7 +198,7 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
     def add_enum(
         self,
         basename="",
-        type=str,
+        typ=str,
         default=None,
         help=None,
         metavar=None,
@@ -200,7 +206,7 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
         choices=None
         ):
         self.add_argument(
-            '--'+basename, type=type,
+            '--'+basename, typ=typ,
             default=default,
             help=help,
             metavar=metavar,
