@@ -53,9 +53,10 @@
 #
 from __future__ import print_function
 import sys
-import string
+#import string
 
 from alogging import ALogger
+lg = ALogger(1)
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -66,23 +67,158 @@ else:
     def unichr(n): return chr(n)
 
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2018-08-29",
+    'title'        : "mathUnicode.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 2.7.6",
-    'version_date' : "2018-09-04",
+    'created'      : "<2006-10-04",
+    'modified'     : "2020-01-29",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['version_date']
+__version__ = __metadata__['modified']
 
-lg = ALogger(1)
+descr = """
+=Description=
 
+Provide support for using the many Unicode variations on the Latin alphabet.
+
+=head2 Usage
+
+    import mathUnicode
+    s2 = mathUnicode.convert(text,
+            scriptName="Latin", targetName="Mathematical Bold Capital")
+
+or
+
+    xtab = mathUnicode.getTranslateTable(
+        'Latin', 'Mathematical Sans-serif Bold Italic')
+    s = s.translate(xtab)
+
+Using this package directly from the command line (without -h), will
+display a list of the available Latin variations and where their
+ranges start in Unicode. Specify I<--greeks> or I<--digits> to get the list
+of variants for those (the digits one include sets that run 1-10 rather
+than 0-9, but the "start point" is always where the zero at least I<would>
+be if it existed.
+
+=head2 Available character variations
+
+Most of these are "Mathematical", and they include variations of several kinds:
+
+=over
+
+=item * fullwidth, script, fraktur, double-struck, sans-serif, and monospace;
+
+=item * Parenthesized, Circled, Squared, Negative-circled, Negative-squared, Regional symbol;
+
+=item * Some of the above also have bold, italic, and/or bold italic variations.
+
+=back
+
+A few Latin variants do not include lower case.
+
+There is also a (smaller) selection of variants of the Greek alphabet, of
+digits, and of syllabic and ideographic characters.
+
+In several cases, some of the characters are not in the place one might expect.
+For example 'h' might be expected to be the 8th code point in the
+"Mathematical Italic Small" range, but in fact that code point (U+1D455) is
+undefined. The block is still ordered normally, with the 'i' at U+1D456.
+The 'h' is instead at U+210e (Planck Constant). Presumably it was defined
+before the rest of the "Mathematical Italic Small" characters.
+
+=Related Commands=
+
+C<ord --math> will show a list of these characters.
+
+C<UnicodeAltLatin.py> a previous draft of this (should merge).
+
+
+=Known bugs and Limitations=
+
+Digit series that do not include 0 are not all correct yet.
+
+Non-Latin digit series are not yet integrated.
+
+Additional methods should be added, like ready-made string converters.
+
+=Notes=
+
+Not all of the variant alphabets are contiguous blocks of characters.
+This script maps them anyway.
+
+There are some additional forms that do not have complete alphabets:
+
+    Some squared CJK
+    Circled italic latin C, R
+    Double-Struck Italic D, e, i, j
+    Squared Latin Small Letter D
+    Old Italic letters at U+10300 and following
+    circled katakana U+032d0
+    some circled hangul and ideographs U+3260
+    circled number X on black square U+3248
+    superscript and subscript sets (very incomplete)
+
+=Licensing=
+
+Copyright 2006-20209 by Steven J. DeRose. This work is licensed under a Creative
+Commons Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see [http://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github/com/sderose].
+
+=Options=
+"""
+
+###############################################################################
 # Unicode alternate forms of Latin alphabet
+#
+class Fonts:
+    """These are the fonts available as Unicode 'Mathematical' variations on
+    Latin. A similar list is available for Greek, and many more for digits.
+    Combining accents could be used to support more languages.
+    """
+    fonts = {
+        # Name                        ( Upper    Lower,   Digits   Exceptions )
+        'BOLD':                       ( 0x1d400, 0x1d41a, 0x1d7ce, '' ),
+        'ITALIC':                     ( 0x1d434, 0x1d44e, None,    'h' ),
+        'BOLD ITALIC':                ( 0x1d468, 0x1d482, None,    '' ),
+        'SCRIPT':                     ( 0x1d49c, 0x1d4b6, None,    'BEFHILMR ego' ),
+        'BOLD SCRIPT':                ( 0x1d4d0, 0x1d4ea, None,    '' ),
+        'FRAKTUR':                    ( 0x1d504, 0x1d51e, None,    'CHIRZ' ),
+        'DOUBLE-STRUCK':              ( 0x1d538, 0x1d552, 0x1d7d8, 'CHNPQRZ' ),
+        'BOLD FRAKTUR':               ( 0x1d56c, 0x1d586, None,    '' ),
+        'SANS-SERIF':                 ( 0x1d5a0, 0x1d586, 0x1d7e3, '' ),
+        'SANS-SERIF BOLD':            ( 0x1d5d4, 0x1d5ee, 0x1d7ec, '' ),
+        'SANS-SERIF ITALIC':          ( 0x1d608, 0x1d622, None,    '' ),
+        'SANS-SERIF BOLD ITALIC':     ( 0x1d63c, 0x1d656, None,    '' ),
+        'MONOSPACE':                  ( 0x1d670, 0x1d68a, 0x1d7f6, '' ),
+        'CIRCLED':                    ( 0x024b6, 0x024d0, 0x0245f, '' ),
+        'PARENTHESIZED':              ( 0x1f110, 0x0249c, 0x02473, '' ),
+
+        "Fullwidth":                  ( 0x0FF21, 0x0FF41, 0x0FF10, '' ),
+        "Supercript":                 ( None,    None,    0x02070, '123' ),
+        "Subscript":                  ( None,    None,    0x02080, '' ),
+
+        # Not available in lower case, only upper
+        'SQUARED':                    ( 0x1f130, None,    None,    '' ),
+        'NEGATIVE CIRCLED':           ( 0x1f150, None,    0x02775, '' ),
+        'NEGATIVE SQUARED':           ( 0x1f170, None,    None,    '' ),
+        'REGIONAL INDICATOR SYMBOL':  ( 0x1f1e6, None,    None,    '' ),
+    }
+
+###############################################################################
+# Support Unicode alternate forms of Latin alphabet
 # Greek and digits also defined for some of these
 # See also bin/data/unicodeLatinAlphabets.py
 #
 class mathUnicode:
     oneHotFeatures = [
-        'Fullwidth', 'Script', 'Fraktur', 'Double-Struck', 'Sans-serif', 'Monospace',
-        'Parenthesized', 'Circled', 'Squared',
+        'Fullwidth', 'Script', 'Fraktur', 'Double-Struck', 'Sans-serif',
+        'Monospace', 'Parenthesized', 'Circled', 'Squared',
         'Negative-circled', 'Negative-squared', 'Regional symbol'
     ]
 
@@ -99,6 +235,7 @@ class mathUnicode:
         0X024F4: None,    # DOUBLE CIRCLED DIGIT ZERO
         0X02775: None,    # NEGATIVE CIRCLED DIGIT 0
         0X02789: None,    # [DINGBAT] CIRCLED SANS-SERIF 0
+        #
         0X1D455: 0X210E,  # MATHEMATICAL ITALIC LOWER H (PLANCK CONSTANT)
         0X1D49D: 0X212C,  # MATHEMATICAL SCRIPT UPPER B
         0X1D4A0: 0X2130,  # MATHEMATICAL SCRIPT UPPER E
@@ -166,7 +303,7 @@ class mathUnicode:
         "Mathematical Bold Fraktur Capital"           : [ 0x1d56c, 0, 26, 0 ],
         "Mathematical Bold Fraktur Small"             : [ 0x1d58c, 0, 26, 0 ],
 
-        "Fullwidth Latin Capital"                     : [ 0x0FF22, 0, 26, 0 ],
+        "Fullwidth Latin Capital"                     : [ 0x0FF21, 0, 26, 0 ],
         "Fullwidth Latin Small"                       : [ 0x0FF41, 0, 26, 0 ],
 
         "Parenthesized Latin Capital"                 : [ 0x1f110, 0, 26, 0 ],
@@ -195,11 +332,11 @@ class mathUnicode:
         "Regional Symbol Letter Latin Small"          : None,
 
         ########## Unfinished:
-        #"Superscript Latin Capital"                   : [],
+        #"Superscript Latin Capital"                   : [],  # in
         #"Superscript Latin Small"                     : [],
 
         #"Subscript Latin Capital"                     : [],
-        #"Subscript Latin Small"                       : [],
+        #"Subscript Latin Small"                       : [],  # aehijklmnoprstuvx
     }
 
     unicodeGreeks = {
@@ -251,7 +388,7 @@ class mathUnicode:
         # [ NAME                                 CODEPOINT MIN MAX MISSING ]
         'Mathematical bold DIGITS':            [ 0x1d7Ce, 0, 10,    0 ],
         'Mathematical double struck DIGITS':   [ 0x1d7d8, 0, 10,    0 ],
-        'Mathematical sans serif DIGITS':      [ 0x1d7e2, 0, 10,    0 ],
+        'Mathematical sans serif DIGITS':      [ 0x1d7e2, 0, 10,    0 ],  # TODO: Cf above!!
         'Mathematical sans serif bold DIGITS': [ 0x1d7ec, 0, 10,    0 ],
         'Mathematical monospace DIGITS':       [ 0x1d7f6, 0, 10,    0 ],
         'fullwidth latin digits':              [ 0x0ff11, 0, 10,    0 ],
@@ -326,7 +463,7 @@ class mathUnicode:
     ###########################################################################
     # Maybe make init take a target spec, then convert() uses it...
     #
-    def __init__():
+    def __init__(self):
         return
 
     @staticmethod
@@ -345,17 +482,17 @@ class mathUnicode:
             return mathUnicode.unicodeDigits[scriptName][0]
 
     @staticmethod
-    def convert(s, scriptName="Latin",
+    def convert(ss, scriptName="Latin",
         targetName='Circled Latin Capital'):
         print("In convert, scriptName=%s, targetName=%s." %
             (scriptName, targetName))
         xtab = mathUnicode.getTranslateTable(scriptName, targetName)
-        return s.translate(xtab)
+        return ss.translate(xtab)
 
     @staticmethod
     def getTranslateTable(scriptName, targetName):
-        if (PY3):
-            raise NotImplementedError("No maketrans in Python 3.")
+        #if (PY3):
+        #    raise NotImplementedError("No maketrans in Python 3.")
         if (scriptName == 'Latin'):
             tbl = mathUnicode.unicodeLatins
             fromStart = ord('a')
@@ -370,10 +507,12 @@ class mathUnicode:
             tbl = mathUnicode.unicodeDigits
             fromStart = ord('0')
             fromEnd = ord('9')
-        else: raise ValueError("Unknown scriptName '%s', must be Latin|Greek|Digit." % (scriptName))
+        else: raise ValueError(
+        "Unknown scriptName '%s', must be Latin|Greek|Digit." % (scriptName))
 
         if (targetName not in tbl):
-            raise ValueError("Unknown targetName '%s' for script '%s'." % (targetName, scriptName))
+            raise ValueError(
+        "Unknown targetName '%s' for script '%s'." % (targetName, scriptName))
 
         ustart, umincp, uncp, unExceptions = tbl[targetName]
         fr = to = u""
@@ -382,7 +521,7 @@ class mathUnicode:
             fr += unichr(frCode)
             to += unichr(toCode)
             toCode += 1
-        xtab = string.maketrans(fr, to)
+        xtab = str.maketrans(fr, to)
         return xtab
 
 
@@ -391,95 +530,9 @@ class mathUnicode:
 # Main
 #
 if __name__ == "__main__":
-    descr = """
-=head1 Description
+    def anyInt(x):
+        return int(x, 0)
 
-Provide support for using the many Unicode variations on the Latin alphabet.
-
-=head2 Usage
-
-    import mathUnicode
-    s2 = mathUnicode.convert(text,
-            scriptName="Latin", targetName="Mathematical Bold Capital")
-
-or
-
-    xtab = mathUnicode.getTranslateTable(
-        'Latin', 'Mathematical Sans-serif Bold Italic')
-    s = s.translate(xtab)
-
-Using this package directly from the command line (without -h), will
-display a list of the available Latin variations and where their
-ranges start in Unicode. Specify I<--greeks> or I<--digits> to get the list
-of variants for those (the digits one include sets that run 1-10 rather
-than 0-9, but the "start point" is always where the zero at least I<would>
-be if it existed.
-
-=head2 Available character variations
-
-Most of these are "Mathematical", and they include variations of several kinds:
-
-=over
-
-=item * fullwidth, script, fraktur, double-struck, sans-serif, and monospace;
-
-=item * Parenthesized, Circled, Squared, Negative-circled, Negative-squared, Regional symbol;
-
-=item * Some of the above also have bold, italic, and/or bold italic variations.
-
-=back
-
-A few Latin variants do not include lower case.
-
-There is also a (smaller) selection of variants of the Greek alphabet, of
-digits, and of syllabic and ideographic characters.
-
-In several cases, some of the characters are not in the place one might expect.
-For example 'h' might be expected to be the 8th code point in the
-"Mathematical Italic Small" range, but in fact that code point (U+1D455) is
-undefined. The block is still ordered normally, with the 'i' at U+1D456.
-The 'h' is instead at U+210e (Planck Constant). Presumably it was defined
-before the rest of the "Mathematical Italic Small" characters.
-
-=head1 Related Commands
-
-C<ord --math> will show a list of these characters.
-
-C<UnicodeAltLatin.py> a previous draft of this (should merge).
-
-
-=head1 Known bugs and Limitations
-
-Digit series that do not include 0 are not all correct yet.
-
-Non-Latin digit series are not yet integrated.
-
-Additional methods should be added, like ready-made string converters.
-
-=head1 Notes
-
-Not all of the variant alphabets are contiguous blocks of characters.
-This script maps them anyway.
-
-There are some additional forms that do not have complete alphabets:
-
-    Some squared CJK
-    Circled italic latin C, R
-    Double-Struck Italic D, e, i, j
-    Squared Latin Small Letter D
-    Old Italic letters at U+10300 and following
-    circled katakana U+032d0
-    some circled hangul and ideographs U+3260
-    circled number X on black square U+3248
-
-=head1 Licensing
-
-Copyright 2018-08-29 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
-
-=head1 Options
-"""
     def processOptions():
         import argparse
         try:
@@ -500,7 +553,7 @@ See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
             "--latins",           action='store_true',
             help='List the Latin alternates.')
         parser.add_argument(
-            "--missing",          type=int, default=0x2623,
+            "--missing",          type=anyInt, default=0x2623,
             help='Show this code point for undefined characters. Default: biohazard.')
         parser.add_argument(
             "--quiet", "-q",      action='store_true',
@@ -572,7 +625,6 @@ See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
         "Glib jocks quiz nymph to vex dwarf.",
         "How vexingly quick daft zebras jump!",
         "The five boxing wizards jump quickly.",
-        "Pack my box with five dozen liquor jugs.",
         "Mr Jock, TV quiz PhD, bags few lynx",
     ]
 

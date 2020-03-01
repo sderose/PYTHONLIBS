@@ -22,6 +22,10 @@ to ask for. Has a method to monkey-patch it all onto a DOM implementation.
 
 * EntityManager.py -- Manage XML data sources, catalogs, etc.
 
+* Homogeneous.py -- Defines 'hlist' and 'hdict', subclasses of list and dict
+that let you constrain values (and/or keys for hdict) to certain types and/or
+values. Whether subclasses are ok, and whether None is ok, also controllable.
+
 * LooseDict.py -- A subclass of dict, that lets you attach a "normalization"
 function for keys. For example, specifying lower() gives you a case-ignoring
 dictionary. Each entry stores both the normalized and (last-set) unnormalized key.
@@ -67,6 +71,18 @@ auto-indentation, etc.
 
 * argParsePP.py -- half-done upgrade to argparse, for easier support of
 -x vs. --x, --no-x, and other conventions.
+
+* fsplit.py -- a variation of Python's string `split()` method, which I think is way better. See the help, but in brief, it supports all the options of
+Python's `csv` package and string `split()` itself:
+(escaping, quoting, doubling, lstrip, etc). But also options including these
+and more:
+
+** Multi-character delimiters (split() but not csv offers those)
+** More than one allowed quotechar (for example, single and double)
+** Unicode quote characters (curly, angle, etc)
+** Special chars like \xFF, \uFFFF, &#xFFFFF;, &bull;, etc.
+** Option to ignore repeated delimiters
+** Type-checking, auto-typing (field "3.14" returned as float, etc)
 
 * improvements.py -- notes and tweaks to split(), join(), listdir(). meh.
 

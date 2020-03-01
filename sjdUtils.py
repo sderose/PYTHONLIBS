@@ -2,54 +2,6 @@
 #
 # sjdUtils: some generally useful stuff.
 #
-# 2011-12-09: Port from Perl to Python by Steven J. DeRose.
-# 2012-01-09 sjd: Sync port.
-# 2012-01-24 sjd: Make into an actual class; globals too hard otherwise.
-# 2012-01-30 sjd: Fix color escapes.
-# 2012-02-24 sjd: Add calls to 'inspect' to report error locations.
-# 2012-02-27 sjd: Add getVerbose(), text arg to _warn methods. Add warn().
-#     Generalize message types.
-# 2012-04-11 sjd: Sync with Perl version.
-# 2012-11-01 sjd: Add indentJson(). Drop targetFile. Add vMsg, etc.
-#     Sync more w/ Perl version: xml type checks,....
-# 2012-11-07 sjd: Fixing isoTime().
-# 2012-11-19 sjd: Fix escapeURI().
-# 2013-03-04 sjd: Add vPush(), vPop().
-# 2013-03-25 sjd: Implement vDepth indenting, add pline().
-# 2013-06-28 sjd: Partial sync w/ Perl version.
-# 2014-04-22: Add getVerbose. Fix SUset for 'verbose'. Sync msgTypes w/ Perl.
-#     Fiddle with messaging.
-# 2014-06-09ff: Improve indentJson. Add synonym indentJSON, availableFileNum.
-# 2014-06-1f: Improve availableFileNum.
-# 2014-07-01: Add setOption/getOption synonym, clean up traceback a little.
-# 2014-07-17: Fix colorEnabled. Sync vPush() etc. w/ Perl version.
-# 2014-09-05: Add toUTF8(), handle unicode messages, add types for lorem().
-# 2014-12-17: Add 'stat' parameter to eMsg, vMsg, hMsg, Msg to keep count of
-#     named statistics. Also add bumpStat(), getStat(), showStatS().
-# 2015-01-15f: Improve stats handling/escaping. Add appendStat(), expandXml().
-# 2015-03-26: Clean up defineMsgType(). Add 'infix' argument for messages.
-# 2015-07-27: Add Python logger-like message calls, with fill-ins.
-#     Add uncoloredLength, make pline() ignore color escapes.
-# 2015-10-13f: Move messaging support into separate 'alogging' package,
-#     which has been ported to sit on top of Python's 'logging' package.
-#     Split color to internal class. Add XMLExprs() class.
-#     Add quote/unquote methods. Remove teefile option. Implement try_module().
-#     Write unit tests and fix several bugs. Add HNumber 'base' arg.
-# 2016-09-09: Add strip_accents().
-# 2016-10-04: Move more stuff into XMLConstructs class (nee XMLExprs).
-# 2016-10-31: Move ColorManager out to be a separate package.
-# 2016-12-13: Add align().
-# 2018-01-11: Move XMLConstructs out to separate package.
-# 2018-03-20: Don't die if ColorManager not available.
-# 2018-08-16: Keep unichr() defined even in Python 3.
-# 2018-09-25ff: Clean up more PY 2 vs. 3 details.
-# 2018-10-05: add className()
-# 2018-11-27: Add splitPlus().
-#
-# To do:
-#     Add colorizing option to lpadc?
-#     Resync Perl version.
-#
 from __future__ import print_function
 import sys
 import os
@@ -68,12 +20,587 @@ import ColorManager
 from alogging import ALogger
 
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2011-12-09",
+    'title'        : "sjdUtils.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
-    'version_date' : "2018-11-27",
+    'created'      : "2011-12-09",
+    'modified'     : "2018-11-27",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['version_date']
+__version__ = __metadata__['modified']
+
+descr = u"""
+=Description=
+
+Provide some very basic useful utilities, mostly for escaping, colorizing,
+timing, and handling error messages.
+
+    from sjdUtils import sjdUtils
+    su.setVerbose(level)
+    ...
+    su = sjdUtils()
+    su.setColors(useColor)
+    ...
+
+Messaging support is now in C<alogging>, which works a lot like Python's
+C<logging.Logger>, but has nicer layout (I think), support for -v levels,
+statistics, color, and a simpler (although much less flexible) structure:
+
+    from alogging import ALogger   # For messaging/logging features
+    lg = ALogger(1)
+    lg.warn(msg)
+    lg.vMsg(args.verbose, msg)
+    lg.vIndent()
+    ...
+
+A nearly identical sjdUtils.pl is also available for Perl.
+
+
+=for nobody ================================================================
+
+=Methods=
+
+=head2 General methods
+
+=over
+
+* '''sjdUtils'''(verbose=0, colors=False)
+
+Constructor.
+
+* '''getOption''' ''(name)''
+
+Get the value of option ''name'', from the list below.
+Returns C<None> if you try to get an unknown option.
+
+* '''setOption''' ''(name, value)''
+
+Set option ''name'', from the list below, to ''value''.
+
+* '''setVerbose''' ''(value)''
+
+Tell the logger to set its level of reporting to ''value'' (higher=more).
+
+* '''getVerbose''' ''()''
+
+Return the logger's level of reporting.
+
+
+=for nobody ===================================================================
+=for nobody =========================== setOptions names
+
+=over
+
+* Option: ''colorEnabled''
+
+Globally enables/disables use of color.
+Scripts may wish to set this to True if environment variable ''USE_COLOR'' is
+set and the relevant output is going to a terminal.
+See also the ''setColors''() method, below.
+
+* Option: ''defaultEncoding''
+
+Set the name of the character encoding to be used when not otherwise specified.
+
+* Option: ''loremText'' (string)
+
+The text to be returned by ''lorem(type='a')''.
+This should be a Python 2.x "str" (single-byte only).
+Default: the usual ''lorem ipsum...''.
+
+=back
+
+=back
+
+
+
+=for nobody ===================================================================
+
+=head2 XML-related methods
+
+=over
+
+* '''indentXml'''(s, iString="  ", maxIndent=0, breakAttrs=0, elems={}, html=False)
+
+Re-flow the XML string ''s'' to outline form, using repetitions of ''iString''
+to create indentation (up to a maximum of ''maxIndent'' levels.
+If ''breakAttrs'' is true, put each attribute on a separate line, too.
+
+ ''elems'' is a dictionary that maps each element type name to either
+C<block> or C<indent>, and affects line-breaking accordingly.
+
+* '''indentXML''' -- synonym for '''indentXml'''.
+
+* '''colorizeXmlTags(s, color="")'''
+
+Surround XML markup with ANSI terminal escapes to display it
+in the specified color. Default: the color for the "x" message type.
+See also the ''ColorManager'' class, described below.
+
+* '''colorizeXmlContent(s, color="")'''
+
+Surround XML content (not markup) with ANSI terminal codes to display
+it in the specified color. Default: the color for the "x" message type.
+
+ ''See XMLConstructs packge for relevant 'isa' functions for character classes.''
+
+
+=for nobody ===================================================================
+
+=head2 JSON-related methods
+
+=over
+
+* '''indentJson(s, iString="    ", maxIndent=0)'''
+
+Like ''indentXml'', but for JSON.
+
+=back
+
+
+=for nobody ===================================================================
+
+=head2 Simple string-formatting methods
+
+=over
+
+* '''rpad(s, width=0, padChar=" ", quoteChar="")'''
+
+Like Python's ljust(), but can also quote before padding.
+If ''quoteChar'' is specified, its first character is used as the
+opening quote, and its last character as the closing quote.
+
+* '''lpad(s, width=0, padChar="0", quoteChar="")'''
+
+Like Python's rjust(), but can also quote before padding.
+If ''quoteChar'' is specified, its first character is used as the
+opening quote, and its last character as the closing quote.
+
+* '''lpadc(s, width=0, padChar="0", quoteChar="", sepChar=",")'''
+
+Like ''lpad'', but also inserts ''sepChar''s every three digits
+(Python 3 has that feature in ''format'').
+If ''quoteChar'' is specified, its first character is used as the
+opening quote, and its last character as the closing quote.
+
+ ''sepChar'' now accepts a few special values as well. If set to "COLOR"
+(and color is enabled), alternate groups of three digits will be colorized
+(presently just red). If "UNDER", they will be underlined (again assuming
+color is enabled and the terminal supports it).
+
+* '''align(list, delim=',', stripTrail=True, maxLen=None, padChar=' ')'''
+
+Aligns the tokens or items within each member of ''list'' so they print
+out in neat columns (assuming a monospace font).
+
+'list' must be an array; either of (sub)-lists or of strings that can be
+split into (sub-)lists using ''delim''.
+
+For each "column" (going down 'mylist' and taking the nth item
+in each (sub-)list, ''align()'' finds the max length that occurs.
+Then it all the items in each column to that column's max length.
+Finally, it assembles the items of each (sub-)list, separated by ''delim''
+into a string. It returns a list of those (padded) strings.
+
+If a column contains any non-numeric entries, then its values will all
+be quoted (with double-quotes), and left-justified. Otherwise, its value
+will be unquoted and right-justified.
+
+'''Note''': There is no provision for ignoring instances of ''delim''
+if they are in quotes, backslashed, etc.
+
+* '''toHNumber(n, base=1000)'''
+
+Convert a number to human-readable form, like several *nix commands.
+For example, "123456789" would become "123.45M".
+This conversion generally loses precision.
+Base must be 1000 or 1024.
+
+* '''fromHNumber(n, base=1000)'''
+
+Convert a number from human-readable form, the opposite of ''toHNumber''.
+For example, "123M" would become "123000000".
+Base must be 1000 or 1024.
+
+* '''unquote(s, fancy=False)'''
+
+Remove single or double quotes from around a string, if present.
+A quote all by itself (such as ''"''), remains.
+Polarized quotes must match up properly.
+Deals with most but not all Unicode quotes. Mainly, it's not clear what to
+do with:
+
+    U+201a   'SINGLE LOW-9 QUOTATION MARK',
+    U+201b   'SINGLE HIGH-REVERSED-9 QUOTATION MARK',
+    U+2032 - U+2037
+    U+275f   'HEAVY LOW SINGLE COMMA QUOTATION MARK ORNAMENT',
+    U+2760   'HEAVY LOW DOUBLE COMMA QUOTATION MARK ORNAMENT',
+
+* '''quote(s, curly=False, escape='\\')'''
+
+Return ''s'' with a double-quote character (U+0022) added on each end.
+If ''escape'' is some character E, first put E before each instance
+of U+0022 in ''s''.
+If ''curly'' is True, use curly quotes (U+201c and U+201d) instead of straight.
+Other quote types are not currently supported, and curly ones are not
+escaped by ''escape''.
+
+=back
+
+
+=for nobody ===================================================================
+
+=head2 Unicode stuff
+
+If running in Python 3, it defines C<unichr> to just be C<chr> so it
+still works.
+
+=over
+
+'''isUnicodeCodePoint'''(c)
+
+Return whether the character is a valid Unicode code point.
+This isn't terribly smart yet.
+
+'''strip_accents'''(s)
+
+Remove diacritics from the string ''s''. This is done by normalizing ''s''
+to "NFD" (thus separating diacritics from their base character
+ ''where possible'', and then stripping non-spacing marks. This does not
+convert things like "LATIN SMALL LETTER L WITH STROKE", however.
+
+'''[Useful constants]'''
+
+The following variables are Unicode strings containing the relevant characters:
+
+=over
+
+'''UQuotes''' -- All quotation-mark characters
+
+'''ULSQuotes''' -- Left single quotes
+
+'''ULDQuotes''' -- Left double quotes
+
+'''ULQuotes''' -- Left quotes
+
+'''URSQuotes''' -- Right single quotes
+
+'''URDQuotes''' -- Right double quotes
+
+'''URQuotes''' -- Right quotes
+
+=back
+
+=back
+
+=for nobody ===================================================================
+
+=head2 Miscellaneous methods
+
+=over
+
+'''isNumeric()'''
+
+'''isInteger()'''
+
+=back
+
+
+=head2 Escaping methods
+
+=over
+
+* '''getUTF8'''
+
+* '''showControls'''
+
+* '''showInvisibles or vis'''
+
+* '''escapeRegex'''
+
+* '''escapeXmlContent or escapeXml'''
+
+* '''escapeXmlAttribute'''
+
+* '''escapeXmlPi'''
+
+* '''escapeXmlComment'''
+
+* '''normalizeXmlSpace(s)'''
+
+Normalize whitespace per XML definitions.
+
+* '''expandXml(s)'''
+
+Expand any special-character references in ''s''.
+This uses the Python C<HTMLParser> package's "unescape()" method.
+
+* '''backslash(s)'''
+
+Put a backslash before each t, r, n, t, and \\ within ''s''.
+In addition, replace non-ASCII characters with backslash + xXX or uXXXX
+(depending on whether their numeric value fits in 2 hexadecimal digits or not).
+
+* '''unbackslash(s)'''
+
+Unescapes (converts) backslash-codes within ''s'' to literal characters.
+Handles [abefnrt\\], as well as 0777, xFF, and uFFFF styles.
+
+* '''escapeURI(s)'''
+
+Turn ASCII characters prohibited in URIs, into %FF style.
+'''Warning''': May not work for Unicode yet.
+
+* '''unescapeURI(s, escapeChar='%')'''
+
+Replace %FF style escapes (as used in URIs) with literal characters.
+You can change ''escapeChar'' to use it for other things, like '=' for MIME.
+'''Warning''': May not work for Unicode yet.
+
+=back
+
+
+=for nobody ===================================================================
+
+=head2 Other (miscellaneous) methods
+
+=over
+
+* '''isoDateTime(t?)'''
+
+Returns the present date and time in (one) ISO format, 19 characters long.
+Example: 2011-11-30T23:22:05.
+
+* '''isoDate(t?)'''
+Returns the date portion of isoDateTime. Example: 2011-11-30.
+
+* '''isoTime(t?)'''
+
+Returns the time portion of isoDateTime. Example: 23:22:05.
+
+* '''elapsedTime(start, end?, seconds=False)'''
+
+Returns the difference between ''start'' and ''end'', which should be values
+directly from ''time()'' (not returned values from ''isoTime'', for example).
+The elapsed time is in the form C<hh:mm:ss> unless
+ ''seconds'' is True, in which case you just get the raw number of seconds.
+
+* '''lorem(length=79, loremType="a")'''
+
+Return some sample text of a given type and length. The types are:
+    a -- ASCII text, by detault the usual "lorem ipsum"
+    u -- Similar, but including a variety of Unicode characters
+    x -- Including Unicode characters and XHTML markup
+    r -- Randomly generated ASCII text (see ''randomChar''(), below)
+
+* '''randomChar(mode='uniform')'''
+
+Generates a single random character (used by ''lorem(type='r')'')
+
+If ''mode'' is C<frequency>, ASCII lowercase letters and space are generated,
+in accordance with approximate probabilities in English text.
+Option C<letterFreqs> holds a dictionary of char->frequencies.
+The keys include 26 lower-case letters, plus space.
+
+If ''mode'' is C<uniform>, ASCII printable characters are generated,
+with uniform probabilities.
+
+* '''availableFileNum'''(base, width=4, min=1, max=1000, sep='', which='free')
+
+Find a filename from a numbered series. ''base'' is split into path, filename,
+and extension. Candidate filenames are of the form:
+
+    path + '/' + filename + sep + number + '.' + extension
+
+except that, if there was no extension in ''base'', the final '.' + extension
+will not be included. ''number'' must be exactly ''width'' digits
+(with extra zeros on the left as needed).
+
+The script will look for existing files whose names match this pattern
+(shell globs are not supported!).
+What filename is then returned, depends on the ''which'' parameter:
+
+=over
+
+* '''next''': the file with number one greater than the
+last extant file, is returned. '''Warning''': If this overflows into
+the ''width''+1st digit, the longer name is quietly returned.
+
+* '''firstfree''': the first such filename that does not
+exist is returned. There could be additional files with greater numbers.
+
+* '''lastappend''': the last existing file if
+it is appendable, otherwise the first such file that does not exist.
+
+=back
+
+'''Note''': On many file systems, directories with more than about 1000 files
+in them get really slow. This method is still experimental.
+See also the C<incrementFilename.py> command.
+
+=back
+
+
+
+=for nobody ================================================================
+
+=The ColorManager class=
+
+This is a separate class defined in C<alogging.py>. However, its methods
+are patched in to C<sjdUtils.py>>, so when color is enabled you can just
+call them as if they were methods of C<sjdUtils.py> itself.
+
+The color names available are defined in F<bingit/SHELL/colorNames.pod>,
+which supercedes anything in specific scripts (they ''should'' match).
+
+A dictionary of the usable names is in C<colorStrings>; a printable
+form can be retrieve via ''getColorStrings()'', or a printable list
+via ''tostring()''.
+
+
+=over
+
+* '''__init__(effects=None)'''
+
+Set up the color manager. ''effects'' is merely passed down to
+ ''setupColors()''.
+
+* '''setupColors(effects=None)'''
+
+(iternal) Work out all known color, effect, and combination names, and
+put them in a hash that maps them to their escape sequences.
+If 'effects' is not None, it must be a list of the effect names
+to include. That list may be empty.
+
+* '''addColor(newName, oldName)'''
+
+Adds a synonym for an existing color.
+
+* '''isColorName(name)'''
+
+Returns True iff ''name'' is a known color name.
+
+* '''getColorString(name)'''
+
+* '''getColorStrings(paramColor, defaultColor)'''
+
+* '''tostring(sampleText='sample', filter=None)'''
+
+Return a printable buffer with one line for each defined color name.
+Each line consist of colorized ''sampleText'' and then the color name.
+
+If ''filter'' is supplied, it is treated as a regular expression, and any
+color names that do not match it are excluded. This is useful because
+there are about 1000 combinations available.
+
+* '''colorize(argColor='red', s="", endAs="off")'''
+
+Return ''s'', but with the ANSI terminal escape to display it in the specified
+ ''argColor'' added at the start, and the escape to switch to color ''endAs''
+added at the end.
+
+* '''uncolorize''' ''(s)''
+
+Remove any ANSI terminal color escapes from ''s''.
+
+* '''uncoloredLen''' ''(s)''
+
+Return the length of ''s'', but ignoring any ANSI terminal color strings.
+This is just shorthand for C<len(uncolorize(s))>.
+
+=back
+
+
+=for nobody ================================================================
+
+=Known bugs and limitations=
+
+If you ''colorize''() a string, it resets the color to default at the end.
+Thus, if you insert colorized string A within colorized string B, the portion
+of B following A will ''not'' be colorized.
+You can specify the ''endAs'' option when colorizing A to avoid this.
+
+Some method names could be better.
+
+Randomly-generated text should be more flexible: mixed-case, Markov generator....
+But may not be useful enough to keep around anyway.
+
+Human-readable numbering should also support factors of 1024.
+
+ColorManager has no support for 256-color terminals.
+
+showControls seems unhappy with CR (0x0D).
+
+escaping calls aren't testing well at the moment.
+
+indentJSON should use strip() or similar.
+
+=To do=
+
+* Add colorizing option to lpadc?
+* Resync Perl version.
+
+=History=
+
+* 2011-12-09: Port from Perl to Python by Steven J. DeRose.
+* 2012-01-09 sjd: Sync port.
+* 2012-01-24 sjd: Make into an actual class; globals too hard otherwise.
+* 2012-01-30 sjd: Fix color escapes.
+* 2012-02-24 sjd: Add calls to 'inspect' to report error locations.
+* 2012-02-27 sjd: Add getVerbose(), text arg to _warn methods. Add warn().
+ Generalize message types.
+* 2012-04-11 sjd: Sync with Perl version.
+* 2012-11-01 sjd: Add indentJson(). Drop targetFile. Add vMsg, etc.
+* Sync more w/ Perl version: xml type checks,....
+* 2012-11-07 sjd: Fixing isoTime().
+* 2012-11-19 sjd: Fix escapeURI().
+* 2013-03-04 sjd: Add vPush(), vPop().
+* 2013-03-25 sjd: Implement vDepth indenting, add pline().
+* 2013-06-28 sjd: Partial sync w/ Perl version.
+* 2014-04-22: Add getVerbose. Fix SUset for 'verbose'. Sync msgTypes w/ Perl.
+ Fiddle with messaging.
+* 2014-06-09ff: Improve indentJson. Add synonym indentJSON, availableFileNum.
+* 2014-06-1f: Improve availableFileNum.
+* 2014-07-01: Add setOption/getOption synonym, clean up traceback a little.
+* 2014-07-17: Fix colorEnabled. Sync vPush() etc. w/ Perl version.
+* 2014-09-05: Add toUTF8(), handle unicode messages, add types for lorem().
+* 2014-12-17: Add 'stat' parameter to eMsg, vMsg, hMsg, Msg to keep count of
+ named statistics. Also add bumpStat(), getStat(), showStatS().
+* 2015-01-15f: Improve stats handling/escaping. Add appendStat(), expandXml().
+* 2015-03-26: Clean up defineMsgType(). Add 'infix' argument for messages.
+* 2015-07-27: Add Python logger-like message calls, with fill-ins.
+* Add uncoloredLength, make pline() ignore color escapes.
+* 2015-10-13f: Move messaging support into separate 'alogging' package,
+* which has been ported to sit on top of Python's 'logging' package.
+ Split color to internal class. Add XMLExprs() class.
+ Add quote/unquote methods. Remove teefile option. Implement try_module().
+ Write unit tests and fix several bugs. Add HNumber 'base' arg.
+* 2016-09-09: Add strip_accents().
+* 2016-10-04: Move more stuff into XMLConstructs class (nee XMLExprs).
+* 2016-10-31: Move ColorManager out to be a separate package.
+* 2016-12-13: Add align().
+* 2018-01-11: Move XMLConstructs out to separate package.
+* 2018-03-20: Don't die if ColorManager not available.
+* 2018-08-16: Keep unichr() defined even in Python 3.
+* 2018-09-25ff: Clean up more PY 2 vs. 3 details.
+* 2018-10-05: add className()
+* 2018-11-27: Add splitPlus().
+* 2020-01-22: Move doc, POD->MarkDown, lint, metadata.
+
+=Rights=
+
+Copyright 2011-2020, Steven J. DeRose. This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github/com/sderose].
+
+=Options=
+"""
 
 # Make Python 2 and 3 a bit more similar....
 # See http://python-future.org/compatible_idioms.html
@@ -1075,526 +1602,10 @@ class sjdUtils:
 ###############################################################################
 #
 if __name__ == "__main__":
-    doc = u"""
-=head1 Description
-
-Provide some very basic useful utilities, mostly for escaping, colorizing,
-timing, and handling error messages.
-
-    from sjdUtils import sjdUtils
-    su.setVerbose(level)
-    ...
-    su = sjdUtils()
-    su.setColors(useColor)
-    ...
-
-Messaging support is in C<alogging>, which works a lot like Python's
-C<logging.Logger>, but has (I think) nicer layout support, statistics,
-color, and a simpler structure:
-
-    from alogging import ALogger   # For messaging/logging features
-    lg = ALogger(1)
-
-
-=for nobody ================================================================
-
-=head1 Methods
-
-=head2 General methods
-
-=over
-
-=item * B<sjdUtils>(verbose=0, colors=False)
-
-Constructor.
-
-=item * B<getOption>I<(name)>
-
-Get the value of option I<name>, from the list below.
-Returns C<None> if you try to get an unknown option.
-
-=item * B<setOption>I<(name, value)>
-
-Set option I<name>, from the list below, to I<value>.
-
-=item * B<setVerbose>I<(value)>
-
-Tell the logger to set its level of reporting to I<value> (higher=more).
-
-=item * B<getVerbose>I<()>
-
-Return the logger's level of reporting.
-
-
-=for nobody ===================================================================
-=for nobody =========================== setOptions names
-
-=over
-
-=item * Option: I<colorEnabled>
-
-Globally enables/disables use of color.
-Scripts may wish to set this to True if environment variable I<USE_COLOR> is
-set and the relevant output is going to a terminal.
-See also the I<setColors>() method, below.
-
-=item * Option: I<defaultEncoding>
-
-Set the name of the character encoding to be used when not otherwise specified.
-
-=item * Option: I<loremText> (string)
-
-The text to be returned by I<lorem(type='a')>.
-This should be a Python 2.x "str" (single-byte only).
-Default: the usual I<lorem ipsum...>.
-
-=back
-
-=back
-
-
-
-=for nobody ===================================================================
-
-=head2 XML-related methods
-
-=over
-
-=item * B<indentXml>(s, iString="  ", maxIndent=0, breakAttrs=0, elems={}, html=False)
-
-Re-flow the XML string I<s> to outline form, using repetitions of I<iString>
-to create indentation (up to a maximum of I<maxIndent> levels.
-If I<breakAttrs> is true, put each attribute on a separate line, too.
-
-I<elems> is a dictionary that maps each element type name to either
-C<block> or C<indent>, and affects line-breaking accordingly.
-
-=item * B<indentXML> -- synonym for B<indentXml>.
-
-=item * B<colorizeXmlTags(s, color="")>
-
-Surround XML markup with ANSI terminal escapes to display it
-in the specified color. Default: the color for the "x" message type.
-See also the I<ColorManager> class, described below.
-
-=item * B<colorizeXmlContent(s, color="")>
-
-Surround XML content (not markup) with ANSI terminal codes to display
-it in the specified color. Default: the color for the "x" message type.
-
-I<See XMLConstructs packge for relevant 'isa' functions for character classes.>
-
-
-=for nobody ===================================================================
-
-=head2 JSON-related methods
-
-=over
-
-=item * B<indentJson(s, iString="    ", maxIndent=0)>
-
-Like I<indentXml>, but for JSON.
-
-=back
-
-
-=for nobody ===================================================================
-
-=head2 Simple string-formatting methods
-
-=over
-
-=item * B<rpad(s, width=0, padChar=" ", quoteChar="")>
-
-Like Python's ljust(), but can also quote before padding.
-If I<quoteChar> is specified, its first character is used as the
-opening quote, and its last character as the closing quote.
-
-=item * B<lpad(s, width=0, padChar="0", quoteChar="")>
-
-Like Python's rjust(), but can also quote before padding.
-If I<quoteChar> is specified, its first character is used as the
-opening quote, and its last character as the closing quote.
-
-=item * B<lpadc(s, width=0, padChar="0", quoteChar="", sepChar=",")>
-
-Like I<lpad>, but also inserts I<sepChar>s every three digits
-(Python 3 has that feature in I<format>).
-If I<quoteChar> is specified, its first character is used as the
-opening quote, and its last character as the closing quote.
-
-I<sepChar> now accepts a few special values as well. If set to "COLOR"
-(and color is enabled), alternate groups of three digits will be colorized
-(presently just red). If "UNDER", they will be underlined (again assuming
-color is enabled and the terminal supports it).
-
-=item * B<align(list, delim=',', stripTrail=True, maxLen=None, padChar=' ')>
-
-Aligns the tokens or items within each member of I<list> so they print
-out in neat columns (assuming a monospace font).
-
-'list' must be an array; either of (sub)-lists or of strings that can be
-split into (sub-)lists using I<delim>.
-
-For each "column" (going down 'mylist' and taking the nth item
-in each (sub-)list, I<align()> finds the max length that occurs.
-Then it all the items in each column to that column's max length.
-Finally, it assembles the items of each (sub-)list, separated by I<delim>
-into a string. It returns a list of those (padded) strings.
-
-If a column contains any non-numeric entries, then its values will all
-be quoted (with double-quotes), and left-justified. Otherwise, its value
-will be unquoted and right-justified.
-
-B<Note>: There is no provision for ignoring instances of I<delim>
-if they are in quotes, backslashed, etc.
-
-=item * B<toHNumber(n, base=1000)>
-
-Convert a number to human-readable form, like several *nix commands.
-For example, "123456789" would become "123.45M".
-This conversion generally loses precision.
-Base must be 1000 or 1024.
-
-=item * B<fromHNumber(n, base=1000)>
-
-Convert a number from human-readable form, the opposite of I<toHNumber>.
-For example, "123M" would become "123000000".
-Base must be 1000 or 1024.
-
-=item * B<unquote(s, fancy=False)>
-
-Remove single or double quotes from around a string, if present.
-A quote all by itself (such as I<">), remains.
-Polarized quotes must match up properly.
-Deals with most but not all Unicode quotes. Mainly, it's not clear what to
-do with:
-
-    U+201a   'SINGLE LOW-9 QUOTATION MARK',
-    U+201b   'SINGLE HIGH-REVERSED-9 QUOTATION MARK',
-    U+2032 - U+2037
-    U+275f   'HEAVY LOW SINGLE COMMA QUOTATION MARK ORNAMENT',
-    U+2760   'HEAVY LOW DOUBLE COMMA QUOTATION MARK ORNAMENT',
-
-=item * B<quote(s, curly=False, escape='\\')>
-
-Return I<s> with a double-quote character (U+0022) added on each end.
-If I<escape> is some character E, first put E before each instance
-of U+0022 in I<s>.
-If I<curly> is True, use curly quotes (U+201c and U+201d) instead of straight.
-Other quote types are not currently supported, and curly ones are not
-escaped by I<escape>.
-
-=back
-
-
-=for nobody ===================================================================
-
-=head2 Unicode stuff
-
-If running in Python 3, it defines C<unichr> to just be C<chr> so it
-still works.
-
-=over
-
-=item B<isUnicodeCodePoint>(c)
-
-Return whether the character is a valid Unicode code point.
-This isn't terribly smart yet.
-
-=item B<strip_accents>(s)
-
-Remove diacritics from the string I<s>. This is done by normalizing I<s>
-to "NFD" (thus separating diacritics from their base character
-I<where possible>, and then stripping non-spacing marks. This does not
-convert things like "LATIN SMALL LETTER L WITH STROKE", however.
-
-=item B<[Useful constants]>
-
-The following variables are Unicode strings containing the relevant characters:
-
-=over
-
-=item B<UQuotes> -- All quotation-mark characters
-
-=item B<ULSQuotes> -- Left single quotes
-
-=item B<ULDQuotes> -- Left double quotes
-
-=item B<ULQuotes> -- Left quotes
-
-=item B<URSQuotes> -- Right single quotes
-
-=item B<URDQuotes> -- Right double quotes
-
-=item B<URQuotes> -- Right quotes
-
-=back
-
-=back
-
-=for nobody ===================================================================
-
-=head2 Miscellaneous methods
-
-=over
-
-=item B<isNumeric()>
-
-=item B<isInteger()>
-
-=back
-
-
-=head2 Escaping methods
-
-=over
-
-=item * B<getUTF8>
-
-=item * B<showControls>
-
-=item * B<showInvisibles or vis>
-
-=item * B<escapeRegex>
-
-=item * B<escapeXmlContent or escapeXml>
-
-=item * B<escapeXmlAttribute>
-
-=item * B<escapeXmlPi>
-
-=item * B<escapeXmlComment>
-
-=item * B<normalizeXmlSpace(s)>
-
-Normalize whitespace per XML definitions.
-
-=item * B<expandXml(s)>
-
-Expand any special-character references in I<s>.
-This uses the Python C<HTMLParser> package's "unescape()" method.
-
-=item * B<backslash(s)>
-
-Put a backslash before each t, r, n, t, and \\ within I<s>.
-In addition, replace non-ASCII characters with backslash + xXX or uXXXX
-(depending on whether their numeric value fits in 2 hexadecimal digits or not).
-
-=item * B<unbackslash(s)>
-
-Unescapes (converts) backslash-codes within I<s> to literal characters.
-Handles [abefnrt\\], as well as 0777, xFF, and uFFFF styles.
-
-=item * B<escapeURI(s)>
-
-Turn ASCII characters prohibited in URIs, into %FF style.
-B<Warning>: May not work for Unicode yet.
-
-=item * B<unescapeURI(s, escapeChar='%')>
-
-Replace %FF style escapes (as used in URIs) with literal characters.
-You can change I<escapeChar> to use it for other things, like '=' for MIME.
-B<Warning>: May not work for Unicode yet.
-
-=back
-
-
-=for nobody ===================================================================
-
-=head2 Other (miscellaneous) methods
-
-=over
-
-=item * B<isoDateTime(t?)>
-
-Returns the present date and time in (one) ISO format, 19 characters long.
-Example: 2011-11-30T23:22:05.
-
-=item * B<isoDate(t?)>
-Returns the date portion of isoDateTime. Example: 2011-11-30.
-
-=item * B<isoTime(t?)>
-
-Returns the time portion of isoDateTime. Example: 23:22:05.
-
-=item * B<elapsedTime(start, end?, seconds=False)>
-
-Returns the difference between I<start> and I<end>, which should be values
-directly from I<time()> (not returned values from I<isoTime>, for example).
-The elapsed time is in the form C<hh:mm:ss> unless
-I<seconds> is True, in which case you just get the raw number of seconds.
-
-=item * B<lorem(length=79, loremType="a")>
-
-Return some sample text of a given type and length. The types are:
-    a -- ASCII text, by detault the usual "lorem ipsum"
-    u -- Similar, but including a variety of Unicode characters
-    x -- Including Unicode characters and XHTML markup
-    r -- Randomly generated ASCII text (see I<randomChar>(), below)
-
-=item * B<randomChar(mode='uniform')>
-
-Generates a single random character (used by I<lorem(type='r')>)
-
-If I<mode> is C<frequency>, ASCII lowercase letters and space are generated,
-in accordance with approximate probabilities in English text.
-Option C<letterFreqs> holds a dictionary of char->frequencies.
-The keys include 26 lower-case letters, plus space.
-
-If I<mode> is C<uniform>, ASCII printable characters are generated,
-with uniform probabilities.
-
-=item * B<availableFileNum>(base, width=4, min=1, max=1000, sep='', which='free')
-
-Find a filename from a numbered series. I<base> is split into path, filename,
-and extension. Candidate filenames are of the form:
-
-    path + '/' + filename + sep + number + '.' + extension
-
-except that, if there was no extension in I<base>, the final '.' + extension
-will not be included. I<number> must be exactly I<width> digits
-(with extra zeros on the left as needed).
-
-The script will look for existing files whose names match this pattern
-(shell globs are not supported!).
-What filename is then returned, depends on the I<which> parameter:
-
-=over
-
-=item * B<next>: the file with number one greater than the
-last extant file, is returned. B<Warning>: If this overflows into
-the I<width>+1st digit, the longer name is quietly returned.
-
-=item * B<firstfree>: the first such filename that does not
-exist is returned. There could be additional files with greater numbers.
-
-=item * B<lastappend>: the last existing file if
-it is appendable, otherwise the first such file that does not exist.
-
-=back
-
-B<Note>: On many file systems, directories with more than about 1000 files
-in them get really slow. This method is still experimental.
-See also the C<incrementFilename.py> command.
-
-=back
-
-
-
-=for nobody ================================================================
-
-=head1 The ColorManager class
-
-This is a separate class defined in C<alogging.py>. However, its methods
-are patched in to C<sjdUtils.py>>, so when color is enabled you can just
-call them as if they were methods of C<sjdUtils.py> itself.
-
-The color names available are defined in F<bingit/SHELL/colorNames.pod>,
-which supercedes anything in specific scripts (they I<should> match).
-
-A dictionary of the usable names is in C<colorStrings>; a printable
-form can be retrieve via I<getColorStrings()>, or a printable list
-via I<tostring()>.
-
-
-=over
-
-=item * B<__init__(effects=None)>
-
-Set up the color manager. I<effects> is merely passed down to
-I<setupColors()>.
-
-=item * B<setupColors(effects=None)>
-
-(iternal) Work out all known color, effect, and combination names, and
-put them in a hash that maps them to their escape sequences.
-If 'effects' is not None, it must be a list of the effect names
-to include. That list may be empty.
-
-=item * B<addColor(newName, oldName)>
-
-Adds a synonym for an existing color.
-
-=item * B<isColorName(name)>
-
-Returns True iff I<name> is a known color name.
-
-=item * B<getColorString(name)>
-
-=item * B<getColorStrings(paramColor, defaultColor)>
-
-=item * B<tostring(sampleText='sample', filter=None)>
-
-Return a printable buffer with one line for each defined color name.
-Each line consist of colorized I<sampleText> and then the color name.
-
-If I<filter> is supplied, it is treated as a regular expression, and any
-color names that do not match it are excluded. This is useful because
-there are about 1000 combinations available.
-
-=item * B<colorize(argColor='red', s="", endAs="off")>
-
-Return I<s>, but with the ANSI terminal escape to display it in the specified
-I<argColor> added at the start, and the escape to switch to color I<endAs>
-added at the end.
-
-=item * B<uncolorize>I<(s)>
-
-Remove any ANSI terminal color escapes from I<s>.
-
-=item * B<uncoloredLen>I<(s)>
-
-Return the length of I<s>, but ignoring any ANSI terminal color strings.
-This is just shorthand for C<len(uncolorize(s))>.
-
-=back
-
-
-=for nobody ================================================================
-
-=head1 Known bugs and limitations
-
-If you I<colorize>() a string, it resets the color to default at the end.
-Thus, if you insert colorized string A within colorized string B, the portion
-of B following A will I<not> be colorized.
-You can specify the I<endAs> option when colorizing A to avoid this.
-
-Some method names could be better.
-
-Randomly-generated text should be more flexible: mixed-case, Markov generator....
-But may not be useful enough to keep around anyway.
-
-Human-readable numbering should also support factors of 1024.
-
-ColorManager has no support for 256-color terminals.
-
-showControls seems unhappy with CR (0x0D).
-
-escaping calls aren't testing well at the moment.
-
-indentJSON should use strip() or similar.
-
-
-=for nobody ================================================================
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-
-For the most recent version, see http://www.derose.net/steve/utilities/.
-
-
-=head1 Options
-
-=cut
-"""
     from MarkupHelpFormatter import MarkupHelpFormatter
     parser = argparse.ArgumentParser(
-        description=doc,
-        formatter_class=MarkupHelpFormatter)
+        description=descr, formatter_class=MarkupHelpFormatter)
+
     parser.add_argument(
         "--version",          action='version',     version=sjdUtils.__version__,
         help='Display version information, then exit.')

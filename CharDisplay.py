@@ -2,15 +2,6 @@
 #
 # CharDisplay.py
 #
-# 2018-04-21: Written. Copyright by Steven J. DeRose.
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
-#
-# 2018-10-02: Make Py 2/3 compatible. Support --cat for single letters.
-# Make it avoid non-Unicode (hence nameless) code points. Add --python.
-# 2018-11-16: Fix hex display of Unicode normalized forms. Fix html and urllib
-#   includes.
-#
 from __future__ import print_function
 #from __future__ import absolute_import, unicode_literals
 import sys
@@ -33,35 +24,198 @@ else:
 
 from MarkupHelpFormatter import MarkupHelpFormatter
 
-
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2018-04-21",
-    'language'     : "Python 2.7.6, 3.5",
-    'version_date' : "2018-11-16",
+    'title'        : "CharDisplay.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 2.7.6, 3.6",
+    'created'      : "2018-04-21",
+    'modified'     : "2020-02-12",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['version_date']
+__version__ = __metadata__['modified']
 
-description="""
+descr="""
 
-=head1 Description
+=Description=
 
-Display one Unicode character with all kinds of information.
+Display detailed information about a single Unicode character.
 
-=head1 Related Commands
+Can be used as a library, or from the command line to identify characters
+by their code points:
 
-ord, chr, countChars.
+    CharDisplay 65 0x2400 012
+
+==Legend==
+
+An example display, for U+FB00 when using this as a command, is:
+
+    Unicode Name     LATIN SMALL LIGATURE FF
+    Script           Latin
+    Category         'Ll' (Letter, Lowercase)
+    Block            Alphabetic Presentation Forms
+    Plane            0: Basic Multilingual
+    Literal          ',,xEF,,xAC,,x80'
+    Bases            o001754000 d064256 0xfb00
+    Unicode          U+fb00, utf8 \\xefac80, URI %EF%AC%80 (allowed? False)
+    Entities         &#xfb00;  &#64256;  None
+    Unix jargon
+    Numeric value
+    Is Bidi          L
+    Is Combining
+    ea width         N
+    Mirror
+    Decompose        <compat> 0066 0066
+    Normalizations   NFC '\\xEF\\xAC\\x80', NFKC 'ff', NFD '\\xEF\\xAC\\x80', NFD 'ff'
+
+==Notes on some parts:==
+
+* Category: A 2-letter name defined by the Unicode standard,
+saying what "kind" of character it is. The first character is one of:
+
+** C: Other
+    'Cc':  "Other, Control",
+    'Cf':  "Other, Format",
+    'Cn':  "Other, Not Assigned",
+    'Co':  "Other, Private Use",
+    'Cs':  "Other, Surrogate",
+
+** L: Letter (includes syllabary and ideographic characters)
+    'LC':  "Letter, Cased (includes Ll Lt Lu)",
+    'Ll':  "Letter, Lowercase",
+    'Lm':  "Letter, Modifier",
+    'Lo':  "Letter, Other",
+    'Lt':  "Letter, Titlecase",
+    'Lu':  "Letter, Uppercase",
+
+** M: Mark
+    'Mc':  "Mark, Spacing Combining",
+    'Me':  "Mark, Enclosing",
+    'Mn':  "Mark, Nonspacing",
+
+** N: Number
+    'Nd':  "Number, Decimal Digit",
+    'Nl':  "Number, Letter",
+    'No':  "Number, Other",
+
+** P: Punctuation
+    'Pc':  "Punctuation, Connector",
+    'Pd':  "Punctuation, Dash",
+    'Pe':  "Punctuation, Close",
+    'Pf':  "Punctuation, Final quote",
+    'Pi':  "Punctuation, Initial quote",
+    'Po':  "Punctuation, Other",
+    'Ps':  "Punctuation, Open",
+
+** S: Symbol
+    'Sc':  "Symbol, Currency",
+    'Sk':  "Symbol, Modifier",
+    'Sm':  "Symbol, Math",
+    'So':  "Symbol, Other",
+
+** Z: Separator
+    'Zl':  "Separator, Line",
+    'Zp':  "Separator, Paragraph",
+    'Zs':  "Separator, Space",
+
+* '''Literal''': The character itself. How this shows up depends on your
+terminal program and settings, shell capabilities, etc.
+
+* '''Unicode''': Shows several ways to express the character. "U+xxxx" is
+commonly used in print; the UTF-8 equivalent is given as a series of hex
+digits; the same UTF-8 is also given with each byte %-escaped as it would
+be in a URL. Finally, there is a note to indicate whether the character is
+allowed or not within URLs (without being escaped); that will show "False"
+for all non-ASCII characters, and for quite a few ASCII punctuation marks.
+
+* '''Entities''': Shows ways to express the character (other than literally)
+within XML or HTML. If HTML 4 defines a named entity for the character,
+that is shown last (otherwise, "None")
+
+* '''Unix''' jargon: This shows traditional ways of referring to the character
+other than the official Unicode name (if any).
+
+* '''Numeric''' value: Many unicode characters represent numbers. The most
+obvious are the digits 0-9, but there are also
+digits in many other scripts;
+circled, parenthesized, superscript, or otherwise special digits;
+Roman Numerals; fractions; and so on. This line gives the numeric
+value associated with the character. For some fractions such
+as 1/7, the value is approximate. A few characters that one might expect
+to have numeric values, such as pi and Euler's constant. do not.
+
+* '''Is''' Bidi:
+
+* '''Is''' Combining:
+
+* '''ea''' width:
+
+* '''Mirror''':
+
+* '''Decompose''': What other character(s) this character could be
+broken into, with little or no loss of meaning. For example, the ff ligature
+shown above can be decomposed to two regular "f"s,
+or "PARENTHESIZED NUMBER TWENTY" can be decompsed to "(20)".
+
+* '''Normalizations''': Unicode defines 4 different "normalized" forms
+(they are availabe in Python via C<unicodedata.normalize(form, u'...')>),
+the documentation for which says
+(at L<https://docs.python.org/2/library/unicodedata.html>:
+
+For each character, there are two normal forms: normal form C and normal form D. Normal form D (NFD) is also known as canonical decomposition, and translates each character into its decomposed form. Normal form C (NFC) first applies a canonical decomposition, then composes pre-combined characters again.
+
+In addition to these two forms, there are two additional normal forms based on compatibility equivalence. In Unicode, certain characters are supported which normally would be unified with other characters. For example, U+2160 (ROMAN NUMERAL ONE) is really the same thing as U+0049 (LATIN CAPITAL LETTER I). However, it is supported in Unicode for compatibility with existing character sets (e.g. gb2312).
+
+The normal form KD (NFKD) will apply the compatibility decomposition, i.e. replace all compatibility characters with their equivalents. The normal form KC (NFKC) first applies the compatibility decomposition, followed by the canonical composition.
 
 
-=head1 Known bugs and Limitations
+Compatibility composition does I<not> merge characters such as uupercase
+English A and Greek alpha, or even soft hyphen. However, forms NKFC and
+NFKD do normalize non-breaking space to regular space.
 
-=head1 Licensing
+=Known bugs and limitations=
 
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+=Related Commands=
 
-=head1 Options
+`ord`, `chr`, `countChars`.
+
+=Known bugs and Limitations=
+
+=History=
+
+* 2018-04-21: Written. Copyright by Steven J. DeRose.
+
+* 2018-10-02: Make Py 2/3 compatible. Support --cat for single letters.
+Make it avoid non-Unicode (hence nameless) code points. Add --python.
+
+* 2018-11-16: Fix hex display of Unicode normalized forms. Fix html and urllib
+includes.
+
+=Rights=
+
+Copyright 2015 by Steven J. DeRose. This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see [http://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
+
+=History=
+
+* 2018-04-21: Written. Copyright by Steven J. DeRose.
+
+* 2018-10-02: Make Py 2/3 compatible. Support --cat for single letters.
+
+* Make it avoid non-Unicode (hence nameless) code points. Add --python.
+
+* 2018-11-16: Fix hex display of Unicode normalized forms. Fix html and urllib
+includes.
+
+* 2020-02-12: New layout conventions.
+
+=Options=
 """
 
 ###############################################################################
@@ -1350,7 +1504,7 @@ def getCharInfo(n):
     if (n < 32): charInfo['name'] = C0names[n]
     else: charInfo['name'] = unicodedata.name(literal, None)
     if (not charInfo['name']):
-        charInfo['error'] = "Cannot find name for U+%04x." % (n)
+        charInfo['error'] = "Cannot find name for U+%05x." % (n)
         charInfo['name'] = '[???]'
 
     charInfo['scriptName']   = myCodepoint2script(n)
@@ -1377,7 +1531,7 @@ def getCharInfo(n):
     if (n<128 and len(ASCII[n]) >= 6 and ASCII[n][5] == '+'):
         charInfo['uriOK']  = True
 
-    charInfo['ent16']      = "&#x%04x;" % (n)
+    charInfo['ent16']      = "&#x%05x;" % (n)
     charInfo['ent10']      = "&#%d;" % (n)
     print("type: %s" % (type(codepoint2name)))
     if (n in codepoint2name):
@@ -1420,8 +1574,8 @@ def makeDisplay(n, full=True):
             fmtline("Plane",            "%d: %s" % (
                 charInfo['planeNumber'], charInfo['planeName'])),
             fmtline("Literal",          "'" + charInfo['literal'] + "'"),
-            fmtline("Bases",            "o%08o0 d%06d 0x%04x" % (n, n, n)),
-            fmtline("Unicode",          "U+%04x, utf8 %s, URI %s (allowed? %s)" % (
+            fmtline("Bases",            "o%08o0 d%06d 0x%05x" % (n, n, n)),
+            fmtline("Unicode",          "U+%05x, utf8 %s, URI %s (allowed? %s)" % (
                 n, charInfo['utf'], charInfo['uri'], charInfo['uriOK'])),
             fmtline("Entities",         "%s  %s  %s" % (
                 charInfo['ent16'], charInfo['ent10'], charInfo['entNamed'])),
@@ -1447,7 +1601,7 @@ def makeDisplay(n, full=True):
         msg = "[FAIL]"
 
     if (n in cp1252ToUnicode): msg += (
-        "WARNING: May be intended as CP1252. If so use U+%04x (%s)." % (
+        "WARNING: May be intended as CP1252. If so use U+%05x (%s)." % (
         cp1252ToUnicode[n], unicodedata.name(cp1252ToUnicode[n], None)))
 
     if (n<32):
@@ -1493,175 +1647,8 @@ def myCodepoint2block(n):
 ###############################################################################
 #
 if __name__ == "__main__":
-    descr = u"""
-=pod
-
-=head1 Usage
-
-Display detailed information about a single Unicode character.
-
-Can be used as a library, or from the command line to identify characters
-by their code points:
-
-    CharDisplay 65 0x2400 012
-
-=head2 Legend
-
-An example display, for U+FB00 when using this as a command, is:
-
-    Unicode Name     LATIN SMALL LIGATURE FF
-    Script           Latin
-    Category         'Ll' (Letter, Lowercase)
-    Block            Alphabetic Presentation Forms
-    Plane            0: Basic Multilingual
-    Literal          ',,xEF,,xAC,,x80'
-    Bases            o001754000 d064256 0xfb00
-    Unicode          U+fb00, utf8 \\xefac80, URI %EF%AC%80 (allowed? False)
-    Entities         &#xfb00;  &#64256;  None
-    Unix jargon
-    Numeric value
-    Is Bidi          L
-    Is Combining
-    ea width         N
-    Mirror
-    Decompose        <compat> 0066 0066
-    Normalizations   NFC '\\xEF\\xAC\\x80', NFKC 'ff', NFD '\\xEF\\xAC\\x80', NFD 'ff'
-
-
-=head3 Notes on some parts:
-
-=over
-
-=item * Category: A 2-letter name defined by the Unicode standard,
-saying what "kind" of character it is. The first character is one of:
-
-=over
-
-=item * C: Other
-    'Cc':  "Other, Control",
-    'Cf':  "Other, Format",
-    'Cn':  "Other, Not Assigned",
-    'Co':  "Other, Private Use",
-    'Cs':  "Other, Surrogate",
-
-=item * L: Letter (includes syllabary and ideographic characters)
-    'LC':  "Letter, Cased (includes Ll Lt Lu)",
-    'Ll':  "Letter, Lowercase",
-    'Lm':  "Letter, Modifier",
-    'Lo':  "Letter, Other",
-    'Lt':  "Letter, Titlecase",
-    'Lu':  "Letter, Uppercase",
-
-=item * M: Mark
-    'Mc':  "Mark, Spacing Combining",
-    'Me':  "Mark, Enclosing",
-    'Mn':  "Mark, Nonspacing",
-
-=item * N: Number
-    'Nd':  "Number, Decimal Digit",
-    'Nl':  "Number, Letter",
-    'No':  "Number, Other",
-
-=item * P: Punctuation
-    'Pc':  "Punctuation, Connector",
-    'Pd':  "Punctuation, Dash",
-    'Pe':  "Punctuation, Close",
-    'Pf':  "Punctuation, Final quote",
-    'Pi':  "Punctuation, Initial quote",
-    'Po':  "Punctuation, Other",
-    'Ps':  "Punctuation, Open",
-
-=item * S: Symbol
-    'Sc':  "Symbol, Currency",
-    'Sk':  "Symbol, Modifier",
-    'Sm':  "Symbol, Math",
-    'So':  "Symbol, Other",
-
-=item * Z: Separator
-    'Zl':  "Separator, Line",
-    'Zp':  "Separator, Paragraph",
-    'Zs':  "Separator, Space",
-
-=back
-
-=item Literal: The character itself. How this shows up depends on your
-terminal program and settings, shell capabilities, etc.
-
-=item Unicode: Shows several ways to express the character. "U+xxxx" is
-commonly used in print; the UTF-8 equivalent is given as a series of hex
-digits; the same UTF-8 is also given with each byte %-escaped as it would
-be in a URL. Finally, there is a note to indicate whether the character is
-allowed or not within URLs (without being escaped); that will show "False"
-for all non-ASCII characters, and for quite a few ASCII punctuation marks.
-
-=item Entities: Shows ways to express the character (other than literally)
-within XML or HTML. If HTML 4 defines a named entity for the character,
-that is shown last (otherwise, "None")
-
-=item Unix jargon: This shows traditional ways of referring to the character
-other than the official Unicode name (if any).
-
-=item Numeric value: Many unicode characters represent numbers. The most
-obvious are the digits 0-9, but there are also
-digits in many other scripts;
-circled, parenthesized, superscript, or otherwise special digits;
-Roman Numerals; fractions; and so on. This line gives the numeric
-value associated with the character. For some fractions such
-as 1/7, the value is approximate. A few characters that one might expect
-to have numeric values, such as pi and Euler's constant. do not.
-
-=item Is Bidi:
-
-=item Is Combining:
-
-=item ea width:
-
-=item Mirror:
-
-=item Decompose: What other character(s) this character could be
-broken into, with little or no loss of meaning. For example, the ff ligature
-shown above can be decomposed to two regular "f"s,
-or "PARENTHESIZED NUMBER TWENTY" can be decompsed to "(20)".
-
-=item Normalizations: Unicode defines 4 different "normalized" forms
-(they are availabe in Python via C<unicodedata.normalize(form, u'...')>),
-the documentation for which says
-(at L<https://docs.python.org/2/library/unicodedata.html>:
-
-    For each character, there are two normal forms: normal form C and normal form D. Normal form D (NFD) is also known as canonical decomposition, and translates each character into its decomposed form. Normal form C (NFC) first applies a canonical decomposition, then composes pre-combined characters again.
-
-    In addition to these two forms, there are two additional normal forms based on compatibility equivalence. In Unicode, certain characters are supported which normally would be unified with other characters. For example, U+2160 (ROMAN NUMERAL ONE) is really the same thing as U+0049 (LATIN CAPITAL LETTER I). However, it is supported in Unicode for compatibility with existing character sets (e.g. gb2312).
-
-    The normal form KD (NFKD) will apply the compatibility decomposition, i.e. replace all compatibility characters with their equivalents. The normal form KC (NFKC) first applies the compatibility decomposition, followed by the canonical composition.
-
-=back
-
-Compatibility composition does I<not> merge characters such as uupercase
-English A and Greek alpha, or even soft hyphen. However, forms NKFC and
-NFKD do normalize non-breaking space to regular space.
-
-=head1 Known bugs and limitations
-
-
-=head1 Related commands
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-=cut
-"""
-    gunk = re.sub(r'[\n\r\t -~]+', '', descr)
-    if (gunk):
-        print("*****Found some non-ASCII in the help: *****\n%s" % (gunk))
-        sys.exit()
-
     def anyInt(x):
-        return int(x,0)
+        return int(x, 0)
 
     def processOptions():
         parser = argparse.ArgumentParser(
@@ -1671,7 +1658,8 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
         parser.add_argument(
             "--category",          type=str, default=None,
             choices=sorted(unicodeCategories.keys()),
-            help='List characters in the specified 2-letter category.')
+            help="""List characters in the specified 2-letter category.
+            See also showUnicodeCharsInClass.py.""")
         parser.add_argument(
             "--python",            action='store_true',
             help='Make --cat write Python tuples, not just messages.')
@@ -1687,7 +1675,7 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
             help='Display version information, then exit.')
 
         parser.add_argument(
-            'charSpecs',             type=anyInt,
+            'charSpecs',           type=anyInt,
             nargs=argparse.REMAINDER,
             help='Unicode code point numbers (base 8, 10, or 16).')
 
@@ -1710,12 +1698,12 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
                 nam = unicodedata.name(c)
             except ValueError as e:
                 if (args.verbose): sys.stderr.write(
-                    u"No name for char '%s' (U+%04x)\n" % (c, codePoint))
+                    u"No name for char '%s' (U+%05x)\n" % (c, codePoint))
                 continue
             if (args.python):
-                print("    ( 0x%04x, '%s',\t\"%s\" )," % (codePoint, c, nam))
+                print("    ( 0x%05x, '%s',\t\"%s\" )," % (codePoint, c, nam))
             else:
-                print("U+%04x: '%s' %s" % (codePoint, c, nam))
+                print("U+%05x: '%s' %s" % (codePoint, c, nam))
             found += 1
         print("\nCharacters found in category '%s' (%s): %d." %
             (args.category, unicodeCategories[args.category], found))

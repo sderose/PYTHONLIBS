@@ -7,6 +7,8 @@
 import sys
 import re
 from collections import defaultdict, OrderedDict, deque, Counter
+from collections.abc import Iterable
+from datetime import date, time, datetime
 
 __metadata__ = {
     'title'        : "nanox.py",
@@ -24,10 +26,21 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
-Make an XML equivalent of JSON i/o for Python,
-to make it equally trivial to make slightly better data.
+Make an XML serialization for Python data structures,
+making it as easy to use as JSON, but more capable.
+
+Some of the advantages:
+
+* handles subclasses of collections types
+* has a notion of objects and object references
+* distinguishes int, float, complex, and date/time types
+* can easily apply entire XML ecosystem, such as XSLT tranforms, validation, etc.
+* easy to format even with browsers.
 
 Modelled on [https://docs.python.org/3/library/json.html].
+
+NOTE: This is for serializing Python data and getting it back, not for
+"Pythonifying" general XML data. For that, see Xml2Json, BaseDom, etc.
 
 ''Not thoroughly tested yet''
 
@@ -58,21 +71,35 @@ The following keyword arguments are common to all of the above calls (but not
 shown above, for brevity). They have the same meaning in nanox:
 
 * skipkeys=False -- Skips dict keys that are not str, int, float, bool, or None.
+In `nanox`, "skipping" means such keys are replaced by "???" and some hex value
+so they're all different, rather than discarding the entries altogether or
+giving them all the same dummy key (which risks losing them on import later).
 
-* ensure_ascii=True -- Hex-code all non-ASCII characters.
+* ensure_ascii=True -- Code all non-ASCII characters as hex character references.
 
 * check_circular=True -- Test for circularity (not yet supported here).
+(TODO)
 
-* allow_nan=True -- If false, do not output NaN, -inf, or +inf.
+* allow_nan=True -- If false, do not output NaN, -inf, or +inf (instead,
+ValueError is raised).
+If true, output them as "Nan", "-inf", and "+inf".
 
-* indent=None --
+* indent=None -- Set this to an integer (maybe 4) to get pretty-printed XML
+output, with each nested level indented by that many more spaces.
 
-* separators=None -- For JSON, this indicates whether to use (', ', ': ') or something else, such as (',', ':') as key and item separators. In Nanox,
+* separators=None -- For JSON, this indicates whether to use (', ', ': ') or something else, such as (',', ':') as key and item separators. Not used. An option may be added
+(TODO) to allow changing the XML element and attributes names mapped to various
+Python datatypes and properties.
 
-* default=None --
+* default=None -- Can be set to a function that will be called for any data item
+that cannot be serialized by this package. It will be passee that item, and should
+return something that ''is'' serializable (or raise TypeError if it cannot).
+If no such function is provided, or if it returns an object that is still
+unserializable, this package will likewise raise TypeError.
+(TODO)
 
-* sort_keys=False --
-
+* sort_keys=False -- If Set, `dict` and its subclasses will be serialized in
+order of their keys.
 
 ==Input==
 
@@ -87,7 +114,7 @@ class nanox.NANOXEncoder(*, object_hook=None, parse_float=None, parse_int=None, 
 
 =Why?=
 
-* Can distinguish more precise datatypes than JSON (int, float, complex,....),
+* Can distinguish more precise datatypes than JSON.
 while still allowing fallback for naive importers.
 * Can retain subclass information.
 * Can export instances of classes and rebuild them on import.
@@ -139,10 +166,11 @@ In addition, NANOX supports:
 
     Python        NANOX
     ------        -----
-    complex       <c r="%f" j="%f"/>
+    complex       <c r="%f" j="%f" />
+    datetime      <t v="2020-02-29T01:02:03Z" />
     object        <object class="foo" id="xyz" flag="1"...>
                       <item n="fname"><s>Smith</s></item>...</object>
-    reference     <objref rid="xyz"/>
+    reference     <objref rid="xyz" />
 
 objects have their actual class identified by the `subclass` attribute. On export,
 their `dir` is traversed and exported as if the objects were a `dict`. However,
@@ -157,6 +185,7 @@ And coming eventually:
 
 =Known bugs, limitations, and to-do items=
 
+Functionality
 * Haven't really thought through non-string dict keys (like arbitrary hashables).
 Seems excessive in most cases, to promote them to whole elements. Option?
 * Circularity protection
@@ -164,6 +193,7 @@ Seems excessive in most cases, to promote them to whole elements. Option?
 * NaN, Inf, -0? Support those and other options known to JSON lib.
 * ChainMap? compiled regex undo? Exception classes?
 * namedtuples and frozensets are not yet decoded to the exact right type.
+* dates and times
 
 Compactness:
 * Sparse lists support
@@ -188,6 +218,34 @@ Layout:
 * Should the text of strings move from content to v=""?
 * Should the value attribute have a different name per type?
 * Should this use UL, OL, LI for dict, list, and item?
+* What should happen with items of types like class, type, exception,...?
+* enums?
+* Should there be broad syntactic options, like:
+    <s>foo</s>
+    <s s="foo"/>
+    <v type="str">foo</v>
+    <v type="str" v="foo"/>
+    <b v="True"/>
+    <True/>
+    <b>True</b>
+
+Cf Apple plist 'xml1' form:
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+        <dict>
+            <key>xyz</key>
+            <true/>
+            <key>foo</key>
+            <array>
+                <string>bar</string>
+                <date>2020-02-29T01:02:03Z</date>
+                <integer>baz</integer>
+                <real>3.14</real>
+                <data>base64Stuff</data>
+            </array>
+        </dict>
+    </plist>?
 
 =History=
 
@@ -212,52 +270,87 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 
 
 ###############################################################################
+# TODO: switch to enums?
 #
 class TagName:
     """Map internal categories, to XML tags used to serialize them.
     """
     _root     = 'nanox'
-    _dict     = 'dict'       # or ul?
-    _list     = 'list'       # or ol?
-    _object   = 'object'
-    _str      = 's'
+
+    _NoneType = 'NULL'
+    _bool     = 'b'
     _int      = 'i'
-    _float    = 'f'          # Avoid due to F for False?
+    _float    = 'f'         # Avoid due to F for False?
     _complex  = 'c'
+    _datetime = 't'
+    _str      = 's'
     _objref   = 'objref'
-    _True     = 'T'          # Maybe <b v="[01]"/> instead?
-    _False    = 'F'
-    _None     = 'NULL'
+
     _item     = 'item'
 
-    nameIndex = {}
+    _list     = 'list'      # or ol?
+    _dict     = 'dict'      # or ul?
+    _object   = 'object'
+
+    ourNameToTagName = {}
+    tagNameToOurName = {}
+
+    def __init__(self):
+        pass
 
     @staticmethod
-    def getOurName(aTagName):
-        if (len(TagName.nameIndex) == 0):
-            for k, v in TagName.__dict__.items():
-                if (k[0] != '_' or k[1] == '_'): continue
-                TagName.nameIndex[v] = k
-        if (aTagName in TagName.nameIndex): return TagName.nameIndex[aTagName]
+    def getTagName(ourName):
+        if (ourName in TagName.ourNameToTagName):
+            return TagName.ourNameToTagName[ourName]
         return None
+
+    @staticmethod
+    def objToTagName(someData):
+        ourName = '_' + type(someData).__name__
+        if (ourName in TagName.ourNameToTagName):
+            return TagName.ourNameToTagName[ourName]
+        return None
+
+    @staticmethod
+    def getOurName(tagName):
+        if (tagName in TagName.tagNameToOurName):
+            return TagName.tagNameToOurName[tagName]
+        return None
+
+
+def setupTagName():
+    #print("Trying to set up....")
+    for our, tag in TagName.__dict__.items():
+        if (our[0] != '_' or our[1] == '_'): continue
+        #print("    Setting %-12s = %-12s (type %s)" % (our, tag, type(tag)))
+        TagName.ourNameToTagName[our] = tag
+        TagName.tagNameToOurName[tag] = our
+
+setupTagName()
+#print("ourNameToTagName: %s" % (TagName.ourNameToTagName))
+#print("tagNameToOurName: %s" % (TagName.tagNameToOurName))
+#sys.exit()
 
 
 ###############################################################################
 #
 class TagGroup:
     _root     = 'COLLECTION'
-    _dict     = 'COLLECTION'  # or ul?
-    _list     = 'COLLECTION'  # or ol?
-    _object   = 'COLLECTION'
-    _str      = 'SCALAR'      # But oddly, not an empty element.
+
+    _NoneType = 'SCALAR'
+    _bool     = 'SCALAR'
     _int      = 'SCALAR'
-    _float    = 'SCALAR'      # Avoid due to F for False?
+    _float    = 'SCALAR'
     _complex  = 'SCALAR'
+    _datetime = 'SCALAR'
+    _str      = 'SCALAR'      # But oddly, not an empty element.
     _objref   = 'SCALAR'
-    _True     = 'CONST'
-    _False    = 'CONST'
-    _None     = 'CONST'
+
     _item     = 'DICTITEM'    # A named member of a dict (contains value)
+
+    _list     = 'COLLECTION'  # or ol?
+    _dict     = 'COLLECTION'  # or ul?
+    _object   = 'COLLECTION'
 
     def __init__(self):
         self.placeHolder = 1
@@ -306,13 +399,18 @@ def emptyTag(s:str, attrs:dict=None):
             attList += ' %s="%s"' % (k, NANOXEncoder.escQuote(str(v)))
     return '<%s%s />' % (s, attList)
 
-def endTag(s:str):
+def endTag(s:str, shortTag=False):
+    if (shortTag): return '</>'
     return '</%s>' % (s)
 
 
 ###############################################################################
 #
 class nanox:
+    """Serialize Python data to XML. Like json library but does a much wider
+    variety of types, and keeps information such as subclasses. Also will (or
+    soon will) support sparse lists and other stuff.
+    """
     @staticmethod
     def dump(obj, *, skipkeys=False, ensure_ascii=True, check_circular=True,
         allow_nan=True, cls=None, indent=None,
@@ -354,7 +452,9 @@ class NANOXEncoder:
         allow_nan=True, sort_keys=False, indent=4,
         separators=None, default=None,
         xmlDecl=True, doctype=None,
-        sparseLists=False, sortDict=False, ignoreCase=True, **kw
+        sparseLists=False, sortDict=False, ignoreCase=True,
+        compact=False, shortTag=False,
+        **kw
         ):
         """NOTE: This is not protected against circular structures, except
         by 'maxDepth'.
@@ -382,6 +482,8 @@ class NANOXEncoder:
             'sparseLists'   : sparseLists,
             'sortDict'      : sortDict,
             'ignoreCase'    : ignoreCase,
+            'compact'       : compact,
+            'shortTag'      : shortTag,
         }
 
         NANOXEncoder.buf = ''
@@ -393,7 +495,7 @@ class NANOXEncoder:
                 brk, options['doctype'], brk)
         NANOXEncoder.buf += '<%s version="%s">' % (TagName._root, options['version'])
         NANOXEncoder.encode_r(obj, options=options)
-        NANOXEncoder.buf += endTag(TagName._root)
+        NANOXEncoder.buf += endTag(TagName._root, options['shortTag'])
         return NANOXEncoder.buf
 
     @staticmethod
@@ -404,12 +506,13 @@ class NANOXEncoder:
         ### CONST cases
         #
         if (btype is None):                                # NONE
-            NANOXEncoder.gen(depth, options, emptyTag(TagName._None))
+            NANOXEncoder.gen(depth, options,
+                emptyTag(TagName._NoneType))
 
         elif (btype == bool):                              # BOOLEAN
-            if (obj): tName = TagName._True
-            else: tName = TagName._False
-            NANOXEncoder.gen(depth, options, emptyTag(tName))
+            pval = '1' if (obj) else '0'
+            NANOXEncoder.gen(depth, options,
+                emptyTag(TagName._bool, { AttrName._value: pval }))
 
         ### Scalars that fit on an attributes
         #
@@ -424,6 +527,10 @@ class NANOXEncoder:
         elif (btype == complex):                           # COMPLEX
             NANOXEncoder.gen(depth, options, emptyTag(TagName._complex, attrs= {
                 AttrName._realPart: obj.real, AttrName._imagPart: obj.imag }))
+
+        elif (btype == datetime):                           # DATES and TIMES
+            NANOXEncoder.gen(depth, options, emptyTag(TagName._datetime, attrs= {
+                AttrName._value: obj.isoformat() }))
 
         ### Scalars that go in content (move to attr?)
         #
@@ -443,7 +550,7 @@ class NANOXEncoder:
             NANOXEncoder.gen(depth, options, startTag(TagName._list, attrs=attrs))
             for n, v in enumerate(obj):
                 NANOXEncoder.encode_r(v, options, depth=depth+1)
-            NANOXEncoder.gen(depth, options, endTag(TagName._list))
+            NANOXEncoder.gen(depth, options, endTag(TagName._list, options['shortTag']))
 
         elif (btype == dict):                              # DICT
             attrs = {}
@@ -465,12 +572,23 @@ class NANOXEncoder:
             if (options['sortDict']):
                 if (options['ignoreCase']): theKeys.sort(key=str.lower)
                 else: theKeys.sort()
-            for n in (theKeys):
-                NANOXEncoder.gen(depth, options,
-                    startTag(TagName._item, attrs={ AttrName._key: n }))
-                NANOXEncoder.encode_r(obj[n], options, depth=depth+1)
-                NANOXEncoder.gen(depth, options, endTag(TagName._item))
-            NANOXEncoder.gen(depth, options, endTag(TagName._dict))
+            for k in (theKeys):
+                k2 = k
+                if (options['skipkeys'] and
+                    not isinstance(k, (str, int, float, bool, None))):
+                    k2 = "???%x" % (id(k))
+                if (options['compact'] and not NANOXEncoder.emptyable(obj[k])):
+                    vAttrName = TagName.objToTagName(obj[k])
+                    NANOXEncoder.gen(depth, options,
+                        emptyTag(TagName._item,
+                            attrs={ AttrName._key: k2, vAttrName: obj[k] }))
+                else:
+                    NANOXEncoder.gen(depth, options,
+                        startTag(TagName._item, attrs={ AttrName._key: k2 }))
+                    NANOXEncoder.encode_r(obj[k], options, depth=depth+1)
+                    NANOXEncoder.gen(depth, options,
+                        endTag(TagName._item, options['shortTag']))
+            NANOXEncoder.gen(depth, options, endTag(TagName._dict, options['shortTag']))
 
         elif (isinstance(obj, object)):                    # OBJECT
             theKeys = dir(obj)
@@ -491,18 +609,43 @@ class NANOXEncoder:
                      emptyTag(TagName._objref, attrs={ AttrName._rid: id(thing) }))
                 else:
                     NANOXEncoder.encode_r(thing, options, depth+1)
-            NANOXEncoder.gen(depth, options, endTag(TagName._object))
+            NANOXEncoder.gen(depth, options, endTag(TagName._object, options['shortTag']))
 
         else:
             NANOXEncoder.gen(depth, options, ("<!-- PROBLEM -->"))
         return NANOXEncoder.buf
         # end encode
 
+    @staticmethod
+    def emptyable(thing):
+        """Return whether the data item passed, can be stored in an attribute
+        value, and thus put right in an <item/> empty tag instead of as a child
+        (need to indicate the datatype as well, say, by the attribute name).
+        This is part of the 'compact' option.
+
+        NOTE: Strings *are* Iterable according to this, which means the content
+        of <s> could also be moved up. That's probably ok, but should also happen
+        for regular old strings.
+
+        Objects are not Iterable, but we also can't pack them into an attribute,
+        so they should result in False. But everything's an object....
+
+        inspect.isclass ?
+        """
+        print("emptyable for type %s: %s" %
+            (type(thing), not isinstance(thing, (Iterable))))
+        if isinstance(thing, (Iterable)): return False
+        return True
 
     @staticmethod
     def gen(depth:int, options:dict, s:str):
+        """All XML generation goes through here.
+        """
         if (options['indent'] > 0):
             NANOXEncoder.buf += "\n" + (' ' * (options['indent'] * depth))
+        if (options['ensure_ascii']):
+            s = NANOXEncoder.escapeNonASCII(s)
+
         NANOXEncoder.buf += s
 
     @staticmethod
@@ -510,19 +653,6 @@ class NANOXEncoder:
         c = "%s" % (type(obj))
         c = re.sub(r".*'(.*)'.*", "\\1", c)
         return c
-
-    @staticmethod
-    def escContent(s:str):
-        s = s.replace(r'&', '&amp;')
-        s = s.replace(r'<', '&lt;')
-        s = s.replace(r']]>', ']]&gt;')
-        return s
-
-    @staticmethod
-    def escQuote(s:str):
-        s = s.replace(r'&', '&amp;')
-        s = s.replace(r'"', '&quot;')
-        return s
 
     @staticmethod
     def hasHomogeneousKeys(coll):
@@ -575,6 +705,8 @@ class NANOXEncoder:
             return float
         if (isinstance(v, complex)):
             return complex
+        if (isinstance(v, (date, time, datetime))):
+            return datetime
         if (isinstance(v, str)):
             return str
         if (isinstance(v, object)):
@@ -586,6 +718,51 @@ class NANOXEncoder:
             # namedtuple is not exactly a class.....
             return object
         return "UNSUPPORTED"
+
+    @staticmethod
+    def isSpecialFloat(f):
+        """Return float values (NaN, -inf, or +inf, but not -0),
+        as those strings. For normal floats, return False.
+        """
+        from math import isnan, isinf
+        if (isnan(f)): return "NaN"
+        if (isinf(f)):
+            if (f<0): return "-inf"
+            return "+inf"
+        return False
+
+    ###############################################################################
+    # (XML escaping functions, from XmlOutput.py)
+    #
+    @staticmethod
+    def escContent(s:str):
+        s = s.replace(r'&', '&amp;')
+        s = s.replace(r'<', '&lt;')
+        s = s.replace(r']]>', ']]&gt;')
+        return s
+
+    @staticmethod
+    def escQuote(s:str):
+        s = s.replace(r'&', '&amp;')
+        s = s.replace(r'"', '&quot;')
+        return s
+
+    @staticmethod
+    def escapeNonASCII(s):
+        """Turn anything but ASCII printable characters into HTML entity
+        references (if available), or numeric character references.
+        """
+        if (not (s)): return("")
+        rc = ""
+        for i in range(len(s)):
+            n = ord(s[i])
+            if (n<=127 and (n>=32 or n in [ 9, 10, 13 ])):
+                rc += s[i]
+            #elif (s[i] in codepoint2name):  # HTML entities
+            #    rc += "&%s;" % (codepoint2name[s[i]])
+            else:
+                rc += "&#%04x;" % (n)
+        return(rc)
 
 
 ###############################################################################
@@ -630,20 +807,28 @@ def StartElementHandler(name:str, attributes=None):
         nodeStack.append([])
         theObject = nodeStack[0]
 
-    if (name == TagName._None):
+    if (name == TagName._NoneType):
         insertAtStackTop(None)
-    elif (name == TagName._True):
-        insertAtStackTop(True)
-    elif (name == TagName._False):
-        insertAtStackTop(False)
-    elif (name == TagName._float):
-        insertAtStackTop(float(attributes[AttrName._value]))
+    elif (name == TagName._bool):
+        insertAtStackTop(True if attributes[AttrName._value] else False)
     elif (name == TagName._int):
         insertAtStackTop(int(attributes[AttrName._value]))
+    elif (name == TagName._float):
+        f = float(attributes[AttrName._value])
+        special = NANOXEncoder.isSpecialFloat(f)
+        if (special):
+            if (False):  #options['allow_nan']):
+                f = special  # TODO: scope
+            else:
+                raise ValueError("%s found, but allow_nan is not set." % (special))
+        insertAtStackTop(f)
     elif (name == TagName._complex):
         insertAtStackTop(complex(
             float(attributes[AttrName._realPart]),
             float(attributes[AttrName._imagPart])))
+    elif (name == TagName._datetime):
+        insertAtStackTop(datetime(attributes[AttrName._value]))
+
     ####
     elif (name == TagName._str):
         trace(0, "STRING FAIL")
@@ -666,6 +851,7 @@ def StartElementHandler(name:str, attributes=None):
             theNewList = []
         insertAtStackTop(theNewList)
         nodeStack.append(theNewList)
+
     elif (name == TagName._dict):
         subclass = ''
         if (AttrName._subclass in attributes):
@@ -686,6 +872,7 @@ def StartElementHandler(name:str, attributes=None):
             theNewDict = {}
         insertAtStackTop(theNewDict)
         nodeStack.append(theNewDict)
+
     elif (name == TagName._object):  # TODO: add props and vars
         subclass = ''
         if ('subclass' in attributes): subclass = attributes['subclass']
@@ -696,6 +883,7 @@ def StartElementHandler(name:str, attributes=None):
 
     else:
         trace(0, "Unknown incoming element: '%s'." % (name))
+
     return
 
 def insertAtStackTop(value):
@@ -748,6 +936,9 @@ if  __name__ == "__main__":
             #formatter_class=MarkupHelpFormatter
         )
         parser.add_argument(
+            "--compact",           action='store_true',
+            help='Make things smaller.')
+        parser.add_argument(
             "--iencoding",         type=str, default='utf-8',
             help='Assume this input character encoding.')
         parser.add_argument(
@@ -794,8 +985,10 @@ if  __name__ == "__main__":
     }
 
     print("\n******* encoding some data *******")
-    theXML = NANOXEncoder.encode(a)
+    theXML = NANOXEncoder.encode(a, compact=args.compact)
     print(theXML)
+
+    if (args.quiet): sys.exit()
 
     print("\n\n%s\n" % ('#' *79))
     d = defaultdict(int)

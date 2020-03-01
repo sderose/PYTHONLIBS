@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# DomExtensions: A bunch of useful additions to the DOM API.
+# DomExtensions: A bunch of (hopefully) useful additions to the DOM API.
 #
 #pylint: disable=W0613, W0212
 #
@@ -676,6 +676,7 @@ def DEgetitem(self, n1, n2=None, n3=None):
     TODO: Perhaps allow name ".." for ancestor axis?
     TODO: Perhaps extend [] to support jQuery-style CSS selectors?
     TODO: Perhaps allow regexes for name?
+    TODO: Perhaps move attrs to setAttr space, access w/ . notation....
 
     For example:
         myElement['p']       get the 1st 'p' child as a scalar

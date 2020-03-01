@@ -27,7 +27,7 @@ from alogging import ALogger
 
 import xml.dom
 import xml.dom.minidom
-import DomExtensions
+from DomExtensions import DomExtensions
 
 
 __version__ = "2018-08-16"
@@ -103,7 +103,7 @@ class XmlNlpLoad:
                 theDOM.untagByTagName(etype)
         if (self.mergeElements):
             for fromType, toType in self.mergeElements.items():
-                theDOM.renameByTagName(fromType, ToType)
+                theDOM.renameByTagName(fromType, toType)
         self.theDOM.addElementSpaces(self.noSpaceElements)
 
         self.theDOM = theDOM
@@ -114,4 +114,4 @@ class XmlNlpLoad:
         nodes = self.theDOM.getElementsByTagName(etype)
         texts = []
         for node in nodes:
-            text.push(node.innertext)
+            texts.append(node.innertext)
