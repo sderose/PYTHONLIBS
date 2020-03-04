@@ -7,14 +7,8 @@ import sys
 import os
 import re
 import argparse
-#import inspect
 import random
 import time
-#import string
-#import unicode
-#import math
-#import subprocess
-#import traceback
 
 import ColorManager
 from alogging import ALogger
@@ -26,7 +20,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2011-12-09",
-    'modified'     : "2018-11-27",
+    'modified'     : "2020-03-02",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -56,116 +50,82 @@ statistics, color, and a simpler (although much less flexible) structure:
     lg.vIndent()
     ...
 
-A nearly identical sjdUtils.pl is also available for Perl.
+A nearly identical `sjdUtils.pl` is also available for Perl.
 
 
 =for nobody ================================================================
 
 =Methods=
 
-=head2 General methods
-
-=over
+==General methods==
 
 * '''sjdUtils'''(verbose=0, colors=False)
 
 Constructor.
 
 * '''getOption''' ''(name)''
-
 Get the value of option ''name'', from the list below.
 Returns C<None> if you try to get an unknown option.
 
 * '''setOption''' ''(name, value)''
-
 Set option ''name'', from the list below, to ''value''.
 
 * '''setVerbose''' ''(value)''
-
 Tell the logger to set its level of reporting to ''value'' (higher=more).
 
 * '''getVerbose''' ''()''
-
 Return the logger's level of reporting.
 
 
-=for nobody ===================================================================
-=for nobody =========================== setOptions names
-
-=over
-
-* Option: ''colorEnabled''
-
+** Option: ''colorEnabled''
 Globally enables/disables use of color.
 Scripts may wish to set this to True if environment variable ''USE_COLOR'' is
 set and the relevant output is going to a terminal.
 See also the ''setColors''() method, below.
 
-* Option: ''defaultEncoding''
-
+** Option: ''defaultEncoding''
 Set the name of the character encoding to be used when not otherwise specified.
 
-* Option: ''loremText'' (string)
-
+** Option: ''loremText'' (string)
 The text to be returned by ''lorem(type='a')''.
 This should be a Python 2.x "str" (single-byte only).
 Default: the usual ''lorem ipsum...''.
 
-=back
-
-=back
-
-
 
 =for nobody ===================================================================
 
-=head2 XML-related methods
+==XML-related methods==
 
-=over
-
-* '''indentXml'''(s, iString="  ", maxIndent=0, breakAttrs=0, elems={}, html=False)
+=* '''indentXml'''(s, iString="  ", maxIndent=0, breakAttrs=0, elems={}, html=False)
 
 Re-flow the XML string ''s'' to outline form, using repetitions of ''iString''
 to create indentation (up to a maximum of ''maxIndent'' levels.
 If ''breakAttrs'' is true, put each attribute on a separate line, too.
 
- ''elems'' is a dictionary that maps each element type name to either
+''elems'' is a dictionary that maps each element type name to either
 C<block> or C<indent>, and affects line-breaking accordingly.
 
 * '''indentXML''' -- synonym for '''indentXml'''.
 
 * '''colorizeXmlTags(s, color="")'''
-
 Surround XML markup with ANSI terminal escapes to display it
 in the specified color. Default: the color for the "x" message type.
 See also the ''ColorManager'' class, described below.
 
 * '''colorizeXmlContent(s, color="")'''
-
 Surround XML content (not markup) with ANSI terminal codes to display
 it in the specified color. Default: the color for the "x" message type.
 
- ''See XMLConstructs packge for relevant 'isa' functions for character classes.''
+''See XMLConstructs packge for relevant 'isa' functions for character classes.''
 
 
-=for nobody ===================================================================
-
-=head2 JSON-related methods
-
-=over
+==JSON-related methods==
 
 * '''indentJson(s, iString="    ", maxIndent=0)'''
-
 Like ''indentXml'', but for JSON.
 
-=back
 
-
-=for nobody ===================================================================
-
-=head2 Simple string-formatting methods
-
-=over
+==Simple string-formatting methods==
 
 * '''rpad(s, width=0, padChar=" ", quoteChar="")'''
 
@@ -248,70 +208,51 @@ If ''curly'' is True, use curly quotes (U+201c and U+201d) instead of straight.
 Other quote types are not currently supported, and curly ones are not
 escaped by ''escape''.
 
-=back
 
-
-=for nobody ===================================================================
-
-=head2 Unicode stuff
+==Unicode stuff==
 
 If running in Python 3, it defines C<unichr> to just be C<chr> so it
 still works.
 
-=over
-
-'''isUnicodeCodePoint'''(c)
+* '''isUnicodeCodePoint'''(c)
 
 Return whether the character is a valid Unicode code point.
 This isn't terribly smart yet.
 
-'''strip_accents'''(s)
+* '''strip_accents'''(s)
 
 Remove diacritics from the string ''s''. This is done by normalizing ''s''
 to "NFD" (thus separating diacritics from their base character
  ''where possible'', and then stripping non-spacing marks. This does not
 convert things like "LATIN SMALL LETTER L WITH STROKE", however.
 
-'''[Useful constants]'''
+* '''[Useful constants]'''
 
 The following variables are Unicode strings containing the relevant characters:
 
-=over
+** '''UQuotes''' -- All quotation-mark characters
 
-'''UQuotes''' -- All quotation-mark characters
+** '''ULSQuotes''' -- Left single quotes
 
-'''ULSQuotes''' -- Left single quotes
+** '''ULDQuotes''' -- Left double quotes
 
-'''ULDQuotes''' -- Left double quotes
+** '''ULQuotes''' -- Left quotes
 
-'''ULQuotes''' -- Left quotes
+** '''URSQuotes''' -- Right single quotes
 
-'''URSQuotes''' -- Right single quotes
+** '''URDQuotes''' -- Right double quotes
 
-'''URDQuotes''' -- Right double quotes
-
-'''URQuotes''' -- Right quotes
-
-=back
-
-=back
-
-=for nobody ===================================================================
-
-=head2 Miscellaneous methods
-
-=over
-
-'''isNumeric()'''
-
-'''isInteger()'''
-
-=back
+** '''URQuotes''' -- Right quotes
 
 
-=head2 Escaping methods
+==Miscellaneous methods==
 
-=over
+* '''isNumeric()'''
+
+* '''isInteger()'''
+
+
+==Escaping methods==
 
 * '''getUTF8'''
 
@@ -360,14 +301,8 @@ Replace %FF style escapes (as used in URIs) with literal characters.
 You can change ''escapeChar'' to use it for other things, like '=' for MIME.
 '''Warning''': May not work for Unicode yet.
 
-=back
 
-
-=for nobody ===================================================================
-
-=head2 Other (miscellaneous) methods
-
-=over
+==Other (miscellaneous) methods==
 
 * '''isoDateTime(t?)'''
 
@@ -423,29 +358,20 @@ The script will look for existing files whose names match this pattern
 (shell globs are not supported!).
 What filename is then returned, depends on the ''which'' parameter:
 
-=over
-
-* '''next''': the file with number one greater than the
+** '''next''': the file with number one greater than the
 last extant file, is returned. '''Warning''': If this overflows into
 the ''width''+1st digit, the longer name is quietly returned.
 
-* '''firstfree''': the first such filename that does not
+** '''firstfree''': the first such filename that does not
 exist is returned. There could be additional files with greater numbers.
 
-* '''lastappend''': the last existing file if
+** '''lastappend''': the last existing file if
 it is appendable, otherwise the first such file that does not exist.
 
-=back
-
-'''Note''': On many file systems, directories with more than about 1000 files
+* '''Note''': On many file systems, directories with more than about 1000 files
 in them get really slow. This method is still experimental.
 See also the C<incrementFilename.py> command.
 
-=back
-
-
-
-=for nobody ================================================================
 
 =The ColorManager class=
 
@@ -459,9 +385,6 @@ which supercedes anything in specific scripts (they ''should'' match).
 A dictionary of the usable names is in C<colorStrings>; a printable
 form can be retrieve via ''getColorStrings()'', or a printable list
 via ''tostring()''.
-
-
-=over
 
 * '''__init__(effects=None)'''
 
@@ -511,10 +434,6 @@ Remove any ANSI terminal color escapes from ''s''.
 Return the length of ''s'', but ignoring any ANSI terminal color strings.
 This is just shorthand for C<len(uncolorize(s))>.
 
-=back
-
-
-=for nobody ================================================================
 
 =Known bugs and limitations=
 
@@ -551,7 +470,7 @@ indentJSON should use strip() or similar.
 * 2012-01-30 sjd: Fix color escapes.
 * 2012-02-24 sjd: Add calls to 'inspect' to report error locations.
 * 2012-02-27 sjd: Add getVerbose(), text arg to _warn methods. Add warn().
- Generalize message types.
+Generalize message types.
 * 2012-04-11 sjd: Sync with Perl version.
 * 2012-11-01 sjd: Add indentJson(). Drop targetFile. Add vMsg, etc.
 * Sync more w/ Perl version: xml type checks,....
@@ -561,23 +480,23 @@ indentJSON should use strip() or similar.
 * 2013-03-25 sjd: Implement vDepth indenting, add pline().
 * 2013-06-28 sjd: Partial sync w/ Perl version.
 * 2014-04-22: Add getVerbose. Fix SUset for 'verbose'. Sync msgTypes w/ Perl.
- Fiddle with messaging.
+Fiddle with messaging.
 * 2014-06-09ff: Improve indentJson. Add synonym indentJSON, availableFileNum.
 * 2014-06-1f: Improve availableFileNum.
 * 2014-07-01: Add setOption/getOption synonym, clean up traceback a little.
 * 2014-07-17: Fix colorEnabled. Sync vPush() etc. w/ Perl version.
 * 2014-09-05: Add toUTF8(), handle unicode messages, add types for lorem().
 * 2014-12-17: Add 'stat' parameter to eMsg, vMsg, hMsg, Msg to keep count of
- named statistics. Also add bumpStat(), getStat(), showStatS().
+named statistics. Also add bumpStat(), getStat(), showStatS().
 * 2015-01-15f: Improve stats handling/escaping. Add appendStat(), expandXml().
 * 2015-03-26: Clean up defineMsgType(). Add 'infix' argument for messages.
 * 2015-07-27: Add Python logger-like message calls, with fill-ins.
 * Add uncoloredLength, make pline() ignore color escapes.
 * 2015-10-13f: Move messaging support into separate 'alogging' package,
 * which has been ported to sit on top of Python's 'logging' package.
- Split color to internal class. Add XMLExprs() class.
- Add quote/unquote methods. Remove teefile option. Implement try_module().
- Write unit tests and fix several bugs. Add HNumber 'base' arg.
+Split color to internal class. Add XMLExprs() class.
+Add quote/unquote methods. Remove teefile option. Implement try_module().
+Write unit tests and fix several bugs. Add HNumber 'base' arg.
 * 2016-09-09: Add strip_accents().
 * 2016-10-04: Move more stuff into XMLConstructs class (nee XMLExprs).
 * 2016-10-31: Move ColorManager out to be a separate package.
@@ -602,9 +521,6 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 =Options=
 """
 
-# Make Python 2 and 3 a bit more similar....
-# See http://python-future.org/compatible_idioms.html
-#
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
 if PY2:

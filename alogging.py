@@ -3,23 +3,6 @@
 # alogging: messaging, logging, and statistics features from sjdUtils.py.
 # Fairly compatible with Python's Logging package.
 #
-# 2011-12-09: Port from Perl to Python by Steven J. DeRose.
-# (... see sjdUtils.py)
-# 2015-10-13: Split messaging features from sjdUtils to new ALogger.
-#     Integrate with Python 'logging' package.
-# 2015-12-31ff: Improve doc.
-# 2018-04-02: Add 'direct' option to make Anaconda Nav happier.
-# 2018-07-29: Add showSize option to formatRec.
-# 2018-08-07: Add quoteKey and keyWidth options to formatRec().
-# 2018-08-17: Add maxItems option to formatRec().
-#
-# To do:
-#     Protect formatRec() against circular structures.
-#     Change all callers away from eMsg(), then delete method.
-#     Option to get rid of "INFO:root:" prefix from logging package.
-#     Allow %(name) references to caller's variables??
-#     hMsg not printing? should info/warn/error use indent?
-#
 from __future__ import print_function
 import sys
 import os
@@ -31,21 +14,720 @@ from collections import defaultdict
 #import string
 #import argparse
 
-PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
-if PY2:
-    string_types = basestring
-else:
-    string_types = str
+if PY3:
     def unichr(n): return chr(n)
     def unicode(s, encoding='utf-8', errors='strict'): return str(s, encoding, errors)
+    basestring = str
+    unicode = str
 
-____version____ = "2018-07-29"
+__metadata__ = {
+    'title'        : "alogging.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2011-12-09",
+    'modified'     : "2020-03-02",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
 
-try:
-    x = unichr(0x0a)
-except NameError:
-    def unichr(n): return chr(n)
+###############################################################################
+#
+descr = """
+=Description=
+
+A logging facility, largely compatible with Python 'logging.Logger'.
+Derived from sjdUtils.py's messaging methods.
+
+=Extra features compared to logging.Logger:=
+
+* Strong support for ANSI terminal color
+
+* Controllable indentation levels for messages
+
+* Defined named message types, with their own layouts
+
+* Traditional *nix-style C<-v> verbosity levels
+
+* Better Unicode and non-printable char handling
+
+* Option to bump a counter for any/all messages, making it easy
+to keep and report error statistics
+
+=Usage=
+
+    import alogging
+    lg = alogging.ALogger()
+
+    lg.warn(msg)
+    lg.vMsg(2, msg1, msg2, color='red', stat='Input too long')
+
+`warn`, `info`, `error`, `fatal`, `exception`, and `critical` work
+like in Python `logging.warn()`, except that there is only one context,
+and they accept an optional `stat` parameter (see below).
+
+==vMsg and its kin==
+
+`vMsg` takes an integer verbosity level, and only displays a message if the
+current verbosity level is at least that high. This is typically controlled
+by passing 0 or more `-v` options on a command line. It also allows a 2nd
+message parameter, just for flexibility (probably should change to allow any
+number).
+
+`stat` takes an optional string for the name of a counter to increment. This
+can be handy for tracking how many times various messages occur. Separate
+messages can, if desired, increment the same-named stat counter.
+The named stats are created as needed.
+Other useful `stat` methods include (more detailed discussion appear later):
+
+* `getStat('name')`
+* `bumpStat('name')`
+* `bumpStat('name', newCounterValue)`
+* `setStat('name', newCounterValue)`
+* `appendStat(self, stat, datum)` -- converts the stat to a list if it isn't
+already, and appends `datum` to the list.
+* `showStats()`
+* `setOption('noMoreStats', True)` -- this will prevent any new stat names
+from being accepted (causing an exception on any such attempt).
+
+You can control indentation level messages with `MsgPush()` and `MsgPop()`
+
+Verbosity can be set with `B<setOption("verbose", n)>` or `setVerbose(n)`.
+There are many other options as well.
+
+`vMsg` signifies a
+verbose or informational message; `eMsg` works the same but is used for errors,
+while `hMsg` is used for headings. They have slightly different formatting
+characteristics, which can be set independently.
+
+`MsgRule(v=0, color=None, width=79)` prints a horizontal rule.
+
+You can also call the underlying `Msg(self,msgType,...)` directly, with
+a msgType of 'v', 'e', or 'h', or with another msgType that you define
+using defineMsgType()
+
+==defineMsgType(self, msgType, color=None, nLevels=0, func=None,
+        prefix=None, infix=None, suffix=None, escape=None, indent=None)==
+
+This defines a new message type, that you can issue with `Msg(msgType...)`.
+Option set various formatting characteristics:
+
+* `msgType` --
+* `color=None` --
+* `nLevels=0` --
+* `func=None` --
+* `prefix=None` --
+* `infix=None` --
+* `suffix=None` --
+* `escape=None` --
+* `indent=None` --
+
+==formatRec(self, obj, showSpecials=False,
+        maxDepth=3, maxItems=0, showSize=True, quoteKeys=False, keyWidth=14)==
+
+This will fairly nicely format any (?) Python object. It knows about the basic
+scalar and collection datatypes, and for objects it knows to show their
+non-callable properties.
+
+* `obj` -- The data to be displayed.
+* `showSpecials=False` --
+* `maxDepth=3` -- Limit how far down nested collections will be displayed.
+* `maxItems=0` -- Limit how many items of a long list will be displayed.
+* `showSize=True` -- Display len() for collection objects.
+* `quoteKeys=False` -- Put quotes around the keys of dicts.
+* `keyWidth=14` -- Allow this much room for dict keys, in trying to line things up.
+
+==getLoc(startLevel=0, endLevel=0)==
+
+gets a decently-formatted partial or complete stack trace (not counting internals
+of `alogging` itself).
+
+==getCaller(self)==
+
+Just returns the name of the (direct) caller of alogging, using Python `inspect`.
+
+
+==Notes on speed==
+
+With either this package or Python `logging`,
+calling a logging/messaging method does cost
+time even if the message doesn't end up getting displayed or saved.
+This can be very significant for messages in inner loops.
+It can also be significant if evaluating the ''parameters'' being passed
+is expensive, since that is done before the logging function is actually
+called (so even if the logging function returns instantly the setup time
+is still taken).
+
+You can get reduce such overhead by:
+
+=item (a) removing or commenting out the calls, especially in inner loops.
+You may want to use a profiler to be sure which ones actually matter.
+
+=item (b) putting code under an "if", for example "if (False)", "if (args.verbose)", or even better,
+"if (__debug__)" (which makes them go away when Python is run with the `-O`
+option.
+
+=item (c) Use a preprocesser to remove some/all logging statements
+for production. See the discussion at
+[http://stackoverflow.com/questions/482014].
+
+
+=General Methods=
+
+* B<setVerbose(v)>
+
+The initial verbosity level can be set as a parameter to the constructor.
+This method lets you reset it later.
+Otherwise, messages whose first argument's magnitude
+is greater than ''v'' are discarded (verbosity levels are perhaps best
+thought of as priorities). This means that verbosity runs like `-v` flags in
+many *nix programs, but opposite from Python `logging` levels.
+
+''setVerbose(v)'' is just shorthand for B<setOption("verbose", v)>.
+
+* B<getVerbose>()
+
+Return the current verbosity level (see ''setVerbose'').
+This is just shorthand for B<getOption("verbose")>.
+
+=item B<findCaller(self)
+
+Returns the name of the function or method that called ''findCaller''().
+
+* B<pline(label, n, width=None, dotfill=0, fillchar='.', denom=None)>
+
+Display a line consisting of ''label'' (padded to ''width''),
+and then the data (''n'').
+''width'' defaults to the value of the ''plinewidth'' option.
+The data is displayed in a type-appropriate way after that.
+
+If ''dotfill'' is greater than 0, then every ''dotfill'''th line will use
+''fillchar'' instead of space for padding ''label''. For example,
+''dotfill=3'' makes every third line be dot-filled.
+
+If ''denom'' is greater than 0, another column is displayed, showing ''n/denom''.
+
+=='logging'-like messaging methods==
+
+=The following methods are largely compatible with methods in the Python
+`logging` package. However, there is no tree of instances, just
+an ''ALogger'' object. The format string for each type is kept in
+`msg.formats{typename}`, and defaults to ''%(msg}\\n''.
+These methods are still experimental.
+
+''kwargs'' can be used to provide a dictionary of names whose
+values are filled in to such format strings via ''%(name)''.
+This is only useful if you also set a format
+string that includes references to them. These names are defined by default:
+
+=item B<info(self, msg, *args, **kwargs)
+
+Issues an informational message, like Python `logging`.
+
+=item B<warning(self, msg, *args, **kwargs)
+
+Issues a warning message, like Python `logging`.
+
+=item B<error(self, msg, *args, **kwargs)
+
+Issues an error message, like Python `logging`.
+
+=item B<critical(self, msg, *args, **kwargs)
+
+Issues an critical error message, like Python `logging`.
+
+=item B<debug(self, msg, *args, **kwargs)
+
+Issues a debugging message, like Python `logging`.
+
+=item B<log(self, level, msg, *args, **kwargs)
+
+Issues an otherwise unspecified log message, like Python `logging`.
+
+=item B<exception(self, msg, *args, **kwargs)
+
+Issues an exception message, like Python `logging`.
+
+==Additional messaging methods==
+
+* B<eMsg> ''(level, message1, message2, color, text, stat)''
+
+Shorthand for ''Msg('e'...)'', meant for error messages.
+Specifying a ''level'' less than 0 is fatal.
+B<Deprecated>, replaced by ''warning''(), ''error''(), and ''fatal''().
+
+* B<hMsg> ''(level, message1, message2, color, text, stat)''
+
+Shorthand for ''Msg('h'...)'', meant for headings, which are displayed
+more prominantly. By default, with a blank line and several asterisks in front.
+
+* B<vMsg> ''(level, message1, message2, color, text, stat)''
+
+Shorthand for ''Msg('v'...)'', meant for debugging/tracing messages.
+The levels of messages here, are separate from Logger's implicit
+levels for ''warning'', ''error'', etc.
+
+* B<rMsg(self, color=None, width=n, char='=')>
+
+Draw a (possibly colored) line ("rule") of width ''n'' characters.
+Default ''n'': 80.
+
+* B<Msg> ''(msgType, message1, message2, color, text, stat)''
+
+Issue a message (normally to STDOUT), using the formatting and options defined
+for the given ''msgType''. Types 'e' (error), 'w' (warning),
+and 'h' (header) are provided, and have
+shorthand calls (see following); additional
+types can be defined using ''defineMsgType''().
+
+===Treatment of message with `eMsg`, `vMsg`, `hMsg`, etc.===
+
+The `ALogger`-specific messaging methods do the following:
+
+=item - If the message is not high enough priority compared
+to the ''verbose'' setting, the method simply returns.
+
+B<Important Note>: All ''vMsg'' messages are
+''information''-level as far as ''Logger'' is concerned, and so ''none''
+of them will show up unless you're showing such messages. The ''level''
+argument to ''vMsg'' is a further filter, to support verbosity levels
+as are very common for *nix utilities.
+
+=item - Converts the message to UTF-8.
+
+=item - Adds ''prefix'' before ''m1'',
+''infix'' between ''m1'' and ''m2'', and/or ''suffix'' after ''m2''.
+
+=item - If ''indent'' is True, creates an indent string for
+the level set by ''MsgPush''(), etc., and inserts it:
+
+=over
+
+* before the prefix, and
+
+* after each newline in the prefix, infix, and suffix
+
+=item - If ''func'' is True, inserts the name of the calling function
+before ''m1''.
+
+=item - Colorizes the prefix (including any applicable preprefix, infix,
+and indentation whitespace) and ''m1''.
+
+=item - If ''escape'' is True, passes ''m1'' and ''m2'' through ''showInvisibles'',
+which turns control characters, whitespace, etc. to visible representations.
+
+=item - If ''nLevels'' > 0, appends that many levels of stack-trace information.
+
+=item - Displays the resulting message. It goes to STDERR by default,
+but to STDOUT if the ''stdout'' option is set.
+
+These items can be filled in by a message format:
+
+=item 'function'
+
+=item 'filename'
+
+=item 'index'
+
+=item 'lineno'
+
+=item 'asctime'
+
+=item 'type'
+
+=item 'msg'
+
+==Custom message types==
+
+* B<defineMsgType>(type, color=None, nLevels=None, func=None,
+prefix=None, infix=None, suffix=None, escape=None, indent=None)
+
+Create or modify a named "type" of message.
+Types "v", "e", and "h" are predefined but may be modified.
+Type "x" is reserved.
+
+The parameters other than ''type'' are all optional and default to `None`.
+When a parameter is `None`, the property is left
+unchanged for an already-existing message type.
+However, for an entirely new message type the property is set to
+the corresponding default value shown below:
+
+* ''type'': a name for the type of message, to identify it to ''Msg''().
+Required.
+
+* ''color'': What color to display the message in (if color is enabled).
+Default: `/yellow`.
+Note that the `_Msg` methods can take a `color` argument to override this for
+particular messages.
+
+* ''nLevels'': Number of levels of stack-trace to display
+(not yet supported). Default: `0`.
+
+* ''func'': If True, display the calling function's name.
+Default: `False`.
+
+* ''prefix'': A string to display before the start of each message.
+For example, "h"
+messages prefix "\\n******* ", to make them stand out like headings.
+Default: "".
+
+* ''infix'': A string to display between the parts (''m1'' and ''m2'')
+of each message. For example, one might want ''m2'' always on a separate line,
+and therefore set ''infix'' to `\\n`.
+Default: "".
+
+* ''suffix'': A string to display after the end of each message.
+Default: "".
+
+* ''escape'': Turn non-printable characters in the message to printable.
+This is done using ''showInvisibles''() (q.v.).
+Default: `True`.
+Note that the `Msg` methods accept an `escape` parameter to override this for
+particular messages.
+
+* ''indent'': Whether to indent messages according to the level set
+using ''vPush''(), ''vPop''(), etc.
+Default: `True`.
+
+==Statistics-keeping methods==
+
+This package maintains a list of named "statistics". Typically, each
+one has just a counter, which you increment by passing the static name
+to the `stat"` parameter of any of the messaging calls described in the
+next section. You do not need to declare or initialize such statistics
+(although you can set them all and then set the `noMoreStats` option
+to prevent creating any more).
+
+The statistics can all be printed out (for example, just before your
+main program ends). For example:
+
+    recnum = 0
+    for rec in open(foo, 'r').readline():
+        recnum += 1
+        if (len(rec) > 999):
+            lg.eMsg("Line %d too long (%d characters)." % (recnum, len(rec)),
+                    stat="Too long")
+    lg.setOption('plineWidth', 45)  # Allow space for long stat names
+    lg.showStats()
+
+An B<experimental> feature allows you to use "/" in a stat name, in
+order to group statistics for reporting. If used, such statistics will
+be grouped (well, they would be anyway by alphabetization),
+and indented under the common (pre-/) part, which will be printed
+with the total counts for all stats in the group. This is especially useful
+for defining subtypes of errers, or attaching small data to them. The
+example above could be modified to keep count of all the specific
+excessive record-lengths, by changing the ''eMsg'' call to:
+
+    lg.eMsg("Line %d too long (%d characters)." % (recnum, len(rec)),
+            stat="Too long/%d" % (len(rec))
+
+In addition to the `stat` parameter on various messaging methods, there
+are methods for manipulating the stats independently of messages:
+
+* B<defineStat(self, stat)>
+
+Initialize the given stat (to 0). This is optional (that is, you can just
+mention a stat and it will be created if necessary).
+
+* B<bumpStat(self, stat, amount=1)>
+
+Increment the given stat by the specified ''amount'' (default: 1).
+
+* B<appendStat(self, stat, datum)>
+
+Convert the given stat to a list if it is not one already, and ''append''
+the ''datum'' to the list.
+
+* B<setStat(self, stat, value)>
+
+Set the given stat to the given ''value''.
+
+* B<getStat(self, stat)>
+
+Return the value of the given stat.
+
+* B<showStats(self, zeros=False, descriptions=None, dotfill=0, fillchar='.', onlyMatching='', lists='len')
+
+Display all the accumulated statistics,
+each with its name and then its value.
+Each statistic is printed used ''pline''(), so is subject to the formatting
+described there.
+
+Stats with a value of 0 are not shown unless
+the ''zeros'' parameter is set to True.
+
+If ''descriptions'' is specified, it must be a dict that maps (some or all) of
+the stat names to strings to be printed in place of the name. This is useful
+if you want short/compact names to pass to ''bumpStat'', messaging, or other
+methods that take a stat name; and yet want long, more user-readable
+error descriptions for the report.
+
+B<Note>: See above re. the (experimental) use of "/" in statistic names,
+to group and accumulate more detailed statistics.
+
+''dotfill'': Use dot-fills for readability (@see pline()).
+
+''fillchar'': Use this char as the "dot" for dotfill.
+
+''onlyMatching'': a regex. Only stats whose names match it are displayed.
+
+''lists'': For stats that are lists (see ''appendStat''()), specifies
+how to show those lists:
+
+* 'omit': do not show at all
+
+* 'len': just show the list name and length
+
+* 'uniq': sort and uniqify, then show the list
+
+* 'uniqc': sort and uniqify with count, then show the list
+
+* otherwise: show the whole list
+
+* B<clearStats(self)>
+
+Remove all statistics.
+
+==Additional messaging methods==
+
+This package adds several more calls. The first is simply ''fatal'',
+which issues a ''log''() message with level 60, and then raises an
+exception (if uncaught, this will lead to a stack trace and termination).
+
+The following calls issue their messages via ''info''(),
+and so will not produce visible message if the ''Logger'' level is over 20.
+
+These are mainly for developers or power users, and support
+messages of the kind common for *nix command-line programs, where the
+amount of messaging is increased by using one or more ''-v'' options.
+Thus, the ''verbose'' argument for the following calls ranges from 0
+(for a message that should appear any time the ''Logger'' message allows
+any 'info' messages through); to 1 (for messages that also require at least
+''-v'' on the command line); to 2 (for messages that also require at least
+''-v -v'' on the command line); and so on.
+
+To set the degree of verbosity, use B<setVerbose(n)>. Calling this with n>0
+will test that Logger.isEnabledFor(20) is True; if not, it will call
+Logger.setLevel(20) so that these messages have a chance to get through.
+This means that getting such messages also forces you to get warnings,
+error, and criticals. This seems sensible to the author.
+
+* B<Msg(self, level, msgType='v', color=None, width=79)>
+
+Issues such a message. The ''msgType'' parameter specifies a message ''type''
+either from the predefined list (e, v, h, or x),
+or added using ''defineMsgType''(). A message type can specify:
+
+=over
+
+* a format-string to use for the message (unlike with ''Logger'',
+this can be different for each type);
+
+* a color (for when the `color` option is set);
+
+* whether the messages should be indented according to the current persistent-indentation level (see below);
+
+* whether unprintable characters should be escaped;
+
+* whether a full or partial stack-trace should be shown;
+
+* text to go before or after the message,
+(or between the parts when 2 are present).
+
+=back
+
+* B<vMsg(self, level, msg1, msg2, color=None)>
+
+Shorthand to issue such a message, with ''msgType'' 'v' (verbose).
+
+* B<hMsg(self, level, msg1, msg2, color=None, width=79)>
+
+Shorthand to issue such a message, with ''msgType'' 'h' ('heading').
+Such messages get a blank line before, and a distinctive color or prefix.
+
+* B<eMsg(self, level, msg1, msg2, color=None)>
+
+Shorthand to issue such a message, with ''msgType'' 'e' (error).
+Error messages with a negative level cause termination.
+
+* B<rMsg(self, level, color=None, width=79)
+
+Produces a (possibly colored) horizontal rule of the given ''width''.
+
+==Indentation control methods==
+
+* B<MsgPush(self)>
+
+Increment the message-nesting depth, causing indentation for messages
+displayed via ''Msg''(). This is mainly useful for messages that reflect
+successive tiers of processing on input data (e.g., notices about
+each file, record, and field). The string to repeat to make indentation
+can be set with ''setOption('indentString', string)''.
+
+* B<MsgPop(self)>
+
+Decrement the message indentation depth (see ''MsgPush'').
+
+* B<MsgSet(self, n)>
+
+Force the message indentation depth to ''n'' (see ''MsgPush'').
+
+* B<MsgGet(self)>
+
+Return the current message indentation depth (see ''MsgPush'').
+
+=back
+
+
+==Option control methods==
+
+=over
+
+* B<setOption(name, value)
+
+Sets the named option (see below) to the specified value.
+
+* B<getOption(name)>
+
+Returns the current value of the named option.
+
+=back
+
+===List of available options===
+
+These are stored in instances of `ALogger`, as .options['name'].
+
+=over
+
+* Option: ''badChar''
+
+Print this character in place of control or other unprintables.
+Default: '?'.
+
+* B<Option>:''color''
+
+Use ANSI terminal colors? If not passed to the constructor,
+this defaults to True if environment variable `USE_COLOR` is set,
+otherwise False. When set, the script tries to load my ColorManager package.
+Failing that, it issues a message and falls back to using "*" before and
+after colorized items.
+
+* B<Option>:''controlPix''
+
+When set, displays U+24xx for control characters. Those Unicode characters
+should show up as tiny mnemonics for the corresponding control characters.
+
+* B<Option>:''encoding''
+
+Sets the name of the character encoding to be used (default `utf-8`).
+
+* B<Option>:''direct''
+
+If set, messages will be sent directly to `stderr`.
+Otherwise they go through `logging.Logger`, which currently
+means that no messages are issued if verbosity is not set higher than 0
+(I prefer to have 0-level messages unconditionally displayed).
+
+* B<Option>:''filename''
+
+This is just passed along to the like-named argument of the
+Python ''logging.basicConfig''() method, and controls where messages go.
+It defaults to `sys.stderr`.
+
+* B<Option>:''indentString'' (string)
+
+The string used by ''Msg''() to build indentation according to the
+''indentation depth''
+set by ''MsgPush''(), ''MsgPop'', etc. Default: "  " (two spaces).
+Indentation is inserted before the message-type prefix (though after the
+Logger prefix), and after each newline in the prefix, infix, and suffix
+for the message (see ''defineMsgType''()).
+
+* B<Option>:''noMoreStats''
+
+When set, trying to increment a ''msgStats'' counter that is not already
+known, results in an error message instead of the counter being quietly
+created.
+
+* B<Option>:''verbose'' (int)
+
+''vMsg'', ''hMsg'', and ''Msg'' issue ''logging.info()'' messages.
+Thus, they are at ''logging'' level B<20>, and so calling ''setVerbose''()
+not only sets this option, but also force the ''logging'' level to 20.
+The ''Msg'' calls take a first argument which is the minimum verbosity
+required for the message to be shown.
+This typically equals the number of times the ''-v'' option
+was specified on the command line.
+This is completely separate from ''logging'''s own 0-50 'levels'.
+
+If the ''verbose'' option is not set at all,
+then all such messages are displayed, regardless of their verbosity-level
+(assuming that ''logging'''s message level is at most 20.
+
+=Known bugs and limitations=
+
+If you don't call the constructor (or `setVerbose()`) with a non-zero argument,
+nothing will be printed.
+
+This package is not integrated with the Python ''logging''
+package's hierarchical loggers model.
+
+There is not yet an option to remove the default text that ''logging''
+prefixes to messages (such as "INFO:root:").
+
+Seems to be a problem with `maxItems` in `formatRec()`.
+
+formatRec could use options to shorten long displays, such as:
+
+* suppress all object properties with value None
+* suppress a given list of properties
+* don't descend into certain object types
+* use a special displayer method, say, __format__()?
+
+=History=
+
+* 2011-12-09: Port from Perl to Python by Steven J. DeRose.
+(... see sjdUtils.py)
+* 2015-10-13: Split messaging features from sjdUtils to new ALogger.
+Integrate with Python 'logging' package.
+* 2015-12-31ff: Improve doc.
+* 2018-04-02: Add 'direct' option to make Anaconda Nav happier.
+* 2018-07-29: Add showSize option to formatRec.
+* 2018-08-07: Add quoteKey and keyWidth options to formatRec().
+* 2018-08-17: Add maxItems option to formatRec().
+* 2020-03-02: New layout, doc to MarkDown, document formatRec() better. Lint.
+
+=To do=
+
+*
+* Protect formatRec() against circular structures.
+* Change all callers away from eMsg(), then delete method?
+* Option to get rid of "INFO:root:" prefix from logging package.
+* Allow %(name) references to caller's variables??
+* hMsg not printing? should info/warn/error use indent?
+
+=Rights=
+
+Copyright 2019 by Steven J. DeRose. This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see [http://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
+
+This script was derived (almost entirely by extraction)
+in Oct. 2015 from `sjdUtils.py`,
+which in turn was ported from `sjdUtils.pm` in Dec. 2011,
+which was assembled from pieces in others of my scripts in Mar. 2011.
+All those works are by the same author and are licensed under the same license
+(CCLI Attribution-Sharealike 3.0 unported).
+
+=Options=
+"""
 
 class ALogger:
     def __init__(self,
@@ -134,7 +816,7 @@ class ALogger:
     def setALoggerOption(self, name, value=1):
         return(self.setOption(name, value))
     def setOption(self, name, value=1):
-        """Set option I<name> to I<value>.
+        """Set option ''name'' to ''value''.
         """
         if (name not in self.options):
             return(None)
@@ -173,8 +855,8 @@ class ALogger:
                     chr(0x2400+ord(x.group(1))) if (cp and ord(x.group(1))<32)
                     else (u"\\u%04x;" % (ord(x.group(1))))),
                 s)
-        except sre_costant.error as e:
-            sys.stderr.write("Regex error processing '%s'." % (x.group(1)))
+        except Exception as e:
+            sys.stderr.write("Regex error: %s" % (e))
         return(s)
 
     ###########################################################################
@@ -284,25 +966,25 @@ class ALogger:
     #
     def MsgPush(self):
         """Increment the message indent level, causing indentation for messages
-        displayed via I<vMsg>. This is mainly useful for messages that reflect
+        displayed via ''vMsg''. This is mainly useful for messages that reflect
         successive tiers of processing on input data (e.g., notices about
         each file, record, and field). The string to repeat to make indentation
-        can be set with I<setOption('indentString', string)>.
+        can be set with ''setOption('indentString', string)''.
         """
         self.msgIndentLevel += 1
 
     def MsgPop(self):
-        """Decrement the message-nesting level (see I<MsgPush>).
+        """Decrement the message-nesting level (see ''MsgPush'').
         """
         if (self.msgIndentLevel>0): self.msgIndentLevel -= 1
 
     def MsgSet(self, n):
-        """Force the message-nesting level to I<n> (see I<MsgPush>).
+        """Force the message-nesting level to ''n'' (see ''MsgPush'').
         """
         self.msgIndentLevel = n
 
     def MsgGet(self):
-        """Return the message-nesting level (see I<MsgPush>).
+        """Return the message-nesting level (see ''MsgPush'').
         """
         return(self.msgIndentLevel)
 
@@ -377,7 +1059,7 @@ class ALogger:
         self.rMsg(verbose=verbose, color=color, width=width)
 
     def rMsg(self, verbose, color=None, width=79, char=None):
-        """Draw a (possibly colored) line I<n> columns wide. Default n: 80.
+        """Draw a (possibly colored) line ''n'' columns wide. Default n: 80.
         """
         if (not char): char = '='
         if (self.options['verbose']<verbose): return
@@ -386,7 +1068,7 @@ class ALogger:
         self.info(m+"\n")
 
     def vMsg(self, verbose, m1="", m2="", color=None, stat=""):
-        """A variant of I<Msg>(), to issue a 'verbose' (msgType 'v') message.
+        """A variant of ''Msg''(), to issue a 'verbose' (msgType 'v') message.
         """
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
@@ -395,7 +1077,7 @@ class ALogger:
 
     # Change called over to call error() directly, then delete eMsg().
     def eMsg(self, verbose, m1="", m2="", color=None, stat=""):
-        """A variant of I<Msg>(), to issue an 'error' (msgType 'e') message.
+        """A variant of ''Msg''(), to issue an 'error' (msgType 'e') message.
         """
         self.errorCount += 1
         if (stat!=""): self.bumpStat(stat)
@@ -406,7 +1088,7 @@ class ALogger:
             raise AssertionError("alogging:eMsg with level %d." % (verbose))
 
     def hMsg(self, verbose, m1="", m2="", color=None, stat=""):
-        """A variant of I<Msg>(), to issue a 'heading' (msgType 'h') message.
+        """A variant of ''Msg''(), to issue a 'heading' (msgType 'h') message.
         """
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
@@ -415,33 +1097,33 @@ class ALogger:
 
     # Messages of various kinds (sync with Perl version)
     def Msg(self,msgType,m1="",m2="",color=None,escape=None,stat=None,verbose=0):
-        """Issue a message of the given I<msgType> (define via I<defineMsgType).
-        See also the wrappers I<hMsg>(), I<vMsg>(), and I<hMsg>().
+        """Issue a message of the given ''msgType'' (define via I<defineMsgType).
+        See also the wrappers ''hMsg''(), ''vMsg''(), and ''hMsg''().
 
-        Checks I<verbose> against the value of the 'verbose' option; if that
+        Checks ''verbose'' against the value of the 'verbose' option; if that
         option has actually been set, B<and> is lower, return without display.
-        Otherwise, call Logger's I<info>() to actually issue the message.
+        Otherwise, call Logger's ''info''() to actually issue the message.
 
-        * I<msgType> Mnemonic 'type' of the message, per defineMsgType>().
+        * ''msgType'' Mnemonic 'type' of the message, per defineMsgType>().
 
-        * I<message1> The text to display, in the color specified by the I<color>
+        * ''message1'' The text to display, in the color specified by the ''color''
         argument, or the color for the message type.
 
-        * I<message2> (optional) additional message, to display uncolored.
-        If I<text> is true, it will undergo I<showInvisibles>() and be bracketed.
-        A newline appears after I<message2>.
+        * ''message2'' (optional) additional message, to display uncolored.
+        If ''text'' is true, it will undergo ''showInvisibles''() and be bracketed.
+        A newline appears after ''message2''.
 
-        * I<color> the color in which to display I<message1>.
-        For backward compatibility, I<color> may be a literal ANSI color
-        escape sequence, such as I<\\e[31m>, etc.
+        * ''color'' the color in which to display ''message1''.
+        For backward compatibility, ''color'' may be a literal ANSI color
+        escape sequence, such as ''\\e[31m'', etc.
 
-        * I<text> Send I<m1> through I<showInvisibles>().
+        * ''text'' Send ''m1'' through ''showInvisibles''().
 
-        * I<stat> Increment the named statistic, even if the message will not
+        * ''stat'' Increment the named statistic, even if the message will not
         appear.
-        The counts reside in a dictionary in C<msgStats>.
-        See I<showStats>() for displaying a list of all the collected counts.
-        Also see I<bumpStat>, I<setStat>, I<appendStat>, and I<getStat>.
+        The counts reside in a dictionary in `msgStats`.
+        See ''showStats''() for displaying a list of all the collected counts.
+        Also see ''bumpStat'', ''setStat'', ''appendStat'', and ''getStat''.
         """
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
@@ -532,7 +1214,7 @@ class ALogger:
         self.msgStats[stat] = 0
 
     def bumpStat(self, stat, amount=1):
-        """Increment the named statistic, by I<amount> (default: 1).
+        """Increment the named statistic, by ''amount'' (default: 1).
         If the name contains "/", it splits there. The first part is
         the overall stat name, which will be stored as a dict, with
         entries made and counted for each value of the second part.
@@ -572,14 +1254,14 @@ class ALogger:
 
     def showStats(self, zeros=False, descriptions=None,
                   dotfill=0, fillchar='.', onlyMatching='', lists='len'):
-        """Display all the stat values, via I<pline>()
-        @param I<zeros>: if not True, statistics with a count of 0 are excluded.
-        @param I<descriptions>: map from names to a I<label> argument to
-            have I<pline>() display. Unmapped names use the name as label.
-        @param I<dotfill>: Use dot-fills for readability (@see pline()).
-        @param I<fillchar>: Use this char as the "dot" for dotfill.
-        @param I<onlyMatching>: a regex, only stats that match it appear.
-        @param I<lists>: For 'appendStat' stats, how to show the vectors:
+        """Display all the stat values, via ''pline''()
+        @param ''zeros'': if not True, statistics with a count of 0 are excluded.
+        @param ''descriptions'': map from names to a ''label'' argument to
+            have ''pline''() display. Unmapped names use the name as label.
+        @param ''dotfill'': Use dot-fills for readability (@see pline()).
+        @param ''fillchar'': Use this char as the "dot" for dotfill.
+        @param ''onlyMatching'': a regex, only stats that match it appear.
+        @param ''lists'': For 'appendStat' stats, how to show the vectors:
           - omit: do not report at all
           - len: just show the list length
           - uniq: uniqify and sort, then show the list
@@ -618,9 +1300,10 @@ class ALogger:
                     uv = defaultdict(int)
                     for item in v: uv[item] += 1
                     disp = ""
-                    for k in sorted(dict(uv).keys()): disp += "%s:%d, " % (k, uv[k])
+                    for k2 in sorted(dict(uv).keys()):
+                        disp += "%s:%d, " % (k2, uv[k2])
                     self.pline("  "+label, disp)
-                else: self.pline("  %s%s" % (label, v))
+                else: self.pline("  "+label, v)
             elif (v!=0 or zeros):
                 nPrinted += 1
                 pLabel = "  "+label
@@ -631,11 +1314,11 @@ class ALogger:
 
     def pline(self, label, n, denom=None, dotfill=0, fillchar='.',
         width=None, quiet=False):
-        """Display via I<vMsg>(), with I<label> padded to I<width> columns,
-        (default: C<plineWidth> option). I<n> is justified according to type.
-            With I<dotfill>, every I<dotfill>'th line will pad I<label>
-        with I<fillchar> for readability (using I<ljust>).
-            If I<denom> ('denominator') is non-zero, and I<n> is an int or
+        """Display via ''vMsg''(), with ''label'' padded to ''width'' columns,
+        (default: `plineWidth` option). ''n'' is justified according to type.
+            With ''dotfill'', every ''dotfill'''th line will pad ''label''
+        with ''fillchar'' for readability (using ''ljust'').
+            If ''denom'' ('denominator') is non-zero, and ''n'' is an int or
         float, then an additional field showing n/denom appears (or 'NaN').
         """
         self.plineCount += 1
@@ -717,8 +1400,8 @@ class ALogger:
             buf += ind + "Function '%s()'" % (nm)
 
         # If a scalar is in some aggregates, the aggregate add ind and \n.
-        elif (type(obj) in [ int, float, long, complex, str, unicode ] or
-            isinstance(obj, (int, float, long, complex, basestring))):
+        elif (type(obj) in [ int, float, complex, str, unicode ] or
+            isinstance(obj, (int, float, complex, basestring))):
             buf += self.formatScalar(obj)
 
         elif (isinstance(obj, dict)):  # namedtuple, defaultdict?
@@ -797,8 +1480,8 @@ class ALogger:
             return 'u"%s"' % (obj)
         elif (isinstance(obj, bytearray)):
             return 'b"%s"' % (obj)
-        elif (isinstance(obj, buffer)):
-            return '"%s"' % (obj)
+        #elif (isinstance(obj, buffer)):
+        #    return '"%s"' % (obj)
         #elif (isinstance(obj, storage)):
         #    return "%s" % (obj)
 
@@ -810,8 +1493,6 @@ class ALogger:
             return "%8d" % (obj)
         elif (isinstance(obj, float)):
             return "%12.4f" % (obj)
-        elif (isinstance(obj, long)):
-            return "%12d" % (obj)
         elif (isinstance(obj, complex)):
             return "%s" % (obj)
 
@@ -833,643 +1514,9 @@ class ALogger:
 
 
 ###############################################################################
-###############################################################################
 # Main (doc, example and smoke-test)
 #
 if __name__ == "__main__":
-    descr = """
-=pod
-=head1 Description
-
-A logging facility, largely compatible with Python 'logging.Logger'.
-Derived from sjdUtils.py's messaging methods.
-
-=head1 Extra features compared to logging.Logger:
-
-=over
-
-=item * Strong support for ANSI terminal color
-
-=item * Controllable indentation levels for messages
-
-=item * Defined named message types, with their own layouts
-
-=item * Traditional *nix-style C<-v> verbosity levels
-
-=item * Better Unicode and non-printable char handling
-
-=item * Option to bump a counter for any/all messages, making it easy
-to keep and report error statistics
-
-=back
-
-=head2 Notes on speed
-
-With either this package or Python C<logging>,
-calling a logging/messaging method does cost
-time even if the message doesn't end up getting displayed or saved.
-This can be very significant for messages in inner loops.
-It can also be significant if evaluating the I<parameters> being passed
-is expensive, since that is done before the logging function is actually
-called (so even if the logging function returns instantly the setup time
-is still taken).
-
-You can get reduce such overhead by:
-
-=over
-
-=item (a) removing or commenting out the calls, especially in inner loops.
-You may want to use a profiler to be sure which ones actually matter.
-
-=item (b) putting code under an "if", for example "if (False)", "if (args.verbose)", or even better,
-"if (__debug__)" (which makes them go away when Python is run with the C<-O>
-option.
-
-=item (c) Use a preprocesser to remove some/all logging statements
-for production. See the discussion at
-L<http://stackoverflow.com/questions/482014>.
-
-=back
-
-
-
-=for nobody ===================================================================
-
-=head1 General Methods
-
-=over
-
-=item * B<setVerbose(v)>
-
-The initial verbosity level can be set as a parameter to the constructor.
-This method lets you reset it later.
-Otherwise, messages whose first argument's magnitude
-is greater than I<v> are discarded (verbosity levels are perhaps best
-thought of as priorities). This means that verbosity runs like C<-v> flags in
-many *nix programs, but opposite from Python C<logging> levels.
-
-I<setVerbose(v)> is just shorthand for B<setOption("verbose", v)>.
-
-=item * B<getVerbose>()
-
-Return the current verbosity level (see I<setVerbose>).
-This is just shorthand for B<getOption("verbose")>.
-
-=item B<findCaller(self)
-
-Returns the name of the function or method that called I<findCaller>().
-
-=item * B<pline(label, n, width=None, dotfill=0, fillchar='.', denom=None)>
-
-Display a line consisting of I<label> (padded to I<width>),
-and then the data (I<n>).
-I<width> defaults to the value of the I<plinewidth> option.
-The data is displayed in a type-appropriate way after that.
-
-If I<dotfill> is greater than 0, then every I<dotfill>'th line will use
-I<fillchar> instead of space for padding I<label>. For example,
-I<dotfill=3> makes every third line be dot-filled.
-
-If I<denom> is greater than 0, another column is displayed, showing I<n/denom>.
-
-=back
-
-
-=head2 'logging'-like messaging methods
-
-=The following methods are largely compatible with methods in the Python
-C<logging> package. However, there is no tree of instances, just
-an I<ALogger> object. The format string for each type is kept in
-C<msg.formats{typename}>, and defaults to I<%(msg}\\n>.
-These methods are still experimental.
-
-I<kwargs> can be used to provide a dictionary of names whose
-values are filled in to such format strings via I<%(name)>.
-This is only useful if you also set a format
-string that includes references to them. These names are defined by default:
-
-=over
-
-=item B<info(self, msg, *args, **kwargs)
-
-Issues an informational message, like Python C<logging>.
-
-=item B<warning(self, msg, *args, **kwargs)
-
-Issues a warning message, like Python C<logging>.
-
-=item B<error(self, msg, *args, **kwargs)
-
-Issues an error message, like Python C<logging>.
-
-=item B<critical(self, msg, *args, **kwargs)
-
-Issues an critical error message, like Python C<logging>.
-
-=item B<debug(self, msg, *args, **kwargs)
-
-Issues a debugging message, like Python C<logging>.
-
-=item B<log(self, level, msg, *args, **kwargs)
-
-Issues an otherwise unspecified log message, like Python C<logging>.
-
-=item B<exception(self, msg, *args, **kwargs)
-
-Issues an exception message, like Python C<logging>.
-
-=back
-
-
-=head2 Additional messaging methods
-
-=over
-
-=item * B<eMsg> I<(level, message1, message2, color, text, stat)>
-
-Shorthand for I<Msg('e'...)>, meant for error messages.
-Specifying a I<level> less than 0 is fatal.
-B<Deprecated>, replaced by I<warning>(), I<error>(), and I<fatal>().
-
-=item * B<hMsg> I<(level, message1, message2, color, text, stat)>
-
-Shorthand for I<Msg('h'...)>, meant for headings, which are displayed
-more prominantly. By default, with a blank line and several asterisks in front.
-
-=item * B<vMsg> I<(level, message1, message2, color, text, stat)>
-
-Shorthand for I<Msg('v'...)>, meant for debugging/tracing messages.
-The levels of messages here, are separate from Logger's implicit
-levels for I<warning>, I<error>, etc.
-
-=item * B<rMsg(self, color=None, width=n, char='=')>
-
-Draw a (possibly colored) line ("rule") of width I<n> characters.
-Default I<n>: 80.
-
-=item * B<Msg> I<(msgType, message1, message2, color, text, stat)>
-
-Issue a message (normally to STDOUT), using the formatting and options defined
-for the given I<msgType>. Types 'e' (error), 'w' (warning),
-and 'h' (header) are provided, and have
-shorthand calls (see following); additional
-types can be defined using I<defineMsgType>().
-
-=back
-
-
-=head3 Treatment of message with C<eMsg>, C<vMsg>, C<hMsg>, etc.
-
-The C<ALogger>-specific messaging methods do the following:
-
-=over
-
-=item - If the message is not high enough priority compared
-to the I<verbose> setting, the method simply returns.
-
-B<Important Note>: All I<vMsg> messages are
-I<information>-level as far as I<Logger> is concerned, and so I<none>
-of them will show up unless you're showing such messages. The I<level>
-argument to I<vMsg> is a further filter, to support verbosity levels
-as are very common for *nix utilities.
-
-=item - Converts the message to UTF-8.
-
-=item - Adds I<prefix> before I<m1>,
-I<infix> between I<m1> and I<m2>, and/or I<suffix> after I<m2>.
-
-=item - If I<indent> is True, creates an indent string for
-the level set by I<MsgPush>(), etc., and inserts it:
-
-=over
-
-=item * before the prefix, and
-
-=item * after each newline in the prefix, infix, and suffix
-
-=back
-
-=item - If I<func> is True, inserts the name of the calling function
-before I<m1>.
-
-=item - Colorizes the prefix (including any applicable preprefix, infix,
-and indentation whitespace) and I<m1>.
-
-=item - If I<escape> is True, passes I<m1> and I<m2> through I<showInvisibles>,
-which turns control characters, whitespace, etc. to visible representations.
-
-=item - If I<nLevels> > 0, appends that many levels of stack-trace information.
-
-=item - Displays the resulting message. It goes to STDERR by default,
-but to STDOUT if the I<stdout> option is set.
-
-=back
-
-These items can be filled in by a message format:
-
-=over
-
-=item 'function'
-
-=item 'filename'
-
-=item 'index'
-
-=item 'lineno'
-
-=item 'asctime'
-
-=item 'type'
-
-=item 'msg'
-
-=back
-
-
-=head2 Custom message types
-
-=item * B<defineMsgType>(type, color=None, nLevels=None, func=None,
-prefix=None, infix=None, suffix=None, escape=None, indent=None)
-
-Create or modify a named "type" of message.
-Types "v", "e", and "h" are predefined but may be modified.
-Type "x" is reserved.
-
-The parameters other than I<type> are all optional and default to C<None>.
-When a parameter is C<None>, the property is left
-unchanged for an already-existing message type.
-However, for an entirely new message type the property is set to
-the corresponding default value shown below:
-
-=over
-
-=item * I<type>: a name for the type of message, to identify it to I<Msg>().
-Required.
-
-=item * I<color>: What color to display the message in (if color is enabled).
-Default: C</yellow>.
-Note that the C<_Msg> methods can take a C<color> argument to override this for
-particular messages.
-
-=item * I<nLevels>: Number of levels of stack-trace to display
-(not yet supported). Default: C<0>.
-
-=item * I<func>: If True, display the calling function's name.
-Default: C<False>.
-
-=item * I<prefix>: A string to display before the start of each message.
-For example, "h"
-messages prefix "\\n******* ", to make them stand out like headings.
-Default: "".
-
-=item * I<infix>: A string to display between the parts (I<m1> and I<m2>)
-of each message. For example, one might want I<m2> always on a separate line,
-and therefore set I<infix> to C<\\n>.
-Default: "".
-
-=item * I<suffix>: A string to display after the end of each message.
-Default: "".
-
-=item * I<escape>: Turn non-printable characters in the message to printable.
-This is done using I<showInvisibles>() (q.v.).
-Default: C<True>.
-Note that the C<Msg> methods accept an C<escape> parameter to override this for
-particular messages.
-
-=item * I<indent>: Whether to indent messages according to the level set
-using I<vPush>(), I<vPop>(), etc.
-Default: C<True>.
-
-=back
-
-
-=head2 Statistics-keeping methods
-
-This package maintains a list of named "statistics". Typically, each
-one has just a counter, which you increment by passing the static name
-to the C<stat"> parameter of any of the messaging calls described in the
-next section. You do not need to declare or initialize such statistics
-(although you can set them all and then set the C<noMoreStats> option
-to prevent creating any more).
-
-The statistics can all be printed out (for example, just before your
-main program ends). For example:
-
-    recnum = 0
-    for rec in open(foo, 'r').readline():
-        recnum += 1
-        if (len(rec) > 999):
-            lg.eMsg("Line %d too long (%d characters)." % (recnum, len(rec)),
-                    stat="Too long")
-    lg.setOption('plineWidth', 45)  # Allow space for long stat names
-    lg.showStats()
-
-An B<experimental> feature allows you to use "/" in a stat name, in
-order to group statistics for reporting. If used, such statistics will
-be grouped (well, they would be anyway by alphabetization),
-and indented under the common (pre-/) part, which will be printed
-with the total counts for all stats in the group. This is especially useful
-for defining subtypes of errers, or attaching small data to them. The
-example above could be modified to keep count of all the specific
-excessive record-lengths, by changing the I<eMsg> call to:
-
-    lg.eMsg("Line %d too long (%d characters)." % (recnum, len(rec)),
-            stat="Too long/%d" % (len(rec))
-
-In addition to the C<stat> parameter on various messaging methods, there
-are methods for manipulating the stats independently of messages:
-
-=over
-
-=item * B<defineStat(self, stat)>
-
-Initialize the given stat (to 0). This is optional (that is, you can just
-mention a stat and it will be created if necessary).
-
-=item * B<bumpStat(self, stat, amount=1)>
-
-Increment the given stat by the specified I<amount> (default: 1).
-
-=item * B<appendStat(self, stat, datum)>
-
-Convert the given stat to a list if it is not one already, and I<append>
-the I<datum> to the list.
-
-=item * B<setStat(self, stat, value)>
-
-Set the given stat to the given I<value>.
-
-=item * B<getStat(self, stat)>
-
-Return the value of the given stat.
-
-=item * B<showStats(self, zeros=False, descriptions=None, dotfill=0, fillchar='.', onlyMatching='', lists='len')
-
-Display all the accumulated statistics,
-each with its name and then its value.
-Each statistic is printed used I<pline>(), so is subject to the formatting
-described there.
-
-Stats with a value of 0 are not shown unless
-the I<zeros> parameter is set to True.
-
-If I<descriptions> is specified, it must be a dict that maps (some or all) of
-the stat names to strings to be printed in place of the name. This is useful
-if you want short/compact names to pass to I<bumpStat>, messaging, or other
-methods that take a stat name; and yet want long, more user-readable
-error descriptions for the report.
-
-B<Note>: See above re. the (experimental) use of "/" in statistic names,
-to group and accumulate more detailed statistics.
-
-I<dotfill>: Use dot-fills for readability (@see pline()).
-
-I<fillchar>: Use this char as the "dot" for dotfill.
-
-I<onlyMatching>: a regex. Only stats whose names match it are displayed.
-
-I<lists>: For stats that are lists (see I<appendStat>()), specifies
-how to show those lists:
-
-=over
-
-=item * 'omit': do not show at all
-
-=item * 'len': just show the list name and length
-
-=item * 'uniq': sort and uniqify, then show the list
-
-=item * 'uniqc': sort and uniqify with count, then show the list
-
-=item * otherwise: show the whole list
-
-=back
-
-=item * B<clearStats(self)>
-
-Remove all statistics.
-
-=back
-
-
-=head2 Additional messaging methods
-
-This package adds several more calls. The first is simply I<fatal>,
-which issues a I<log>() message with level 60, and then raises an
-exception (if uncaught, this will lead to a stack trace and termination).
-
-The following calls issue their messages via I<info>(),
-and so will not produce visible message if the I<Logger> level is over 20.
-
-These are mainly for developers or power users, and support
-messages of the kind common for *nix command-line programs, where the
-amount of messaging is increased by using one or more I<-v> options.
-Thus, the I<verbose> argument for the following calls ranges from 0
-(for a message that should appear any time the I<Logger> message allows
-any 'info' messages through); to 1 (for messages that also require at least
-I<-v> on the command line); to 2 (for messages that also require at least
-I<-v -v> on the command line); and so on.
-
-To set the degree of verbosity, use B<setVerbose(n)>. Calling this with n>0
-will test that Logger.isEnabledFor(20) is True; if not, it will call
-Logger.setLevel(20) so that these messages have a chance to get through.
-This means that getting such messages also forces you to get warnings,
-error, and criticals. This seems sensible to the author.
-
-=over
-
-=item * B<Msg(self, level, msgType='v', color=None, width=79)>
-
-Issues such a message. The I<msgType> parameter specifies a message I<type>
-either from the predefined list (e, v, h, or x),
-or added using I<defineMsgType>(). A message type can specify:
-
-=over
-
-=item * a format-string to use for the message (unlike with I<Logger>,
-this can be different for each type);
-
-=item * a color (for when the C<color> option is set);
-
-=item * whether the messages should be indented according to the current persistent-indentation level (see below);
-
-=item * whether unprintable characters should be escaped;
-
-=item * whether a full or partial stack-trace should be shown;
-
-=item * text to go before or after the message,
-(or between the parts when 2 are present).
-
-=back
-
-=item * B<vMsg(self, level, msg1, msg2, color=None)>
-
-Shorthand to issue such a message, with I<msgType> 'v' (verbose).
-
-=item * B<hMsg(self, level, msg1, msg2, color=None, width=79)>
-
-Shorthand to issue such a message, with I<msgType> 'h' ('heading').
-Such messages get a blank line before, and a distinctive color or prefix.
-
-=item * B<eMsg(self, level, msg1, msg2, color=None)>
-
-Shorthand to issue such a message, with I<msgType> 'e' (error).
-Error messages with a negative level cause termination.
-
-=item * B<rMsg(self, level, color=None, width=79)
-
-Produces a (possibly colored) horizontal rule of the given I<width>.
-
-=back
-
-
-=head2 Indentation control methods
-
-=over
-
-=item * B<MsgPush(self)>
-
-Increment the message-nesting depth, causing indentation for messages
-displayed via I<Msg>(). This is mainly useful for messages that reflect
-successive tiers of processing on input data (e.g., notices about
-each file, record, and field). The string to repeat to make indentation
-can be set with I<setOption('indentString', string)>.
-
-=item * B<MsgPop(self)>
-
-Decrement the message indentation depth (see I<MsgPush>).
-
-=item * B<MsgSet(self, n)>
-
-Force the message indentation depth to I<n> (see I<MsgPush>).
-
-=item * B<MsgGet(self)>
-
-Return the current message indentation depth (see I<MsgPush>).
-
-=back
-
-
-=head2 Option control methods
-
-=over
-
-=item * B<setOption(name, value)
-
-Sets the named option (see below) to the specified value.
-
-=item * B<getOption(name)>
-
-Returns the current value of the named option.
-
-=back
-
-=head3 List of available options
-
-These are stored in instances of C<ALogger>, as .options['name'].
-
-=over
-
-* Option: I<badChar>
-
-Print this character in place of control or other unprintables.
-Default: '?'.
-
-=item * B<Option>:I<color>
-
-Use ANSI terminal colors? If not passed to the constructor,
-this defaults to True if environment variable C<USE_COLOR> is set,
-otherwise False. When set, the script tries to load my ColorManager package.
-Failing that, it issues a message and falls back to using "*" before and
-after colorized items.
-
-=item * B<Option>:I<controlPix>
-
-When set, displays U+24xx for control characters. Those Unicode characters
-should show up as tiny mnemonics for the corresponding control characters.
-
-=item * B<Option>:I<encoding>
-
-Sets the name of the character encoding to be used (default C<utf-8>).
-
-=item * B<Option>:I<direct>
-
-If set, messages will be sent directly to C<stderr>.
-Otherwise they go through C<logging.Logger>, which currently
-means that no messages are issued if verbosity is not set higher than 0
-(I prefer to have 0-level messages unconditionally displayed).
-
-=item * B<Option>:I<filename>
-
-This is just passed along to the like-named argument of the
-Python I<logging.basicConfig>() method, and controls where messages go.
-It defaults to C<sys.stderr>.
-
-=item * B<Option>:I<indentString> (string)
-
-The string used by I<Msg>() to build indentation according to the
-I<indentation depth>
-set by I<MsgPush>(), I<MsgPop>, etc. Default: "  " (two spaces).
-Indentation is inserted before the message-type prefix (though after the
-Logger prefix), and after each newline in the prefix, infix, and suffix
-for the message (see I<defineMsgType>()).
-
-=item * B<Option>:I<noMoreStats>
-
-When set, trying to increment a I<msgStats> counter that is not already
-known, results in an error message instead of the counter being quietly
-created.
-
-=item * B<Option>:I<verbose> (int)
-
-I<vMsg>, I<hMsg>, and I<Msg> issue I<logging.info()> messages.
-Thus, they are at I<logging> level B<20>, and so calling I<setVerbose>()
-not only sets this option, but also force the I<logging> level to 20.
-The I<Msg> calls take a first argument which is the minimum verbosity
-required for the message to be shown.
-This typically equals the number of times the I<-v> option
-was specified on the command line.
-This is completely separate from I<logging>'s own 0-50 'levels'.
-
-If the I<verbose> option is not set at all,
-then all such messages are displayed, regardless of their verbosity-level
-(assuming that I<logging>'s message level is at most 20.
-
-=back
-
-
-=head1 Known bugs and limitations
-
-If you don't call the constructor (or C<setVerbose()>) with a non-zero argument,
-nothing will be printed.
-
-This package is not integrated with the Python I<logging>
-package's hierarchical loggers model.
-
-There is not yet an option to remove the default text that I<logging>
-prefixes to messages (such as "INFO:root:").
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-This script was derived (almost entirely by extraction)
-in Oct. 2015 from C<sjdUtils.py>,
-which in turn was ported from C<sjdUtils.pm> in Dec. 2011,
-which was assembled from pieces in other of my scripts in Mar. 2011.
-All those works are by the same author and are licensed under the same license
-(CCLI Attribution-Sharealike 3.0 unported).
-
-
-=head1 Options
-
-=cut
-    """
     if (len(sys.argv) > 1):
         print(descr)
         sys.exit()

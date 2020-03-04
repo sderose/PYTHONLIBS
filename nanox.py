@@ -77,7 +77,7 @@ giving them all the same dummy key (which risks losing them on import later).
 
 * ensure_ascii=True -- Code all non-ASCII characters as hex character references.
 
-* check_circular=True -- Test for circularity (not yet supported here).
+* check_circular=True -- Test for circularity (''not yet implemented'').
 (TODO)
 
 * allow_nan=True -- If false, do not output NaN, -inf, or +inf (instead,
@@ -250,7 +250,8 @@ Cf Apple plist 'xml1' form:
 =History=
 
 * 2019-08-10: Written.
-Based on `alogging.formatRec`, in turn on sjd Logging PHP package for ccel.org.
+Based on `alogging.py`'s `formatRec()`, in turn
+based on the Logging PHP package I wrote for [ccel.org].
 
 * 2020-02-19: New layout. Lint. Start decoding. Improve collections support.
 

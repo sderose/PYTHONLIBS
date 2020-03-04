@@ -84,7 +84,7 @@ descr = """
 
 Provide support for using the many Unicode variations on the Latin alphabet.
 
-=head2 Usage
+==Usage==
 
     import mathUnicode
     s2 = mathUnicode.convert(text,
@@ -103,19 +103,15 @@ of variants for those (the digits one include sets that run 1-10 rather
 than 0-9, but the "start point" is always where the zero at least I<would>
 be if it existed.
 
-=head2 Available character variations
+==Available character variations==
 
 Most of these are "Mathematical", and they include variations of several kinds:
 
-=over
+* fullwidth, script, fraktur, double-struck, sans-serif, and monospace;
 
-=item * fullwidth, script, fraktur, double-struck, sans-serif, and monospace;
+* Parenthesized, Circled, Squared, Negative-circled, Negative-squared, Regional symbol;
 
-=item * Parenthesized, Circled, Squared, Negative-circled, Negative-squared, Regional symbol;
-
-=item * Some of the above also have bold, italic, and/or bold italic variations.
-
-=back
+* Some of the above also have bold, italic, and/or bold italic variations.
 
 A few Latin variants do not include lower case.
 
@@ -131,9 +127,9 @@ before the rest of the "Mathematical Italic Small" characters.
 
 =Related Commands=
 
-C<ord --math> will show a list of these characters.
+`ord --math` will show a list of these characters.
 
-C<UnicodeAltLatin.py> a previous draft of this (should merge).
+`UnicodeAltLatin.py` a previous draft of this (should merge).
 
 
 =Known bugs and Limitations=

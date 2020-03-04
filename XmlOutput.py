@@ -30,7 +30,7 @@ application more readable, because you only have to deal with high-level,
 makeComment(text),...), and they encapsulate a lot of mechanical tasks such as
 checking the open-element stack for certain element types.
 
-=head2 Example
+==Example==
 
   from XmlOutput import XmlOutput
   x = XmlOutput()
@@ -56,7 +56,7 @@ actual output, set C<xo.outputFH> to None.
 
 If you want to output to a string, use Python's built-in C<stringio> package.
 
-=head2 Testing
+==Testing==
 
 You can run a self-test by just invoking the file from the command-line.
 

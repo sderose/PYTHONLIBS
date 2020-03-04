@@ -731,7 +731,7 @@ L<setOption>(), below), and runs files through as needed.
 
 (Python version)
 
-=head2 What to do with I<accents>, I<ligatures>, I<maths>, I<super>, I<sub>.
+==What to do with I<accents>, I<ligatures>, I<maths>, I<super>, I<sub>.==
 
 Most options are simply left off or turned on. However, several options
 provide more flexibility for how the relevant characters are treated:

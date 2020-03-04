@@ -1101,7 +1101,7 @@ probably want to use I<setOption>() to pick exactly what behaviors you want.
 
 =back
 
-=head2 Details on the HeavyTokenizer
+==Details on the HeavyTokenizer==
 
 =over
 
@@ -1171,7 +1171,7 @@ options, so you can easily winnow a list down to just what you want.
 
 =head1 Usage
 
-=head2 Example
+==Example==
 
   from Tokenizer import HeavyTokenizer
   myTok = HeavyTokenizer("characters")
@@ -1191,7 +1191,7 @@ or (disp), unless otherwise described.
 
 =for nobody ###################################################################
 
-=head2 1: Expand escaped characters
+==1: Expand escaped characters==
 
 These options all begin with "X_" and all take (boolean) values,
 for whether to expand them to a literal character.
@@ -1212,7 +1212,7 @@ expand them).
 
 =for nobody ###################################################################
 
-=head2 2: Normalize the character set
+==2: Normalize the character set==
 
 These options are distinguished by being named in Title_Case with underscores
 (following the Perl convention for Unicode character class names).
@@ -1372,7 +1372,7 @@ U+00AD and U+1806. These default to being deleted.
 
 =for nobody ###################################################################
 
-=head2 3: Shorten runs of the same character
+==3: Shorten runs of the same character==
 
 These options are all (boolean).
 
@@ -1392,7 +1392,7 @@ like "hahahaha".
 
 =for nobody ###################################################################
 
-=head2 4: Non-word tokens
+==4: Non-word tokens==
 
 This step can tweak various kinds of non-word tokens, such as
 numbers, URIs, etc. The options are of type (disp), but the
@@ -1431,7 +1431,7 @@ such as $1, $29.95, etc.
 
 =for nobody ###################################################################
 
-=head2 4: Split tokens
+==4: Split tokens==
 
 As a first approximation, text can be broken at each white-space character(s),
 at all individual C<characters>, or C<none> at all. The choice depends on the
@@ -1479,7 +1479,7 @@ B<(not yet supported)>
 
 =for nobody ###################################################################
 
-=head2 6: Filter out unwanted tokens ('words' mode only)
+==6: Filter out unwanted tokens ('words' mode only)==
 
 These options are all (boolean) except for B<F_MINLENGTH> and B<F_MAXLENGTH>.
 For Boolean filter options, the default is off, which means the tokens

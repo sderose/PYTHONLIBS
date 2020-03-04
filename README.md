@@ -5,6 +5,24 @@ or generally useful (or at least, I think so).
 
 ==Short descriptions==
 
+* BlockFormatter.py -- a drop-in replacement for the `argparse` formatters.
+Python's default one wraps everything into one massive blob of text; and its
+"Raw" one does no wrapping at all. BlockFormatter handles rudimentary but
+very common conventions:
+
+** blank lines are retained (say, between paragraphs)
+** indented lines, or lines starting with *, #, =, etc. keep
+the newline and whitespace before them.
+** unindented lines get wrapped together with the preceding line,
+and the whole block is indented to match the first line's indent (if any).
+** by default, a 2-column hanging indent is adde to non-first lines of
+indented blocks (beyond the indentation expressed by their first line). This
+is so that list items flagged by "*" etc have clearer boundaries.
+** The whole thing is wrapped to the current window width.
+
+Try it, it makes argparse help much better. Also try MarkupHelpFormatter,
+which works basically the same way, but has much better formatting.
+
 * CharDisplay.py -- given a character code as 999, 0xFFFF, 0177, etc., show a
 ton of information about that Unicode code point.
 
@@ -31,21 +49,24 @@ function for keys. For example, specifying lower() gives you a case-ignoring
 dictionary. Each entry stores both the normalized and (last-set) unnormalized key.
 
 * MarkupHelpFormatter.py -- a limited text-formatter that can be attached to
-Python argparse, so you can use MarkDown, POD, etc. to get reasonably-formatted help.
+Python argparse, so you can use MarkDown, MediaWiki, POD, etc. to get
+formatted help. Makes heavy use of ANSI color and
+Unicode variations for pretty formatting (you want bold italic sans serif,
+or bold Fraktur, on your terminal? You got it. See also `ord --math`).
 
-* PowerWalk.py -- A much more flexible version of os.walk, that knows about
+* PowerWalk.py -- A more flexible version of `os.walk`, that knows about
 tar and zip files, filtering files by various criteria, etc.
 
 * ReadAny.py -- meh
 
-* RealDOM.py -- an implementation of DOM for Python. Renamed BaseDom.py, and
+* RealDOM.py -- an implementation of DOM for Python. Renamed `BaseDom.py`, and
 now moved to the XML/BINARY repo.
 
 * SimplifyUnicode.py -- meh
 
-* TabularFormats.py -- supports a load of "tabular" data formats, including many
+* TabularFormats.py -- supports several "tabular" data formats, including many
 variants of CSV. This started out as a port from Perl, but needs to be updated
-so it sits on top of exiting Python libs where practical.
+so it sits on top of exiting Python libs where practical. See also `fsplit.py`.
 
 * TabularFormats2.py -- in progress
 
@@ -72,25 +93,25 @@ auto-indentation, etc.
 * argParsePP.py -- half-done upgrade to argparse, for easier support of
 -x vs. --x, --no-x, and other conventions.
 
-* fsplit.py -- a variation of Python's string `split()` method, which I think is way better. See the help, but in brief, it supports all the options of
+* fsplit.py -- a variation of Python's string `split()` method.
+In brief, it supports all the options of
 Python's `csv` package and string `split()` itself:
-(escaping, quoting, doubling, lstrip, etc). But also options including these
-and more:
+(escaping, quoting, doubling, lstrip, etc), as well as these options and more:
 
 ** Multi-character delimiters (split() but not csv offers those)
 ** More than one allowed quotechar (for example, single and double)
 ** Unicode quote characters (curly, angle, etc)
-** Special chars like \xFF, \uFFFF, &#xFFFFF;, &bull;, etc.
+** Special character escapes like \xFF, \uFFFF, &#xFFFFF;, &bull;, etc.
 ** Option to ignore repeated delimiters
-** Type-checking, auto-typing (field "3.14" returned as float, etc)
+** Type-checking, auto-typing (field "3.14" returned as float, etc.)
 
 * improvements.py -- notes and tweaks to split(), join(), listdir(). meh.
 
-* markdownToXML.py -- what it says
+* markdownToXML.py -- what it says.
 
 * mathUnicode.py -- provides somewhat easier access to the very many alternate
-Latin and Greek alphabets in unicode, such as sans-serif bold.
+Latin and Greek alphabets in Unicode, such as sans-serif bold.
 
 * sjdUtils.py -- very generally-applicable stuff, like indenting and escaping
-and unescaping XML, JSON, etc; making Unicode and control characters printable, etc.
+and unescaping XML, JSON; making Unicode and control characters printable, etc.
 

@@ -650,7 +650,7 @@ Additional ports, bug reports, etc. may be sent to the author.
 
 
 
-=head2 Example
+==Example==
 
   myXsvData = ('
   <!-- A collection of really great data. -->
@@ -720,7 +720,7 @@ does not).
           yield "New table starting"
 
 
-=head2 Formal identification
+==Formal identification==
 
 If you want a formal way to refer to this specific subset and
 application of XML, I prefer "XSV" for the name, ".xsv" for
@@ -840,7 +840,7 @@ tuple. The first one must be I<Head>, and the rest I<Rec>.
 =back
 
 
-=head2 XSV Construction method
+==XSV Construction method==
 
 =over
 
@@ -996,7 +996,7 @@ value "" is allowed).
 
 =for nobody ===================================================================
 
-=head2 Datatype Specifications
+==Datatype Specifications==
 
 When "Head" provides a I<datatype specification> for a particular
 attribute (as just defined),

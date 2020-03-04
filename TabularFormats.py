@@ -1405,7 +1405,7 @@ See the C<align> utility for some help with those.
 
 =head1 Methods and Options
 
-=head2 Methods for basic setup
+==Methods for basic setup==
 
 =over
 
@@ -1462,7 +1462,7 @@ Distinct, but not yet implemented....
 =back
 
 
-=head2 Methods for changing input and output formats
+==Methods for changing input and output formats==
 
 =over
 
@@ -1620,7 +1620,7 @@ or NUM: just numbers
 
 
 
-=head2 Methods for operating on actual records
+==Methods for operating on actual records==
 
 =over
 

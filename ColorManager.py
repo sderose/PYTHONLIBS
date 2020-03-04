@@ -116,15 +116,6 @@ no longer maintained?), I<chromalog>, I<Colorama>, and others.
 
 My `colorstring` shell command.
 
-=Rights=
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-
-For the most recent version, see [http://www.derose.net/steve/utilities] or
-[http://github.com/sderose].
-
 =History=
 
 * 2011-12-09: sjdUtils Port from Perl to Python by Steven J. DeRose.
@@ -138,9 +129,18 @@ Add test feature as main.
 
 =To do=
 
-*     Resync Perl version.
+* Resync Perl version.
 
-*     Make localizable.
+* Make localizable.
+
+=Rights=
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
 
 =Options=
 """
