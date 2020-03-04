@@ -119,34 +119,41 @@ One such is provided: BlockFormatter._alt_fill (experimental).
 
 =Related commands and libraries=
 
-My formatter for MarkDown, MediaWik, and POD (same API as this):
+See also my formatter for MarkDown, MediaWiki, and POD (same API as this):
 `MarkupHelpFormatter`.
 
 A different Python Markdown formatter: [https://pypi.org/project/markdown-formatter/]
 
+My `argparsePP.py`:
+* Hooks up MarkupHelpFormatter
+* Adds a showDefaults option
+* Adds a shortMetavars option
+* Supports alternative hyphen conventions
+* Supports adding 'toggle' attributes, with 'no-' prefix (changeable)
+
 =Known bugs and limitations=
 
-`hangIndent` is applied whether or not there is a list marker (e.g., "*").
+* Long tokens such as URIs should be able to break at slashes, etc.
 
-Some indented lines don't get the intended newline before.
-
-It seems that the API in `argparse` for formatting
+* It seems that the API in `argparse` for formatting
 (such as it is), is not considered "public" -- so attempts to subclass it
 could break any time. See [https://stackoverflow.com/questions/29484443]. But
 it also does not seem to change much. I have no idea why more attention
 has not been paid to this; it seems to me a very basic/common tool.
 
+* Option to page the output, or send directly to 'less'
+
 =Rights=
 
-This program is Copyright 2014-2015 by Steven J. DeRose.
+This program is Copyright 2014 by Steven J. DeRose.
 It is hereby licensed under the Creative Commons
 Attribution-Share-Alike 3.0 unported license.
-For more information on this license, see L<here|"https://creativecommons.org">.
+For more information on this license, see [here|"https://creativecommons.org"].
 
-For the most recent version, see L<http://www.derose.net/steve/utilities/> or
-L<http://github/com/sderose>.
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github/com/sderose].
 
-Thanks to Anthon van der Neut for help on integrating with argparse. Also:
+Thanks to Anthon van der Neut for help on integrating with `argparse`. Also:
     * [http://stackoverflow.com/questions/3853722]
     * [https://bitbucket.org/ruamel/std.argparse/src]
     * [http://hg.python.org/cpython/file/2.7/Lib/argparse.py]
@@ -158,13 +165,10 @@ Thanks to Anthon van der Neut for help on integrating with argparse. Also:
 They were together in `MarkupHelpFormatter.py`.
 
 2020-03-04: I split this class out to a separate file, and improved it a bit,
-for example indenting non-first lines of indented blocks, expanding tabs, etc.
+for example indenting non-first lines of indented blocks, expanding tabs,
+adding the various options.
 
-=To do=
-
-* Perhaps support backslash code and/or XML character references?
-* Option to break URIs and paths at '/'?
-* Option to page the output, or send to 'less'
+=Options=
 """
 
 ##############################################################################

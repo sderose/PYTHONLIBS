@@ -694,7 +694,7 @@ class XmlOutput:
           "BR HR HEAD BODY H1 H2 H3 H4 H5 H6 IMG INS P PRE DEL")
         self.options["divTag"] = "DIV"
 
-    def startHTML(self, version, title=""):
+    def startHTML(self, version="4strict", title=""):
         if (version == "4strict"):
             ids = [ "HTML", "-//W3C//DTD HTML 4.01//EN",
                 "http://www.w3.org/TR/html4/strict.dtd" ]
