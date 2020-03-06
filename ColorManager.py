@@ -133,6 +133,16 @@ Add test feature as main.
 
 * Make localizable.
 
+* Perhaps add color synonyms like CSS?
+    0 black   -- #000
+    1 red     -- #F00
+    2 green   -- #0F0
+    3 yellow  -- #FF0
+    4 blue    -- #00F
+    5 magenta -- #F0F
+    6 cyan    -- #0FF
+    7 white   -- #FFF
+
 =Rights=
 
 This work by Steven J. DeRose is licensed under a Creative Commons

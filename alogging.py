@@ -9,7 +9,7 @@ import os
 import re
 import logging
 import inspect
-from collections import defaultdict
+from collections import defaultdict, Iterable
 #import time
 #import string
 #import argparse
@@ -17,7 +17,8 @@ from collections import defaultdict
 PY3 = sys.version_info[0] == 3
 if PY3:
     def unichr(n): return chr(n)
-    def unicode(s, encoding='utf-8', errors='strict'): return str(s, encoding, errors)
+    def unicode(s, encoding='utf-8', errors='strict'):
+        return str(s, encoding, errors)
     basestring = str
     unicode = str
 
@@ -44,15 +45,15 @@ Derived from sjdUtils.py's messaging methods.
 
 =Extra features compared to logging.Logger:=
 
-* Strong support for ANSI terminal color
-
-* Controllable indentation levels for messages
-
-* Defined named message types, with their own layouts
-
 * Traditional *nix-style C<-v> verbosity levels
 
 * Better Unicode and non-printable char handling
+
+* Defined named message types, with their own layouts
+
+* Strong support for ANSI terminal color
+
+* Controllable indentation levels for messages
 
 * Option to bump a counter for any/all messages, making it easy
 to keep and report error statistics
@@ -69,19 +70,19 @@ to keep and report error statistics
 like in Python `logging.warn()`, except that there is only one context,
 and they accept an optional `stat` parameter (see below).
 
-==vMsg and its kin==
+==vMsg() and its kin==
 
-`vMsg` takes an integer verbosity level, and only displays a message if the
+`vMsg()` takes an integer verbosity level, and only displays a message if the
 current verbosity level is at least that high. This is typically controlled
 by passing 0 or more `-v` options on a command line. It also allows a 2nd
 message parameter, just for flexibility (probably should change to allow any
 number).
 
-`stat` takes an optional string for the name of a counter to increment. This
-can be handy for tracking how many times various messages occur. Separate
-messages can, if desired, increment the same-named stat counter.
+The `stat` option may be used to provide the name of a counter to increment.
+This can be handy for tracking how many times various messages occur. Separate
+messages may increment the same-named stat counter.
 The named stats are created as needed.
-Other useful `stat` methods include (more detailed discussion appear later):
+Other `stat` methods include (see also the more detailed discussion below):
 
 * `getStat('name')`
 * `bumpStat('name')`
@@ -93,30 +94,29 @@ already, and appends `datum` to the list.
 * `setOption('noMoreStats', True)` -- this will prevent any new stat names
 from being accepted (causing an exception on any such attempt).
 
-You can control indentation level messages with `MsgPush()` and `MsgPop()`
+You can control the indentation level of messages with `MsgPush()` and `MsgPop()`.
 
 Verbosity can be set with `B<setOption("verbose", n)>` or `setVerbose(n)`.
 There are many other options as well.
 
-`vMsg` signifies a
-verbose or informational message; `eMsg` works the same but is used for errors,
-while `hMsg` is used for headings. They have slightly different formatting
-characteristics, which can be set independently.
+`vMsg()` is meant for
+verbose or informational messages `eMsg()` is for errors,
+while `hMsg` is for headings. They have different formatting
+characteristics, which can be changed independently.
 
 `MsgRule(v=0, color=None, width=79)` prints a horizontal rule.
 
-You can also call the underlying `Msg(self,msgType,...)` directly, with
-a msgType of 'v', 'e', or 'h', or with another msgType that you define
-using defineMsgType()
+You can also call the underlying `Msg(self, msgType, ...)` directly, with
+a `msgType` of 'v', 'e', or 'h', or with another `msgType` that you define
+using `defineMsgType()`.
 
 ==defineMsgType(self, msgType, color=None, nLevels=0, func=None,
-        prefix=None, infix=None, suffix=None, escape=None, indent=None)==
+prefix=None, infix=None, suffix=None, escape=None, indent=None)==
 
-This defines a new message type, that you can issue with `Msg(msgType...)`.
+This defines a new message type, that you can issue with `Msg(msgType, ...)`.
 Option set various formatting characteristics:
 
-* `msgType` --
-* `color=None` --
+* `color=None` -- see `ColorManager` for naming conventions
 * `nLevels=0` --
 * `func=None` --
 * `prefix=None` --
@@ -125,20 +125,43 @@ Option set various formatting characteristics:
 * `escape=None` --
 * `indent=None` --
 
-==formatRec(self, obj, showSpecials=False,
-        maxDepth=3, maxItems=0, showSize=True, quoteKeys=False, keyWidth=14)==
+==formatRec(self, obj, options=None)==
 
 This will fairly nicely format any (?) Python object. It knows about the basic
-scalar and collection datatypes, and for objects it knows to show their
-non-callable properties.
+scalar and collection datatypes, as well as basic numpy and PyTorch vector types.
+For objects, it knows to show their non-callable properties.
 
-* `obj` -- The data to be displayed.
-* `showSpecials=False` --
-* `maxDepth=3` -- Limit how far down nested collections will be displayed.
-* `maxItems=0` -- Limit how many items of a long list will be displayed.
-* `showSize=True` -- Display len() for collection objects.
-* `quoteKeys=False` -- Put quotes around the keys of dicts.
-* `keyWidth=14` -- Allow this much room for dict keys, in trying to line things up.
+`options` should be  dict, which may include:
+* `obj`       -- The data to be displayed.
+* `specials`  -- display callable and "__"-initial members of objects.
+* `maxDepth`  -- Limit how far down nested collections will be displayed. Default: 3.
+* `maxItems`  -- Limit how many items of a long list will be displayed.
+* `showSize`  -- Display len() for collection objects.
+* `quoteKeys` -- Put quotes around the keys of dicts. Default: False
+* `keyWidth`  -- Allow this much room for dict keys, in trying to line things up.
+Default: 14.
+* `propWidth` -- Allow this much room for object property names.
+* `noExpand`  -- A dict of types or typenames, which are to be displayed
+as just present, without all their (non-callable) properties. At the moment,
+these are checked by == on the type and the typename, so subclasses must be
+explicitly listed to be affected.
+
+===Layout conventions===
+
+Lists and dicitonaries get a header line indicating their type and lenght,
+and the usual delimiters then enclose their members, each on a separate line.
+Members that are themselves collections, do the same thing but indented one
+more level. List items are prefixed by their index (like "#0:"), and dict
+items by their keys (in quotes). Values in dicts and objects are aligned
+vertically by padding their keys/names to `keyWidth` or `propWidth` columns.
+
+Object are displayed pretty much like dicts, but using "<<" and ">>" to surround
+their members, and putting "." before property names, unlike quoted dict keys.
+Callables, and properties beginning with "__", are omitted unless the 'specials'
+option is set.
+
+numpy and PyTorch vectors are not shown in their entirety, but do display their
+dimensionality, length, and item datatype.
 
 ==getLoc(startLevel=0, endLevel=0)==
 
@@ -700,15 +723,32 @@ Integrate with Python 'logging' package.
 * 2018-08-07: Add quoteKey and keyWidth options to formatRec().
 * 2018-08-17: Add maxItems option to formatRec().
 * 2020-03-02: New layout, doc to MarkDown, document formatRec() better. Lint.
+* 2020-03-06: Add formatRec() support for numpy and Torch vectors.
+Move formatRec() options to a dict instead of individual parameters, and make
+them inherit right. Add propWidth, noExpand, disp_None, improve formatting.
 
 =To do=
 
-*
-* Protect formatRec() against circular structures.
-* Change all callers away from eMsg(), then delete method?
+* formatRec():
+** Accept an options dict instead of long list of named options?
+** Support more numpy, PyTorch classes
+** Protect against circular structures.
+** Perhaps accept maxItems as a dict, mapping types to limits?
+** Implement key and property sorting options.
+
+* Unify formatRec() `options` parameter, with ALogger items?
+    self.openDict = "{"; self.closeDict = "}"
+    self.openList = "["; self.closeList = "]"
+    self.openObject = "<<"; self.closeObject = ">>"
+    self.disp_None = "*NONE*"
+
+* Discard eMsg()?
+
+* hMsg() not printing? should info/warn/error use indent?
+
 * Option to get rid of "INFO:root:" prefix from logging package.
+
 * Allow %(name) references to caller's variables??
-* hMsg not printing? should info/warn/error use indent?
 
 =Rights=
 
@@ -784,11 +824,23 @@ class ALogger:
         if (self.options['color']): self.setupColor()
         self.defineMsgTypes()
 
-        # Can instead set to generate tags...
-        self.openDict = "{"; self.closeDict = "}"
-        self.openList = "["; self.closeList = "]"
-        self.openObject = "{{"; self.closeObject = "}}"
-
+        # String to display to delimit types of objects
+        displayForm = "SIMPLE"
+        if (displayForm == "UNICODE"):
+            self.openDict = "{"; self.closeDict = "}"
+            self.openList = "["; self.closeList = "]"
+            self.openObject = "\u00ab"; self.closeObject = "\u00bb"  # ANGLE BKT
+            self.disp_None = "\u2205"  # NULL SET
+        elif (displayForm == "HTML"):
+            self.openDict = "<DL>"; self.closeDict = "</DL>"
+            self.openList = "<OL>"; self.closeList = "</OL>"
+            self.openObject = "<UL>"; self.closeObject = "</UL>"
+            self.disp_None = "&#x2205;"  # NULL SET
+        else:  # (displayForm == "SIMPLE"):
+            self.openDict = "{"; self.closeDict = "}"
+            self.openList = "["; self.closeList = "]"
+            self.openObject = "<<"; self.closeObject = ">>"
+            self.disp_None = "*NONE*"
 
         return(None)
 
@@ -1371,94 +1423,136 @@ class ALogger:
             tdict[k] = val
         return tdict
 
-    # Or  inspect.getmembers(object[, predicate])
-    # Add summarizable classes/types (e.g. Node)
-    #
-    from xml.dom.minidom import Node, Document
-    import xml.dom.minidom
 
-    def formatRec(self, obj, depth=0, showSpecials=False,
-        maxDepth=3, maxItems=0, showSize=True, quoteKeys=False, keyWidth=14):
+    ###########################################################################
+    #
+    def formatRec(self, obj, depth:int=0, specials:bool=False, showSize:bool=True,
+        maxDepth:int=3, maxItems:int=0,
+        quoteKeys:bool=False, keyWidth:int=14, sortKeys:bool=True,
+        indentSize:int=4, noExpand:dict=None, propWidth:int=16,
+        options:dict=None):
         """NOTE: This is not protected against circular structures, except
         by 'maxDepth'.
         """
-        if (depth > maxDepth): return
+        # Now prefer a dict for 'options', but allow old keyword params instead
+        if (options is None): options = {}
+        if (depth == 0):
+            if ('specials'  not in options): options['specials'  ] = specials
+            if ('maxDepth'  not in options): options['maxDepth'  ] = maxDepth
+            if ('maxItems'  not in options): options['maxItems'  ] = maxItems
+            if ('showSize'  not in options): options['showSize'  ] = showSize
+            if ('quoteKeys' not in options): options['quoteKeys' ] = quoteKeys
+            if ('keyWidth'  not in options): options['keyWidth'  ] = keyWidth
+            if ('sortKeys'  not in options): options['sortKeys'  ] = sortKeys
+            #
+            if ('indentSize'not in options): options['indentSize'] = indentSize
+            if ('noExpand'  not in options):
+                if (noExpand): options['noExpand'] = noExpand
+                else: options['noExpand'] = {}
+            if ('propWidth' not in options): options['propWidth' ] = propWidth
+
+        if (depth > options['maxDepth']): return
         #ty = type(obj)
-        ind = "    " * depth
+        ind = ' ' * (indentSize * depth)
         #buf += (ind + "*** Dumping a '%s'." % (type(obj)))
         buf = ""
 
         if (obj is None):
-            buf += ind + "*NONE*"
+            buf += ind + self.disp_None
 
-        #elif (isinstance(obj, ( Node, Document ))):
+        #elif (type(obj).__name__ in [ Node, Document ]):
         #    buf += "%s%s%s" % (unichr(0x227A), type(obj), unichr(0x227B))
 
         elif (callable(obj)):
             #buf += (ind + "callable '%s'\n" % (nm))
             nm = getattr(obj, '__name__', "[UNNAMED]")
-            buf += ind + "Function '%s()'" % (nm)
+            buf += ind + "Callable '%s()'" % (nm)
 
-        # If a scalar is in some aggregates, the aggregate add ind and \n.
+        # If a scalar is in some aggregates, the aggregate adds ind and \n.
         elif (type(obj) in [ int, float, complex, str, unicode ] or
-            isinstance(obj, (int, float, complex, basestring))):
+            isinstance(obj, (int, float, complex, basestring))):  # SCALARS
             buf += self.formatScalar(obj)
 
-        elif (isinstance(obj, dict)):  # namedtuple, defaultdict?
+        elif (isinstance(obj, dict)):                      # DICT
+            # namedtuple, defaultdict?
             buf += ind
-            if (showSize): buf += "dict |%d|:" % (len(obj))
+            if (options['showSize']): buf += "dict |%d|:" % (len(obj))
             if (len(obj)):
                 buf += ind + " %s\n" % (self.openDict)
-                dfmt = ind + "  %-" + ("%d" % (keyWidth)) + "s: %s,\n"
+                dfmt = ind + "  %-" + str(options['keyWidth']) + "s: %s,\n"
                 inum = 0
-                for n, v in (obj.items()):
+
+                if (options['sortKeys']): keyList = sorted(obj.keys())
+                else: keyList = obj.keys()
+                for n in keyList:
+                    v = obj[n]
                     inum += 1
-                    if (maxItems and inum > maxItems): break
+                    if (options['maxItems'] and inum >= options['maxItems']):
+                        buf += "*** maxItems reached ***"
+                        break
                     buf += dfmt % (
-                        self.quote(n, quoteKeys),
-                        self.formatRec(v, depth+1, showSize=showSize, quoteKeys=quoteKeys))
+                        self.quote(n, options['quoteKeys']),
+                        self.formatRec(v, depth+1, options=options))
                 buf += ind + self.closeDict
 
-        elif (isinstance(obj, (tuple, set, frozenset))):
+        elif (isinstance(obj, (tuple, set, frozenset))):   # TUPLE, SETS
             buf += ind
-            if (showSize): buf += "set-ish |%d|" % (len(obj))
+            if (options['showSize']): buf += "set-ish |%d|" % (len(obj))
             if (len(obj)):
                 buf += ": %s\n" % (self.openList)
                 for n, v in enumerate(obj):
-                    if (maxItems and n > maxItems): break
+                    if (options['maxItems'] and n > options['maxItems']): break
                     buf += ("%s%s,\n" %
-                    (ind, self.formatRec(v, depth+1, showSize=showSize, quoteKeys=quoteKeys)))
+                    (ind, self.formatRec(v, depth+1, options=options)))
                 buf += ind + self.closeList
 
-        elif (isinstance(obj, list)):
+        elif (isinstance(obj, list)):                      # LIST
             buf += ind
-            if (showSize): buf += "list |%d|" % (len(obj))
+            if (options['showSize']): buf += "list |%d|" % (len(obj))
             if (len(obj)):
                 buf += ": %s\n" % (self.openList)
                 for n, v in enumerate(obj):
-                    if (maxItems and n > maxItems): break
-                    buf += "%s %3d %s,\n" % (ind, n, self.formatRec(v, depth+1, showSize=showSize, quoteKeys=quoteKeys))
+                    if (options['maxItems'] and n > options['maxItems']): break
+                    buf += "%s #%d: %s,\n" % (
+                        ind, n, self.formatRec(v, depth+1, options=options))
                 buf += ind + self.closeList
 
-        elif (isinstance(obj, object)):
-            stuff = dir(obj)
-            buf += ind
-            if (showSize): buf += "obj %s |%d|" % (type(obj), len(stuff))
-            buf += ": %s\n" % (self.openObject)
-            #skipped = 0
-            for nm in (stuff):
-                thing = getattr(obj, nm, "[NONE]")
-                if ((nm.startswith('__') or callable(thing))
-                    and not showSpecials):
-                    #skipped += 1
-                    continue
-                #buf += (ind + "  .%s (%s): " % (nm, type(thing)))
-                buf += "%s    %-24s = %s,\n" % (
-                    ind, "'" + self.quote(nm, quoteKeys) + "'",
-                    self.formatRec(thing, depth+1, showSize=showSize, quoteKeys=quoteKeys))
-            buf += ind + self.closeObject
+        elif (type(obj).__name__ == "Tensor"):             # torch Tensor
+            # Ignore most props
+            if (obj.is_cuda): cFlag = " (cuda)"
+            else: cFlag = ""
+            buf += "%4d-D TENSOR of |%d| %s%s" % (
+                obj.dim(), len(obj), obj.dtype, cFlag)
 
-        else:
+        elif (type(obj).__name__ == 'ndarray'):            # numpy array
+            buf += "ndarray |%d}|" % (len(obj))
+
+        elif (isinstance(obj, object)):                    # OBJECT
+            if (type(obj) in options['noExpand'] or
+                type(obj).__name__ in options['noExpand']):
+                buf += ind + "(object of type %s)" % (type(obj).__name__)
+            else:
+                stuff = dir(obj)
+                #buf += ind
+                if (isinstance(obj, Iterable)): iFlag = " (Iterable)"
+                else: iFlag = ""
+                if (options['showSize']):
+                    buf += "obj %s |%d|%s" % (type(obj).__name__, len(stuff), iFlag)
+                buf += ": %s\n" % (self.openObject)
+                #skipped = 0
+                for nm in (stuff):
+                    thing = getattr(obj, nm, "[NONE]")
+                    if ((nm.startswith('__') or callable(thing))
+                        and not specials):
+                        #skipped += 1
+                        continue
+                    #buf += (ind + "  .%s (%s): " % (nm, type(thing)))
+                    ofmt = ind + "  .%-" + str(options['propWidth']) + "s = %s,\n"
+                    buf += ofmt % (
+                        nm, self.formatRec(thing, depth+1, options=options))
+                buf += ind + self.closeObject
+
+        else:                                              # UNKNOWN
             buf += ("something else")
             buf += self.formatScalar(obj)
         return buf
@@ -1472,7 +1566,7 @@ class ALogger:
     def formatScalar(self, obj):
         ty = type(obj)
         if (obj is None):
-            return "*None*"
+            return self.disp_None
         elif (isinstance(obj, str) or
             isinstance(obj, basestring)):
             return '"%s"' % (obj)
