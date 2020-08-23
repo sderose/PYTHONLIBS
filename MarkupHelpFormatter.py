@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# MarkupHelpFormatter.py (includes ParagraphHelpFormatter, too).
+# MarkupHelpFormatter.py.
 # Upgrades for Python argparse, that don't forcibly wrap all text.
 #
 import os, sys, re, string
@@ -34,26 +34,17 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
-This package defines two classes that can be used with Python's
+This package defines a formatter class that can be used with Python's
 I<argparse> package, in order to get better formatting.
 
-==ParagraphHelpFormatter(argparse.HelpFormatter)==
+It consists of these major parts:
 
-This simple class is like the default argparse formatter except that
-it does I<not> wrap lines across blank lines. That is, blank lines stay there.
-
-To use it:
-    doc = ""
-    First paragraph of documentation,
-    which wraps to fill output lines.
-
-    Second paragraph.
-      * Indented lines stay that way.
-      * Indented lines stay that way.
-    ""
-
-    parser = argparse.ArgumentParser(description=doc,
-        formatter_class=ParagraphHelpFormatter)
+* a Loader that can read MarkDown, MediaWiki, and POD markup
+* a MicroDoc structure, or "Honey, I shrink the DOM" (a document is a sequence
+of blocks, each of which is a sequence of format-runs; plus some hack for tables)
+* a Renderer that generates decent output for an ANSI terminal, using color and
+Unicode Latin variants.
+* MarkupHelpFormatter, which interfaces it all to argparse.
 
 ==MarkupHelpFormatter(argparse.HelpFormatter)==
 
@@ -374,22 +365,34 @@ support italics, blinking text, 256 colors, or even multiple fonts.
 The default formatting avoids uncommon capabilities. You can get at
 some others via "=set" and =style (see above).
 
+=History=
+
+2013-04-18: Written by Steven J. DeRose.
+Thanks to Anthon van der Neut for help on integrating with `argparse`. Also:
+    [http://stackoverflow.com/questions/3853722]
+    [https://bitbucket.org/ruamel/std.argparse/src]
+    [http://hg.python.org/cpython/file/2.7/Lib/argparse.py]
+    [https://docs.python.org/2/library/textwrap.html]
+
+2020-01-29: Start addressing issues with extensibility, such as for BNF grammars,
+tables, etc. And bugs like premature line-breaking, numbering, hanging indents,
+etc. Start supporting Unicode Mathematical font features for better
+range of formatting.
+
+2020-03-01: `ParagraphHelpFormatter` class split out to become `BlockFormatter.py`.
+Slightly improved at the same time, such as to handle tabs and indented blocks.
+Start separating loader, renderer, and document representation, instead
+of transforming straight to escape-codes inline.
 
 =Rights=
 
-This program is Copyright 2014-2015 by Steven J. DeRose.
+This program is Copyright 2013 by Steven J. DeRose.
 It is hereby licensed under the Creative Commons
 Attribution-Share-Alike 3.0 unported license.
 For more information on this license, see L<here|"https://creativecommons.org">.
 
 For the most recent version, see L<http://www.derose.net/steve/utilities/> or
 L<http://github/com/sderose>.
-
-Thanks to Anthon van der Neut for help on integrating with argparse. Also:
-    [http://stackoverflow.com/questions/3853722]
-    [https://bitbucket.org/ruamel/std.argparse/src]
-    [http://hg.python.org/cpython/file/2.7/Lib/argparse.py]
-    [https://docs.python.org/2/library/textwrap.html]
 
 =To do=
 
@@ -403,7 +406,7 @@ Or may not be removing pre-existing LFs right.
 * Support hanging indent on lists
 * Indent paragraph immediately following list-item? At least for POD
 * Option to reset colors for light background (let =SET refer env. vars?)
-* Integrate mathUnicode.py to get bold, italic, etc.
+* Integrate mathAlphanumerics.py to get bold, italic, etc.
 * Possibly hook up to 'man -H'
 
 ==Low priority==
@@ -461,39 +464,6 @@ def toPix(mat):
 
 ##############################################################################
 #
-class ParagraphHelpFormatter(argparse.HelpFormatter):
-    """A formatter for argparse. This differs from the default formatter, in
-    that it does *not* wrap lines across blank lines. That is, blank lines stay.
-    See below for a class that actually supports simple markup.
-
-    Sequence seems to be:
-        _format_text(self, txt)
-            _format(self, txt, encoding="utf8", color=1, width=0)
-                wrap(para, width)
-                    _fill_text(self, text, width, indent)
-    """
-    def _fill_text(self, text, width, indent):
-        """Override the over-aggressive line-filler, so it does these things:
-            * Retain any blank lines
-            * Keep newline before line-initial [*#] (probably list items)
-            * For indented blocks, wrap with that indent.
-        NOTE: 'indent' expects a string, not a number of columns.
-        """
-        lines = []
-         # Blank lines
-        blocks = text.split(r'(\n[ \t]*\n)', re.MULTILINE | re.UNICODE)
-        for block in blocks:
-            for mat in re.finditer(r'(^[ \t]+)([^\n]+)', block, re.MULTILINE | re.UNICODE):
-                ind = len(mat.group(1))
-                #print("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
-                #    (width, indent, ind, mat.group(1), mat.group(2)))
-                indLines = super(ParagraphHelpFormatter, self)._fill_text(
-                    mat.group(2), width, indent + (' '*ind))
-                lines.append("\n".join(indLines))
-        return "\n\n".join(blocks)
-
-##############################################################################
-#
 class MarkupHelpFormatter(argparse.HelpFormatter):
     """A formatter for argparse.
     Accepts most of MarkDown and POD, and generates a rendering suitable for
@@ -522,7 +492,7 @@ class MicroDoc:
         self.blocks = []
         if (docPath): self.loadDoc(docPath)
 
-    def loadStyle(stylePath):
+    def loadStyle(self, stylePath):
         pass
 
     def loadDoc(self, path):
@@ -541,7 +511,7 @@ class MicroDoc:
 ##########################################################################
 #
 class Loader:
-    """Read Markdown/POD/etc. and build the MicroDoc structure.
+    """Read Markdown/POD/etc. and build a MicroDoc structure.
     """
     InputOptions = {
         "mediawiki"   : True,          # headings like ===Title===, ''ital'',...
@@ -568,7 +538,7 @@ class Loader:
         self.listCounts = []
         self.gaveEscMessage = 0   # Prevent repeat message
         self.errors = []
-        super(MarkupHelpFormatter, self).__init__(prog, *args, **kw)
+        super(Loader, self).__init__(prog, *args, **kw)
 
     def logError(self, msg):
         self.errors.append(msg)
@@ -581,24 +551,24 @@ class Loader:
         if (not mat):
             self.logError("Bad =set command: " + line)
             return(False)
-        nam = mat.group(1); val = mat.group(2)
-        Xi = MarkupHelpFormatter.InputOptions
-        Xo = MarkupHelpFormatter.OutputOptions
-        if (nam == "verbose"):
+        propName = mat.group(1); propVal = mat.group(2)
+        Xi = Loader.InputOptions
+        Xo = Renderer.OutputOptions
+        if (propName == "verbose"):
             global verbose
-            verbose = int(val)
-        elif (nam == "tabsize"):
-            Xi["tabsize"] = int(val)
-        elif (nam in Xi):
-            Xi[nam] = bool(val)
-        elif (nam in Xo):
-            if (type(Xo[nam] == list)):
-                mat = re.match(r'(\d+)\s+(.*)', val)
-                if (not mat or int(mat.group(1)) not in Xo[nam]):
+            verbose = int(propVal)
+        elif (propName == "tabsize"):
+            Xi["tabsize"] = int(propVal)
+        elif (propName in Xi):
+            Xi[propName] = bool(propVal)
+        elif (propName in Xo):
+            if (type(Xo[propName] == list)):
+                mat = re.match(r'(\d+)\s+(.*)', propVal)
+                if (not mat or int(mat.group(1)) not in Xo[propName]):
                     return(False)
-                Xo[nam][mat.group(1)] = mat.group(2)
+                Xo[propName][mat.group(1)] = mat.group(2)
             else:
-                Xo[nam] = val
+                Xo[propName] = propVal
         else:
             return(False)
         return(True)
@@ -613,35 +583,35 @@ class Loader:
         if (not mat):
             self.logError("Bad =style syntax:\n    %s" % (line))
             return(False)
-        cl = mat.group(1)
-        lv = mat.group(2)
-        pr = mat.group(3)
-        vl = mat.group(4)
+        eclass = mat.group(1)  # element-class it applies to
+        elvl = mat.group(2)  # level, if applicable
+        propName = mat.group(3)  # which property
+        propVal = mat.group(4)  # value for the property
 
-        if (cl not in BlockStyles.BlockClasses):
-            self.logError("Bad =style class name '%s':\n    %s" % (cl, line))
+        if (eclass not in StyleValues.BlockClasses):
+            self.logError("Bad =style class name '%s':\n    %s" % (eclass, line))
             return(False)
-        if (pr not in BlockStyles.BlockClasses):
-            self.logError("Bad =style class name '%s':\n    %s" % (cl, line))
+        if (propName not in StyleValues.BlockClasses):
+            self.logError("Bad =style class name '%s':\n    %s" % (eclass, line))
             return(False)
 
-        Xi = MarkupHelpFormatter.InputOptions
-        Xo = MarkupHelpFormatter.OutputOptions
-        if (nam == "verbose"):
+        Xi = Loader.InputOptions
+        Xo = Renderer.OutputOptions
+        if (propName == "verbose"):
             global verbose
-            verbose = int(val)
-        elif (nam == "tabsize"):
-            Xi["tabsize"] = int(val)
-        elif (nam in Xi):
-            Xi[nam] = bool(val)
-        elif (nam in Xo):
-            if (type(Xo[nam] == list)):
-                mat = re.match(r'(\d+)\s+(.*)', val)
-                if (not mat or int(mat.group(1)) not in Xo[nam]):
+            verbose = int(propVal)
+        elif (propName == "tabsize"):
+            Xi["tabsize"] = int(propVal)
+        elif (propName in Xi):
+            Xi[propName] = bool(propVal)
+        elif (propName in Xo):
+            if (type(Xo[propName] == list)):
+                mat = re.match(r'(\d+)\s+(.*)', propVal)
+                if (not mat or int(mat.group(1)) not in Xo[propName]):
                     return(False)
-                Xo[nam][mat.group(1)] = mat.group(2)
+                Xo[propName][mat.group(1)] = mat.group(2)
             else:
-                Xo[nam] = val
+                Xo[propName] = propVal
         else:
             return(False)
         return(True)
@@ -717,7 +687,7 @@ class Loader:
         self.resetLists()
         # If needed set up entity decoding
         if (self.htmlp is None and
-            (self.InputOptions["entities"] or self.InputOptions["pod"])):
+            (Loader.InputOptions["entities"] or Loader.InputOptions["pod"])):
             if (PY2):
                 import HTMLParser
                 self.htmlp = HTMLParser.HTMLParser()
@@ -787,12 +757,12 @@ class Loader:
         later do inline markup on, then wrap, then issue.
         """
         assert(isinstance(inlines, list))
-        #grammarFmt = "    %-" + str(self.OutputOptions["DLWidth"]) + "s::= %s\n"
+        #grammarFmt = "    %-" + str(Renderer.OutputOptions["DLWidth"]) + "s::= %s\n"
 
-        MDon = self.InputOptions["markdown"] or self.InputOptions["mediawiki"]
-        PODon = self.InputOptions["pod"]
-        HTMLon = self.InputOptions["pod"]
-        tabSize = self.InputOptions["tabSize"]
+        MDon = Loader.InputOptions["markdown"] or Loader.InputOptions["mediawiki"]
+        PODon = Loader.InputOptions["pod"]
+        HTMLon = Loader.InputOptions["pod"]
+        tabSize = Loader.InputOptions["tabSize"]
 
         blocks = [ Block("", 'TEXT') ]
         blanks = 0
@@ -832,12 +802,12 @@ class Loader:
             listParam = None
 
             if (indent != ''):                             # Code or similar
-                blClass = Block_PRE
+                blClass = StyleValues.BLK_PRE
 
             elif (not leadPunct):                          # Starts with \w
                 # Try to catch BNF defs. Not continuations like /\s+\|/.
                 mat = re.match(r'(\w+)\s*::=(.*)', line)
-                if (self.InputOptions["defs"] and mat):    # Grammar / deflist
+                if (Loader.InputOptions["defs"] and mat):    # Grammar / deflist
                     typ = "BNF"
                     columns = [ mat.group(1), mat.group(2) ]  # TODO FINISH
                 elif (blanks == 0                          # Just text
@@ -846,12 +816,12 @@ class Loader:
                     blocks[-1].text += " " + rest
                     # Leave typ==None, no new Block
                 else:
-                    blClass = Block_TEXT
+                    blClass = StyleValues.BLK_TEXT
                 continue
 
             elif (leadPunct0 in '*+#'):                    # LIST ITEM
                 line = rest
-                blClass = Block_ITEM
+                blClass = StyleValues.BLK_ITEM
                 #marker = leadPunct  # TODO?
                 #prevBlock = blocks[-1]
                 listParam = self.listCounts
@@ -859,18 +829,18 @@ class Loader:
 
             elif (leadPunct0 == '>'):                      # Quotation?
                 line = rest
-                blClass = Block_QUOTE
+                blClass = StyleValues.BLK_QUOTE
                 marker = leadPunct
 
             elif (leadPunct0 == '|'):                      # Table? Quotation?
                 line = rest
-                blClass = Block_ROW
+                blClass = StyleValues.BLK_ROW
                 marker = leadPunct
                 columns = line.split('|')  # TODO FINISH
 
             elif (re.match(r'[-=*]{3,}\s*$', line)):       # Horizontal RULE
                 line = leadPunct
-                blClass = Block_RULE
+                blClass = StyleValues.BLK_RULE
 
             elif (leadPunct0 == '='):                      # "=" code
                 headLevel = 0
@@ -879,7 +849,7 @@ class Loader:
                     mat = re.match(r'(=+)', line)
                     headLevel = len(mat.group(1)) - 1
                     line = line[len(mat.group(1)):]
-                    blClass = Block_HEAD
+                    blClass = StyleValues.BLK_HEAD
                 elif (PODon):                              # POD
                     mat = re.match(r'=([a-z]+)', line)
                     if (mat):
@@ -889,13 +859,13 @@ class Loader:
                     pass
                 elif (headLevel):
                     ### TODO:
-                    #self.OutputOptions["headPrefix"][headLevel])
-                    #blocks.append(colorize(line,
-                    #    fg=self.OutputOptions["headFG"][headLevel],
-                    #    bg=self.OutputOptions["headBG"][headLevel],
+                    #Renderer.OutputOptions["headPrefix"][headLevel])
+                    #blocks.append(StyleValues.colorize(line,
+                    #    fg=Renderer.OutputOptions["headFG"][headLevel],
+                    #    bg=Renderer.OutputOptions["headBG"][headLevel],
                     #    bold=1))
-                    blClass = Block_HEAD
-                    line = self.OutputOptions["headSuffix"][headLevel]
+                    blClass = StyleValues.BLK_HEAD
+                    line = Renderer.OutputOptions["headSuffix"][headLevel]
 
             else:                                          # UNKNOWN start, just cat
                 blocks[-1].text += ' ' + line
@@ -906,7 +876,7 @@ class Loader:
             if (typ is not None):
                 b = self.makeBlock(line, typ=typ, blanks=blanks, indent=indent,
                     level=headLevel, columns=columns, listCounts=listParam)
-                if (blClass == Block_HEAD): self.resetLists()
+                if (blClass == StyleValues.BLK_HEAD): self.resetLists()
                 blocks.append(b)
                 blanks = 0
             # for each line
@@ -940,7 +910,7 @@ class Loader:
             blockType = "CLOSE"
             if (self.podListLevel>0): self.podListLevel -= 1
         elif (cmd == "item"):
-            ind = self.OutputOptions["indentSize"]*self.podListLevel
+            ind = Renderer.OutputOptions["indentSize"]*self.podListLevel
             line = (' ' * ind) + line[6:]
             blockType = "ITEM"
         elif (cmd == "begin"): line = ""
@@ -968,13 +938,13 @@ class Loader:
                 print("Bad type for '%s': %s." % (b, type(b)))
                 continue
             #print("-->" + b)
-            if (self.InputOptions["mediawiki"]):
+            if (Loader.InputOptions["mediawiki"]):
                 b = re.sub("'''''(.*?)'''''", self.mkBI,   b)
                 b = re.sub("'''(.*?)'''",     self.mkItal, b)
                 b = re.sub("''(.*?)''",       self.mkBold, b)
                 b = re.sub(r'(\[.*?\])',      self.mkLink, b)
 
-            if (self.InputOptions["pod"]):
+            if (Loader.InputOptions["pod"]):
                 b = re.sub(r'B<(.*?)>',       self.mkBold, b)  # bold
                 b = re.sub(r'C<(.*?)>',       self.mkUnd,  b)  # command
                 b = re.sub(r'E<(.*?)>',       self.mkChar, b)  # special ch
@@ -985,15 +955,15 @@ class Loader:
                 b = re.sub(r'X<(.*?)>',       self.drop,   b)  # index entry
                 #b = re.sub(r'Z<(.*?)>',      self.drop,   b)  # No POD
 
-            if (self.InputOptions["mailEmph"]):
+            if (Loader.InputOptions["mailEmph"]):
                 b = re.sub(r'\b\*(\w+)\*\b',  self.mkBold, b)
                 b = re.sub(r'\b_(\w+)_\b',    self.mkBold, b)
 
-            if (self.InputOptions["backslashes"]):
+            if (Loader.InputOptions["backslashes"]):
                 import ast
                 b = ast.literal_eval(b)
 
-            if (self.InputOptions["entities"] and self.htmlp is not None):
+            if (Loader.InputOptions["entities"] and self.htmlp is not None):
                 #b = self.htmlp.unescape(b)  # Expand HTML entities
                 b = html.unescape(b)
             blocks[i] = b
@@ -1028,7 +998,7 @@ class Loader:
             runs.append(fr)
 
     # Methods to produce each of the requested output effects.
-    # TODO: Integrate with mathUnicode package, which provides Latin for:
+    # TODO: Integrate with mathAlphanumerics package, which provides Latin for:
     # italic, bold, bold italic, script, bold script, fraktur, double-struck;
     # sans-serif in roman, italic, bold, bold italic; monospace,
     # parenthesized, circled; and uppercase squared, circled, and neg sq/c.
@@ -1036,13 +1006,13 @@ class Loader:
     def drop(self, matchobj):
         return matchobj.group(1)
     def mkBold(self, matchobj):
-        return(colorize(matchobj.group(1), bold=1))
+        return(StyleValues.colorize(matchobj.group(1), bold=1))
     def mkItal(self, matchobj):
-        return(colorize(matchobj.group(1), fg="red"))
+        return(StyleValues.colorize(matchobj.group(1), fg="red"))
     def mkUnd(self, matchobj):
-        return(colorize(matchobj.group(1), fg="underline"))
+        return(StyleValues.colorize(matchobj.group(1), fg="underline"))
     def mkBI(self, matchobj):
-        return(colorize(matchobj.group(1), fg="red", bold=1))
+        return(StyleValues.colorize(matchobj.group(1), fg="red", bold=1))
     def mkLink(self, matchobj):
         if (':' in matchobj.group(1)):
             anchor, ref = matchobj.group(1).split(':', maxsplit=1)
@@ -1054,18 +1024,18 @@ class Loader:
             ref = MarkupHelpFormatter.OutputOptions['RFCformat'] % (mat.group(2))
         if (verbose>=3):
             self.html.text(anchor)
-        msg = colorize(anchor, fg="blue", bold=1)
+        msg = StyleValues.colorize(anchor, fg="blue", bold=1)
         return(msg)
     def mkNBrk(self, matchobj):
         return(re.sub(r'\s', unichr(160), matchobj.group(1)))
     def mkQuot(self, matchobj):
         """Add quotes around the text.
         """
-        if (self.OutputOptions["quoteType"] == 'D'):
+        if (Renderer.OutputOptions["quoteType"] == 'D'):
             return(specialChars["ldquo"] + matchobj.group(1) + specialChars["rdquo"])
-        elif (self.OutputOptions["quoteType"] == 'S'):
+        elif (Renderer.OutputOptions["quoteType"] == 'S'):
             return(specialChars["lsquo"] + matchobj.group(1) + specialChars["rsquo"])
-        elif (self.OutputOptions["quoteType"] == 'A'):
+        elif (Renderer.OutputOptions["quoteType"] == 'A'):
             return(specialChars["laquo"] + matchobj.group(1) + specialChars["raquo"])
         else:
             return('"' + matchobj.group(1) + '"')
@@ -1173,7 +1143,7 @@ class Block:
                 lineLen += 1 + tokenLen
                 continue
             # Following doesn't get triggered for L<txt|"http://...">
-            if (self.OutputOptions["breakURIs"] and
+            if (Renderer.OutputOptions["breakURIs"] and
                   re.search(r'https?://', token)):
                 avail = effWidth-lineLen-1
                 loc = token.rfind('/', 1, avail)
@@ -1222,7 +1192,7 @@ class ListManager:
                 self.formatOptions["OLSuffix"])
 
         if (self.formatOptions["color"]):
-            buf = colorize(buf, fg="blue", bold=True)
+            buf = StyleValues.colorize(buf, fg="blue", bold=True)
         buf += line[depth:]
         return(buf)
 
@@ -1295,8 +1265,8 @@ class ListManager:
     def getRoman(n):
         """Convert to Roman numerals. Limited range.
         """
-        #return( 'x' * int(n/10) + romans[n % 10])
-        return romans[n]
+        #return( 'x' * int(n/10) + ListManager.romans[n % 10])
+        return ListManager.romans[n]
 
 
 ###############################################################################
@@ -1319,19 +1289,27 @@ class FormatRun:
 class StyleValues:
     """Enums for various formatting classes and style property values.
     """
-    DisplayTypes = {
-        'HIDDEN':   0,
-        'INLINE':   0,
-        'BLOCK':    0,
-        'TABLE':    0,
-        'TROW':     0,
-        'TCELL':    0,
-        'IMAGE':    0,  # Not yet...
-        'MARKER':   0,  # Bullet, item number, defterm, BNF LHS,...
-    }
+    # DisplayTypes
+    DSP_HIDDEN  = 0
+    DSP_INLINE  = 1
+    DSP_BLOCK   = 2
+    DSP_TABLE   = 3
+    DSP_TROW    = 4
+    DSP_TCELL   = 5
+    DSP_IMAGE   = 6  # Not yet...
+    DSP_MARKER  = 7  # Bullet, item number, defterm, BNF LHS,...
 
     # All blocks get slotted into one of these types, plus a nesting
     # level for ITEM and HEAD. There should be a Block subclass for each one.
+    BLK_TEXT	= 1
+    BLK_ITEM	= 2
+    BLK_HEAD	= 3
+    BLK_PRE	    = 4
+    BLK_ROW	    = 5
+    BLK_BNF	    = 6
+    BLK_RULE	= 7
+    BLK_QUOTE	= 8
+
     BlockClasses = {
         'TEXT':	    { 'display':'block', 'marginTop':1, },
         'ITEM':	    { 'display':'block', 'marginLeft':4, 'marker':'*'},
@@ -1540,7 +1518,7 @@ class Renderer:
         self.gaveEscMessage = False
 
         # TODO: Change these to be more like CSS
-        self.OutputOptions = {
+        Renderer.OutputOptions = {
             "defaults"    : False,
             "color"       : True,           # Use ANSI terminal color
             "breakURIs"   : True,           # Allow breaking line at / in URIs?

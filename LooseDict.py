@@ -2,14 +2,6 @@
 #
 # LooseDict.py: enhance dict to handle case-ignorant or similar lookups.
 #
-# 2018-09-04: Written. Copyright by Steven J. DeRose.
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
-#
-# To do:
-#     Implement __cmp__
-#     Provie functions that do Unicode normalizations.
-#
 from __future__ import print_function
 import sys
 import argparse
@@ -114,21 +106,32 @@ The normalizer function must be idempotent. That is, after being applied once,
 additional applications should make no further changes. Or in other words,
 normalizing an already-normalized key should not denormalize it.
 
-=Ownership=
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities> or
-L<http://github/com/sderose>.
-
 =History=
+
+2018-09-04: Written. Copyright by Steven J. DeRose.
+
+=To do=
+
+* Add an option to find from unique abbreviation of key.
+* Implement __cmp__.
+* Provide functions that do Unicode normalizations.
+
+=Rights=
+
+Copyright 2018-09-04 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+For further information on this license, see
+[https://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities]
+or [https://github.com/sderose].
 
 =Options=
 """
 
 
+###############################################################################
+#
 class LooseDict(dict):
     """A dict also indexable by *normalized* keys (but it keeps the exact keys,
     too). See also "Emulating container types":
@@ -144,7 +147,8 @@ class LooseDict(dict):
 
     def __setitem__(self, someKey, value):
         normKey = self.getNormKey(someKey)
-        print("in setitem for '%s', norm='%s', val='%s'." % (someKey, normKey, value))
+        print("in setitem for '%s', norm='%s', val='%s'." %
+            (someKey, normKey, value))
         if (normKey in self.normKeys):
             oldRealKey = self.normKeys[normKey]
             super(LooseDict, self).__delitem__(oldRealKey)
@@ -254,7 +258,7 @@ class normdict(dict):
         self,
         default=None,        # Like defaultdict
         normalizer=None,     # Pass all keys through this before hashing
-        sorter=None,         # Sort function to use when needed (on norm or reg?)
+        sorter=None,         # Sort function to use (on norm or reg?)
 
         keyType=None,        # Keys must be of this type
         valueType=None       # Values must be of this type
@@ -366,20 +370,17 @@ class normdict(dict):
         return normKey in self.theDict
 
 
-
-###############################################################################
 ###############################################################################
 # Main
 #
 if __name__ == "__main__":
     def processOptions():
         try:
-            from MarkupHelpFormatter import MarkupHelpFormatter
-            formatter = MarkupHelpFormatter
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
         except ImportError:
-            formatter = None
-        parser = argparse.ArgumentParser(
-            description=descr, formatter_class=formatter)
+            parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
             "--quiet", "-q",      action='store_true',

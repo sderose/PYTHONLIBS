@@ -20,7 +20,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2011-12-09",
-    'modified'     : "2020-03-02",
+    'modified'     : "2020-08-20",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -258,21 +258,42 @@ The following variables are Unicode strings containing the relevant characters:
 
 * '''showControls'''
 
+Turn C0 control characters into their Unicode "Control Pictures" (tiny
+mnemonics, at U+2400 and following).
+
 * '''showInvisibles or vis'''
+
+Many unprintable character visible.
 
 * '''escapeRegex'''
 
-* '''escapeXmlContent or escapeXml'''
+Backslash regex metacharacters in a string.
+
+* '''escapeXmlContent''' or '''escapeXml''' or '''escapeXmlText'''.
+
+Turn '<', '&', and the '>' in ']]>' into '&lt;', '&amp;', and '&gt;' instead.
 
 * '''escapeXmlAttribute'''
 
+Turn '<', '&', and '"' into '&lt;', '&amp;', and '&quot;' instead.
+You can set `apostrophes=True` if you also want to convert "'" to '&apos;'.
+
 * '''escapeXmlPi'''
+
+Turn "?>" into "?&gt;". XML does not define a particular way to represent '?>'
+within processing instructions, but you have to escape it somehow....
+You can set `target=[string]` to something else if you prefer.
+At least at the moment, this also nukes any non-XML control characters.
 
 * '''escapeXmlComment'''
 
+Turns "--" into em dash (U+2014). XML does not define how to represent '--'
+within comments, but you have to escape it somehow....
+You can set `target=[string]` to something else if you prefer.
+
 * '''normalizeXmlSpace(s)'''
 
-Normalize whitespace per XML definitions.
+Normalize whitespace per XML definition. This affects Python (non-Unicode) \\s.
 
 * '''expandXml(s)'''
 
@@ -1268,7 +1289,7 @@ class sjdUtils:
         """
         return(self.escapeXmlContent(s))
 
-    def escapeXmlAttribute(self, s, apostrophes=0):
+    def escapeXmlAttribute(self, s, apostrophes=False):
         """Turn ampersands, less-than signs, and double-quotes
         into XML entity references. If I<apos> is true, then leave
         double-quotes unchanged, but turn single-quotes into C<&apos;> instead.
@@ -1285,33 +1306,38 @@ class sjdUtils:
             s = re.sub(r'"', "&quot;", s)
         return(s)
 
-    def escapeXmlPi(self, s):
-        """Turn "?>" into "?&gt;" within I<x>.
+    def escapeXmlPi(self, s, target="?&gt;"):
+        """Turn "?>" into "?&gt;" within a string.
         One way to escape data to go inside XML Processing Instructions.
         Note: XML allows but does not recognize "&gt;" inside PIs.
         """
         if (s is None): return("")
         s = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f]', "", s)
-        s = re.sub(r'\?>',  "?&gt;", s)
+        s = re.sub(r'\?>', target, s)
         return(s)
 
-    def escapeXmlComment(self, s):
+    def escapeXmlComment(self, s, target=u"\u2014"):
         """Turns "--" into em dash (U+2014) within I<s>. "--" is not allowed
         inside XML comments. This is not a method defined by XML.
         """
         if (s is None): return("")
         s = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f]', "", s)
-        s = re.sub(r'--',  u"\u2014", s)
+        s = re.sub(r'--', target, s)
         return(s)
 
     def normalizeXmlSpace(self, s):
+        """Reduce runs of space, tab, linefeed, and cr to a single space, and
+        strip the same characters off start and end of a string.
+        """
         if (s is None): return("")
         s = re.sub(r'\s+',' ', s)
         s = re.sub(r'^ ','', s)
         s = re.sub(r' $','', s)
         return(s)
 
-    def expandXml(self, s):
+    def expandXml(self, s):  # aka unescape or expandEntities
+        """Turn HTML4 entites and numeric character references into literals.
+        """
         if (s is None): return("")
         if (PY2):
             import HTMLParser
@@ -1349,6 +1375,8 @@ class sjdUtils:
     # Handle \\ codes.
     #
     def backslash(self, s):
+        """Insert backslash before space, non-ASCII, and backslash characters.
+        """
         s = re.sub(r"\t",  r"\\t", s)
         s = re.sub(r"\r",  r"\\r", s)
         s = re.sub(r"\n",  r"\\n", s)
@@ -1366,6 +1394,8 @@ class sjdUtils:
     #
     # Doesn't escape non-ASCII correctly (should expand to UTF-8 first)
     def escapeURI(self, s):
+        """Map non-URI characters in the string to %FF-style codes.
+        """
         s = re.sub(r'([^-!\$\'()*+.0-9:;=?\@A-Z_a-z])',
                    self.charToURIFunction, s)
         return(s)
@@ -1376,6 +1406,14 @@ class sjdUtils:
                        self.charFromHexFunction, s, flags=re.I)
         return(s)
 
+    def escapeQuotes(self, s):
+        return re.sub(r'["\\]', sjdUtils.qEscaper, s)
+
+    @staticmethod
+    def qEscaper(mat):
+        if (mat.group(0) == '"'): return "\\\""
+        elif (mat.group(0) == '\\'): return "\\\\"
+        return mat.group(0)
 
 
     ###########################################################################
@@ -1399,6 +1437,9 @@ class sjdUtils:
         return(self.isoDateTime(s)[11:])
 
     def elapsedTime(self, startTime, endTime=None, seconds=True):
+        """Subtract two epoch times, and return the difference.
+        With 'seconds' True, as number of seconds, otherwise as hh:mm:ss.
+        """
         if (endTime is None): endTime = time.time()
         elapsed = endTime - startTime
         if (seconds): return(elapsed)
@@ -1518,9 +1559,13 @@ class sjdUtils:
 ###############################################################################
 #
 if __name__ == "__main__":
-    from MarkupHelpFormatter import MarkupHelpFormatter
-    parser = argparse.ArgumentParser(
-        description=descr, formatter_class=MarkupHelpFormatter)
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+           description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(
+        description=descr)
 
     parser.add_argument(
         "--version",          action='version',     version=sjdUtils.__version__,

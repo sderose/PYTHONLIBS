@@ -1,46 +1,33 @@
 #!/usr/bin/env python
 #
 # TabularFormats2.py
-#
-# More modern port of by TabularFormats classes, originally from PErl.
-#
-# 2018-07-19: Written. Copyright by Steven J. DeRose.
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
-#
-# To do:
-#     Cleaner way to set params....
-#     Finish CSV
-#     Make reader/writer inherit options from top object
-#     Add more formats
+# More modern port of by TabularFormats classes, originally from Perl.
+# 2018-07-19: Written by Steven J. DeRose.
 #
 from __future__ import print_function
 import sys
-#import os
 import argparse
-#import re
-#import string
 import codecs
-#from collections import ordereddict
 
 import csv
 from csv import DictWriter, DictReader  # , Dialect
 from csv import QUOTE_MINIMAL, QUOTE_NONNUMERIC, QUOTE_ALL, QUOTE_NONE
 
-__version__ = "2018-07-19"
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2018-07-19",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2018-07-19",
+    'title'        : ".py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2018-07-19",
+    'modified'     : "2020-08-20",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
+__version__ = __metadata__['modified']
 
-
-###############################################################################
-#
-def processOptions():
-    descr = """
-=head1 Description
+descr = """
+=Description=
 
 Load data from some CSV-like form, such as listed below. Use the same API
 as Python C<csv> package.
@@ -53,26 +40,46 @@ as Python C<csv> package.
     Simplistic S-EXP, JSON, HTML tables, etc.
     Perl or Python declarations
 
-=head1 Related Commands
+=Related Commands=
 
-=head1 Known bugs and Limitations
+=Known bugs and Limitations=
 
-=head1 Licensing
+=History=
 
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
+* 2018-07-19: Written. Copyright by Steven J. DeRose.
+
+
+=To do=
+
+* Cleaner way to set params....
+* Finish CSV
+* Make reader/writer inherit options from top object
+* Add more formats
+
+
+=Rights=
+
+Copyright 2018-07-19 by Steven J. DeRose. This work is licensed under a
 Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+For further information on this license, see
+[https://creativecommons.org/licenses/by-sa/3.0].
 
-=head1 Options
+For the most recent version, see [http://www.derose.net/steve/utilities]
+or [https://github.com/sderose].
+
+=Options=
 """
 
+
+###############################################################################
+#
+def processOptions():
     try:
-        from MarkupHelpFormatter import MarkupHelpFormatter
-        formatter = MarkupHelpFormatter
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
     except ImportError:
-        formatter = None
-    parser = argparse.ArgumentParser(
-        description=descr, formatter_class=formatter)
+        parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
         "--commentDelim", type=str, metavar='S', default=None,

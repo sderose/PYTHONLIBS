@@ -7,6 +7,7 @@
 from __future__ import print_function
 import sys
 import re
+#import _sre  # For re type-checking, but doesn't seem to work.
 #import string
 import codecs
 import xml.dom, xml.dom.minidom
@@ -75,6 +76,7 @@ and combining nodes.
 * SAX event generator
 * finding left and right extremes of a subtree, lowest common ancestor, etc.
 * change or case-fold element type names.
+* access items in NamedNodeMaps via the usual [] notation.
 
 ==Using [] notation==
 
@@ -366,23 +368,24 @@ the first new sibling node, and the rest becoming an initial text node
 under the second.
 (not yet supported)
 
-* '''forEachNode'''(node, preCallback, postCallback)
+* '''forEachNodeCB'''(node, preCallback, postCallback)
 
 Traverse the subtree headed at ''node'',
 calling the callbacks before and after traversing each node's subtree.
 
-* '''forEachTextNode'''(node, preCallback, postCallback)
+* '''forEachNode'''(node)
 
-Like ''forEachNode''(), but callbacks are ''only'' called when at text nodes.
+Traverse the subtree headed at ''node'',
+yielding it and each descendant in document order.
 
-* '''forEachElement'''(node, preCallback, postCallback)
+* '''forEachTextNode'''(node)
 
-Like ''forEachNode''(), but callbacks are ''only'' called when at element nodes.
+A generator that yields each text node descendant.
 
-* '''forEachElementOfType'''(node, type, preCallback, postCallback)
+* '''forEachElement'''(node, etype=None)
 
-Like ''forEachNode''(), but callbacks are ''only'' called when at
-element nodes whose type name matches ''type'' (which may be a regex).
+A generator that yields each element node descendant. If `etype` is specified,
+skip any that don't match.
 
 * '''generateSaxEvents'''(self, handlers=None)
 
@@ -554,6 +557,11 @@ If ''allUnicode'' is set, include not just the narrow set of `[ \t\r\n]`,
 but all Unicode whitespace (which, in Python regexes with re.UNICODE,
 does not include ZERO WIDTH SPACE U+200b).
 
+* '''stripSpace'''(self, s, allUnicode=False)
+
+Like `normalizeSpace`, but only remove leading and trailing whitespace.
+Internal whitespace is left unchanged.
+
 =back
 
 =Known bugs and limitations=
@@ -587,6 +595,7 @@ inferring open and close tags to keep things in sync.
 `Dominus.py` -- a disk-resident DOM implementation that can handle absurdly
 large documents.
 
+
 =History=
 
 * Written 2010-04-01~23 by Steven J. DeRose (originally in Perl).
@@ -598,14 +607,17 @@ large documents.
 * 2019-12-13ff: Clean up inline doc. Emitter class. collectAllXml2. lint.
 Pull in other extensions implemented in my BaseDom.py (nee RealDOM.py).
 Generate SAX.
+* 2020-05-22: Add a few items from BS4, and a few new features.
+
 
 =To do=
 
 * Add insertPrecedingSibling, insertFollowingSibling, insertParent, insertAfter
 * Allow creating nodes with no ownerDocument; they get attached when inserted
-* Implement splitNode (see help)
+* Implement splitNode and warp/surround(see help)
+* Implement a few useful BS4 bits (see class BS4Features) (and add to help).
 * String to tag converter, like for quotes?
-* Normalize line-breaks within text nodes
+* Normalize line-breaks, Unicode whitespace within text nodes
 * Consider additions from https://lxml.de/api/index.html:
 ** strip_attributes,....
 * Move in matchesToElements from mediaWiki2HTML.
@@ -617,6 +629,8 @@ Generate SAX.
 * Let appendChild, insertBefore, insertAfter, etc. take lists.
 * More optional parameters for Document.create___ (like attrs on element).
 * More flexibility on createAttribute etc.
+* Change forEachTextNode, etc. to be real generators.
+
 
 =Rights=
 
@@ -661,6 +675,16 @@ ARG_NAME      = 5
 
 from BaseDom import BaseDom
 BaseDom.usePythonExceptions()
+
+class NOT_SUPPORTED_ERR(Exception):
+    pass
+class INDEX_SIZE_ERR(Exception):
+    pass
+class HIERARCHY_REQUEST_ERR(Exception):
+    pass
+
+_regexType = type(re.compile(r'a*'))
+
 
 def DEgetitem(self, n1, n2=None, n3=None):
     """
@@ -852,8 +876,21 @@ def innerText(self, sep=''):
         if (curNode.nodeType == Node.TEXT_NODE):
             t += sep + curNode.nodeValue
         elif (curNode.nodeType == Node.ELEMENT_NODE):
-            t += sep + curNode.innerText
+            t += sep + curNode.innerText(sep=sep)
     return t
+
+
+###############################################################################
+# Methods to add to NamedNodeMap to make it more usable.
+# xml.dom.minidom claims to have this, but I have had problems with it.
+# http://epydoc.sourceforge.net/stdlib/xml.dom.minidom.NamedNodeMap-class.html
+#
+def NNM_getitem(self, which):
+    try:
+        x = int(which)
+        return self.item(which)
+    except ValueError:
+        return self.getNamedItem(which).vValue
 
 
 ###############################################################################
@@ -1283,7 +1320,8 @@ def nodeMatches(self, elType="*", attrs=None):
         elif (":" in elType):
             raise NOT_SUPPORTED_ERR("Namespaces not yet allowed for select...().")
         else:
-            if (type(elType) == _sre.SRE_Pattern):
+            # Would prefer to test _sre.SRE_Pattern, but that doesn't work.
+            if (type(elType) == _regexType):
                 if (not re.match(elType, self.nodeName)): return False
             else:
                 if (self.nodeName != elType): return False
@@ -1299,7 +1337,7 @@ def nodeMatches(self, elType="*", attrs=None):
         else:
             ty = type(tgtVal)
             attrVal = self.getAttribute(tgtName)
-            if (ty == _sre.SRE_Pattern):
+            if (ty == _regexType):
                 if (not re.match(tgtVal, attrVal)): return False
             elif (ty == int):
                 try:
@@ -1408,7 +1446,7 @@ def removeWhiteSpaceNodes(self):
     """
     """
     # print "running removeWhiteSpaceNodesCB\n"
-    forEachNode(removeWhiteSpaceNodesCB, None)
+    forEachNodeCB(self, removeWhiteSpaceNodesCB, None)
 
 def removeWhiteSpaceNodesCB(self):
     """This only deals with XML whitespace, not all Unicode.
@@ -1457,13 +1495,17 @@ def forceTagCase(root, upper=False, attributesToo=False):
                     t.setAttribute(a.toupper(), v)
     return
 
-def getAllDescendants(root, excludeTypes=None):
+def getAllDescendants(root, excludeTypes=None, includeTypes=None):
     """
     Get a list of all descendants of the given node, in document order.
     @param excludeTypes: A list of nodeTypes to exclude (such as TEXT_NODE).
+        Descendants of skipped nodes will still be traversed.
+    @param excludeTypes: A list of nodeTypes to include. If not specified,
+        all (non-excluded) types are ok.
     """
-    if ((not excludeTypes) or root.nodeType in excludeTypes):
-        yield(root)
+    if ((not excludeTypes) or root.nodeType not in excludeTypes):
+        if (not includeTypes or root.nodeType in includeTypes):
+            yield(root)
     for ch in root.childNodes:
         yield getAllDescendants(ch)
     return
@@ -1474,7 +1516,7 @@ def getAllDescendants(root, excludeTypes=None):
 def normalizeAllSpace(self):
     """
     """
-    forEachNode(normalizeAllSpaceCB, None)
+    forEachNodeCB(self, normalizeAllSpaceCB, None)
 
 def normalizeAllSpaceCB(self):
     """
@@ -1598,7 +1640,7 @@ def promoteChildren(self, ):
 
 ###############################################################################
 #
-def forEachNode(self, callbackA=None, callbackB=None, depth=1):
+def forEachNodeCB(self, callbackA=None, callbackB=None, depth=1):
     """Traverse a subtree given its root, and call separate callbacks before
     and after traversing each subtree. Callbacks might, for example,
     respectively generate the start- and end-tags for elements, and generate
@@ -1615,68 +1657,55 @@ def forEachNode(self, callbackA=None, callbackB=None, depth=1):
     if (self.hasChildNodes()):
         #print ("Recursing for child nodes at level %s." % (depth+1))
         for ch in self.childNodes:
-            rc = forEachNode(ch, callbackA, callbackB, depth+1)
+            rc = forEachNodeCB(ch, callbackA, callbackB, depth+1)
             if (rc): return 1
     if (callbackB):
         if (callbackB(name, depth)): return 1
     return 0 # succeed
 
 
-def forEachTextNode(self, callbackA=None, callbackB=None, depth=1):
-    """Like forEachNode(), but only stops at text nodes.
+def forEachNode(self, wsn=True, depth=1):
+    """Generate all descendant nodes.
+    @param wsn: If False, skip white-space-only nodes.
     """
-    if (not (self)): return 1
-    name = self.nodeName
-    if (callbackA and name == "#text"):
-        if (callbackA(name, depth)): return 1
+    if (not (self)): return
+    if (self.nodeType != Node.TEXT_NODE
+        or wsn or self.nodeValue.strip() != ''):
+        yield self
+    if (self.hasChildNodes()):
+        for ch in self.childNodes:
+            for chEvent in forEachTextNode(ch, depth+1):
+                yield chEvent
+    return
+
+
+def forEachTextNode(self, wsn=True, depth=1):
+    """Generate all descendant text nodes.
+    @param wsn: If False, skip white-space-only nodes.
+    """
+    if (not (self)): return
+    if (self.nodeType == Node.TEXT_NODE):
+        if (wsn or self.nodeValue.strip() != ''):
+            yield self
+    if (self.hasChildNodes()):
+        for ch in self.childNodes:
+            for chEvent in forEachTextNode(ch, depth+1):
+                yield chEvent
+    return
+
+
+def forEachElement(self, etype=None, depth=1):
+    """Generate all element nodes descendants.
+    """
+    if (not (self)): return
+    if (self.nodeType==Node.ELEMENT_NODE):
+        if (not etype or self.nodeName == etype): yield self
     if (self.hasChildNodes()):
         #print ("Recursing for child nodes at level %s." % (depth+1))
         for ch in self.childNodes:
-            rc = forEachTextNode(ch, callbackA, callbackB, depth+1)
-            if (rc): return 1
-    if (callbackB and name == "#text"):
-        if (callbackB(name, depth)): return 1
-    return 0 # succeed
-
-
-def forEachElement(self, callbackA=None, callbackB=None, depth=1):
-    """Like forEachNode(), but only stops at element nodes.
-    """
-    if (not (self)): return 1
-    name = self.nodeName
-    if (callbackA and self.nodeType==Node.ELEMENT_NODE):
-        if (callbackA(name, depth)): return 1
-    if (self.hasChildNodes()):
-        #print ("Recursing for child nodes at level %s." % (depth+1))
-        for ch in self.childNodes:
-            rc = forEachElement(ch, callbackA, callbackB, depth+1)
-            if (rc): return 1
-    if (callbackB and self.nodeType==Node.ELEMENT_NODE):
-        if (callbackB(name, depth)): return 1
-    return 0 # succeed
-
-def forEachElementOfType(self, elementType, callbackA=None, callbackB=None, depth=1):
-    """Like forEachNode(), but only stops at element nodes of a certain type.
-    The type may be specified as a regex (watch out for '.' in names).
-    """
-    if (not self):
-        raise ValueError("No element specified.\n")
-    if (not elementType):
-        raise ValueError("Bad element type '" + elementType + "' specified.\n")
-    name = self.nodeName
-    if (callbackA and self.nodeType==Node.ELEMENT_NODE and
-        re.match(elementType, self.nodeName)):
-        if (callbackA(name, depth)): return 1
-    if (self.hasChildNodes()):
-        #print ("Recursing for child nodes at level %s." % (depth+1))
-        for ch in (self.childNodes):
-            rc = forEachElementOfType(
-                ch, elementType, callbackA, callbackB, depth+1)
-            if (rc): return 1
-    if (callbackB and self.nodeType==Node.ELEMENT_NODE and
-        re.search(elementType, self.nodeName)):
-        if (callbackB(name, depth)): return 1
-    return 0  # succeed
+            for chEvent in forEachElement(ch, depth=depth+1):
+                yield chEvent
+    return
 
 def generateNodes(self):
     """Traverse a subtree given its root, and yield the nodes preorder.
@@ -1934,7 +1963,8 @@ def collectAllXml2r(self, cOptions, depth=1):
             ch.collectAllXml2r(cOptions, depth+1)
 
         buf = ""
-        if (em.lastCharEmitted() == cOptions.lineBreak[-1] or cOptions.breakEnds):
+        if (em.lastCharEmitted() == cOptions.lineBreak[-1]
+            or cOptions.breakEnds):
             buf = ind(cOptions, depth, name, isStart=False, isEnd=True)
         em.emit(buf + "</%s>" % (name))
 
@@ -2070,7 +2100,7 @@ def export(self, someElement, fh, includeXmlDecl=True, includeDoctype=False):
     if (includeDoctype):
         rootElType = someElement.getName
         fhGlobal.write("<!DOCTYPE " + rootElType + "PUBLIC '' '' []>")
-    forEachNode(someElement, startCB, endCB, 0)
+    forEachNodeCB(someElement, startCB, endCB, 0)
 
 
 def startCB(self):
@@ -2145,6 +2175,7 @@ def endCB(self):
 
 
 ###############################################################################
+# GENERAL METHODS ON STRINGS
 #
 def escapeXmlAttribute(s, quoteChar='"'):
     """
@@ -2212,10 +2243,13 @@ def escapeASCII(s, width=4, base=16, htmlNames=True):
     return s
 
 def nukeNonXmlChars(s):
+    """Remove the C0 control characters not allowed in XML. Unassigned
+    Unicode characters higher up, are left unchanged.
+    """
     return re.sub("[\x00-\x08\x0b\x0c\x0e-\x1f]", "", s)
 
 def unescapeXml(s):
-    """
+    """Escape as needed for XML content: lt, amp, and ]]>.
     """
     return re.sub(r'&(#[xX])?(\w+);', unescapeXmlFunction, s)
 
@@ -2234,8 +2268,8 @@ def unescapeXmlFunction(mat):
 
 xmlSpaceChars = " \t\r\n"
 xmlSpaceRegex = re.compile("[%s]+" % (xmlSpaceChars))
-#
-def normalizeSpace(self, s, allUnicode=False):
+
+def normalizeSpace(s, allUnicode=False):
     """
     By default, this only normalizes *XML* whitespace,
     per the XML spec, section 2.3, grammar rule 3.
@@ -2250,6 +2284,16 @@ def normalizeSpace(self, s, allUnicode=False):
     else:
         s = re.sub(xmlSpaceRegex, " ", s)
     s = s.strip(' ')
+    return s
+
+def stripSpace(s, allUnicode=False):
+    """
+    Remove leading and trailing space, but don't touch internal.
+    """
+    if (allUnicode):
+        s = re.sub(r'^(?u)\s+|(?u)\s+$', " ", s, re.UNICODE)
+    else:
+        s = re.sub(r'^%s|%s$' % (xmlSpaceRegex, xmlSpaceRegex), "", s)
     return s
 
 
@@ -2311,7 +2355,8 @@ class DomIndex(dict):
     """
     Index on an attribute.
     Adds every element that has a given attribute, to a hash keyed on that
-    attribute's value. Hopes the values are unique.
+    attribute's value. Raises IndexError if a value is not unique unless
+    'duplicates' is set to True.
     """
     def __init__(self, docOrNode, aname, duplicates=False):
         """Scan a document (or at least a subtree) and build a dict of the
@@ -2344,6 +2389,127 @@ class DomIndex(dict):
             node = node.getFollowing()
 
         return None
+
+
+###############################################################################
+###############################################################################
+#
+class BS4Features:
+    """Implement a few useful bits from "Beautiful Soup 4".
+    https://www.crummy.com/software/BeautifulSoup/bs4/doc/
+    """
+    @staticmethod
+    def string(node):
+        raise NOT_SUPPORTED_ERR
+
+    @staticmethod
+    def strings(node):
+        """Generate the series of all text node descendants as strings.
+        """
+        for node in getAllDescendants(node, includeTypes=[ Node.TEXT_NODE ]):
+            yield node.data
+
+    @staticmethod
+    def stripped_strings(node, normSpace=False, allUnicode=False):
+        """Generate the series of all text node descendants as strings,
+        but with leading and trailing space stripped. Also, skip any text
+        nodes that are white-space-only.
+        TODO: Probably should also have an option to normalize internal space,
+        and perhaps Unicode as well as XML whitespace.
+        """
+        for node in getAllDescendants(node, includeTypes=[ Node.TEXT_NODE ]):
+            if (normSpace):
+                ss = normalizeSpace(node.data, allUnicode=allUnicode)
+            else:
+                ss = stripSpace(node.data, allUnicode=allUnicode)
+            if (ss): yield ss
+
+    @staticmethod
+    def find_all(node, name, attrs=None, recursive=True, string=None,
+        limit=0, class_=None, **kwargs):
+        """
+        @param name: Can take a string, regex, list, fn, or True.
+        @param attrs: A dict of attrs, match them all.
+        @param recursive: If False , only check direct children of node.
+        @param string: Search by 'string', by which BS means text content.
+            Not clear if it can match across text node boundaries.
+        @param limit: Max number of nodes to return.
+        @param class_: Matches against any token in @class. But if there's a
+            space, search literally instead. To check multiple, you can't (BS)
+            pass a list, but must switch to CSS selector syntax with select().
+        @param **kwargs: Filter for an attr of that name (value True matches
+            any value for the named attribute (even null???) To use attrs
+            whose names aren't Python identifiers, pass them in a dict passed
+            to 'attrs' instead
+        """
+        nFound = 0
+
+        if (not recursive):
+            for ch in node.childNodes:
+                if (BS4Features.BSfind_matcher(ch, name,
+                    attrs=attrs, string=string, class_=class_, **kwargs)):
+                    yield ch
+                    nFound += 1
+                    if (limit and nFound >= limit): return
+            return
+
+        for desc in getAllDescendants(node):
+            if (BS4Features.BSfind_matcher(desc, name,
+                attrs=attrs, string=string, class_=class_, **kwargs)):
+                yield desc
+                nFound += 1
+                if (limit and nFound >= limit): return
+        return
+
+
+    @staticmethod
+    def BSfind_matcher(node, name,
+        attrs=None, string=None, class_=None, **kwargs):
+        """Approximate the semantics of filtering params for BS4 find_all() etc.
+        """
+        if (name and not node.match(name)): return False
+        if (attrs):
+            for k, v in attrs:
+                if (not node.hasAttribute(k)): return False
+                elif (node.getAttribute(k) != v): return False
+        if (class_):
+            if (not node.hasAttribute("class")): return False
+            if (not re.search(
+                r'\b'+class_+r'\b', node.hasAttribute("class"))):
+                return False
+        if (kwargs):
+            for k, v in kwargs.items():
+                if (not node.hasAttribute(k)): return False
+                elif (node.getAttribute(k) != v): return False
+        return True
+
+
+    @staticmethod
+    def find(node, **kwargs):
+        """ Same as find_all limit=1.
+        """
+        raise NOT_SUPPORTED_ERR
+
+    @staticmethod
+    def select(node):
+        """Pick elements via a CSS selector.
+        Supports:
+            element type
+            space for descendant
+            > for childNodes
+            - for sibling
+            . for class
+            # for ID
+            , for alternatives
+            [x] for attr exists
+            [x="y"] for attr value
+        """
+        raise NOT_SUPPORTED_ERR
+
+
+    @staticmethod
+    def select_one(node):
+        raise NOT_SUPPORTED_ERR
 
 
 ###############################################################################
@@ -2383,7 +2549,7 @@ class DomExtensions:
     def patchDOM(toPatch=xml.dom.Node, getItem=True):
         """Some people capitalize acronyms.
         """
-        patchDom(toPatch, getItem=getItem)
+        DomExtensions.patchDom(toPatch, getItem=getItem)
 
     @staticmethod
     def patchDom(toPatch=xml.dom.Node, getItem=True, axisSelects=True):
@@ -2475,10 +2641,11 @@ class DomExtensions:
         toPatch.groupSiblings           = groupSiblings
         toPatch.promoteChildren         = promoteChildren
 
+        toPatch.forEachNodeCB           = forEachNodeCB
         toPatch.forEachNode             = forEachNode
         toPatch.forEachTextNode         = forEachTextNode
         toPatch.forEachElement          = forEachElement
-        toPatch.forEachElementOfType    = forEachElementOfType
+        #toPatch.forEachElementOfType    = forEachElementOfType
         toPatch.generateSaxEvents       = generateSaxEvents
 
         toPatch.collectAllText          = collectAllText
@@ -2496,6 +2663,7 @@ class DomExtensions:
 
         toPatch.unescapeXml             = unescapeXml
         toPatch.normalizeSpace          = normalizeSpace
+        toPatch.stripSpace              = stripSpace
 
         #NamedNodeMap.iteritems = nnmIteritems
         return
@@ -2513,12 +2681,11 @@ if __name__ == "__main__":
 
     def processOptions():
         try:
-            from MarkupHelpFormatter import MarkupHelpFormatter
-            formatter = MarkupHelpFormatter
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
         except ImportError:
-            formatter = None
-        parser = argparse.ArgumentParser(
-            description=descr, formatter_class=formatter)
+            parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
             "--quiet", "-q",      action='store_true',
@@ -2543,7 +2710,7 @@ if __name__ == "__main__":
     args = processOptions()
 
     warn(0, "Patching extensions onto xml.dom.Node...")
-    patchDOM()
+    DomExtensions.patchDOM()
     if (callable(xml.dom.Node.getDepth)):
         warn(0, "Patch succeeded.")
     else:

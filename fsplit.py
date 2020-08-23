@@ -4,6 +4,8 @@
 #
 # 2020-02-28: Written. Copyright by Steven J. DeRose.
 #
+#pylint: disable=W0603,W0511
+#
 from __future__ import print_function
 import sys
 import argparse
@@ -18,7 +20,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2020-02-28",
-    'modified'     : "2020-02-28",
+    'modified'     : "2020-08-08",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -27,117 +29,182 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
-An enhanced `split()` function, that can handle:
+An enhanced `split()` function, and APIs using it that are modelled on
+Python's `csv` library (see [https://docs.python.org/3/library/csv.html]).
+This library, however, can also handle:
 
-* Multi-character delimiters
+* Multi-character delimiters (unlike most utilities)
+* Optionally ignoring repeated delimiters (like `sed` can)
 * More than one allowed quotechar (for example, single and double)
 * Unicode quote characters (curly, angle, etc)
-* Special chars like \xFF, \uFFFF, &#xFFFFF;, &bull;, etc.
-* Option to ignore repeated delimiters
-* Type-checking, auto-typing
+* Expanding special chars like \\xFF, \\uFFFF, &#xFFFFF;, &bull;, etc.
+* Formatting output fields like Python `format()`
+* Checking and casting input fields to specified datatypes (see Datatypes.py).
+* Auto-sensing datatypes of input data and casting (for example, r'\\d+' to int)
+* Formatting output fields appropriately for their datatypes
+* Auto-casting output strings appropriately for their apparent datatypes
 
-as well as the usual features of Python's csv package and string.split():
+It also handles the usual features of `csv` and `string.split()`:
 
-* Escaped (backslashed) delimiter
-* Doubled delimiter
-* Quoted fields (where open and close quote are the same character)
-* Option to discard leading whitespace
-* maxsplit to limit the number of splits
+* Escaped (backslashed) characters
+* Doubled delimiters
+* Quoted fields
+* Field names specified in header or via API
+* Optionally discarding leading whitespace
+* Using `maxsplit` to limit the number of splits
 
-Maybe will add:
-* Whitespace-to-non transition (incl. Unicode whitespace)
-* Special treatment of empty/missing fields
-* Defaults?
-* Controllable Boolean values
-* Split to NamedTuple or tuple or list or dict?
-* Sub/alternate class for fixed column widths?
-* Support for cycling delimiters (like 'paste -d)
-* Maybe defaults?
-* support MediaWiki macros and tables; HTML and XML seqs?
-
-* readline variant that can do the right thing even w/ newlines in fields?
-
-And maybe a bracket parser that makes nested lists or similar, but can still do
-backslashing and such. Same i/f but add left and right pairs to accept?
+See "To do" for some features that may be added.
 
 =Usage=
 
-    myTuple = namedtuple('myTuple', [age, name, married, lat, longt])
+It's probably cleanest (and slightly faster) to define the set of
+options you want as a `DialectX` (similar to `csv.Dialect`) and then just
+pass it to `fsplit()` along with each record in turn:
 
-    myList = fsplit(s, delimiter='\t',
-        doublequote=False, escapechar='\\', quotechar='"', xescapes=True)
+    myForm = DialectX('bestCSVever',
+        delimiter='\\t',
+        doublequote=False,
+        escapechar='\\\\',
+        quotechar='"',
+        xescapes=True)
+    for rec in f.readlines():
+        myFields = fsplit(rec, dialect=myForm)
+        print("Record %d:\\n    " + join("\\n    ", myFields))
 
-==The options==
+If you prefer, you can pass the format options directly to `fsplit()`:
+    for rec in f.readlines():
+        myFields = fsplit(rec, delimiter='\\t',
+            doublequote=False, escapechar='\\\\', quotechar='"', xescapes=True)
+        print("Record %d:\\n    " + join("\\n    ", myFields))
 
-* s:str -- The string to be split into tokens/fields.
+Or you can operate at the file level, using any of these:
 
-* delimiter:str = "\t" -- The field separator character or string.
+* DictReader(f, fieldnames=None, restkey=None, restval=None, dialect=None)
 
-* doublequote:bool = False -- If set, allow putting `quotechar` inside
-a quoted string, by doubling it.
+`f` must be an open file handler or other readable. Usage is just like
+the corresponding class in `csv`:
 
-* escapechar:str = "\\" -- If set, this character can be put before
+    import fsplit
+    with codecs.open('names.csv', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            print(row['first_name'], row['last_name'])
+
+fieldname can be read via a header record, and/or specified to the constructor.
+
+* DictWriter(f, fieldnames, restval='', extrasaction='raise', dialect=None)
+
+    import fsplit
+    with codecs.open('names.csv', 'w', encoding='utf-8') as csvfile:
+        fieldnames = ['first_name', 'last_name']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerow({'first_name': 'Baked', 'last_name': 'Beans'})
+        writer.writerow({'first_name': 'Lovely', 'last_name': 'Spam'})
+        writer.writerow({'first_name': 'Wonderful', 'last_name': 'Spam'})
+
+* reader()
+
+* writer()
+
+
+==DialectX options==
+
+A dialect has many options. Several match ones from `csv`, with
+the same names and at least the same values. Those like in `csv` include:
+
+* ''delimiter'':str = "\\t" -- The field separator character or string.
+
+* ''doublequote'':bool = True -- If set, allow putting `quotechar` inside
+a quoted string, by doubling it. I'm not fond of this defaulting True,
+but that's what Python `csv` does, so I stuck with it.
+
+* ''escapechar'':str = "\\\\" -- If set, this character can be put before
 the quotechar, delimiter, or itself, to make that character literal rather
 than special. The escapechar can also be used before any of
-'f', 'n', 'r', 't', 'v', '\\', or '0' for the usual meanings.
+'f', 'n', 'r', 't', 'v', '\\\\', or '0' for the usual meanings.
 
-* lineterminator:str = "\n" --
-UNUSED?
+* ''lineterminator'':str = "\\n" -- What string to write out to indicate
+end-of-record.
 
-* quotechar:str = '"' -- Sets what characters or character-pairs are recognized
-as quotes (setupQuoteMap() handles all of this).
-
-** If set to None or '', no characters are treated as quotes.
-** If set to a single character, that character is the only recognized quote,
-and serves as both open and close.
-** If set to a 2-character string, the first character is treated as open quote,
-and the second as the corresponding close quote. Only the close quote is
-subject to `doublequote`, though both are subject to `escapechar`.
-** If set to "BOTH", then both single quote (apostrophe) and double quote are
-recognized as quotes, as is common in programming and markup languages.
-** If set to "ALL", single and double quotes are supported (as with "BOTH"),
-as well as a wide range of Unicode quotation marks, including curly single
-and double, angle quotes, and so on.
-
-You can also pass `SINGLE`, `DOUBLE`, `ANGLE`, or `CURLY`
-to get those specific cases.
+* ''quotechar'':str = '"' -- Sets what characters or character-pairs are recognized
+as quotes (`setupQuoteMap()` handles all of this). Where Python `csv` and
+many *nix utilities only accept a single delimiter characters, this also
+accepts distinct open and close quotes, as well as an option to allow both
+single and double quotes. You can also specify the type of quote via
+mnemonics, including ALL, which allows any of 12 Unicode symmetric pairs
+as well as plain apostrophe and double quote.
 
 The known pairs are defined in `UQuotePairs`, an array of triples, each like:
 
-    (0x00AB, 0x00BB, "[LEFT,RIGHT]-POINTING DOUBLE ANGLE QUOTATION MARK *" )
+    (0x00AB, 0x00BB, "[LEFT,RIGHT]-POINTING DOUBLE ANGLE QUOTATION MARK" )
 
-* skipinitialspace:bool = True -- If set, `s` has any initial (Unicode)
+''Note'': One sometimes seems back-quote as open paired with either
+apostrophe or itself as close. These are not supported, but should work
+if set explicitly or as entries to `UQuotePairs`.
+
+** ''None'': or '', no characters are treated as quotes.
+** ''a single character'': that character is the only recognized quote,
+and serves as both open and close.
+** ''a 2-character string'': the first character is treated as open quote,
+and the second as the corresponding close quote. Only the close quote is
+subject to `doublequote`, though both are subject to `escapechar`.
+With `MINIMAL` quoting, only the close quote gets escaped within values.
+** ''SINGLE'': A synonym for "'".
+** ''DOUBLE'': A synonym for '"'.
+** ''ANGLE'': A synonym for u"\\xAB\\xBB" (Unicode
+LEFT-POINTING DOUBLE ANGLE QUOTATION MARK and
+RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK).
+** ''CURLY'': A synonym for u"\\u201C\\u201D" (Unicode
+LEFT DOUBLE QUOTATION MARK and
+RIGHT DOUBLE QUOTATION MARK).
+** ''BOTH'': single quote (apostrophe) and double quote are each
+recognized as quotes, as is common in programming and markup languages.
+** ''ALL'': single and double quotes are supported (as with "BOTH"),
+as well as a wide range of Unicode quotation marks, including curly single
+and double, angle quotes, and so on.
+
+* ''quoting'': When fields should be quoted. Specify one of these
+constants, whose names and values are intended to be the same as in `csv`:
+
+    fsplit.QUOTE_MINIMAL    = 0  # only quote if needed.
+    fsplit.QUOTE_ALL        = 1  # quote all fields.
+    fsplit.QUOTE_NONNUMERIC = 2  # quote all non-numeric fields.
+    fsplit.QUOTE_NONE       = 3  # never quote fields, but use escapechar
+
+* ''skipinitialspace'':bool = True -- If set, `s` has any initial (Unicode)
 whitespace stripped before parsing.
 
-* strict:bool = True -- If set, problems raise `ValueError`
+* ''strict'':bool = True -- If set, problems raise `ValueError`
 instead of being worked around or ignored.
 
-* multidelimiter:bool = False -- If set, multiple adjacent delimiters do
-NOT result in empty tokens, but be treated the same as a single delimiter.
-This would typically be done when the delimiter is just a space.
-Empty fields can, however, be inserted by quoting them (because the delimiters
-on each side are no longer "adjacent").
 
-* xescapes:bool = True -- If set, escapes like \xFF may be used.
-This uses `escapechar` (not necessarily backslash).
-If `escapechar` is set but not `xescapes`, an escapechar before 'x' will
-not raise an error (even with `strict`), because that escape just ensures
-(unnecessarily) that the 'x' is literal.
+===Additional options===
 
-* uescapes:bool = True -- If set, escapes like \uFFFF may be used.
-This uses `escapechar` (not necessarily backslash).
-If `escapechar` is set but not `uescapes`, an escapechar before 'u' will
-not raise an error (even with `strict`), because that escape just ensures
-(unnecessarily) that the 'u' is literal.
+The following options are not available in Python's `csv` package:
 
-* entities:bool = False -- If set, character references are recognized
+* ''comment'':str = None -- If set and not '', lines starting with
+this string are treated as comments rather than data.
+
+* ''entities'':bool = False -- If set, character references are recognized
 and replaced as in HTML. Decimal (&#8226;), hexadecimal (&#x2022;), and named
 (&bull;) forms are all supported.
 NOTE: These are converted by Python's `html.unescape()` method, which does not
 raise an error for Unknown entities such as `&foo;`.
 
+* ''maxsplit'':int = None -- If specified, splitting stops after this many splits
+have occurred (making this many + 1 tokens).
 
-* types = None -- If provided as a list of types, the parsed
+* ''minsplit'':int = None -- If specified, an exception is raised if fewer than
+this many splits are made.
+
+* ''multidelimiter'':bool = False -- If set, multiple adjacent delimiters do
+NOT result in empty tokens, but be treated the same as a single delimiter.
+This would typically be done when the delimiter is just a space.
+Empty fields can, however, be inserted by quoting them (because the delimiters
+on each side are no longer "adjacent").
+
+* ''types'' = None -- If provided as a list of types, the parsed
 tokens are cast to the specified datatypes, in respective order.
 Casts can of course fail, resulting in exceptions (this provides very
 rudimentary validation). If there are more tokens
@@ -156,20 +223,27 @@ most specific type they can, from among datetime, int, float, complex, or str.
 Booleans are not attempted. The type-inference is handled by `autoType()`,
 described below.
 
-This option is still experimental.
+The `types` option is still experimental.
 
-* minsplit:int = None -- If specified, an exception is raised if fewer than
-this many splits are made.
+* ''uescapes'':bool = True -- If set, escapes like \\uFFFF may be used.
+This uses `escapechar` (not necessarily backslash).
+If `escapechar` is set but not `uescapes`, an escapechar before 'u' will
+not raise an error (even with `strict`), because that escape just ensures
+(unnecessarily) that the 'u' is literal.
 
-* maxsplit:int = None -- If specified, splitting stops after this many splits
-have occurred (making this many + 1 tokens).
+* ''xescapes'':bool = True -- If set, escapes like \\xFF may be used.
+This uses `escapechar` (not necessarily backslash).
+If `escapechar` is set but not `xescapes`, an escapechar before 'x' will
+not raise an error (even with `strict`), because that escape just ensures
+(unnecessarily) that the 'x' is literal.
 
-=autoTyping=
+
+===autoTyping===
 
 If `type='AUTO'` is specified, each field is passed to this function, which
 tries to cast it to the most specific appropriate type:
 
-    autoType(tok:str, boolCaster=None, specialFloats=False)
+    autoType(tok:str, boolCasterFunc=None, specialFloats=False)
 
 Leading and trailing whitespace are stripped before testing for various types.
 However, items that remain as strings are returned with the whitespace intact.
@@ -206,87 +280,72 @@ the `fsplit()` option `types`. With a list, each token is explicitly cast to
 the nth type (which may fail). In that case, remember that Python `bool()`
 takes any non-empty string as True, even "0" or "False".
 
+
 =Related Commands=
 
-`splitAt`
+Python `csv` [https://docs.python.org/3/library/csv.html].
 
-The Python csv package [https://docs.python.org/3/library/csv.html]. Its format
-parameters are pretty nice, but it lacks:
+For a more complete list, including generalized and Unicode-aware ports
+of several *nix utilities, see [http://github.com/sderose/CSV] and
+[http://github.com/sderose/XML/CONVERT].
 
-* multi-character delimiters,
-* regex delimiters
-* the "whitespace to nonspace transition" approach (like awk, column, and sort)
-* ignoring repeated delimiters (except skipinitialspace)
-* cyclic delimiter lists (like paste)
-
-Python package options:
-
-* Dialect.delimiter -- A one-character string used to separate fields. It defaults to ','.
-
-* Dialect.doublequote -- It defaults to True.
-
-* Dialect.escapechar -- A one-character string used by the writer to escape the delimiter if quoting is set to QUOTE_NONE and the quotechar if doublequote is False. It defaults to None, which disables escaping.
-
-* Dialect.lineterminator -- Defaults to '\\r\\n'. The reader is hard-coded to recognise either '\\r' or '\\n' as end-of-line, and ignores lineterminator.
-
-* Dialect.quotechar -- A one-character string used to quote fields containing special characters, such as the delimiter or quotechar, or which contain new-line characters. It defaults to '"'.
-
-* Dialect.quoting -- Controls when quotes should be generated by the writer and recognised by the reader:
-
-    csv.QUOTE_ALL -- quote all fields.
-
-    csv.QUOTE_MINIMAL -- only quote those fields which contain special characters such as delimiter, quotechar or any of the characters in lineterminator.
-
-    csv.QUOTE_NONNUMERIC -- quote all non-numeric fields. Convert all non-quoted fields to type float.
-
-    csv.QUOTE_NONE -- never quote fields, but use escapechar. If escapechar is needed but not set, raise Error.
-
-* Dialect.skipinitialspace -- When True, whitespace immediately following the delimiter is ignored. The default is False.
-
-* Dialect.strict -- When True, raise exception Error on bad CSV input. The default is False.
-
-
-==Field-related *nix commands==
-
-* awk
-* column
-* cut
-* join
-* msort
-* paste
-* sort
-* tab2space
-* uniq
-
-===Column numbers only, no fields===
-
-* colrm (N)
-* expand
-* lam
-* look
-* sed
-* unexpand
 
 =Known bugs and Limitations=
+
+Multi-char delim test is failing.
+
+reader, writer, DictReader, and DictWriter are new and not well tested.
+They do not yet support quoted fields that cross lines, either.
 
 Not sure whether you can (or should be able to) escape in mid-delimiter.
 
 What's the right rule for a quote not immediately following a delimiter?
+As in
+    1, "two", 3, 4"five"5, 6
 
 It might be nice to have a way to change the set of backslash codes,
-such as \\b for BEL,
+such as \\b for BEL, etc.
 
-If using `bool` with the `types` option, only the empty string counts as "False".
+If using `bool` with the `types` option,
+only the empty string counts as "False".
 Probably should add a way to specify other acceptable values, like "0",
-"0.0", "1E-200000", "#F", r'^\s*$', or "False".
+"0.0", "1E-200000", "#F", r'^\\s*$', or "False".
 I have added a `boolCaster()` function for this, but not connected it.
+
+fieldnames passed to DictReader should probably be allowed to override any
+read from a header record. But currently they're compared and an exception
+is raised if they don't match.
+
+
+=To do=
+
+* regex delimiters
+* the "whitespace to nonspace transition" approach (like awk, column, and sort)
+* Support for cycling delimiters (like 'paste -d)
+* Special treatment of empty/missing fields
+* Field Defaults
+* Controllable Boolean values (see csv2xml.py)
+* Creating NamedTuple or tuple instead of list or dict?
+* Sub/alternate class for fixed column widths?
+* Maybe support field-specific default values?
+* support for a wider range of formats (probably will be done by separate packages with much the same API), such as:
+    ** HTML and XML tables
+    ** XSV
+    ** MECS, TAG, Clix, and similar markup systems
+    ** MediaWiki and MarkDown tables
+    ** JSON {[]}, [[]], etc., and similar Perl and Python arrangements
+    ** s-expressions
+    ** SQL INSERT statements
 
 
 =History=
 
 Written by Steven J. DeRose, 2020-02-28.
 
-=To do=
+* 2020-08-07: Add classes and API to look essentially like Python `csv`,
+including `DictReader` and `DictWriter`.
+Separate options into a "Dialect" class, add `add_my_options`.
+Start `multidelimiter`. Add `comment`. Rewrite doc.
 
 =Rights=
 
@@ -294,12 +353,315 @@ Copyright 2020-02-28 by Steven J. DeRose. This work is licensed under a
 Creative Commons Attribution-Share-alike 3.0 unported license.
 See [http://creativecommons.org/licenses/by-sa/3.0/ for more information].
 
-For the most recent version, see L<http://www.derose.net/steve/utilities/>
-or L<http://github.com/sderose>.
+For the most recent version, see [http://www.derose.net/steve/utilities]
+or [https://github.com/sderose].
 
 =Options=
 """
 
+###############################################################################
+#
+# These are the same values as in Python's csv package
+QUOTE_MINIMAL       = 0  # only quote if needed.
+QUOTE_ALL           = 1  # quote all fields.
+QUOTE_NONNUMERIC    = 2  # quote all non-numeric fields.
+QUOTE_NONE          = 3  # never quote fields, but use escapechar
+
+class DialectX:
+    """Just a bundle of settings for now.
+    """
+    def __init__(self,
+        dialectName:str,
+
+        # Options like Python 'csv' package:
+        delimiter:str            = "\t",
+        doublequote:bool         = True,  # TODO
+        escapechar:str           = "\\",
+        lineterminator:str       = "\n",
+        quotechar:str            = '"',
+        quoting:int              = QUOTE_NONNUMERIC,
+        skipinitialspace:bool    = True,
+        strict:bool              = True,
+
+        # Other options:
+        comment:str              = None,
+        entities:bool            = False,
+        maxsplit:bool            = None,
+        minsplit:bool            = None,
+        multidelimiter:bool      = False,
+        types:bool               = None,
+        uescapes:bool            = False,
+        xescapes:bool            = False,
+    ):
+        self.dialectName         = dialectName
+
+        # Options like Python 'csv' package:
+        self.delimiter           = delimiter
+        self.doublequote         = doublequote
+        self.escapechar          = escapechar
+        self.lineterminator      = lineterminator
+        self.quotechar           = quotechar
+        self.quoting             = quoting
+        self.skipinitialspace    = skipinitialspace
+        self.strict              = strict
+
+        # Other options:
+        self.comment             = comment
+        self.entities            = entities
+        self.maxsplit            = maxsplit
+        self.minsplit            = minsplit
+        self.multidelimiter      = multidelimiter
+        self.types               = types
+        self.uescapes            = uescapes
+        self.xescapes            = xescapes
+
+        global dialects
+        dialects[dialectName] = self
+
+    __theOptionNames__ = {
+        # name               ( type, default )
+        "delimiter":         ( str, "\t" ),
+        "doublequote":       ( bool, False ),
+        "escapechar":        ( str, "\\" ),
+        "lineterminator":    ( str, "\n" ),
+        "quotechar":         ( str, '"' ),
+        "quoting":           ( str, "MINIMAL" ),
+        #  [ 'ALL', 'MINIMAL', 'NONNUMERIC', 'NONE'],
+        "skipinitialspace":  ( bool, True ),
+        "strict":            ( bool, True ),
+
+        # fsplit only:
+        "comment":           ( str,  None ),
+        "entities":          ( bool, False ),
+        "maxsplit":          ( int,  None ),
+        "minsplit":          ( int,  None ),
+        "multidelimiter":    ( bool, False ),
+        "types":             ( str,  None ),
+        "uescapes":          ( bool, False ),
+        "xescapes":          ( bool, False ),
+    }
+
+    def apply_arguments(self, args):
+        """Call this to move the arguments (typically added by
+        add_my_arguments), to the current instance.
+        """
+        for k in __theOptionNames__:
+            if (k in args.__dict__ and args.__dict__[k] is not None):
+                self.__dict__[k] = args.__dict__[k]
+
+    def add_my_arguments(self, parser, prefix="", csvOnly=False):
+        """Add argparse arguments corresponding to those for the Python 'csv'
+        library.
+        @param prefix: If specified, add this at the start of all the name,
+        to prevent name conflicts.
+        @param csvOnly: If set, don't include arguments specific to my fsplit
+        package.
+        """
+        pre = "--" + prefix
+
+        # Options like Python 'csv' package:
+        parser.add_argument(
+            pre+"delimiter",          type=str, default="\t",
+            help='.')
+        parser.add_argument(
+            pre+"doublequote",        action="store_true",
+            help='.')
+        parser.add_argument(
+            pre+"escapechar",         type=str, default="\\",
+            help='.')
+        parser.add_argument(
+            pre+"lineterminator",     type=str, default="\n",
+            help='.')
+        parser.add_argument(
+            pre+"quotechar",          type=str, default='"',
+            help='.')
+        parser.add_argument(
+            pre+"quoting",            type=str, default="MINIMAL",
+            choices=[ 'ALL', 'MINIMAL', 'NONNUMERIC', 'NONE'],
+            help='When should fields be quoted?.')
+        parser.add_argument(
+            pre+"skipinitialspace",   type=bool, default=True,
+            help='.')
+        parser.add_argument(
+            pre+"strict",             type=bool, default=True,
+            help='.')
+
+        if (csvOnly): return
+
+        # Other options, as for my fsplit.py package.
+        parser.add_argument(
+            pre+"comment",            type=str, default=None,
+            help='.')
+        parser.add_argument(
+            pre+"entities",           action="store_true",
+            help='.')
+        parser.add_argument(
+            pre+"maxsplit",           type=int, default=None,
+            help='.')
+        parser.add_argument(
+            pre+"minsplit",           type=int, default=None,
+            help='.')
+        parser.add_argument(
+            pre+"multidelimiter",     action="store_true",
+            help='.')
+        parser.add_argument(
+            pre+"types",              type=str, action="append",
+            choices=[ 'str', 'int', 'float', 'bool' ],
+            help='A list of types for the fields (repeatable).')
+        parser.add_argument(
+            pre+"uescapes",           action="store_true",
+            help='.')
+        parser.add_argument(
+            pre+"xescapes",           action="store_true",
+            help='.')
+
+        return
+
+
+###############################################################################
+#
+class DictReader:
+    def __init__(self,
+        f,
+        fieldnames,
+        restkey,
+        restval,
+        dialect,
+        *theArgs,
+        **theKwds):
+        self.f          = f
+        self.fieldnames = fieldnames
+        self.restkey    = restkey
+        self.restval    = restval
+        self.dialect    = dialect
+
+        self.line_num   = 0
+        self.fieldnamesFromHeader = []
+
+    def __next__(self):
+        """TODO: Does not yet handle quoted fields that span lines.
+        """
+        while (1):
+            rec = self.f.readline()
+            if (rec==""): return None
+            if (self.dialect.comment and
+                rec.startswith(self.dialect.comment)):
+                pass
+            elif (self.line_num==0 and self.dialect.header):
+                self.line_num += 1
+                self.fieldnamesFromHeader = fsplit(rec, self.dialect)
+                if (self.fieldnames and
+                    self.fieldnamesFromHeader != self.fieldnames):
+                    raise ValueError("Header does not match " +
+                        "dialect fieldnames:\n    %s\n    %s" %
+                        (self.fieldnames != self.fieldnamesFromHeader))
+            else:
+                fields = fsplit(rec, self.dialect)
+                fields = fsplit(rec, self.dialect)
+                fieldDict = {}
+                for fNum, fd in fields:
+                    fieldDict[self.fieldnames[fNum]] = fd
+                return fieldDict
+        return None  # EOF
+
+
+###############################################################################
+#
+staticDialect = None
+staticFile = None
+dialects = {}
+
+def reader(csvfile, **formatParams):
+    """Python's CSV doesn't treat this as a class (unlike DictReader).
+    """
+    global staticDialect
+    staticDialect = DialectX(**formatParams)
+    for rec in csvfile.readlines():
+        if (staticDialect.comment and
+            rec.startswith(staticDialect.comment)): continue
+        fields = fsplit(rec, staticDialect)
+        yield fields
+    return None
+
+
+###############################################################################
+#
+class DictWriter:
+    """Like 'writer' but takes dicts, and writes their members in the
+    order specified by 'fieldnames'.
+    """
+
+    # For specifying fieldFormats: format strings like "%-8.4f", etc.
+    _formatRegex = r'%-?\d+(\.\d+)[dxobsfg]'
+
+    def __init__(self,
+        f,
+        fieldnames:list=None,
+        fieldformats:list=None,
+        restval:str='',
+        extrasaction:str='raise',
+        dialect:str='excel',
+        *args1,
+        **kwds1):
+        self.f            = f
+        self.fieldnames   = fieldnames
+        self.restval      = restval
+        self.extrasaction = extrasaction
+        self.dialect      = dialects[dialect]
+
+        if (fieldnames):
+            if (not isinstance(fieldnames, list)):
+                raise ValueError("fieldnames must be a list.")
+            if (fieldformats and not len(fieldnames) == len(fieldformats)):
+                raise ValueError("")
+        if (fieldformats):
+            for f in fieldformats:
+                if (not re.match(DictWriter._formatRegex, f)):
+                    raise ValueError("Unparseable fieldFormat '%s'." % (f))
+
+    def writeheader(self):
+        self.writerow(self.fieldnames)
+
+    def writerows(self, rows:list):
+        rnum = 0
+        for row in rows:
+            rnum += 1
+            self.writerow(row)
+        return rnum
+
+    def writerow(self, row:dict):
+        buf = ""
+        for fnum, field in enumerate(row):
+            #fname = self.fieldnames[fnum]
+            buf += field + self.dialect.delimiter
+        buf[-len(self.dialect.delimiter):] = self.dialect.lineterminator
+        self.f.write(buf)
+
+    def writecomment(self, s):
+        self.f.write(self.dialect.comment + s + self.dialect.lineterminator)
+
+
+###############################################################################
+# Why isn't this just a class, like DictWriter?
+#
+def writer(csvfile, **formatParams):
+    global staticDialect, staticFile
+    staticDialect = DialectX(**formatParams)
+    staticFile = csvfile
+
+def writeheader(fieldnames):
+    writerow(fieldnames)
+
+def writerow(row:list):
+    buf = ""
+    for field in row:
+        buf += field + staticDialect.delimiter
+    buf[-len(staticDialect.delimiter):] = staticDialect.lineterminator
+    staticFile.write(buf)
+
+
+###############################################################################
+#
 escapeMap = {
     #'b':     "\b",  # Bell?
     'f':     "\f",  # FF
@@ -312,7 +674,7 @@ escapeMap = {
 }
 
 UQuotePairs = [  # From my UnicodeSpecials.py
-    (0x00AB, 0x00BB, "[LEFT,RIGHT]-POINTING DOUBLE ANGLE QUOTATION MARK *" ),
+    (0x00AB, 0x00BB, "[LEFT,RIGHT]-POINTING DOUBLE ANGLE QUOTATION MARK" ),
     (0x2018, 0x2019, "[LEFT,RIGHT] SINGLE QUOTATION MARK" ),
     (0x201A, 0x201B, "SINGLE [LOW-9, HIGH-REVERSED-9] QUOTATION MARK" ),
     (0x201C, 0x201D, "[LEFT,RIGHT] DOUBLE QUOTATION MARK" ),
@@ -329,7 +691,17 @@ UQuotePairs = [  # From my UnicodeSpecials.py
 lastQuoteArg = None
 lastQuoteMap = None
 
-def setupQuoteMap(quoteArg):
+def setupQuoteMap(quoteArg:str):
+    """Given a specification of a kind of quoting, return a dict that
+    maps one or more "open" quote characters to their corresponding "close"
+    quote characters (which may be the same, as with straight quotes and
+    apostrophers; or different, as with curly quotes).
+
+    @param quoteArg may be specified:
+        as a mnemonic (SINGLE, DOUBLE, BOTH, ANGLE, CURLY, or ALL);
+        as a single character to serve as both open and close; or
+        as a string of two characters, open then close.
+    """
     global lastQuoteArg, lastQuoteMap
     if (lastQuoteArg and lastQuoteArg == quoteArg):
         return lastQuoteMap
@@ -364,8 +736,8 @@ def unescapeViaMap(c):
     if (c in escapeMap): return escapeMap[c]
     return c
 
-def dquote(s):
-    """Put special marks around a string for display.
+def dquote(s:str):
+    """Put double angle quotes around a string for display.
     """
     return u"\u00AB" + str(s) + u"\u00BB"
 
@@ -381,7 +753,7 @@ def parseEntity(s:str):
     result = unescape(mat.group(0))
     return result, len(mat.group(0))
 
-def datetimeCaster(s):
+def datetimeCaster(s:str):
     """Return a date, time, or datetime object created from a string, or
     raises ValueError otherwise.
     """
@@ -389,7 +761,7 @@ def datetimeCaster(s):
     timeRegex = r'\d\d:\d\d:\d\d(\.\d+)?(Z|[-+]\d+)?'
     dateTimeRegex = dateRegex + 'T' + timeRegex
 
-    from datetime import date
+    from datetime import datetime
     if (re.match(dateTimeRegex, s)):
         return datetime.datetime(s)
     if (re.match(dateRegex, s)):
@@ -398,7 +770,7 @@ def datetimeCaster(s):
         return datetime.time(s)
     raise ValueError("String cannot be parsed as date and/or time: '%s'" % (s))
 
-def boolCaster(s):
+def boolCaster(s:str):
     """Returns True (perhaps a paradox, given that I wrote this function
     on 2020-02-29) for more than just the empty string; False for a similar
     range, and raises ValueError otherwise (like for 'xyz').
@@ -411,18 +783,21 @@ def boolCaster(s):
     return True
 
 def autoType(tok:str,
-    boolCaster = None,
-    datetimeCaster = datetimeCaster,
+    boolCasterFunc = None,
+    datetimeCasterFunc = datetimeCaster,
     specialFloats:bool = False
     ):
     """Convert a string to the most specific type we can.
 
-    @dparam datetimeCaster: Function to produce date/time/datetime or ValueError.
-      Defaults to use the datetimeCaster() method below, for ISO 8601 form.
-    @param boolCaster: Likewise, but to recognize booleans (for examle, "T"
-      and "Nil". Default to None so it doesn't take over commonplace strings.
-      No bools are returned unless a function is passed (see boolCaster() below).
-    @specialfloats: If set, "NaN" and (optionally signed) "inf" count as floats.
+    @param datetimeCasterFunc:
+        Function to produce date/time/datetime or ValueError.
+        Defaults to use the datetimeCaster() method below, for ISO 8601 form.
+    @param boolCasterFunc:
+        Likewise, but to recognize booleans (for examle, "T" and "Nil".
+        Default to None so it doesn't take over commonplace strings.
+        No bools are returned unless a function is passed (see boolCaster()).
+    @specialfloats:
+        If set, "NaN" and (optionally signed) "inf" count as floats.
 
     Complex uses the Python "1+1j" (not "1+1i"!) form)
     Leading and trailing whitespace are stripped for testing, but
@@ -436,15 +811,15 @@ def autoType(tok:str,
 
     if (tok2 is ''):
         return tok
-    if (boolCaster):
-        try: return boolCaster(tok2)
+    if (boolCasterFunc):
+        try: return boolCasterFunc(tok2)
         except ValueError: pass
     # Prevent 'float' from catching these when not wanted:
     if (not specialFloats and tok2 in ("NaN", "inf", "-inf", "+inf")):
         return tok
     if (tok2.isdigit()):
         return int(tok2)
-    try: return datetimeCaster(tok2)
+    try: return datetimeCasterFunc(tok2)
     except ValueError: pass
     try: return int(tok2, 0)
     except ValueError: pass
@@ -454,34 +829,62 @@ def autoType(tok:str,
     except ValueError: pass
     return tok
 
+###############################################################################
+# The function that actually parses up lines, dealing with various escaping
+# and quoting variations, etc.
+#
 def fsplit(
-    # The string to split:
-    s:str,
-    # Options like Python 'csv' package:
-    delimiter:str            = "\t",
-    doublequote:bool         = False,  # TODO
+    s:str,                              # The string to split:
+    dialect:DialectX         = None,    # The DialectX to assume
+
+    # Manual options like Python 'csv' package:
+    delimiter:str            = "\t",    # Multi-character ok, but not regex
+    doublequote:bool         = False,   # TODO
     escapechar:str           = "\\",
-    lineterminator:str       = "\n",   # UNUSED
-    quotechar:str            = '"',
+    lineterminator:str       = "\n",    # UNUSED?
+    quotechar:str            = '"',     # 1 char, 2 chars, or mnemonic
+    quoting:int              = QUOTE_NONNUMERIC,
     skipinitialspace:bool    = True,
     strict:bool              = True,
-    # Other options:
+
+    # Other manual options:
     multidelimiter:bool      = False,
-    xescapes:bool            = False,
-    uescapes:bool            = False,
-    entities:bool            = False,
-    minsplit:bool            = None,
-    maxsplit:bool            = None,
+    xescapes:bool            = False,    # Recognize \xFF?
+    uescapes:bool            = False,    # Recognize \uFFFF?
+    entities:bool            = False,    # Expand HTML special chars?
+    minsplit:bool            = None,     # Min number of fields - 1
+    maxsplit:bool            = None,     # Max number of fields - 1
     types:bool               = None
     ):
     """Fancier string splitter. Lots of options, and Unicode aware.
     """
-    if (delimiter == ''):
-        return s.split()
-    dlen = len(delimiter)
+    if (dialect is None):
+        dialect = DialectX(
+            "FROM_ARGS",
+            delimiter           = delimiter,
+            doublequote         = doublequote,
+            escapechar          = escapechar,
+            lineterminator      = lineterminator,
+            quotechar           = quotechar,
+            quoting             = quoting,
+            skipinitialspace    = skipinitialspace,
+            strict              = strict,
+            multidelimiter      = multidelimiter,
+            xescapes            = xescapes,
+            uescapes            = uescapes,
+            entities            = entities,
+            minsplit            = minsplit,
+            maxsplit            = maxsplit,
+            types               = mapTypeNames(types)
+        )
+    d = dialect
 
-    currentQuoteMap = setupQuoteMap(quotechar)
-    if (skipinitialspace): s = s.lstrip()
+    if (d.delimiter == ''):
+        return s.split()
+    dlen = len(d.delimiter)
+
+    currentQuoteMap = setupQuoteMap(d.quotechar)
+    if (d.skipinitialspace): s = s.lstrip()
 
     tokens = [ "" ]
     toIgnore= 0
@@ -493,7 +896,7 @@ def fsplit(
 
         elif (pendingQuote):
             if (c == pendingQuote):
-                if (doublequote and len(s)>i+1 and s[i+1]==pendingQuote):
+                if (d.doublequote and len(s)>i+1 and s[i+1]==pendingQuote):
                     tokens[-1] += pendingQuote
                     toIgnore = 1
                 else:
@@ -503,78 +906,100 @@ def fsplit(
 
         elif (escaped):
             escaped = False
-            if (xescapes and c == 'x'):
+            if (d.xescapes and c == 'x'):
                 if (len(s)<=i+3):
-                    if (strict): raise ValueError("Incomplete xescape.")
+                    if (d.strict): raise ValueError("Incomplete xescape.")
                 else:
                     try:
                         tokens[-1] += chr(int(s[i+1:i+3], 16))
                         toIgnore = 2
                     except ValueError:
-                        if (strict): raise ValueError(
+                        if (d.strict): raise ValueError(
                             "Bad hexadecimal escape '%s'." % (s[i-1:i+3]))
-            elif (uescapes and c == 'u'):
+            elif (d.uescapes and c == 'u'):
                 if (len(s)<=i+5):
-                    if (strict): raise ValueError("Incomplete uescape.")
+                    if (d.strict): raise ValueError("Incomplete uescape.")
                 try:
                     tokens[-1] += chr(int(s[i+1:i+5], 16))
                     toIgnore = 4
                 except ValueError:
-                    if (strict): raise ValueError(
+                    if (d.strict): raise ValueError(
                         "Bad decimal escape '%s'." % (s[i-1:i+5]))
             else:
                 tokens[-1] += unescapeViaMap(c)
 
-        elif (c == escapechar):
-            escaped = True;
+        elif (c == d.escapechar):
+            escaped = True
 
-        elif (entities and c == '&'):
+        elif (d.entities and c == '&'):
             entExpansion, charsUsed = parseEntity(s[i:])
             if (entExpansion is not None):
                 tokens[-1] += entExpansion
                 toIgnore = charsUsed - 1
-            elif (strict):
+            elif (d.strict):
                 raise ValueError("Ill-formed character reference")
 
         elif (c in currentQuoteMap):
-            if (strict and tokens[-1]!=''):
+            if (d.strict and tokens[-1]!=''):
                 raise ValueError("Quote is not at start of field")
             pendingQuote = currentQuoteMap[c]
 
-        elif (c == delimiter[0] and s[i:].startswith(delimiter)):
-            if (multidelimiter):
-                raise ValueError("multidelimiter not yet implemented.")
-            if (maxsplit is not None and len(tokens) >= maxsplit):
-                tokens.append(s[i+len(delimiter):])
+        elif (c == d.delimiter[0] and s[i:].startswith(d.delimiter)):
+            if (d.multidelimiter):
+                nDelims = 0
+                while (s[i+nDelims*dlen].startswith(d.delimiter)): nDelims += 1
+                toIgnore = (nDelims * dlen) - 1
+            if (d.maxsplit is not None and len(tokens) >= d.maxsplit):
+                tokens.append(s[i+len(d.delimiter):])
                 break
             tokens.append("")
-            toIgnore = dlen - 1
 
         else:
             tokens[-1] += c
 
-    if (strict and (escaped or pendingQuote)):
+    if (d.strict and (escaped or pendingQuote)):
         raise ValueError("Unresolved escapechar.")
-    if (strict and pendingQuote):
+    if (d.strict and pendingQuote):
         raise ValueError("Unresolved quote (expecting '%s')." % (pendingQuote))
-    if (minsplit is not None and len(tokens) < minsplit+1):
+    if (d.minsplit is not None and len(tokens) < d.minsplit+1):
         raise ValueError("min %d tokens needed, but found %d." %
-            (minsplit, len(tokens)))
+            (d.minsplit, len(tokens)))
     # maxsplit just stops splitting, no error.
 
-    if (types):
-        if (isinstance(types, list)):
-            for i, typ in enumerate(types):
+    if (d.types):
+        if (isinstance(d.types, list)):
+            for i, typ in enumerate(d.types):
                 if (not typ): continue
                 tokens[i] = typ(tokens[i])
-        elif (types=='AUTO'):
+        elif (d.types=='AUTO'):
             for i, token in enumerate(tokens):
                 tokens[i] = autoType(token)
 
     return tokens
 
+typeMap = {
+    'str':    str,
+    'bool':   bool,
+    'int':    int,
+    'float':  float,
+}
 
-###############################################################################
+def mapTypeNames(types):
+    """Convert a string type name, or an actual type, to the type.
+    This is useful if a caller wants to let the user specify types, say,
+    in command-line options, where they can't get a real Python type.
+    """
+    realTypes = []
+    for t in types:
+        if (isinstance(t, type)):
+            realTypes.append(t)
+        elif (isinstance(t, str) and t in typeMap):
+            realTypes.append(typeMap[t])
+        else:
+            realTypes.append(None)
+    return realTypes
+
+
 ###############################################################################
 # Main
 #
@@ -584,12 +1009,12 @@ if __name__ == "__main__":
 
     def processOptions():
         try:
-            from MarkupHelpFormatter import MarkupHelpFormatter
-            formatter = MarkupHelpFormatter
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+               description=descr, formatter_class=BlockFormatter)
         except ImportError:
-            formatter = None
-        parser = argparse.ArgumentParser(
-            description=descr, formatter_class=formatter)
+            parser = argparse.ArgumentParser(
+            description=descr)
 
         parser.add_argument(
             "--quiet", "-q",      action='store_true',
@@ -617,104 +1042,104 @@ if __name__ == "__main__":
     def phead(msg): print("\n******* %s" % (msg))
 
     phead("TAB")
-    s = ""
-    print("Test string: %s" % (dquote(s)))
-    print(fsplit(s))
-    s = "no split happens"
-    print("Test string: %s" % (dquote(s)))
-    print(fsplit(s))
-    s = "wee fish\tewe\ta mare\tegrets\tmoose"
-    print("Test string: %s" % (dquote(s)))
-    print(fsplit(s))
+    s0 = ""
+    print("Test string: %s" % (dquote(s0)))
+    print(fsplit(s0))
+    s0 = "no split happens"
+    print("Test string: %s" % (dquote(s0)))
+    print(fsplit(s0))
+    s0 = "wee fish\tewe\ta mare\tegrets\tmoose"
+    print("Test string: %s" % (dquote(s0)))
+    print(fsplit(s0))
 
-    s = "wee fish,ewe,a mare,egrets,moose"
+    s0 = "wee fish,ewe,a mare,egrets,moose"
     phead("Commas, but delim not set")
-    print("Test string: %s" % (dquote(s)))
-    print(fsplit(s))
+    print("Test string: %s" % (dquote(s0)))
+    print(fsplit(s0))
 
     phead("Commas, delim set")
-    print("Test string: %s" % (dquote(s)))
-    print(fsplit(s, delimiter=','))
+    print("Test string: %s" % (dquote(s0)))
+    print(fsplit(s0, delimiter=','))
 
     phead("TAB, but escaping the one before 'egrets'")
-    s = "wee fish\tewe\ta mare\\tegrets\tmoose"
-    print("Test string: %s" % (dquote(s)))
-    print(fsplit(s))
+    s0 = "wee fish\tewe\ta mare\\\tegrets\tmoose"
+    print("Test string: %s" % (dquote(s0)))
+    print(fsplit(s0))
 
     phead("Escaping:")
-    s = "aard\\u0076ark|beagle|cat|d\\x6Fg|&#101;&#x67;r&eacute;&#X00000074;"
-    print("Test string: %s" % (dquote(s)))
+    s0 = "aard\\u0076ark|beagle|cat|d\\x6Fg|&#101;&#x67;r&eacute;&#X00000074;"
+    print("Test string: %s" % (dquote(s0)))
     print("vbar, without special escaping options")
-    print(fsplit(s, delimiter='|'))
+    print(fsplit(s0, delimiter='|'))
     print("vbar, with xescapes")
-    print(fsplit(s, delimiter='|', xescapes=True))
+    print(fsplit(s0, delimiter='|', xescapes=True))
     print("vbar, with uescapes")
-    print(fsplit(s, delimiter='|', uescapes=True))
+    print(fsplit(s0, delimiter='|', uescapes=True))
     print("vbar, with entities")
-    print(fsplit(s, delimiter='|', entities=True))
+    print(fsplit(s0, delimiter='|', entities=True))
     print("vbar, with all of those")
-    print(fsplit(s, delimiter='|', xescapes=True, uescapes=True, entities=True))
+    print(fsplit(s0, delimiter='|', xescapes=True, uescapes=True, entities=True))
 
     phead("Multi-char delim:")
-    s = "lorem##ipsum##dolor##sit##amet"
-    print("Test string: %s" % (dquote(s)))
+    s0 = "lorem##ipsum##dolor##sit##amet"
+    print("Test string: %s" % (dquote(s0)))
     print("'##'")
-    print(fsplit(s, delimiter='##'))
+    print(fsplit(s0, delimiter='##'))
 
     phead("Quoting:")
-    s = 'wee fish$ewe$"a mare"$egrets$"moo$e"'
-    print("\nTest string: %s" % (dquote(s)))
+    s0 = 'wee fish$ewe$"a mare"$egrets$"moo$e"'
+    print("\nTest string: %s" % (dquote(s0)))
     print("delim = '$',  quotechar doublequote")
-    print(fsplit(s, delimiter='$', quotechar='"'))
+    print(fsplit(s0, delimiter='$', quotechar='"'))
 
-    s = "wee fish$ewe$'a mare'$egrets$'moo$e'"
-    print("\nTest string: %s" % (dquote(s)))
+    s0 = "wee fish$ewe$'a mare'$egrets$'moo$e'"
+    print("\nTest string: %s" % (dquote(s0)))
     print("delim = '$',  quotechar singlequote")
-    print(fsplit(s, delimiter='$', quotechar="'"))
+    print(fsplit(s0, delimiter='$', quotechar="'"))
 
-    s = "'wee fish'$ewe$‘a mare’$egrets$“moo$e”"
-    print("\nTest string: %s" % (dquote(s)))
+    s0 = "'wee fish'$ewe$‘a mare’$egrets$“moo$e”"
+    print("\nTest string: %s" % (dquote(s0)))
     print("delim = '$',  quotechar curlies")
-    print(fsplit(s, delimiter='$', quotechar='“”'))
+    print(fsplit(s0, delimiter='$', quotechar='“”'))
 
-    s = "'wee fish'$ewe$‘a mare’$egrets$“moo$e”"
-    print("\nTest string: %s" % (dquote(s)))
+    s0 = "'wee fish'$ewe$‘a mare’$egrets$“moo$e”"
+    print("\nTest string: %s" % (dquote(s0)))
     print("delim = '$',  quotechar BOTH")
-    print(fsplit(s, delimiter='$', quotechar='“”'))
+    print(fsplit(s0, delimiter='$', quotechar='“”'))
 
     #SINGLE DOUBLE ANGLE CURLY ALL
     # quotes inside quotes
 
     phead("Doubling quotes")
-    s = """'Lorem ipsum ''dolor'' sit amet','consectetur adipiscing elit','sed do
+    s0 = """'Lorem ipsum ''dolor'' sit amet','consectetur adipiscing elit','sed do
 eiusmod tempor incididunt ut labore et ''dolor''e magna aliqua','Ut enim ad minim
 veniam','quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
 commodo consequat','Duis aute irure ''dolor'' in reprehenderit in voluptate velit
 esse cillum ''dolor''e eu fugiat nulla pariatur','Excepteur sint occaecat
 cupidatat non ''proident''','''sunt'' in culpa qui officia deserunt mollit anim id
 est laborum'"""
-    print("Test string: %s" % (dquote(s)))
-    toks = fsplit(s, delimiter=",", quotechar="'", doublequote=True)
-    for i, tok in enumerate(toks):
-        print("    %2d: /%s/" % (i, dquote(tok)))
+    print("Test string: %s" % (dquote(s0)))
+    toks = fsplit(s0, delimiter=",", quotechar="'", doublequote=True)
+    for i0, tok0 in enumerate(toks):
+        print("    %2d: /%s/" % (i0, dquote(tok0)))
 
     phead("minsplit, maxsplit:")
-    s = "lorem##ipsum##dolor##sit##amet"
-    print("\nTest string: %s" % (dquote(s)))
+    s0 = "lorem##ipsum##dolor##sit##amet"
+    print("\nTest string: %s" % (dquote(s0)))
     print("delim = '##', minsplit=99, strict=True")
     try:
-        print(fsplit(s, delimiter='##', minsplit=99, strict=True))
+        print(fsplit(s0, delimiter='##', minsplit=99, strict=True))
     except ValueError as e:
         print("    ValueError: %s" % (e))
     print("delim = '##', maxsplit=3, strict=True")
-    print(fsplit(s, delimiter='##', maxsplit=3, strict=True))
+    print(fsplit(s0, delimiter='##', maxsplit=3, strict=True))
 
     phead("autotype feature:")
-    s = "hello,1,,3.14159,-6.022E+23,1.618+2j,NaN,-inf,+inf,world"
-    print("Test string: %s" % (dquote(s)))
-    stuff = fsplit(s, delimiter=',', types='AUTO')
-    for i, x in enumerate(stuff):
-        print("    %d: %-16s %s" % (i, dquote(x), type(x)))
+    s0 = "hello,1,,3.14159,-6.022E+23,1.618+2j,NaN,-inf,+inf,world"
+    print("Test string: %s" % (dquote(s0)))
+    stuffs = fsplit(s0, delimiter=',', types='AUTO')
+    for i0, stuff in enumerate(stuffs):
+        print("    %d: %-16s %s" % (i0, dquote(stuff), type(stuff)))
 
     phead("type checking:")
 
@@ -735,10 +1160,10 @@ est laborum'"""
         "hello &world;",
         # unclosed quotes, swapped polarity, not at start of field,....
     ]
-    for s in errTests:
-        print("Test string: %s" % (dquote(s)))
+    for s0 in errTests:
+        print("Test string: %s" % (dquote(s0)))
         try:
-            print(fsplit(s, delimiter=',', strict=True,
+            print(fsplit(s0, delimiter=',', strict=True,
                 xescapes=True, uescapes=True, entities=True))
             print("    ******* Ooops, error was not raised *******")
         except ValueError as e:

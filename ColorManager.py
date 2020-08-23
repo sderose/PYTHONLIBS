@@ -314,6 +314,9 @@ class ColorManager:
         return(t)
 
     def uncoloredLen(self, s):
+        """Return the length of a string in characters, not counting any ANSI
+        terminal color escapes or any trailing whitespace.
+        """
         return(len(self.uncolorize(s)))
 
 

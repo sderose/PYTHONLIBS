@@ -109,8 +109,10 @@ Python's `csv` package and string `split()` itself:
 
 * markdownToXML.py -- what it says.
 
-* mathUnicode.py -- provides somewhat easier access to the very many alternate
-Latin and Greek alphabets in Unicode, such as sans-serif bold.
+* mathAlphanumerics.py -- provides somewhat easier access to the very many alternate
+Latin and Greek alphabets in Unicode, such as sans-serif bold. Many of these
+are in the "Mathematical Alphanumeric Symbols" area, but other sets are
+supported as well.
 
 * sjdUtils.py -- very generally-applicable stuff, like indenting and escaping
 and unescaping XML, JSON; making Unicode and control characters printable, etc.

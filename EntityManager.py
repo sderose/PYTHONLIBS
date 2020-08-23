@@ -19,10 +19,8 @@ PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
 if PY2:
     import HTMLParser
-    string_types = basestring
 else:
     from html.parser import HTMLParser
-    string_types = str
     def unichr(n): return chr(n)
 
 from sjdUtils import sjdUtils  # Only uses lg and isXmlChar
@@ -77,13 +75,13 @@ class EntityManager:
         return(len(self.entStack))
 
     def pushEvent(self, typ, msg):
-        self.eventQueue.append((type, msg))
+        self.eventQueue.append((typ, msg))
 
 
     # Only SYSTEM ids are presently used, and there's no catalog support.
     #
     def openParameterEntity(self, ename):
-        self.openEntity("ename")
+        self.openEntity(ename)
 
 
     def openEntity(self, ename):
@@ -92,7 +90,8 @@ class EntityManager:
         if (not entSpecsRef):
             self.pushEvent("ERROR","WF: Entity '"+ename+"' is unknown.")
             return(0)
-        (aType, value, pubid, sysid, notation) = entSpecsRef
+        (_, _, _, sysid, _) = entSpecsRef
+        # aType, value, pubid, sysid, notation
         for i in (range(0, self.getDepth())):
             if (self.entStack[i].oeName == ename):
                 self.pushEvent(
@@ -237,7 +236,7 @@ class NotationDcl:
 #
 class EntityDoStuff:
     """FIX"""
-    def __init__(self, su=None):
+    def __init__(self, su=None, eventLogOwner=None):
         self.foo = True
         self.textEntities = {}
         self.fileEntities = {}
@@ -245,6 +244,7 @@ class EntityDoStuff:
         self.useHtmlEntities = True
         self.useXmlEntities  = True
         self.su = su or sjdUtils()
+        self.eventLogOwner = eventLogOwner
 
     def expandEntities(self, s):
         s = re.sub(r"^&(#\d+#x[\da-f]+xname);", self.eeRHS, s)
@@ -257,9 +257,9 @@ class EntityDoStuff:
         buf = ""
         mat = re.sub(r"^&#x([0-9a-f]+)","",raw)        # Hexadecimal Char Ref
         if (mat):
-            c = unichr(int(mat.group(1)),16)
+            c = unichr(int(mat.group(1),16))
             if (not c or not self.su.isXmlChar(c)):
-                self.pushEvent(
+                if (self.eventLogOwner): self.eventLogOwner.pushEvent(
                     "ERROR", "WF: Character reference to non-XML Char 0x%s" %
                     (mat.group(1)))
             return(c)
@@ -268,7 +268,7 @@ class EntityDoStuff:
         if (mat):
             c = unichr(int(mat.group(1)))
             if (not c or  not self.su.isXmlChar(c)):
-                self.pushEvent(
+                if (self.eventLogOwner): self.eventLogOwner.pushEvent(
                     "ERROR", "WF: Character reference to non-XML Char 0d%s" %
                     (mat.group(1)))
             return(c)
@@ -313,7 +313,6 @@ class EntityDoStuff:
 
     def setHtmlEntities(self,flag):
         self.useHtmlEntities = bool(flag)
-
 
 
 ###############################################################################

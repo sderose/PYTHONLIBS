@@ -18,21 +18,264 @@ import codecs
 import gzip
 import tarfile
 
-#import pudb
-#pudb.set_trace()
-
 from alogging import ALogger
 from MarkupHelpFormatter import MarkupHelpFormatter
 
-__version__ = "2018-04-21"
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2018-04-21",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2018-04-17",
+    'title'        : "PowerWalk.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2018-04-21",
+    'modified'     : "2020-06-10",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
+__version__ = __metadata__['modified']
 
 lg = ALogger(1)
+
+descr="""
+=Usage=
+
+Similar to Python's built-in `os.walk()`, but offers many
+additional features. It returns the complete path, and a file
+handle, to each selected item.
+
+You can even get things that have to be opened in special ways, such
+as the items in `gzip` or `tar` files.
+
+Can be used as an iterator/generator. For example, this prints an
+outline of the file directory subtree of the current directory. Special
+items for opening and closing recursive directories, zip files, and tar files
+are generated because of the 'containers' option:
+
+    depth = 0
+    pw = PowerWalk(".")
+    pw.setOption('recursive', True)
+    pw.setOption('containers', True)
+    pw.setOption('includeExtensions', [ 'txt' ])
+    for path, fh in pw.traverse():
+        if (isinstance(fh, str) and fh.endswith("START")):
+            print(" " * depth + "*** %s %s" % (fh, srcFile))
+            depth += 1
+        elif (isinstance(fh, str) and fh.endswith("END")):
+            depth -= 1
+            print(" " * depth + "*** %s %s" % (fh, srcFile))
+        else:
+            print(" " * depth + srcFile)
+            doOneFile(srcFile)
+
+=Methods=
+
+==__init__(self, topLevelItems=None, options=None)==
+
+Create a PowerWalk instance, which will traverse all the specified
+items. If `topLevelItems` is None, the current directory is used;
+if it is a list, all the named files and/or directories will be used;
+otherwise, just the one named file or directory.
+
+`options` is a dict of option name:value pairs. For example, to
+traverse all the subdirectories of the specified items (if any),
+pass `options` containing (at least) 'recursive':True.
+Options can also be set later using `setOption` (see below).
+
+==setOption(self, name, value)==
+
+Change the value of an available option, chosen from this list:
+
+* "containers": If True (the default), a start and end event will be returned for each
+directory, gzip, or tar file that is entered.
+
+* "openTar": If True (the default), `tar` files will be opened as if they were
+directories, and the individual items within them will be returned.
+
+* "openGzip": If True (the default), `gzip` files will be opened as if they were
+directories, and the individual items within them will be returned.
+
+* "followLinks": If True (the default is False), *nix symbolic links will be followed, and
+their targets opened or traversed as if they had been at the link's location.
+This does not include Mac "aliases", weblocs, etc.
+
+* "maxFiles": Stop after choosing this many files. Default: 0 (unlimited).
+
+* "maxDepth": Do not recurse deeper than this. Default: 0 (unlimited).
+
+* "mode": What `mode` to pass to `codecs.open`. Default: "rb".
+
+* "iencoding": Use this character encoding for input. Default: "utf-8"
+
+* "backups": Include .bak and similar files? Default: False
+
+* "excludeExtensions": List of file extension not to allow. Default: [].
+See also I<includeExtensions>.
+
+* "hidden": Include hidden (.-initial) files? Default: False
+
+* "includeExtensions": List of (only) file extension to allow. Default: [].
+See also I<excludeExtensions>.
+
+* "recursive": Traverse through subdirectories? Default: False
+
+* "sampleFactor": Include only this % of the available files. Default: None
+
+* "sort": Sort the items in each directory in the specified way.
+Default: "" (just use whatever `os.listdir` returns).
+
+** "name":  sort by filename
+
+** "iname": sort by filename, ignoring case.
+
+** "atime": file access time
+
+** "ctime": file creation time
+
+** "mtime": file modification time
+
+** "size": File length in bytes
+
+** "extension": Extension as returned by `os.path.splitext`
+
+* "notify": Display a message as each new file starts. Default: False
+
+
+==getOption(self, name)==
+
+Return the value of an available option (see I<setOption>).
+
+==showStats(self, writer=sys.stderr)==
+
+Display a few statistics.
+
+==addTraversalOptions(parser, prefix='')==
+
+Add these options to a Python `argparse` instance.
+
+==traverse(self, path, depth=0)==
+
+Iterate, returning the chosen files (or pseudo-files, such as items
+from a zip, tar, or siilar archive). Each iteration returns a tuple of
+(path, fh), where `fh` is a readable. For regular files this is as returned
+by `codecs.open()` with the `mode` and `encoding` specified as options.
+For items within tar, gzip, or other supported archive types, it will be
+the readable interface from the corresponding package.
+
+Ignored items (such as backups if the option to include them has not
+been set), are quietly skipped.
+
+Containers such as directories and archive files, generate start and end
+events, with the appropriate path, but instead of a file handle or similar,
+a string is returned: DIR_START, DIR_END, GZIP_START, GZIP_END, TAR_START,
+TAR_END. These events can be suppressed by setting the `containers` option
+to False.
+
+==trySomething(self, what, path)==
+
+Internal method, called to issue a I<notify> message saying what kind
+of thing is starting (when the I<notify> option is set).
+
+
+==Static methods==
+
+==isHidden(path)==
+
+Return whether the file is "hidden" (that is, its basename begins with ".").
+
+==isBackup(path)==
+
+Test whether the given file's name indicates it is a backup, spare copy,
+duplicate, or similar file. This method knows
+quite a few naming conventions, but surely not all (for example, OS conventions such as "backup of" presumably localize). For example, filenames that:
+
+* start or ends with tilde or pound-sign
+
+* have extension 'bak' or 'bcnk'
+
+* match r'^(backup|copy) (\\(?\\d+\\)? )?of'
+
+* match r'\\b(backup|copy|bak)\\b' (but in these cases a warning is
+issued unless I<--quiet> is in effect).
+
+
+===Some specific backup file naming conventions===
+
+=over
+
+* Mac OS X "Duplicate" does  `foo.txt` -> `foo copy.txt` -> `foo copy 2.txt`
+
+* emacs backups append '~' or '~\\d+~' to the filename
+For relevant emacs settings, see
+L<https://stackoverflow.com/questions/151945/>).
+
+* emacs auto-save files put '#' at start and end of filename (but
+are usually deleted when you exit).
+
+=back
+
+
+=Possible extensions=
+
+* Filter by permissions, owner and group ids; date; text vs. binary
+
+* Filter by regex for filename or dirname or path (cf 'find')
+
+* Filter by mindepth, name, path, iname, ipath, xattr
+
+* Support hard or soft links
+
+* Support .webloc files and Mac aliases and bookmarks
+(see https://stackoverflow.com/questions/48862093/how-to-read-change-and-write-macos-file-alias-from-python,
+http://mac-alias.readthedocs.io/en/latest/ and
+https://docs.python.org/2/library/macostools.html)
+
+* Protect against circular links?
+
+* Sampling of every nth file, first n from each directory, etc.
+
+* Limit total size of files
+
+* Support additional compression methods
+
+* Support URLs on command-line
+
+* Protect against caller changing working dir (unlike `os.walk`)
+
+* *nix `file`-style output
+
+
+=Known bugs and limitations=
+
+* I don't like the interface for directory, with start/end events. But I also
+don't like the `os.walk` way. Maybe am optional callback for directory change?
+
+* Should this do 'notify' events by callback, special inline events, or exceptions?
+
+* Sort should provide an invert option.
+
+
+=Related commands=
+
+`find` + `exec`
+
+=History=
+
+* 2018-04-21: Split out of countTags.py.
+* 2020-06-10: New layout. Static methods.
+
+=Rights=
+
+Copyright 2018 by Steven J. DeRose.
+This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see [http://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[https://github.com/sderose].
+
+When using as a mainline (mainly to see what files will
+be walked), the options are:
+"""
 
 
 ###############################################################################
@@ -207,7 +450,8 @@ class PowerWalk:
             if (self.options['openGzip']):
                 if (self.options['containers']): yield(path, "GZIP_START")
                 lg.vMsg(1, "gzip file '%s'." % (path), stat='gzip file')
-                fh2 = gzip.open(path, self.options['mode'])
+                fh2 = gzip.open(path, mode=self.options['mode'],
+                    encoding=self.options['iencoding'])
                 self.stats["itemsReturned"] += 1
                 yield(path+"[ungzipped]", fh2)
                 fh2.close()
@@ -228,7 +472,7 @@ class PowerWalk:
                 (root, ext) = os.path.splitext(base)
                 ext = ext.strip(". \t\n\r")
 
-            if (not self.options['hidden'] and base.startswith(".")):
+            if (not self.options['hidden'] and isHidden(base)):
                 self.trySomething("hidden", path, "exclude")
 
             elif (self.options['excludeExtensions'] and ext in
@@ -239,13 +483,13 @@ class PowerWalk:
                 self.options['includeExtensions']):
                 self.trySomething('nonIncludedExtension', path, "exclude")
 
-            elif (not self.options['backups'] and
-                self.isBackup(path, base, root, ext)):
+            elif (not self.options['backups'] and isBackup(path)):
                 self.trySomething("backup", path, "exclude")
 
             else:
                 self.trySomething('regular', path)
-                fh = codecs.open(path, mode=self.options['mode'], encoding=self.options['iencoding'])
+                fh = codecs.open(path, mode=self.options['mode'],
+                    encoding=self.options['iencoding'])
                 # Py 2: codecs.open returns old-style class StreamReaderWriter
                 if (sys.version_info < (3, 0)):
                     if ('__class__' in fh and
@@ -283,21 +527,43 @@ class PowerWalk:
             lg.vMsg(1, "Trying %s: '%s' [%s]" % (what, path, statusMsg))
         return
 
-    # See also diffDirs.py, findDuplicateFiles, lss
-    #
-    def isBackup(self, path, base, root, ext):
-        keywords = r'(backup|copy)'
-        if (not base): return False
-        if (base[0] in "~#" or base[-1] in "~#"): return True
-        if (ext == "bak" or ext == "bcnk"): return True
-        if (re.search(keywords + r'\b( \d+)?( of)\b', root, re.IGNORECASE)):
-            return True
 
-        if (re.search(r'\b(backup|copy|bak)\b', root, re.IGNORECASE)):
-            #if (not args.quiet):
-            #    lg.vMsg(0, "Warning: questionable backup? '%s'" % (path))
-            return True
-        return False
+###############################################################################
+# Generic filename tests.
+#
+# See also diffDirs.py, findDuplicateFiles, lss
+#
+def isBackup(name):
+    b = os.path.basename(name)
+    root, ext = os.path.splitext(b)
+    keywords = r'(backup|copy)'
+    if (not b): return False
+    if (b[0] in "~#" or b[-1] in "~#"): return True
+    if (ext == "bak"): return True
+    if (re.search(keywords + r'\b( \d+)?( of)\b', root, re.IGNORECASE)):
+        return True
+    if (re.search(r'\b(backup|copy|bak)\b', root, re.IGNORECASE)):
+        return True
+    return False
+
+def isHidden(name):
+    b = os.path.basename(name)
+    if (b.startswith(".")): return True
+    return False
+
+def isGenerated(name):
+    """Is the name one that you probably don't need to archive, diff, or
+    do certain other things with, since it's derived.
+    """
+    b = os.path.basename(name)
+    gExprs = [
+        r'^\.DS_Store',
+        r'\.pyc$',
+        r'\.so$',
+    ]
+    for ge in gExprs:
+        if (re.search(ge, b)): return(True)
+    return(False)
 
 
 ###############################################################################
@@ -306,283 +572,7 @@ if __name__ == "__main__":
 
     def processOptions():
         parser = argparse.ArgumentParser(
-            description="""
-=pod
-
-=head1 Usage
-
-Similar to Python's built-in C<os.walk()>, but offers many
-additional features. It returns the complete path, and a file
-handle, to each selected item.
-
-You can even get things that have to be opened in special ways, such
-as the items in C<gzip> or C<tar> files.
-
-Can be used as an iterator/generator. For example, this prints an
-outline of the file directory subtree of the current directory. Special
-items for opening and closing recursive directories, zip files, and tar files
-are generated because of the 'containers' option:
-
-    depth = 0
-    pw = PowerWalk(".")
-    pw.setOption('recursive', True)
-    pw.setOption('containers', True)
-    pw.setOption('includeExtensions', [ 'txt' ])
-    for path, fh in pw.traverse():
-        if (isinstance(fh, str) and fh.endswith("START")):
-            print(" " * depth + "*** %s %s" % (fh, srcFile))
-            depth += 1
-        elif (isinstance(fh, str) and fh.endswith("END")):
-            depth -= 1
-            print(" " * depth + "*** %s %s" % (fh, srcFile))
-        else:
-            print(" " * depth + srcFile)
-            doOneFile(srcFile)
-
-=head1 Methods
-
-=over
-
-=item * B<__init__(self, topLevelItems=None, options=None)>
-
-Create a PowerWalk instance, which will traverse all the specified
-items. If C<topLevelItems> is None, the current directory is used;
-if it is a list, all the named files and/or directories will be used;
-otherwise, just the one named file or directory.
-
-C<options> is a dict of option name:value pairs. For example, to
-traverse all the subdirectories of the specified items (if any),
-pass C<options> containing (at least) 'recursive':True.
-Options can also be set later using C<setOption> (see below).
-
-=item * B<setOption(self, name, value)>
-
-Change the value of an available option, chosen from this list:
-
-=over
-
-=item * "containers"
-
-If True (the default), a start and end event will be returned for each
-directory, gzip, or tar file that is entered.
-
-=item * "openTar"
-
-If True (the default), C<tar> files will be opened as if they were
-directories, and the individual items within them will be returned.
-
-=item * "openGzip"
-
-If True (the default), C<gzip> files will be opened as if they were
-directories, and the individual items within them will be returned.
-
-=item * "followLinks"
-
-If True (the default is False), *nix symbolic links will be followed, and
-their targets opened or traversed as if they had been at the link's location.
-This does not include Mac "aliases", weblocs, etc.
-
-=item * "maxFiles"
-
-Stop after choosing this many files. Default: 0 (unlimited).
-
-=item * "maxDepth"
-
-Do not recurse deeper than this. Default: 0 (unlimited).
-
-=item * "mode"
-
-What C<mode> to pass to C<codecs.open>. Default: "rb".
-
-=item * "iencoding"
-
-Use this character encoding for input. Default: "utf-8"
-
-=item * "backups"
-
-Include .bak and similar files? Default: False
-
-=item * "excludeExtensions"
-
-List of file extension not to allow. Default: [].
-See also I<includeExtensions>.
-
-=item * "hidden"
-
-Include hidden (.-initial) files? Default: False
-
-=item * "includeExtensions"
-
-List of (only) file extension to allow. Default: [].
-See also I<excludeExtensions>.
-
-=item * "recursive"
-
-Traverse through subdirectories? Default: False
-
-=item * "sampleFactor"
-
-Include only this % of the available files. Default: None
-
-=item * "sort"
-
-Sort the items in each directory in the specified way.
-Default: "" (just use whatever C<os.listdir> returns).
-
-=over
-
-=item * "name":  sort by filename
-
-=item * "iname": sort by filename, ignoring case.
-
-=item * "atime": file access time
-
-=item * "ctime": file creation time
-
-=item * "mtime": file modification time
-
-=item * "size": File length in bytes
-
-=item * "extension": Extension as returned by C<os.path.splitext>
-
-=back
-
-=item * "notify"
-
-Display a message as each new file starts. Default: False
-
-=back
-
-
-=item * B<getOption(self, name)>
-
-Return the value of an available option (see I<setOption>).
-
-=item * B<showStats(self, writer=sys.stderr)>
-
-Display a few statistics.
-
-=item * B<addTraversalOptions(parser, prefix='')>
-
-Add these options to a Python C<argparse> instance.
-
-=item * B<traverse(self, path, depth=0)>
-
-Iterate, returning the chosen files (or pseudo-files, such as items
-from a zip, tar, or siilar archive). Each iteration returns a tuple of
-(path, fh), where C<fh> is a readable. For regular files this is as returned
-by C<codecs.open()> with the C<mode> and C<encoding> specified as options.
-For items within tar, gzip, or other supported archive types, it will be
-the readable interface from the corresponding package.
-
-Ignored items (such as backups if the option to include them has not
-been set), are quietly skipped.
-
-Containers such as directories and archive files, generate start and end
-events, with the appropriate path, but instead of a file handle or similar,
-a string is returned: DIR_START, DIR_END, GZIP_START, GZIP_END, TAR_START,
-TAR_END. These events can be suppressed by setting the C<containers> option
-to False.
-
-=item * B<trySomething(self, what, path)>
-
-Internal method, called to issue a I<notify> message saying what kind
-of thing is starting (when the I<notify> option is set).
-
-=item * B<isBackup(self, path, base, root, ext)>
-
-Test whether the given file's name indicates it is a backup, spare copy,
-duplicte, or similar file. This method knows
-quite a few naming conventions, but surely not all (for example, OS conventions such as "backup of" presumably localize). For example, filenames that:
-
-=over
-
-=item * start or ends with tilde or pound-sign
-
-=item * have extension 'bak' or 'bcnk'
-
-=item * match r'^(backup|copy) (\\(?\\d+\\)? )?of'
-
-=item * match r'\\b(backup|copy|bak)\\b' (but in these cases a warning is
-issued unless I<--quiet> is in effect).
-
-=back
-
-Some specific conventions
-
-=over
-
-=item * Mac OS X "Duplicate" does  C<foo.txt> -> C<foo copy.txt> -> C<foo copy 2.txt>
-
-=item * emacs backups append '~' or '~\\d+~' to the filename
-For relevant emacs settings, see
-L<https://stackoverflow.com/questions/151945/>).
-
-=item * emacs auto-save files put '#' at start and end of filename (but
-are usually deleted when you exit).
-
-=back
-
-
-=head1 Possible extensions
-
-=over
-
-=item * Filter by permissions, owner and group ids; date; text vs. binary.
-
-=item * Filter by regex for filename or dirname or path (cf 'find')
-
-=item * Filter by mindepth, name, path, iname, ipath, xattr
-
-=item * Support hard or soft links
-
-=item * Support .webloc files and Mac aliases and bookmarks
-(see https://stackoverflow.com/questions/48862093/how-to-read-change-and-write-macos-file-alias-from-python,
-http://mac-alias.readthedocs.io/en/latest/ and
-https://docs.python.org/2/library/macostools.html)
-
-=item * Protect against circular links?
-
-=item * Sampling of every nth file, first n from each directory, etc.
-
-=item * Limit total size of files
-
-=item * Support additional compression methods
-
-=item * Support URLs on command-line
-
-=item * Protect against caller changing working dir (unlike C<os.walk>)
-
-=item * *nix C<file>-style output
-
-=back
-
-
-=head1 Known bugs and limitations
-
-Should this do 'notify' events by callback, special inline events, or exceptions?
-
-Sort should provide an invert option.
-
-
-=head1 Related commands
-
-C<find> + C<exec>
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-When using as a mainline (mainly to see what files will
-be walked), the options are:
-
-=cut
-            """,
-            formatter_class=MarkupHelpFormatter
+            description=descr, formatter_class=MarkupHelpFormatter
         )
         parser.add_argument(
             "--quiet", "-q",       action='store_true',

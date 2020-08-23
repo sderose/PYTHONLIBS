@@ -45,7 +45,7 @@ Derived from sjdUtils.py's messaging methods.
 
 =Extra features compared to logging.Logger:=
 
-* Traditional *nix-style C<-v> verbosity levels
+* Traditional *nix-style `-v` verbosity levels
 
 * Better Unicode and non-printable char handling
 
@@ -96,7 +96,7 @@ from being accepted (causing an exception on any such attempt).
 
 You can control the indentation level of messages with `MsgPush()` and `MsgPop()`.
 
-Verbosity can be set with `B<setOption("verbose", n)>` or `setVerbose(n)`.
+Verbosity can be set with `setOption("verbose", n)` or `setVerbose(n)`.
 There are many other options as well.
 
 `vMsg()` is meant for
@@ -186,21 +186,21 @@ is still taken).
 
 You can get reduce such overhead by:
 
-=item (a) removing or commenting out the calls, especially in inner loops.
+* (a) removing or commenting out the calls, especially in inner loops.
 You may want to use a profiler to be sure which ones actually matter.
 
-=item (b) putting code under an "if", for example "if (False)", "if (args.verbose)", or even better,
+* (b) putting code under an "if", for example "if (False)", "if (args.verbose)", or even better,
 "if (__debug__)" (which makes them go away when Python is run with the `-O`
 option.
 
-=item (c) Use a preprocesser to remove some/all logging statements
+* (c) Use a preprocesser to remove some/all logging statements
 for production. See the discussion at
 [http://stackoverflow.com/questions/482014].
 
 
 =General Methods=
 
-* B<setVerbose(v)>
+* ''setVerbose(v)''
 
 The initial verbosity level can be set as a parameter to the constructor.
 This method lets you reset it later.
@@ -209,18 +209,18 @@ is greater than ''v'' are discarded (verbosity levels are perhaps best
 thought of as priorities). This means that verbosity runs like `-v` flags in
 many *nix programs, but opposite from Python `logging` levels.
 
-''setVerbose(v)'' is just shorthand for B<setOption("verbose", v)>.
+''setVerbose(v)'' is just shorthand for ''setOption("verbose", v)''.
 
-* B<getVerbose>()
+* ''getVerbose''()
 
 Return the current verbosity level (see ''setVerbose'').
-This is just shorthand for B<getOption("verbose")>.
+This is just shorthand for ''getOption("verbose")''.
 
-=item B<findCaller(self)
+* B<findCaller(self)
 
 Returns the name of the function or method that called ''findCaller''().
 
-* B<pline(label, n, width=None, dotfill=0, fillchar='.', denom=None)>
+* ''pline(label, n, width=None, dotfill=0, fillchar='.', denom=None)''
 
 Display a line consisting of ''label'' (padded to ''width''),
 and then the data (''n'').
@@ -246,59 +246,59 @@ values are filled in to such format strings via ''%(name)''.
 This is only useful if you also set a format
 string that includes references to them. These names are defined by default:
 
-=item B<info(self, msg, *args, **kwargs)
+* B<info(self, msg, *args, **kwargs)
 
 Issues an informational message, like Python `logging`.
 
-=item B<warning(self, msg, *args, **kwargs)
+* B<warning(self, msg, *args, **kwargs)
 
 Issues a warning message, like Python `logging`.
 
-=item B<error(self, msg, *args, **kwargs)
+* B<error(self, msg, *args, **kwargs)
 
 Issues an error message, like Python `logging`.
 
-=item B<critical(self, msg, *args, **kwargs)
+* B<critical(self, msg, *args, **kwargs)
 
 Issues an critical error message, like Python `logging`.
 
-=item B<debug(self, msg, *args, **kwargs)
+* B<debug(self, msg, *args, **kwargs)
 
 Issues a debugging message, like Python `logging`.
 
-=item B<log(self, level, msg, *args, **kwargs)
+* B<log(self, level, msg, *args, **kwargs)
 
 Issues an otherwise unspecified log message, like Python `logging`.
 
-=item B<exception(self, msg, *args, **kwargs)
+* B<exception(self, msg, *args, **kwargs)
 
 Issues an exception message, like Python `logging`.
 
 ==Additional messaging methods==
 
-* B<eMsg> ''(level, message1, message2, color, text, stat)''
+* ''eMsg'' ''(level, message1, message2, color, text, stat)''
 
 Shorthand for ''Msg('e'...)'', meant for error messages.
 Specifying a ''level'' less than 0 is fatal.
-B<Deprecated>, replaced by ''warning''(), ''error''(), and ''fatal''().
+''Deprecated'', replaced by ''warning''(), ''error''(), and ''fatal''().
 
-* B<hMsg> ''(level, message1, message2, color, text, stat)''
+* ''hMsg'' ''(level, message1, message2, color, text, stat)''
 
 Shorthand for ''Msg('h'...)'', meant for headings, which are displayed
 more prominantly. By default, with a blank line and several asterisks in front.
 
-* B<vMsg> ''(level, message1, message2, color, text, stat)''
+* ''vMsg'' ''(level, message1, message2, color, text, stat)''
 
 Shorthand for ''Msg('v'...)'', meant for debugging/tracing messages.
 The levels of messages here, are separate from Logger's implicit
 levels for ''warning'', ''error'', etc.
 
-* B<rMsg(self, color=None, width=n, char='=')>
+* ''rMsg(self, color=None, width=n, char='=')''
 
 Draw a (possibly colored) line ("rule") of width ''n'' characters.
 Default ''n'': 80.
 
-* B<Msg> ''(msgType, message1, message2, color, text, stat)''
+* ''Msg'' ''(msgType, message1, message2, color, text, stat)''
 
 Issue a message (normally to STDOUT), using the formatting and options defined
 for the given ''msgType''. Types 'e' (error), 'w' (warning),
@@ -310,62 +310,57 @@ types can be defined using ''defineMsgType''().
 
 The `ALogger`-specific messaging methods do the following:
 
-=item - If the message is not high enough priority compared
+** If the message is not high enough priority compared
 to the ''verbose'' setting, the method simply returns.
 
-B<Important Note>: All ''vMsg'' messages are
+''Important Note'': All ''vMsg'' messages are
 ''information''-level as far as ''Logger'' is concerned, and so ''none''
 of them will show up unless you're showing such messages. The ''level''
 argument to ''vMsg'' is a further filter, to support verbosity levels
 as are very common for *nix utilities.
 
-=item - Converts the message to UTF-8.
+** Converts the message to UTF-8.
 
-=item - Adds ''prefix'' before ''m1'',
+** Adds ''prefix'' before ''m1'',
 ''infix'' between ''m1'' and ''m2'', and/or ''suffix'' after ''m2''.
 
-=item - If ''indent'' is True, creates an indent string for
-the level set by ''MsgPush''(), etc., and inserts it:
+** If ''indent'' is True, creates an indent string for
+the level set by ''MsgPush''(), etc., and inserts it
+before the prefix and after each newline in the prefix, infix, and suffix.
 
-=over
-
-* before the prefix, and
-
-* after each newline in the prefix, infix, and suffix
-
-=item - If ''func'' is True, inserts the name of the calling function
+** If ''func'' is True, inserts the name of the calling function
 before ''m1''.
 
-=item - Colorizes the prefix (including any applicable preprefix, infix,
+** Colorizes the prefix (including any applicable preprefix, infix,
 and indentation whitespace) and ''m1''.
 
-=item - If ''escape'' is True, passes ''m1'' and ''m2'' through ''showInvisibles'',
+** If ''escape'' is True, passes ''m1'' and ''m2'' through ''showInvisibles'',
 which turns control characters, whitespace, etc. to visible representations.
 
-=item - If ''nLevels'' > 0, appends that many levels of stack-trace information.
+** If ''nLevels'' > 0, appends that many levels of stack-trace information.
 
-=item - Displays the resulting message. It goes to STDERR by default,
+** Displays the resulting message. It goes to STDERR by default,
 but to STDOUT if the ''stdout'' option is set.
 
 These items can be filled in by a message format:
 
-=item 'function'
+* 'function'
 
-=item 'filename'
+* 'filename'
 
-=item 'index'
+* 'index'
 
-=item 'lineno'
+* 'lineno'
 
-=item 'asctime'
+* 'asctime'
 
-=item 'type'
+* 'type'
 
-=item 'msg'
+* 'msg'
 
 ==Custom message types==
 
-* B<defineMsgType>(type, color=None, nLevels=None, func=None,
+* ''defineMsgType''(type, color=None, nLevels=None, func=None,
 prefix=None, infix=None, suffix=None, escape=None, indent=None)
 
 Create or modify a named "type" of message.
@@ -436,7 +431,7 @@ main program ends). For example:
     lg.setOption('plineWidth', 45)  # Allow space for long stat names
     lg.showStats()
 
-An B<experimental> feature allows you to use "/" in a stat name, in
+An ''experimental'' feature allows you to use "/" in a stat name, in
 order to group statistics for reporting. If used, such statistics will
 be grouped (well, they would be anyway by alphabetization),
 and indented under the common (pre-/) part, which will be printed
@@ -451,25 +446,25 @@ excessive record-lengths, by changing the ''eMsg'' call to:
 In addition to the `stat` parameter on various messaging methods, there
 are methods for manipulating the stats independently of messages:
 
-* B<defineStat(self, stat)>
+* ''defineStat(self, stat)''
 
 Initialize the given stat (to 0). This is optional (that is, you can just
 mention a stat and it will be created if necessary).
 
-* B<bumpStat(self, stat, amount=1)>
+* ''bumpStat(self, stat, amount=1)''
 
 Increment the given stat by the specified ''amount'' (default: 1).
 
-* B<appendStat(self, stat, datum)>
+* ''appendStat(self, stat, datum)''
 
 Convert the given stat to a list if it is not one already, and ''append''
 the ''datum'' to the list.
 
-* B<setStat(self, stat, value)>
+* ''setStat(self, stat, value)''
 
 Set the given stat to the given ''value''.
 
-* B<getStat(self, stat)>
+* ''getStat(self, stat)''
 
 Return the value of the given stat.
 
@@ -489,7 +484,7 @@ if you want short/compact names to pass to ''bumpStat'', messaging, or other
 methods that take a stat name; and yet want long, more user-readable
 error descriptions for the report.
 
-B<Note>: See above re. the (experimental) use of "/" in statistic names,
+''Note'': See above re. the (experimental) use of "/" in statistic names,
 to group and accumulate more detailed statistics.
 
 ''dotfill'': Use dot-fills for readability (@see pline()).
@@ -511,7 +506,7 @@ how to show those lists:
 
 * otherwise: show the whole list
 
-* B<clearStats(self)>
+* ''clearStats(self)''
 
 Remove all statistics.
 
@@ -533,46 +528,43 @@ any 'info' messages through); to 1 (for messages that also require at least
 ''-v'' on the command line); to 2 (for messages that also require at least
 ''-v -v'' on the command line); and so on.
 
-To set the degree of verbosity, use B<setVerbose(n)>. Calling this with n>0
+To set the degree of verbosity, use ''setVerbose(n)''. Calling this with n>0
 will test that Logger.isEnabledFor(20) is True; if not, it will call
 Logger.setLevel(20) so that these messages have a chance to get through.
 This means that getting such messages also forces you to get warnings,
 error, and criticals. This seems sensible to the author.
 
-* B<Msg(self, level, msgType='v', color=None, width=79)>
+* ''Msg(self, level, msgType='v', color=None, width=79)''
 
 Issues such a message. The ''msgType'' parameter specifies a message ''type''
 either from the predefined list (e, v, h, or x),
 or added using ''defineMsgType''(). A message type can specify:
 
-=over
-
-* a format-string to use for the message (unlike with ''Logger'',
+** a format-string to use for the message (unlike with ''Logger'',
 this can be different for each type);
 
-* a color (for when the `color` option is set);
+** a color (for when the `color` option is set);
 
-* whether the messages should be indented according to the current persistent-indentation level (see below);
+** whether the messages should be indented according to the current persistent-indentation level (see below);
 
-* whether unprintable characters should be escaped;
+** whether unprintable characters should be escaped;
 
-* whether a full or partial stack-trace should be shown;
+** whether a full or partial stack-trace should be shown;
 
-* text to go before or after the message,
+** text to go before or after the message,
 (or between the parts when 2 are present).
 
-=back
 
-* B<vMsg(self, level, msg1, msg2, color=None)>
+* ''vMsg(self, level, msg1, msg2, color=None)''
 
 Shorthand to issue such a message, with ''msgType'' 'v' (verbose).
 
-* B<hMsg(self, level, msg1, msg2, color=None, width=79)>
+* ''hMsg(self, level, msg1, msg2, color=None, width=79)''
 
 Shorthand to issue such a message, with ''msgType'' 'h' ('heading').
 Such messages get a blank line before, and a distinctive color or prefix.
 
-* B<eMsg(self, level, msg1, msg2, color=None)>
+* ''eMsg(self, level, msg1, msg2, color=None)''
 
 Shorthand to issue such a message, with ''msgType'' 'e' (error).
 Error messages with a negative level cause termination.
@@ -583,7 +575,7 @@ Produces a (possibly colored) horizontal rule of the given ''width''.
 
 ==Indentation control methods==
 
-* B<MsgPush(self)>
+* ''MsgPush(self)''
 
 Increment the message-nesting depth, causing indentation for messages
 displayed via ''Msg''(). This is mainly useful for messages that reflect
@@ -591,47 +583,39 @@ successive tiers of processing on input data (e.g., notices about
 each file, record, and field). The string to repeat to make indentation
 can be set with ''setOption('indentString', string)''.
 
-* B<MsgPop(self)>
+* ''MsgPop(self)''
 
 Decrement the message indentation depth (see ''MsgPush'').
 
-* B<MsgSet(self, n)>
+* ''MsgSet(self, n)''
 
 Force the message indentation depth to ''n'' (see ''MsgPush'').
 
-* B<MsgGet(self)>
+* ''MsgGet(self)''
 
 Return the current message indentation depth (see ''MsgPush'').
 
-=back
-
 
 ==Option control methods==
-
-=over
 
 * B<setOption(name, value)
 
 Sets the named option (see below) to the specified value.
 
-* B<getOption(name)>
+* ''getOption(name)''
 
 Returns the current value of the named option.
-
-=back
 
 ===List of available options===
 
 These are stored in instances of `ALogger`, as .options['name'].
-
-=over
 
 * Option: ''badChar''
 
 Print this character in place of control or other unprintables.
 Default: '?'.
 
-* B<Option>:''color''
+* ''Option'':''color''
 
 Use ANSI terminal colors? If not passed to the constructor,
 this defaults to True if environment variable `USE_COLOR` is set,
@@ -639,29 +623,29 @@ otherwise False. When set, the script tries to load my ColorManager package.
 Failing that, it issues a message and falls back to using "*" before and
 after colorized items.
 
-* B<Option>:''controlPix''
+* ''Option'':''controlPix''
 
 When set, displays U+24xx for control characters. Those Unicode characters
 should show up as tiny mnemonics for the corresponding control characters.
 
-* B<Option>:''encoding''
+* ''Option'':''encoding''
 
 Sets the name of the character encoding to be used (default `utf-8`).
 
-* B<Option>:''direct''
+* ''Option'':''direct''
 
 If set, messages will be sent directly to `stderr`.
 Otherwise they go through `logging.Logger`, which currently
 means that no messages are issued if verbosity is not set higher than 0
 (I prefer to have 0-level messages unconditionally displayed).
 
-* B<Option>:''filename''
+* ''Option'':''filename''
 
 This is just passed along to the like-named argument of the
 Python ''logging.basicConfig''() method, and controls where messages go.
 It defaults to `sys.stderr`.
 
-* B<Option>:''indentString'' (string)
+* ''Option'':''indentString'' (string)
 
 The string used by ''Msg''() to build indentation according to the
 ''indentation depth''
@@ -670,16 +654,16 @@ Indentation is inserted before the message-type prefix (though after the
 Logger prefix), and after each newline in the prefix, infix, and suffix
 for the message (see ''defineMsgType''()).
 
-* B<Option>:''noMoreStats''
+* ''Option'':''noMoreStats''
 
 When set, trying to increment a ''msgStats'' counter that is not already
 known, results in an error message instead of the counter being quietly
 created.
 
-* B<Option>:''verbose'' (int)
+* ''Option'':''verbose'' (int)
 
 ''vMsg'', ''hMsg'', and ''Msg'' issue ''logging.info()'' messages.
-Thus, they are at ''logging'' level B<20>, and so calling ''setVerbose''()
+Thus, they are at ''logging'' level ''20'', and so calling ''setVerbose''()
 not only sets this option, but also force the ''logging'' level to 20.
 The ''Msg'' calls take a first argument which is the minimum verbosity
 required for the message to be shown.
@@ -690,6 +674,7 @@ This is completely separate from ''logging'''s own 0-50 'levels'.
 If the ''verbose'' option is not set at all,
 then all such messages are displayed, regardless of their verbosity-level
 (assuming that ''logging'''s message level is at most 20.
+
 
 =Known bugs and limitations=
 
@@ -704,12 +689,13 @@ prefixes to messages (such as "INFO:root:").
 
 Seems to be a problem with `maxItems` in `formatRec()`.
 
-formatRec could use options to shorten long displays, such as:
+`formatRec()` could use options to shorten long displays, such as:
 
 * suppress all object properties with value None
 * suppress a given list of properties
 * don't descend into certain object types
 * use a special displayer method, say, __format__()?
+
 
 =History=
 
@@ -726,6 +712,9 @@ Integrate with Python 'logging' package.
 * 2020-03-06: Add formatRec() support for numpy and Torch vectors.
 Move formatRec() options to a dict instead of individual parameters, and make
 them inherit right. Add propWidth, noExpand, disp_None, improve formatting.
+* 2020-08-19: Cleanup, lint, add some type-hinting. Improve messaging when
+Linux command `dircolors` is not available. POD to MarkDown.
+
 
 =To do=
 
@@ -733,6 +722,7 @@ them inherit right. Add propWidth, noExpand, disp_None, improve formatting.
 ** Accept an options dict instead of long list of named options?
 ** Support more numpy, PyTorch classes
 ** Protect against circular structures.
+** For collections of length 1, put on same line
 ** Perhaps accept maxItems as a dict, mapping types to limits?
 ** Implement key and property sorting options.
 
@@ -750,6 +740,7 @@ them inherit right. Add propWidth, noExpand, disp_None, improve formatting.
 
 * Allow %(name) references to caller's variables??
 
+
 =Rights=
 
 Copyright 2019 by Steven J. DeRose. This work is licensed under a Creative Commons
@@ -765,6 +756,7 @@ which in turn was ported from `sjdUtils.pm` in Dec. 2011,
 which was assembled from pieces in others of my scripts in Mar. 2011.
 All those works are by the same author and are licensed under the same license
 (CCLI Attribution-Sharealike 3.0 unported).
+
 
 =Options=
 """
@@ -798,6 +790,21 @@ class ALogger:
             'noMoreStats'    : False,       # Warn on new stat names
             'plineWidth'     : 30,          # Columns for label for pline()
         }
+        self.optionTypes = {
+            'verbose'        : int,
+            'color'          : bool,
+            'filename'       : str,
+            'encoding'       : str,
+            'level'          : int,
+            'direct'         : bool,
+
+            'badChar'        : str,
+            'controlPix'     : bool,
+            'indentString'   : str,
+            'noMoreStats'    : bool,
+            'plineWidth'     : int,
+        }
+
         if (filename):
             logging.basicConfig(level=self.options['level'],
                                 filename=self.options['filename'],
@@ -872,7 +879,7 @@ class ALogger:
         """
         if (name not in self.options):
             return(None)
-        self.options[name] = value
+        self.options[name] = self.optionTypes[name](value)
         return(1)
 
     def getALoggerOption(self, name):
@@ -883,7 +890,7 @@ class ALogger:
         """
         return(self.options[name])
 
-    def setVerbose(self, v):
+    def setVerbose(self, v:int):
         """Set the degree of verbosity for messages to be reported.
         This is NOT the same as the logging package 'level'!
         """
@@ -1105,12 +1112,12 @@ class ALogger:
     #     needed to make the message appare. So 0 will show up any time
     #     info() messages do; 1 must also have at least -v; two -v -v,....
     #
-    def MsgRule(self, verbose=0, color=None, width=79):
+    def MsgRule(self, verbose:int=0, color=None, width:int=79):
         """Obsolete, deprecated. Use rMsg().
         """
         self.rMsg(verbose=verbose, color=color, width=width)
 
-    def rMsg(self, verbose, color=None, width=79, char=None):
+    def rMsg(self, verbose:int, color=None, width:int=79, char=None):
         """Draw a (possibly colored) line ''n'' columns wide. Default n: 80.
         """
         if (not char): char = '='
@@ -1119,7 +1126,7 @@ class ALogger:
         m = on + (char * width/len(char)) + off
         self.info(m+"\n")
 
-    def vMsg(self, verbose, m1="", m2="", color=None, stat=""):
+    def vMsg(self, verbose:int, m1="", m2="", color=None, stat=""):
         """A variant of ''Msg''(), to issue a 'verbose' (msgType 'v') message.
         """
         if (stat!=""): self.bumpStat(stat)
@@ -1128,7 +1135,7 @@ class ALogger:
         self.info(m+"\n")
 
     # Change called over to call error() directly, then delete eMsg().
-    def eMsg(self, verbose, m1="", m2="", color=None, stat=""):
+    def eMsg(self, verbose:int, m1="", m2="", color=None, stat=""):
         """A variant of ''Msg''(), to issue an 'error' (msgType 'e') message.
         """
         self.errorCount += 1
@@ -1139,7 +1146,7 @@ class ALogger:
         if (verbose<0):
             raise AssertionError("alogging:eMsg with level %d." % (verbose))
 
-    def hMsg(self, verbose, m1="", m2="", color=None, stat=""):
+    def hMsg(self, verbose:int, m1="", m2="", color=None, stat=""):
         """A variant of ''Msg''(), to issue a 'heading' (msgType 'h') message.
         """
         if (stat!=""): self.bumpStat(stat)
@@ -1148,21 +1155,22 @@ class ALogger:
         self.info(m+"\n")
 
     # Messages of various kinds (sync with Perl version)
-    def Msg(self,msgType,m1="",m2="",color=None,escape=None,stat=None,verbose=0):
+    def Msg(self,msgType,m1="",m2="",
+        color=None,escape=None,stat=None,verbose:int=0):
         """Issue a message of the given ''msgType'' (define via I<defineMsgType).
         See also the wrappers ''hMsg''(), ''vMsg''(), and ''hMsg''().
 
         Checks ''verbose'' against the value of the 'verbose' option; if that
-        option has actually been set, B<and> is lower, return without display.
+        option has actually been set, ''and'' is lower, return without display.
         Otherwise, call Logger's ''info''() to actually issue the message.
 
         * ''msgType'' Mnemonic 'type' of the message, per defineMsgType>().
 
-        * ''message1'' The text to display, in the color specified by the ''color''
-        argument, or the color for the message type.
+        * ''message1'' Text to display, in the color specified by ''color''
+        or for the message type.
 
         * ''message2'' (optional) additional message, to display uncolored.
-        If ''text'' is true, it will undergo ''showInvisibles''() and be bracketed.
+        If ''text'' is true, ''showInvisibles'' and bracketing apply.
         A newline appears after ''message2''.
 
         * ''color'' the color in which to display ''message1''.
@@ -1179,7 +1187,8 @@ class ALogger:
         """
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
-        m = self.assembleMsg(m1=m1, m2=m2, msgType=msgType, color=color, escape=escape)
+        m = self.assembleMsg(m1=m1, m2=m2,
+            msgType=msgType, color=color, escape=escape)
         self.lg.info(m)
         return
 
@@ -1482,7 +1491,11 @@ class ALogger:
                 dfmt = ind + "  %-" + str(options['keyWidth']) + "s: %s,\n"
                 inum = 0
 
-                if (options['sortKeys']): keyList = sorted(obj.keys())
+                if (options['sortKeys']):
+                    try:
+                        keyList = sorted(obj.keys())
+                    except TypeError:
+                        keyList = obj.keys()
                 else: keyList = obj.keys()
                 for n in keyList:
                     v = obj[n]
@@ -1565,43 +1578,43 @@ class ALogger:
     # Scalars don't add their own newline.
     def formatScalar(self, obj):
         ty = type(obj)
-        if (obj is None):
+        if (obj is                             None):
             return self.disp_None
-        elif (isinstance(obj, str) or
-            isinstance(obj, basestring)):
+        elif (isinstance(obj,                  str) or
+            isinstance(obj,                    basestring)):
             return '"%s"' % (obj)
-        elif (isinstance(obj, unicode)):
+        elif (isinstance(obj,                  unicode)):
             return 'u"%s"' % (obj)
-        elif (isinstance(obj, bytearray)):
+        elif (isinstance(obj,                  bytearray)):
             return 'b"%s"' % (obj)
-        #elif (isinstance(obj, buffer)):
+        #elif (isinstance(obj,                  buffer)):
         #    return '"%s"' % (obj)
-        #elif (isinstance(obj, storage)):
+        #elif (isinstance(obj,                  storage)):
         #    return "%s" % (obj)
 
-        elif (isinstance(obj, bool)):
+        elif (isinstance(obj,                  bool)):
             if (obj): return "True"
             return "False"
 
-        elif (isinstance(obj, int)):
+        elif (isinstance(obj,                  int)):
             return "%8d" % (obj)
-        elif (isinstance(obj, float)):
+        elif (isinstance(obj,                  float)):
             return "%12.4f" % (obj)
-        elif (isinstance(obj, complex)):
+        elif (isinstance(obj,                  complex)):
             return "%s" % (obj)
 
-        elif (isinstance(obj, dict)):
+        elif (isinstance(obj,                  dict)):
             return "{|%d|}" % (len(obj))
-        elif (isinstance(obj, list)):
+        elif (isinstance(obj,                  list)):
             return "[|%d|]" % (len(obj))
-        elif (isinstance(obj, tuple)):
+        elif (isinstance(obj,                  tuple)):
             return "(|%d|)" % (len(obj))
-        elif (isinstance(obj, set)):
+        elif (isinstance(obj,                  set)):
             return "[set |%d|]" % (len(obj))
-        elif (isinstance(obj, frozenset)):
+        elif (isinstance(obj,                  frozenset)):
             return "[frset |%d|]" % (len(obj))
 
-        elif (isinstance(obj, object)):
+        elif (isinstance(obj,                  object)):
             return "[%s |%d|]" % (ty, len(obj))
         return "[???] %s" % (obj)
         # end formatScalar
@@ -1609,8 +1622,11 @@ class ALogger:
 
 ###############################################################################
 # Main (doc, example and smoke-test)
+# Run some simple tests if invoked as its own command.
 #
 if __name__ == "__main__":
+    print("Running basic tests on alogging.py")
+
     if (len(sys.argv) > 1):
         print(descr)
         sys.exit()
@@ -1626,7 +1642,7 @@ if __name__ == "__main__":
     lg.MsgPush()
     lg.vMsg(0, "A vMsg message, indented.")
     lg.MsgPop()
-    lg.vMsg(0, "A vMsg message.")
+    lg.vMsg(0, "A vMsg message, back to no indent.")
     lg.eMsg(0, "An eMsg message")
 
     lg.bumpStat('infoStat', 100)

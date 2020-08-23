@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 #
 # Homogeneous.py: Implement homogeneous subclasses of list, dict, etc.
-#
-# 2020-02-19: Written. Copyright by Steven J. DeRose.
+# 2020-02-19: Written by Steven J. DeRose.
 #
 from __future__ import print_function
 import sys
@@ -66,16 +65,19 @@ There is no way to constrain the size of the hlist or hdict itself.
 Perhaps `valueTest` failures should raise ValueError instead of TypeError,
 but I decided to just use TypeError for everything.
 
-=Ownership=
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities> or
-L<http://github/com/sderose>.
-
 =History=
+
+2020-02-19: Written by Steven J. DeRose.
+
+=Rights=
+
+Copyright 2020-02-19 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+For further information on this license, see
+[https://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities]
+or [https://github.com/sderose].
 
 =Options=
 """
@@ -95,9 +97,10 @@ class hlist(list):
     def __setitem__(self, n, value):
         if (not self.valueNone and value is None):
             raise TypeError("hlist requires non-None value.")
-        if (self.valueType is not None and not isinstance(value, self.valueType)):
+        if (self.valueType is not None and
+            not isinstance(value, self.valueType)):
             raise TypeError("hlist requires values of type %s, but got %s." %
-                self.valueType, type(value))
+                (self.valueType, type(value)))
         if (self.valueTest is not None and not self.valueTest(value)):
             raise TypeError("hlist value %s fails required test." % (value))
         self[n] = value
@@ -110,7 +113,8 @@ class hdict(dict):
     """
     def __init__(self,
         keyType=None, keySubs:bool=True, keyNone:bool=False, keyTest=None,
-        valueType:type=None, valueSubs:bool=True, valueNone:bool=False, valueTest=None):
+        valueType:type=None, valueSubs:bool=True,
+        valueNone:bool=False, valueTest=None):
         super(hdict, self).__init__()
         self.keyType = keyType
         self.keySubs = keySubs
@@ -130,25 +134,24 @@ class hdict(dict):
                 self.keyType, type(key))
         if (not self.valueNone and value is None):
             raise TypeError("hlist requires non-None value.")
-        if (self.valueType is not None and not isinstance(value, self.valueType)):
+        if (self.valueType is not None and
+            not isinstance(value, self.valueType)):
             raise TypeError("hlist requires values of type %s, but got %s." %
                 self.valueType, type(value))
         self[key] = value
 
 
 ###############################################################################
-###############################################################################
 # Main
 #
 if __name__ == "__main__":
     def processOptions():
         try:
-            from MarkupHelpFormatter import MarkupHelpFormatter
-            formatter = MarkupHelpFormatter
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
         except ImportError:
-            formatter = None
-        parser = argparse.ArgumentParser(
-            description=descr, formatter_class=formatter)
+            parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
             "--quiet", "-q",      action='store_true',
