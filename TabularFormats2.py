@@ -14,7 +14,7 @@ from csv import DictWriter, DictReader  # , Dialect
 from csv import QUOTE_MINIMAL, QUOTE_NONNUMERIC, QUOTE_ALL, QUOTE_NONE
 
 __metadata__ = {
-    'title'        : ".py",
+    'title'        : "TabularFormats2.py",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
