@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Record.py: A cross between namedtuple and dict.
-# Written 2018-06-09 by Steven J. DeRose.
+# Written 2018-06-09 by Steven J. DeRose (nee `DictTuple`).
 #
 from __future__ import print_function
 from collections import namedtuple
