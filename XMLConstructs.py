@@ -1,22 +1,210 @@
 #!/usr/bin/env python
 #
 # sjdUtils: some generally useful stuff.
-#
 # 2018-01-11: Split out of sjdUtils.py.
 #
-#import sys
-import re
+import sys, re
 import htmlentitydefs
 
-XMLConstructsObject = None  # On demand
+PY2 = sys.version_info[0] == 2
+PY3 = sys.version_info[0] == 3
+if PY2:
+    string_types = basestring
+    #from urllib import quote as urlquote
+    #from htmlentitydefs import codepoint2name
+else:
+    #from urllib.parse import quote as urlquote
+    #from html.entities import codepoint2name
+    string_types = str
+    def unichr(n): return chr(n)
+    def unicode(s, encoding='utf-8', errors='strict'): str(s, encoding, errors)
 
-def getXMLConstructs(self):
-    if (XMLConstructsObject is None):
-        XMLConstructsObject = XMLConstructs()
-        return XMLConstructsObject
+
+__metadata__ = {
+    'title'        : "XmlConstructs.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2018-01-11 (Split out of sjdUtils.py)",
+    'modified'     : "2020-08-23",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
+
+
+descr = """
+=Class XMLConstructs=
+
+This class supplies "isa" functions for various XML character classes,
+a few other XML-related utility functions (including a simple "pull" SAX-like
+parser,
+and a dict of regular expressions for many XML constructs.
+
+Get an instance via:
+    xc = su.getXMLConstructs()
+
+The instance includes the following 'isa'-like functions, and a hash named .x
+that has all the regexes. They are not compiled until you say:
+    cexprs = xc.compileRegexList()
+
+* ''isXmlChar(c)''
+
+Return whether I<c> is an XML Character.
+
+* ''isXmlSpaceChar(c)''
+
+Check if I<c> is a valid XML space character.
+
+* ''isXmlNameStartChar(c)''
+
+Check if I<c> is a valid XML name-start character.
+
+* ''isXmlNameChar(c)''
+
+Check if I<c> is a well-formed XML name character.
+
+* ''isXmlName(n)''
+
+Check if I<n> is a well-formed XML (element/attribute/etc) name.
+
+* ''isXmlNmtoken(n)''
+
+Check if I<c> is a well-formed XML name token.
+
+
+===Other functions in XMLConstructs===
+
+* ''next(xmlString)''
+
+This is also an extremely simple (still experimental)
+"pull"-style parser, consisting of one method that returns the next SAX-like
+event as a list of [ eventType, data... ].
+
+Experimental.
+
+* ''makeXmlName(n, asciiOnly=True)''
+
+Clean up the given string to be a well-formed XML name.
+This is done by converting non-name-characters to "_",
+and prefixing "_" if the result does not begin with
+a name start character.
+If I<asciiOnly> is True, non-ASCII name characters are
+also changed to "_".
+
+* ''escapeXmlName(s, asciiOnly)''
+
+Turn non-name-characters in I<s> to _xx, so that any string
+becomes a legitimate (if long!) XML Name.
+''Note'': I<escapeChar> is not yet supported.
+
+* ''unescapeXmlName(s)''
+
+Undo the escaping done by I<escapeXmlName>.
+
+
+===XML constructs as regexes===
+
+See L<http://www.w3.org/TR/REC-xml/>. These can be
+used to make a simple parser, or as parts of anything else.
+
+The supported construct names (keys to the returned hash of regexes, whether
+compiled or raw) are:
+
+Character lists:
+    xmlChar, xmlSpace, xmlNameStartChar, xmlNameChar
+
+"Small" items:
+    xmlName, qlit, attr, subset, text
+
+Tags:
+    stag, empty, etag
+
+Entity and character references:
+    pent (parameter entity reference),
+    gent (any general entity reference),
+    nent (any numeric character reference),
+    dent (decimal character reference),
+    hent (hexadecimal character reference)
+
+Other:
+    ms, com, pi, xdcl, DOCTYPE, ELEMENT, ATTLIST, ENTITY, NOTATION
+
+Using these, you can make a useful (but not, by itself, fully conforming)
+parser with:
+
+* ''getXMLRegex''()
+
+This will return a fairly large regex, which is a disjunction of smaller regexes
+for: start tag, empty tag, end tag, marked section, comment, pi, xml declaration,
+DOCTYPE declaration, general entity, and text.
+
+A well-formed XML document should always be a sequence of  matches to this
+regex (though not all documents that match are WF XML documents -- for example,
+the regex knows nothing about matching or balancing start- and end-tags).
+
+So you can parse by using this regex to "split" some XML, and then examining the
+first few characters of each match to identity the construct (to do this most
+quickly, check the very first char for '&' or '&'; anything else is a textnode):
+
+    if the first character is '&':
+        ENTITY REFERENCE
+    elif the first character is NOT '<':
+        TEXT NODE
+    else check for these insitial strings
+        <?xml     XML declaration
+        <?        PI
+        <!--      COMMENT
+        <![CDATA[ MARKED SECTION
+        </        END TAG
+        <         START TAG
+
+Start-tags are the only items with non-trivial internal syntax; but once you
+have one, just strip off the tag name and then use re.finditer() again, with
+the 'attr' expression provided (which accepts leading whitespace by itself):
+
+    bigExpr = re.compile(su.getXMLConstructs().getXMLRegex())
+    for mat in re.finditer(bigExpr, rawXML):
+        m = mat.group()
+        if (m[0] == '<' and m[1].isalpha()):
+            tmat = re.match(r'(<[^\\s/>]+)', m)
+            handleTag(tmat.group(1))
+            attrlist = m[len(tmat.group(1)):]
+            for amat in re. finditer(attrExpr, attrlist):
+                handleAttr(amat.group(1))
+        else:
+            handleOtherEvent(m)
+
+
+=Related commands=
+
+`tinyRegexParser.py`, `tinierRegexParser.py`
+
+
+=History=
+
+* 2018-01-11: Split out of sjdUtils.py.
+* 2020-08-27: New layout.
+
+
+=Rights=
+
+Copyright 2018-01-11 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+For further information on this license, see
+[https://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities]
+or [https://github.com/sderose].
+
+
+=Options=
+"""
 
 
 ###############################################################################
+#
 # Functions used on RHS of regex changes
 #
 def UEscapeFunction(mat):
@@ -33,6 +221,7 @@ def unescFn(m):
 
 
 ################################################################################
+#
 class XMLConstructs:
     """Define and compile a bunch of regexes useful for XML parsing.
     See also:
@@ -51,31 +240,31 @@ class XMLConstructs:
         return(0)
 
     def isXmlSpaceChar(self, c):
-        """Return True iff I<c> is a valid XML space character.
+        """Check if I<c> is a valid XML space character.
         """
         if (re.match(self.xc['xmlSpace'], c)): return(1)
         return(0)
 
     def isXmlNameStartChar(self, c):
-        """Return True iff I<c> is a valid XML name-start character.
+        """Check if I<c> is a valid XML name-start character.
         """
         if (re.match(self.xc['xmlNameStartChar'], c)): return(1)
         return(0)
 
     def isXmlNameChar(self, c):
-        """Return True iff I<c> is a well-formed XML name character.
+        """Check if I<c> is a well-formed XML name character.
         """
         if (re.match(self.xc['xmlNameChar'], c)): return(1)
         return(0)
 
     def isXmlName(self, n):
-        """Return True iff I<n> is a well-formed XML (element/attribute/etc) name.
+        """Check if I<n> is a well-formed XML (element/attribute/etc) name.
         """
         if (re.match(self.xc['xmlName'], n)): return(1)
         return(0)
 
     def isXmlNmtoken(self, n):
-        """Return True iff I<c> is a well-formed XML name token.
+        """Check if I<c> is a well-formed XML name token.
         """
         if (re.match(self.xc['xmlNmToken'], n)): return(1)
         return(0)
@@ -110,15 +299,17 @@ class XMLConstructs:
         return(s)
 
 
+    ###########################################################################
     ### Regexes for XML
-
+    #
     def compileRegexList(self):
         self.xc = {}
         for k, v in self.x.items():
             try:
                 self.xc[k] = re.compile(v)
-            except Exception as e:
-                print("XMLConstructs setup failed compiling: %s:\n    %s" % (v, e))
+            except re.sre_constants.error as e:
+                print("XMLConstructs setup failed compiling: %s:\n    %s" %
+                    (v, e))
         return self.xc
 
     def getXMLRegex(self):
@@ -137,6 +328,11 @@ class XMLConstructs:
         return mongo
 
     def makeRegexList(self):
+        # Simplified character classes
+        ASCII_NMSTART = r'[_.A-Z]'
+        ASCII_NMCHAR  = r'[-_.:\w]'
+        ASCII_NAME = ASCII_NMSTART + ASCII_NMCHAR + "*"
+
         # Character classes
         xmlChar          = u"[\t\n\r\x20-\uD7FF\uE000-\uFFFD]"
             #"\x{00010000}-\x{0010FFFF}"
@@ -146,7 +342,8 @@ class XMLConstructs:
             u"\u200c\u200d\u2070-\u218f\u2c00-\u2fef" +
             u"\u3001-\ud7ff\uf900-\ufdcf" + u"\ufdf0-\ufffd")
             #"\x{00010000}-\x{000effff}"
-        xmlNameCharList = r"-.0-9\u00b7\\u0300-\u036f\u203f-\u2040"+xmlNameStartCharList
+        xmlNameCharList = (r"-.0-9\u00b7\\u0300-\u036f\u203f-\u2040" +
+            xmlNameStartCharList)
         xmlNameStartChar      = r'[' +xmlNameStartCharList+ r']'
         xmlNameChar           = r'[' +xmlNameCharList+ r']'
 
@@ -225,13 +422,15 @@ class XMLConstructs:
         ])) + ')'
         return x
 
-    # =========================================================================
+    ###########################################################################
+    #
     def oneRegex(self, s):
         for mat in (re.finditer(self.x['document'], s)):
             print("***" + mat.group(1))
         return
 
-    # =========================================================================
+    ###########################################################################
+    #
     def next(self, text):
         """A trivial XML pull parser built on the regexes.
         Returns:
@@ -244,7 +443,8 @@ class XMLConstructs:
         except IndexError: c2 = ''
         if (c1 == '<'):
             if (c2 == '!'):
-                for x in ['com','DOCTYPE','ELEMENT','ATTLIST','ENTITY','NOTATION','ms']:
+                for x in ['com','DOCTYPE','ELEMENT','ATTLIST',
+                    'ENTITY','NOTATION','ms']:
                     mat = re.match(self.xc[x], text)
                     if (mat): return(x, mat.end()-mat.start(), mat.group(1))
                 return('ERROR', '')
@@ -280,181 +480,16 @@ class XMLConstructs:
                 try:
                     cp = htmlentitydefs.name2codepoint[mat.group(1)]
                     return('TEXT', mat.end()-mat.start(), unichr(cp))
-                except:
-                    return('ERROR', mat.end()-mat.start(), 'Unknown entity "%s".' % (mat.group(1)))
+                except ValueError:
+                    return('ERROR', mat.end()-mat.start(),
+                        'Unknown entity "%s".' % (mat.group(1)))
             mat = re.match(self.xc['dent'], text)
-            if (mat): return('TEXT', mat.end()-mat.start(), chr(int(mat.group(1),10)))
+            if (mat): return('TEXT', mat.end()-mat.start(),
+                chr(int(mat.group(1),10)))
             mat = re.match(self.xc['hent'], text)
-            if (mat): return('TEXT', mat.end()-mat.start(), chr(int(mat.group(1),16)))
+            if (mat): return('TEXT', mat.end()-mat.start(),
+                chr(int(mat.group(1),16)))
             return('ERROR', mat.end()-mat.start(), '')
         else:
             mat = re.match(self.xc['text'], text)
             return('TEXT', mat.end(), text[0:mat.end()])
-
-###############################################################################
-###############################################################################
-
-pod = """
-
-=head1 Class XMLConstructs
-
-This class supplies "isa" functions for various XML character classes,
-a few other XML-related utility functions (including a simple "pull" SAX-like
-parser,
-and a dict of regular expressions for many XML constructs.
-
-Get an instance via:
-    xc = su.getXMLConstructs()
-
-The instance includes the following 'isa'-like functions, and a hash named .x
-that has all the regexes. They are not compiled until you say:
-    cexprs = xc.compileRegexList()
-
-=over
-
-=item * B<isXmlChar(c)>
-
-Return whether I<c> is an XML Character.
-
-=item * B<isXmlSpaceChar(c)>
-
-Return True iff I<c> is a valid XML space character.
-
-=item * B<isXmlNameStartChar(c)>
-
-Return True iff I<c> is a valid XML name-start character.
-
-=item * B<isXmlNameChar(c)>
-
-Return True iff I<c> is a well-formed XML name character.
-
-=item * B<isXmlName(n)>
-
-Return True iff I<n> is a well-formed XML (element/attribute/etc) name.
-
-=item * B<isXmlNmtoken(n)>
-
-Return True iff I<c> is a well-formed XML name token.
-
-=back
-
-
-=head3 Other functions in XMLConstructs
-
-=over
-
-=item * B<next(xmlString)>
-
-This is also an extremely simple (still experimental)
-"pull"-style parser, consisting of one method that returns the next SAX-like
-event as a list of [ eventType, data... ].
-
-Experimental.
-
-=item * B<makeXmlName(n, asciiOnly=True)>
-
-Clean up the given string to be a well-formed XML name.
-This is done by converting non-name-characters to "_",
-and prefixing "_" if the result does not begin with
-a name start character.
-If I<asciiOnly> is True, non-ASCII name characters are
-also changed to "_".
-
-=item * B<escapeXmlName(s, asciiOnly)>
-
-Turn non-name-characters in I<s> to _xx, so that any string
-becomes a legitimate (if long!) XML Name.
-B<Note>: I<escapeChar> is not yet supported.
-
-=item * B<unescapeXmlName(s)>
-
-Undo the escaping done by I<escapeXmlName>.
-
-=back
-
-
-=head3 XML constructs as regexes
-
-See L<http://www.w3.org/TR/REC-xml/>. These can be
-used to make a simple parser, or as parts of anything else.
-
-The supported construct names (keys to the returned hash of regexes, whether
-compiled or raw) are:
-
-Character lists:
-    xmlChar, xmlSpace, xmlNameStartChar, xmlNameChar
-
-"Small" items:
-    xmlName, qlit, attr, subset, text
-
-Tags:
-    stag, empty, etag
-
-Entity and character references:
-    pent (parameter entity reference),
-    gent (any general entity reference),
-    nent (any numeric character reference),
-    dent (decimal character reference),
-    hent (hexadecimal character reference)
-
-Other:
-    ms, com, pi, xdcl, DOCTYPE, ELEMENT, ATTLIST, ENTITY, NOTATION
-
-Using these, you can make a useful (but not, by itself, fully conforming)
-parser with:
-
-=over
-
-=item * B<getXMLRegex>()
-
-This will return a fairly large regex, which is a disjunction of smaller regexes
-for: start tag, empty tag, end tag, marked section, comment, pi, xml declaration,
-DOCTYPE declaration, general entity, and text.
-
-A well-formed XML document should always be a sequence of  matches to this
-regex (though not all documents that match are WF XML documents -- for example,
-the regex knows nothing about matching or balancing start- and end-tags).
-
-So you can parse by using this regex to "split" some XML, and then examining the
-first few characters of each match to identity the construct (to do this most
-quickly, check the very first char for '&' or '&'; anything else is a textnode):
-
-    if the first character is '&':
-        ENTITY REFERENCE
-    elif the first character is NOT '<':
-        TEXT NODE
-    else check for these insitial strings
-        <?xml     XML declaration
-        <?        PI
-        <!--      COMMENT
-        <![CDATA[ MARKED SECTION
-        </        END TAG
-        <         START TAG
-
-Start-tags are the only items with non-trivial internal syntax; but once you
-have one, just strip off the tag name and then use re.finditer() again, with
-the 'attr' expression provided (which accepts leading whitespace by itself):
-
-    bigExpr = re.compile(su.getXMLConstructs().getXMLRegex())
-    for mat in re.finditer(bigExpr, rawXML):
-        m = mat.group()
-        if (m[0] == '<' and m[1].isalpha()):
-            tmat = re.match(r'(<[^\\s/>]+)', m)
-            handleTag(tmat.group(1))
-            attrlist = m[len(tmat.group(1)):]
-            for amat in re. finditer(attrExpr, attrlist):
-                handleAttr(amat.group(1))
-        else:
-            handleOtherEvent(m)
-
-
-=for nobody ================================================================
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-
-For the most recent version, see http://www.derose.net/steve/utilities/.
-"""
