@@ -638,14 +638,15 @@ Copyright 2020, Steven J. DeRose. This work is licensed under a Creative Commons
 Attribution-Share Alike 3.0 Unported License. For further information on
 this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
-The methods here are based on my paper:
-"JSOX: A Justly Simple Objectization for XML:
-Or: How to do better with Python and XML."
-Balisage Series on Markup Technologies, vol. 13 (2014).
-[https://doi.org/10.4242/BalisageVol13.DeRose02].
-
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github/com/sderose].
+
+The methods here are based on
+[https://www.w3.org/TR/1999/REC-xpath-19991116/] and on my paper:
+"JSOX: A Justly Simple Objectization for XML,
+or: How to do better with Python and XML."
+Balisage Series on Markup Technologies, vol. 13 (2014).
+[https://doi.org/10.4242/BalisageVol13.DeRose02].
 
 =Options=
 """
@@ -673,8 +674,11 @@ ARG_STAR      = 3
 ARG_RESERVED  = 4
 ARG_NAME      = 5
 
-from BaseDom import BaseDom
-BaseDom.usePythonExceptions()
+try:
+    from BaseDom import BaseDom
+    BaseDom.usePythonExceptions()
+except ImportError as e:
+    sys.stderr.write("Could not import BaseDom for Exceptions.\n")
 
 class NOT_SUPPORTED_ERR(Exception):
     pass

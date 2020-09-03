@@ -24,15 +24,25 @@ __version__ = __metadata__['modified']
 descr = u"""
 =Description=
 
+Provide relatively easy access to ANSI terminal colors. For example,
+colorize a string using a color name such as "blue/white/bold", remove
+all color escapes, measure the character length of a string while
+disregarding color escapes, etc.
+
 See colorNames.pod for information re. the colors supported by this package.
+For information on these codes, see for example
+[https://en.wikipedia.org/wiki/ANSI_escape_code].
+
+The color names available are defined in F<bingit/SHELL/colorNames.pod>,
+which supercedes anything in specific scripts (although they I<should> match).
 
 This is a separate class for managing ANSI terminal colors.
 However, if using `sjdUtils.py`, the `ColorManager.py` methods
-are patched in to `sjdUtils.py`, so when color is enabled you can just
+are patched in , so when color is enabled you can just
 call them as if they were methods of `sjdUtils.py` itself.
+There is also a Perl version in `ColorManager.pm`,
+and an `uncolorize` wrapper for command-line use.
 
-The color names available are defined in F<bingit/SHELL/colorNames.pod>,
-which supercedes anything in specific scripts (they I<should> match).
 
 =Usage=
 
@@ -107,14 +117,18 @@ of B following A will I<not> be colorized; if B was already colorized, the
 trailing portion will likewise not be colorized.
 You can specify the I<endAs> option when colorizing A to avoid this.
 
-ColorManager has no support for 256-color terminals.
+ColorManager has no support (yet) for 256-color terminals.
 
 =Related commands=
 
 See L<https://stackoverflow.com/questions/287871/> on "How to print colored text in terminal in python." It references Python modules I<termcolor> (apparently
 no longer maintained?), I<chromalog>, I<Colorama>, and others.
+For information on these codes, see for example
+[https://en.wikipedia.org/wiki/ANSI_escape_code].
 
-My `colorstring` shell command.
+
+The `colorstring` shell command (just a wrapper for this), `sjdUtils.py`,
+and Perl versions in `ColorManager.pm` and `sjdUtils.pm`.
 
 =History=
 
@@ -133,7 +147,16 @@ Add test feature as main.
 
 * Make localizable.
 
-* Perhaps add color synonyms like CSS?
+* Consider additional ANSI codes
+([https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters]):
+
+* Primary and alternate fonts; Fraktur (!); double underline; underline color;
+superscript/subscript
+proportional spacing ("not known to be used on terminals");
+* framed, incircled, overlined
+* 'off' for specific effects
+
+* Perhaps allow color synonyms like CSS?
     0 black   -- #000
     1 red     -- #F00
     2 green   -- #0F0
@@ -145,12 +168,10 @@ Add test feature as main.
 
 =Rights=
 
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-
-For the most recent version, see [http://www.derose.net/steve/utilities] or
-[http://github.com/sderose].
+Copyright 2011-12-09 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+For further information on this license, see
+[https://creativecommons.org/licenses/by-sa/3.0].
 
 =Options=
 """

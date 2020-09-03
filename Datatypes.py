@@ -10,6 +10,20 @@ import sys, re
 
 #from alogging import ALogger
 
+PY2 = sys.version_info[0] == 2
+PY3 = sys.version_info[0] == 3
+if PY2:
+    string_types = basestring
+    from urllib import quote as urlquote
+    from htmlentitydefs import codepoint2name
+else:
+    from urllib.parse import quote as urlquote
+    from html.entities import codepoint2name
+    string_types = str
+    def unichr(n): return chr(n)
+    def unicode(s, encoding='utf-8', errors='strict'): str(s, encoding, errors)
+
+
 __metadata__ = {
     'title'        : "Datatypes.py",
     'rightsHolder' : "Steven J. DeRose",
@@ -146,6 +160,13 @@ turn must have been defined via ``addPattern)``. Whether to ignore case can
 be specified as an option when defining each named pattern.
 
 
+=Related commands=
+
+`tinyRegexParser.py`, `tinierRegexParser.py`.
+
+`XmlConstructs.py`: A collection of relevant regexes for XML.
+
+
 =Known bugs and limitations=
 
 Unfinished.
@@ -164,6 +185,7 @@ No option for multiple tokens with `X-Enum` or `X-Match`.
 * 2020-08-12: New layout. Add X-Probability. Much cleaner regexes.
 POD to MarkDown. Add methods for defining and applying specific
 regexes and enums. Distinguish "Regex" type from "Match".
+* 2020-09-02: Pull in accurate Unicode XML character sets from XmlConstructs.py.
 
 
 =To do=
@@ -173,6 +195,8 @@ regexes and enums. Distinguish "Regex" type from "Match".
 * Lots more testing.
 
 * Add a built-in test driver.
+
+* Add a type that accepts H-style numbers like 3.2M.
 
 * Possibly integrate with formatting featu8res of `csv2xml.py`, `alogging.py`.
 
@@ -190,7 +214,6 @@ or [https://github.com/sderose].
 
 
 ###############################################################################
-###############################################################################
 #
 class Datatypes:
     """Define the named datatypes (mostly from XML Schema).
@@ -201,7 +224,24 @@ class Datatypes:
     See: [https://www.w3.org/TR/xmlschema-2/] ("Datatypes Second Edition")
     """
 
-    NAME = r"[_.\w][-_.:\w\d]*"   # Too loose, doesn't exclude ^\d
+    ASCII_NMSTART = r'[_.A-Z]'
+    ASCII_NMCHAR  = r'[-_.:\w]'
+    ASCII_NAME = ASCII_NMSTART + ASCII_NMCHAR + "*"
+
+    xmlChar          = u"[\t\n\r\x20-\uD7FF\uE000-\uFFFD]"
+        #"\x{00010000}-\x{0010FFFF}"
+    xmlSpace         = r"[\t\n\r\x20]"
+    xmlNameStartCharList = (
+        u":A-Z_a-z\xc0-\xd6\xd8-\xf6\xf8-\u02ff\u0370-\u037d\u037f-\u1fff" +
+        u"\u200c\u200d\u2070-\u218f\u2c00-\u2fef" +
+        u"\u3001-\ud7ff\uf900-\ufdcf" + u"\ufdf0-\ufffd")
+        #"\x{00010000}-\x{000effff}"
+    xmlNameCharList = (r"-.0-9\u00b7\\u0300-\u036f\u203f-\u2040" +
+        xmlNameStartCharList)
+    xmlNameStartChar      = r'[' +xmlNameStartCharList+ r']'
+    xmlNameChar           = r'[' +xmlNameCharList+ r']'
+
+    NAME = xmlNameStartChar + xmlNameChar + "*"
     year = r'\d\d\d\d'
     mon  = r'\d\d'
     day  = r'\d\d'
