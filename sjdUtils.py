@@ -9,9 +9,22 @@ import re
 import argparse
 import random
 import time
+import math
 
 import ColorManager
 from alogging import ALogger
+
+PY2 = sys.version_info[0] == 2
+PY3 = sys.version_info[0] == 3
+if PY2:
+    string_types = basestring
+else:
+    string_types = str
+    def xrange(x): return iter(range(x))
+    def cmp(a, b): return  ((a > b) - (a < b))
+    def unichr(n): return chr(n)
+    def unicode(s, encoding='utf-8', errors='strict'):
+        return str(s, encoding, errors)
 
 __metadata__ = {
     'title'        : "sjdUtils.py",
@@ -344,15 +357,33 @@ directly from ''time()'' (not returned values from ''isoTime'', for example).
 The elapsed time is in the form C<hh:mm:ss> unless
  ''seconds'' is True, in which case you just get the raw number of seconds.
 
-* '''lorem(length=79, loremType="a")'''
+* '''lorem(length=79, loremType="a", mode='frequency', xtab=None)'''
 
-Return some sample text of a given type and length. The types are:
-    a -- ASCII text, by detault the usual "lorem ipsum"
-    u -- Similar, but including a variety of Unicode characters
-    x -- Including Unicode characters and XHTML markup
+Return some sample text of a given type and length. The `loremType` are:
+    a -- ASCII text, by detault the usual "lorem ipsum", but you can set a
+different text via the `loremText` option.
     r -- Randomly generated ASCII text (see ''randomChar''(), below)
 
-* '''randomChar(mode='uniform')'''
+`randomizeChars`, `unicodeMin`, and `unicodeMax` can be set, for cause ASCII vowels randomly changes some of the characters to various non-Latin-1 ones.
+
+`mode` is simply passed on to `randomChar()` when loremType="r".
+
+`xtab` can be a translation table, that will be applied to the generated text.
+See also `getRandomXtab()`.
+
+* '''getRandomXtab(fromChars='aeiouAEIOU', uMin=0x00A1, uMax=0x2FF)'''
+
+Generate a translation table, mapping each of the `fromChars` to a random
+Unicode character in the specified inclusive range.
+
+All code points seem to be assigned in at least these ranges:
+    0x00A1 to 0x2FF  Latin
+    0x0400 to 0x52F  Cyrillic
+    0x2200 to 0x23F3 Math ops and technical
+    0x3041 to 0x3096 Hiragana
+
+
+* '''randomChar(rgen=random.Random(), mode='uniform')'''
 
 Generates a single random character (used by ''lorem(type='r')'')
 
@@ -396,12 +427,14 @@ See also the C<incrementFilename.py> command.
 
 =The ColorManager class=
 
-This is a separate class defined in C<alogging.py>. However, its methods
-are patched in to C<sjdUtils.py>>, so when color is enabled you can just
+This is a separate class defined in C<ColorManager.py>,
+to make it easy to manage ANSI terminal color escape sequences.
+Its methods
+are also patched in to C<sjdUtils.py>, so when color is enabled you can just
 call them as if they were methods of C<sjdUtils.py> itself.
 
 The color names available are defined in F<bingit/SHELL/colorNames.pod>,
-which supercedes anything in specific scripts (they ''should'' match).
+which supercedes anything in specific scripts (although they ''should'' match).
 
 A dictionary of the usable names is in C<colorStrings>; a printable
 form can be retrieve via ''getColorStrings()'', or a printable list
@@ -529,10 +562,12 @@ Write unit tests and fix several bugs. Add HNumber 'base' arg.
 * 2018-10-05: add className()
 * 2018-11-27: Add splitPlus().
 * 2020-01-22: Move doc, POD->MarkDown, lint, metadata.
+* 2020-08-27: unbackslash() for both Python 2 and 3.
+* 2020-09-03: Add shrinkuser().
 
 =Rights=
 
-Copyright 2011-2020, Steven J. DeRose. This work is licensed under a Creative Commons
+Copyright 2011, Steven J. DeRose. This work is licensed under a Creative Commons
 Attribution-Share Alike 3.0 Unported License. For further information on
 this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
@@ -541,17 +576,6 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 
 =Options=
 """
-
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-if PY2:
-    string_types = basestring
-else:
-    string_types = str
-    def xrange(x): return iter(range(x))
-    def cmp(a, b): return  ((a > b) - (a < b))
-    def unichr(n): return chr(n)
-    def unicode(s, encoding='utf-8', errors='strict'): return str(s, encoding, errors)
 
 # Provide way to get class-name regardless of old/new, 2/3
 # Old-style classes have type 'instance', kinda pointless.
@@ -777,7 +801,7 @@ class sjdUtils:
         """Set up or take down the ColorManager package.
         Monkey-patch keys methods so they're easily available from here.
         """
-        haveColorManager = self.try_module(self, 'ColorManager')
+        haveColorManager = self.try_module('ColorManager')
         if (not haveColorManager): return
 
         if (not enabled):
@@ -810,7 +834,6 @@ class sjdUtils:
         return self.colorManager.uncolorize(s)
 
 
-    ###########################################################################
     ###########################################################################
     # Options
     #
@@ -866,11 +889,11 @@ class sjdUtils:
 
 
     ###########################################################################
-    ###########################################################################
     # XML stuff
     #
     def indentXML(
-        self, s, iString="  ", maxIndent=0, breakAttrs=0, elems=None, html=False):
+        self, s, iString="  ", maxIndent=0,
+        breakAttrs=0, elems=None, html=False):
         """Breaks before start-tags and end-tags, etc.
         Puts in spurious breaks if "<" occurs within PI, comment, CDATA MS.
         If you want it really right, use my DomExtensions::collectAllXml().
@@ -893,7 +916,8 @@ class sjdUtils:
     ]
 
     def indentXml(
-        self, s, iString="  ", maxIndent=0, breakAttrs=0, elems=None, html=False):
+        self, s, iString="  ", maxIndent=0,
+        breakAttrs=0, elems=None, html=False):
         """Insert newlines and indentation in an XML string. Does not use
         an actual parser, but is quick and pretty reliable.
         @param iString: String to repeat to make indentation
@@ -974,7 +998,6 @@ class sjdUtils:
 
 
     ###########################################################################
-    ###########################################################################
     #
     def getJsonIndent(self, level, maxIndent, iString=None):
         """Internal. Return a newline plus indentation for I<indentJson>().
@@ -1026,8 +1049,6 @@ class sjdUtils:
         return(buf)
 
 
-
-    ###########################################################################
     ###########################################################################
     # Format strings and numbers for nicer printing.
     #
@@ -1165,7 +1186,6 @@ class sjdUtils:
         return(s)
 
     ###########################################################################
-    ###########################################################################
     # Return 1 iff the argument is interpretable as a number.
     #
     def isNumeric(self, n):
@@ -1187,7 +1207,6 @@ class sjdUtils:
             return(False)
 
 
-    ###########################################################################
     ###########################################################################
     # Escape reserved characters for various contexts.
     #
@@ -1385,10 +1404,12 @@ class sjdUtils:
         s = re.sub(r"([^[:ascii:]])", self.charToXXFunction, s)
         return(s)
 
-    def unbackslash(self, s):
-        # dec = bytes(s, "utf-8").decode("unicode_escape") # python3
-        dec = s.decode('string_escape') # python2
-        return(dec)
+    if PY2:
+        def unbackslash(self, s):
+            return s.decode('string_escape') # python2
+    else:
+        def unbackslash(self, s):
+            return bytes(s, "utf-8").decode("unicode_escape") # python3
 
     # Handle URI escaping.
     #
@@ -1416,7 +1437,6 @@ class sjdUtils:
         return mat.group(0)
 
 
-    ###########################################################################
     ###########################################################################
     # Human-readable times and dates.
     #
@@ -1449,23 +1469,46 @@ class sjdUtils:
         return("{0:02d}:{1:02d}:{2:02d}".format(h, m, s))
 
     # Should vary it if it needs to be repeated.
-    def lorem(self, length=79, mode='frequency'):
-        if (type=="r"):
+    def lorem(self, length=79, loremType="a", mode='frequency', xtab=None):
+        """Return a given length of sample text, either by replicating
+        the 'loremText' option value (which defaults to the usual), or
+        by generating it randomly. In either case, you can also have it
+        translated, for example by passing an xtab obtained from
+        getRandomXtab(), to make sure Unicode gets exercised.
+        """
+        assert loremType in "ar"
+
+        buf = ""
+        if (loremType=="r"):
             #import random
             rgen = random.Random()
-            buf = ""
-            for i in range(0, length):
+            for _ in range(0, length):
                 buf += self.randomChar(rgen, mode=mode)
-            return(buf)
+        else:
+            if (self.options["loremText"]==""):
+                self.options["loremText"] = "Missing loremText. "
+            reps = math.ceil(length / len(self.options["loremText"]))
+            buf = self.options["loremText"] * reps
+            buf = buf[0:length]
 
-        ops = { "a":"loremText", "u":"uloremText", "x":"loremText" }
-        if (type in ops) : ty = ops[type]
-        else: ty = "loremText"
-        if (length>len(self.options[ty])): length = len(self.options[ty])
-        return(self.options[ty][0:length])
+        if (xtab): buf = buf.translate(xtab)
+        return(buf)
+
+    def getRandomXtab(self, fromChars='aeiouAEIOU', uMin=0x00A1, uMax=0x2FF):
+        """Translate the fromChars passed, to random Unicode code points
+        from the given range.
+        """
+        assert len(fromChars)>0 and uMin>=32 and uMin<=uMax and uMax<0x1FFFF
+        toChars = ""
+        rgen = random.Random()
+        while (len(toChars) < len(fromChars)):
+            toChars += chr(rgen.randint(uMin, uMax))
+        xtab = str.maketrans(fromChars, toChars)
+        return xtab
 
     def randomChar(self, rgen=random.Random(), mode='frequency'):
         if (mode=='frequency'): # derive from GNG instead
+            rgen = random.Random()
             r = rgen.randint(1, self.letterFreqsTotal)
             for tup in self.options["letterFreqs"]:
                 r -= tup[1]
@@ -1476,8 +1519,6 @@ class sjdUtils:
         return(c)
 
 
-
-    ###########################################################################
     ###########################################################################
     # Miscellaneous
     #
@@ -1485,7 +1526,7 @@ class sjdUtils:
     def try_module(self, moduleName, quiet=False):
         import imp
         try:
-            imp.find_module('eggs')
+            imp.find_module(moduleName)
         except ImportError:
             if (not quiet): sys.stderr.write(
                 "sjdUtils.try_module(): Can't find module'%s'." % (moduleName))
@@ -1506,6 +1547,8 @@ class sjdUtils:
         return maxN
 
     def splitPath(self, path):
+        """Mainly for sjdUtils.pm compatibility. Python has os.path.
+        """
         mat = re.match(r'^(.*/)?([^/]*?)(\.(\w*))?$', path)
         dir0 = fil0 = ext0 = ""
         dir0 = mat.group(1)
@@ -1513,11 +1556,28 @@ class sjdUtils:
         ext0 = mat.group(4)
         return ( dir0, fil0, ext0 )
 
+    def shrinkuser(self, path):
+        """More or less the opposite of os.path.expanduser().
+        TODO: normcase()? realpath()? relpath to an arg?
+        """
+        try:
+            path = os.path.normpath(path)
+            h = os.environ['HOME'].rstrip(' /')
+            if (path.startswith(h)): path = '~/' + path[len(h):]
+        except KeyError:
+            pass
+        try:
+            c = os.environ['PWD'].rstrip(' /')
+            if (path.startswith(c)): path = path[len(c):]
+        except KeyError:
+            pass
+        return path
+
     def localize(self):
         self.lg.error("sjdUtils: localize() not yet supported.")
 
     def toUTF8(self, s, srcEncoding=None):
-        if (isinstance(s, unicode)):
+        if (isinstance(s, str)):
             s.encode('utf-8')
         elif (srcEncoding):
             s.decode(srcEncoding).encode('utf-8')
@@ -1556,7 +1616,6 @@ class sjdUtils:
 
 
 ###############################################################################
-###############################################################################
 #
 if __name__ == "__main__":
     try:
@@ -1568,7 +1627,7 @@ if __name__ == "__main__":
         description=descr)
 
     parser.add_argument(
-        "--version",          action='version',     version=sjdUtils.__version__,
+        "--version",          action='version', version=sjdUtils.__version__,
         help='Display version information, then exit.')
     args = parser.parse_args()
     sys.exit()
