@@ -1,18 +1,11 @@
 #!/usr/bin/env python
 #
 # EntityManager.py
-#
-# Broken out from multiXML.py, 2013-02-25.
 # multiXml written 2011-03-11 by Steven J. DeRose.
-# 2015-09-19: Close to real, syntax ok, talks to multiXML.py.
-#
-# To do:
-#     Get it running.
-#     Get rid of sys.stderr.write()s.
+# Broken out from multiXML.py, 2013-02-25.
 #
 import sys
 import os
-#import string
 import re
 
 PY2 = sys.version_info[0] == 2
@@ -23,11 +16,134 @@ else:
     from html.parser import HTMLParser
     def unichr(n): return chr(n)
 
-from sjdUtils import sjdUtils  # Only uses lg and isXmlChar
-#from alogging import ALogger
+from sjdUtils import sjdUtils  # Only uses isXmlChar
+from alogging import ALogger
+lg = ALogger(1)
+
+__metadata__ = {
+    'title'        : "EntityManager.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2011-03-11",
+    'modified'     : "2020-08-23",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
 
 
-###############################################################################
+descr = """
+=Usage=
+
+EntityManager.py (Python)
+
+Manages Entity and Notation definitions for an XML parser.
+
+''(unfinished)''
+
+
+=Methods=
+
+=over
+
+* ''new''()
+
+* ''setOption''('''name, value''')
+
+Options available include:
+
+** '''expandEntities''' -- (Boolean) if turned off, entities will be returned as
+'''unparsed''' events with a single argument, which is the original form
+of the entity (or numeric character) reference.
+
+** '''entitiesInPIs''' -- (Boolean) if set, the content of PIs (but not the
+'''target''') will be parsed in search of entity and character references,
+which will be expanded.
+
+
+* ''appendEntityPath''(path)
+
+Add '''path''' to the end of the list of directories, in which to search
+for external entities. First added, is first searched.
+
+* $s = ''getText''()
+
+Return the current contents of the buffer to be parsed (that is, any pending
+text that has not yet been parsed). This does not clear the buffer; to do that
+use '''clearText'''().
+
+* ''clearText''()
+
+Remove any remaining text in the parse buffer (the text is returned);
+
+
+* ''addTextEntity''('''name, value''')
+
+Define the entity '''name''' to the given (string) value. If '''setHtmlEntities'''()
+is in effect, defining an entity via <addEntity> overrides any HTML entity
+of the same name.
+Entities that refer to files, URIs, etc. are not yet supported.
+
+* ''setHtmlEntities''('''flag''')
+
+Determine whether to recognize the standard HTML named character entities.
+They are off by default; this calls turns them on unless '''flag''' is present
+and has the value 0 (if '''flag''' is entirely absent, they are turned '''on'''!)
+Individual entities can be overridden via '''addEntity'''().
+
+* ''setXmlEntities''('''flag''')
+
+Determine whether to recognize the five XML built-in entities.
+They are on by default; this calls turns them on unless '''flag''' is present
+and has the value 0 (if '''flag''' is entirely absent, they are turned '''on'''!)
+These entities cannot be overridden when on.
+
+* ''getDepth''()
+
+Returns the number of open entities.
+
+...
+
+
+=Known bugs and limitations=
+
+
+=Related commands=
+
+`EntityManager.pm` -- Perl equivalent.
+
+
+=History=
+
+* 2011-03-11 `multiXml` written by Steven J. DeRose.
+* 2013-02-25: EntityManager broken out from `multiXML.py`.
+* 2015-09-19: Close to real, syntax ok, talks to `multiXML.py`.
+* 2020-08-27: New layout.
+
+
+=To do=
+
+* Get it running.
+* Get rid of sys.stderr.write()s.
+
+
+=Rights=
+
+Copyright 2011-03-11 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+For further information on this license, see
+[https://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities]
+or [https://github.com/sderose].
+
+
+=Options
+"""
+
+
 ###############################################################################
 #
 class EntityManager:
@@ -43,8 +159,7 @@ class EntityManager:
       'apos': "'",
       'quot': '"',
     }
-    htmlparser = HTMLParser.HTMLParser() # For entity decoding
-
+    htmlparser = HTMLParser() # For entity decoding
 
     def __init__(self, su=None):
         self.su = su or sjdUtils()
@@ -83,9 +198,8 @@ class EntityManager:
     def openParameterEntity(self, ename):
         self.openEntity(ename)
 
-
     def openEntity(self, ename):
-        self.su.lg.vMsg(0,"Opening entity 'ename'.")
+        lg.vMsg(0,"Opening entity 'ename'.")
         entSpecsRef = self.entDefs[ename]
         if (not entSpecsRef):
             self.pushEvent("ERROR","WF: Entity '"+ename+"' is unknown.")
@@ -129,7 +243,7 @@ class EntityManager:
         return(self.getDepth())
 
     def closeEntity(self):
-        self.su.lg.vMsg(0,"Closing entity '%s'." % self.entStack[-1].oeName)
+        lg.vMsg(0,"Closing entity '%s'." % self.entStack[-1].oeName)
         self.entStack[-1].oeHandle.close()
         self.entStack.pop()
         return(self.getDepth())
@@ -160,12 +274,12 @@ class EntityManager:
         return(self.entStack[-1].oeCharNum)
 
     def fillBuf(self):
-        self.su.lg.vMsg(0,"In fillBuf, entity stack depth " + self.getDepth())
+        lg.vMsg(0,"In fillBuf, entity stack depth " + self.getDepth())
         while ((self.getDepth() > 0)):
             CURFILE = self.entStack[-1].oeHandle
             rec = CURFILE.readline()
             if (rec):
-                self.su.lg.vMsg(0,"Read line: rec")
+                lg.vMsg(0,"Read line: rec")
                 self.entStack[-1].oeCharNum += len(rec)
                 self.entStack[-1].oeLineNum += 1
                 self.entStack[-1].cursor = 0
@@ -201,8 +315,6 @@ class EntityManager:
         return(self.curChar())
 
 
-
-###############################################################################
 ###############################################################################
 # Used by EntityManager package, just to store the tuple needed for one
 # currently-open entity.
@@ -219,8 +331,6 @@ class EntityFrame:
         self.cursor     = ""       # Current loc in the input record
 
 
-
-###############################################################################
 ###############################################################################
 #
 class NotationDcl:
@@ -230,12 +340,10 @@ class NotationDcl:
         self.sysid      = sysid   #
 
 
-
-###############################################################################
 ###############################################################################
 #
 class EntityDoStuff:
-    """FIX"""
+    """TODO: FIX"""
     def __init__(self, su=None, eventLogOwner=None):
         self.foo = True
         self.textEntities = {}
@@ -278,7 +386,7 @@ class EntityDoStuff:
             buf = self.lookupEntityName(mat.group(1))
             return(buf)
 
-        self.su.lg.vMsg(0,"WF: Bad entity reference syntax: 'raw'.")
+        lg.vMsg(0,"WF: Bad entity reference syntax: 'raw'.")
         return(raw)
 
     def lookupEntityName(self, ename):
@@ -295,7 +403,7 @@ class EntityDoStuff:
         if (self.useHtmlEntities):
             evalue = EntityManager.htmlparser.unescape("&"+ename+";")
             if (evalue != "&"+ename+";"): return(evalue)
-        self.su.lg.vMsg(0,"Unrecognized entity name '"+ename+"'.")
+        lg.vMsg(0,"Unrecognized entity name '"+ename+"'.")
         return("<!-- Unrecognized entity name '"+ename+"' -->")
 
     def setXmlEntities(self, flag):
@@ -316,109 +424,58 @@ class EntityDoStuff:
 
 
 ###############################################################################
-###############################################################################
+# Main
 #
-perldoc = """
+if __name__ == "__main__":
+    import argparse
 
-=pod
+    def anyInt(x):
+        return int(x, 0)
 
-=head1 Usage
+    def processOptions():
+        try:
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
+        except ImportError:
+            parser = argparse.ArgumentParser(description=descr)
 
-EntityManager.py (Python)
+        parser.add_argument(
+            "--iencoding",        type=str, metavar='E', default="utf-8",
+            help='Assume this character set for input files. Default: utf-8.')
+        parser.add_argument(
+            "--ignoreCase", "-i", action='store_true',
+            help='Disregard case distinctions.')
+        parser.add_argument(
+            "--oencoding",        type=str, metavar='E',
+            help='Use this character set for output files.')
+        parser.add_argument(
+            "--quiet", "-q",      action='store_true',
+            help='Suppress most messages.')
+        parser.add_argument(
+            "--unicode",          action='store_const',  dest='iencoding',
+            const='utf8', help='Assume utf-8 for input files.')
+        parser.add_argument(
+            "--verbose", "-v",    action='count',       default=0,
+            help='Add more messages (repeatable).')
+        parser.add_argument(
+            "--version", action='version', version=__version__,
+            help='Display version information, then exit.')
 
-Manages Entity and Notation definitions for an XML parser.
+        parser.add_argument(
+            'files',             type=str,
+            nargs=argparse.REMAINDER,
+            help='Path(s) to input file(s)')
 
-B<(unfinished)>
+        args0 = parser.parse_args()
+        return(args0)
 
+    ###########################################################################
+    #
+    fileCount = 0
+    args = processOptions()
 
+    lg.vMsg(0, "test driver not yet implemented.")
 
-=head1 Methods
-
-=over
-
-=item * B<new>()
-
-=item * B<setOption>(I<name, value>)
-
-Options available include:
-
-=over
-
-I<expandEntities> -- (Boolean) if turned off, entities will be returned as
-I<unparsed> events with a single argument, which is the original form
-of the entity (or numeric character) reference.
-
-I<entitiesInPIs> -- (Boolean) if set, the content of PIs (but not the
-I<target>) will be parsed in search of entity and character references,
-which will be expanded.
-
-=back
-
-
-=item * B<appendEntityPath>(path)
-
-Add I<path> to the end of the list of directories, in which to search
-for external entities. First added, is first searched.
-
-=item * $s = B<getText>()
-
-Return the current contents of the buffer to be parsed (that is, any pending
-text that has not yet been parsed). This does not clear the buffer; to do that
-use I<clearText>().
-
-=item * B<clearText>()
-
-Remove any remaining text in the parse buffer (the text is returned);
-
-
-=item * B<addTextEntity>(I<name, value>)
-
-Define the entity I<name> to the given (string) value. If I<setHtmlEntities>()
-is in effect, defining an entity via <addEntity> overrides any HTML entity
-of the same name.
-Entities that refer to files, URIs, etc. are not yet supported.
-
-=item * B<setHtmlEntities>(I<flag>)
-
-Determine whether to recognize the standard HTML named character entities.
-They are off by default; this calls turns them on unless I<flag> is present
-and has the value 0 (if I<flag> is entirely absent, they are turned I<on>!)
-Individual entities can be overridden via I<addEntity>().
-
-=item * B<setXmlEntities>(I<flag>)
-
-Determine whether to recognize the five XML built-in entities.
-They are on by default; this calls turns them on unless I<flag> is present
-and has the value 0 (if I<flag> is entirely absent, they are turned I<on>!)
-These entities cannot be overridden when on.
-
-=item * B<getDepth>()
-
-Returns the number of open entities.
-
-...
-
-
-
-=head1 Known bugs and limitations
-
-
-
-=head1 Related commands
-
-C<EntityManager.pm> -- Perl equivalent.
-
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License, with one additional restriction:
-
-For further information on
-the CCLI license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-=cut
-"""
+    if (not args.quiet):
+        lg.vMsg(0, "Done, %d files.\n" % (fileCount))

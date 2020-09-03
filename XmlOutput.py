@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 #
-# XmlOutput.py
+# XmlOutput.py: Make it easier to write out WF XML.
+# Perl original written 2010-12-22 by Steven J. DeRose.
+# Port to Python: 2012-01-10 sjd.
 #
 # Allow the PY2 compatibility block below:
 #pylint: disable=E0401, E0602
@@ -12,11 +14,33 @@ import codecs
 import string
 import xml
 
+PY2 = sys.version_info[0] == 2
+PY3 = sys.version_info[0] == 3
+if PY2:
+    from htmlentitydefs import codepoint2name
+    #import HTMLParser
+    string_types = basestring
+else:
+    from html.entities import codepoint2name
+    #from html.parser import HTMLParser
+    string_types = str
+    def unichr(n): return chr(n)
+
+__metadata__ = {
+    'title'        : "XmlOutput.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2012-01-10",
+    'modified'     : "2020-08-24",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
+
 descr = """
-
-=pod
-
-=head1 Notes
+=Notes=
 
 A Python module to help with generating XML output (also available with the
 same API in Perl).
@@ -48,422 +72,392 @@ checking the open-element stack for certain element types.
   xo.makeText("Hello, world.")
   xo.endDocument()
 
-Note that if you don't set an encoding (via the constructor or I<setOutput>()),
-it defaults to C<utf-8>. If you are writing to C<sys.stdout>, or processing
+Note that if you don't set an encoding (via the constructor or '''setOutput'''()),
+it defaults to `utf-8`. If you are writing to `sys.stdout`, or processing
 downstream, be sure that's what you want.
 If you just want the stack maintenance and error-checking, but not to produce
-actual output, set C<xo.outputFH> to None.
+actual output, set `xo.outputFH` to None.
 
-If you want to output to a string, use Python's built-in C<stringio> package.
+If you want to output to a string, use Python's built-in `stringio` package.
 
 ==Testing==
 
 You can run a self-test by just invoking the file from the command-line.
 
-=head1 Methods
+=Methods=
 
-=over
-
-=item * B<__init__>(encoding="utf-8")
+* ''__init__''(encoding="utf-8")
 
 Create a new instance of the XmlOutput object. You can set the output character
-encoding here, of on I<setOutput>() (see below).
+encoding here, of on '''setOutput'''() (see below).
 
-=item * B<getVersion>()
+* ''getVersion''()
 
 Return the version date of the module.
 
-=item * B<getOption(name)>
+* ''getOption(name)''
 
-Return the current value of option I<name> (see following).
+Return the current value of option '''name''' (see following).
 
-=item * B<setOption(name, value)>
+* ''setOption(name, value)''
 
-Set option I<name> to I<value>.
+Set option '''name''' to '''value'''.
 The name is checked for being a known option, but no
 checking is done on the value (values are Boolean unless otherwise noted).
 
-=over
-
-=item * B<ASCIIOnly> -- Use entities for all non-ASCII content characters.
-
-=item * B<breakSTAGO> -- Break before start-tags. Default True.
-
-=item * B<breakAttrs> -- Break before each attribute. Default False.
-
-=item * B<breakSTAGC> -- Break after start-tags. Default False.
-
-=item * B<breakETAGO> -- Break before end-tags. Default False.
-
-=item * B<breakETAGC> -- Break after end-tags. Default True.
-
-=item * B<divTag> -- what element type is used for nested containers,
-like (the default) HTML C<div>. See method I<adjustToRank> for a handy
+** ''ASCIIOnly'' -- Use entities for all non-ASCII content characters.
+** ''breakSTAGO'' -- Break before start-tags. Default True.
+** ''breakAttrs'' -- Break before each attribute. Default False.
+** ''breakSTAGC'' -- Break after start-tags. Default False.
+** ''breakETAGO'' -- Break before end-tags. Default False.
+** ''breakETAGC'' -- Break after end-tags. Default True.
+** ''divTag'' -- what element type is used for nested containers,
+like (the default) HTML `div`. See method '''adjustToRank''' for a handy
 way to ensure that these get handled right even if the source document
-only has headings (C<Hn> or similar).
-There is presently no special support for numbered C<div>s (div1, div2, ...).
-
-=item * B<escapeHREFs> -- Apply %xx escaping to all attributes that appear
+only has headings (`Hn` or similar).
+There is presently no special support for numbered `div`s (div1, div2, ...).
+** ''escapeHREFs'' -- Apply %xx escaping to all attributes that appear
 to be URIs. That is, ones that match r'(https?|mailto|ftp|local)://'.
-Default False. See also I<escapeURI>(s), which this uses, but can also
+Default False. See also '''escapeURI'''(s), which this uses, but can also
 be called directly.
-
-=item * B<escapeText> -- Escape "<" and "&" in text. Default True.
-
-=item * B<fixNames> -- Correct any requested element type names to be
+** ''escapeText'' -- Escape "<" and "&" in text. Default True.
+** ''fixNames'' -- Correct any requested element type names to be
 valid XML NAMEs. Default False.
-
-=item * B<HTMLEntities> -- Use HTML entities for special
+** ''HTMLEntities'' -- Use HTML entities for special
 characters when possible. This requires that the F<HTMLparser> library
 be installed.
-
-=item * B<htmlFormat> -- Do not issue XML-style empty elements. Default False.
-
-=item * B<idAttrName> -- Specify an attribute name to treat as an XML ID
-(mainly for use with I<trackIDs>. Default C<id>.
-
-=item * B<indent> -- Pretty-print the XML output. See also I<iString>.
+** ''htmlFormat'' -- Do not issue XML-style empty elements. Default False.
+** ''idAttrName'' -- Specify an attribute name to treat as an XML ID
+(mainly for use with '''trackIDs'''. Default `id`.
+** ''indent'' -- Pretty-print the XML output. See also '''iString'''.
 Default True.
-
-=item * B<iri> -- Allow non-ASCII characters in URIs. Default True.
-
-=item * B<iString> -- Use this string as the (repeated) indent-string
-for pretty-printing. Default C<    > (4 spaces).
-
-=item * B<normalizeText> -- Normalize white-space in output text nodes.
-See also I<normalizeTag>().
-
-=item * B<encoding> -- Write output in this character encoding.
-
-=item * B<suppressWSN> -- Do not output white-space-only text nodes.
-
-=item * B<sysgenPrefix> -- Set what string is prefixed to a serial number
-with the I<sysgen>() call.
-
-=item * B<trackIDs> -- (unsupported) Warn if an "id" attribute value is
+** ''iri'' -- Allow non-ASCII characters in URIs. Default True.
+** ''iString'' -- Use this string as the (repeated) indent-string
+for pretty-printing. Default `    ` (4 spaces).
+** ''normalizeText'' -- Normalize white-space in output text nodes.
+See also '''normalizeTag'''().
+** ''encoding'' -- Write output in this character encoding.
+** ''suppressWSN'' -- Do not output white-space-only text nodes.
+** ''sysgenPrefix'' -- Set what string is prefixed to a serial number
+with the '''sysgen'''() call.
+** ''trackIDs'' -- (unsupported) Warn if an "id" attribute value is
 re-used (this does not see any DTD, it just goes by attribute name).
-See also I<idAttrName>.
-
-=item * B<URIchars> -- What characters are allowed (unescaped) in URIs.
-If the I<iri> option is set, all non-ASCII characters are also allowed.
+See also '''idAttrName'''.
+** ''URIchars'' -- What characters are allowed (unescaped) in URIs.
+If the '''iri''' option is set, all non-ASCII characters are also allowed.
 Default: "-.\\w\\d_!\\'()*+"
 
-=back
+* ''setCantRecurse(types)''
 
-=item * B<setCantRecurse(types)>
-
-Prevent any element type listed (space-separated) in I<types>
+Prevent any element type listed (space-separated) in '''types'''
 from being opened recursively.
-For example, if you set this for C<p>, and the open elements
-are html/body/div/p/footnote/, and you attempt to open another C<p>, then
-elements are closed until there are no C<p> elements left open, after which
-a new C<p> is opened (in this example, 2 elements would thus be closed).
+For example, if you set this for `p`, and the open elements
+are html/body/div/p/footnote/, and you attempt to open another `p`, then
+elements are closed until there are no `p` elements left open, after which
+a new `p` is opened (in this example, 2 elements would thus be closed).
 
-=item * B<setSpace(types, n)>
+* ''setSpace(types, n)''
 
-Cause I<n> extra newlines to be issued before the start of each instance
-of any element type in I<types> (which can be either a list of individual names, or a string containing white-space-separated names).
-The newlines will only be generated if an element also has I<breakSTAGO>
-set, and if it has not been set be C<inline> (via I<setInline>().
+Cause '''n''' extra newlines to be issued before the start of each instance
+of any element type in '''types''' (which can be either a list of individual names, or a string containing white-space-separated names).
+The newlines will only be generated if an element also has '''breakSTAGO'''
+set, and if it has not been set be `inline` (via '''setInline'''().
 
-=item * B<setInline(types)>
+* ''setInline(types)''
 
-Add each (space-separated) element type in I<types> to a list of elements
+Add each (space-separated) element type in '''types''' to a list of elements
 to be treated as inline (thus getting no breaks around it despite
 general options for breaking).
 
-If I<types> is "#HTML", the HTML 4 inline tags are added to the list:
+If '''types''' is "#HTML", the HTML 4 inline tags are added to the list:
 A ABBR ACRONYM B BASEFONT BDO BIG BR CITE CODE DFN
 EM FONT I IMG INPUT KBD LABEL Q S SAMP SELECT SMALL
 SPAN STRIKE STRONG SUB SUP TEXTAREA TT U VAR.
 Some other tags are only sometimes inline
 (APPLET BUTTON DEL IFRAME INS MAP OBJECT SCRIPT).
 These are not added by #HTML,
-but some or all can be added with another call to I<setInline>().
+but some or all can be added with another call to '''setInline'''().
 
-=item * B<setEmpty(types)>
+* ''setEmpty(types)''
 
-Cause any element type listed (space-separated) in I<types> to be
-written out as an empty element when opened (thus, no I<closeElement>() call
+Cause any element type listed (space-separated) in '''types''' to be
+written out as an empty element when opened (thus, no '''closeElement'''() call
 is needed for them).
 
-=item * B<setSuppress(types)>
+* ''setSuppress(types)''
 
-Record that elements of any type listed (space-separated) in I<types>
+Record that elements of any type listed (space-separated) in '''types'''
 (and their entire subtrees) should not be output.
-Not to be confused with the I<suppressWSN> option.
+Not to be confused with the '''suppressWSN''' option.
 
-=item * B<getCurrentElementName>()
+* ''getCurrentElementName''()
 
 Return the element type name of the innermost open element.
 
-=item * B<getCurrentFQGI>()
+* ''getCurrentFQGI''()
 
 Return the sequence of the types of all open elements, from the top down.
-For example, C<html/body/div/div/ul/li/p/i>.
+For example, `html/body/div/div/ul/li/p/i`.
 
-=item * B<getCurrentLanguage>()
+* ''getCurrentLanguage''()
 
-Return the present (possibly inherited) value of C<xml:lang>.
+Return the present (possibly inherited) value of `xml:lang`.
 
-=item * B<getDepth>()
+* ''getDepth''()
 
 Return how many elements are presently open.
 
-=item * B<queueAttribute(name, value)>
+* ''queueAttribute(name, value)''
 
 Add an attribute, to be issued with the next start-tag.
-If an attribute called I<named> is already queued, replace it.
+If an attribute called '''named''' is already queued, replace it.
 
-=item * B<getQueuedAttributes>()
+* ''getQueuedAttributes''()
 
 Return all queued attributes (if any) as an attribute string.
 They are not cleared. This is typically only called internally.
 
-=item * B<clearQueuedAttributes() >
+* ''clearQueuedAttributes() ''
 
 Discard any queued attributes.
 
+* ''openElements(theList)''
 
-=item * B<openElements(theList)>
-
-Call I<openElement>() on each item of I<theList>.
+Call '''openElement'''() on each item of '''theList'''.
 Each such item should be a list or tuple of up to 4 items,
-which are just  passed on as the arguments to I<openElement>.
+which are just  passed on as the arguments to '''openElement'''.
 
-=item * B<openElement(type, attrs=None, makeEmpty=False, nobreak=False)>
+* ''openElement(type, attrs=None, makeEmpty=False, nobreak=False)''
 
-Open an instance of the specified element I<type>.
-If I<attrs> is specified, it may be a ready-to-use attribute string, or
+Open an instance of the specified element '''type'''.
+If '''attrs''' is specified, it may be a ready-to-use attribute string, or
 a Python dict (whose values will be escaped).
 
-(method C<dictToAttrs>() can be used to turn any appropriate Python dict
+(method `dictToAttrs`() can be used to turn any appropriate Python dict
 into an attribute list).
 
-If there are queued attributes (see I<queueAttribute>()), they are
+If there are queued attributes (see '''queueAttribute'''()), they are
 also issued and then de-queued.
 
-If I<makeEmpty> is specified and true, the element is written as an empty
+If '''makeEmpty''' is specified and true, the element is written as an empty
 element (and thus does not remain on the open-element stack).
 
-If I<nobreak> is specified and true, the tag is not followed by a
+If '''nobreak''' is specified and true, the tag is not followed by a
 line-break even if it normally would.
 
-=item * B<openElementUnlessOpen(gi, attrs=None, nobreak=False)>
+* ''openElementUnlessOpen(gi, attrs=None, nobreak=False)''
 
-Works like I<openElement>(), except that it does nothing it the element
-is I<already> open (it need not be the innermost/current open element).
+Works like '''openElement'''(), except that it does nothing it the element
+is '''already''' open (it need not be the innermost/current open element).
 
-=item * B<openElementUnlessCurrent(gi, attrs=None, nobreak=False)>
+* ''openElementUnlessCurrent(gi, attrs=None, nobreak=False)''
 
-Works like I<openElement>(), except that it does nothing it the element
+Works like '''openElement'''(), except that it does nothing it the element
 is the innermost/current open element.
 
-=item * B<dictToAttrs(dct, sortAttrs=False, normValues=False)>
+* ''dictToAttrs(dct, sortAttrs=False, normValues=False)''
 
-This is used by C<openElement> and its kind, if you pass them attributes
+This is used by `openElement` and its kind, if you pass them attributes
 as a Python dict, rather than an attribute string. It turns the dict
 into an attribute list. The values will be escaped as needed (there is not
-provision for telling it I<not> to escape them), and assembled with a
+provision for telling it '''not''' to escape them), and assembled with a
 single space before each attribute (even the first!), no spaces around "=",
-and double quotes around the values. If you set I<sortAttrs> to True,
+and double quotes around the values. If you set '''sortAttrs''' to True,
 the attributes will be concatenated in alphabetical order.
-If you set I<normValues> to True, each value will be processed by
-I<normalizeSpace>(). This method can also be called directly if desired.
+If you set '''normValues''' to True, each value will be processed by
+'''normalizeSpace'''(). This method can also be called directly if desired.
 
-=item * B<closeElement(type, nobreak=False)>
+* ''closeElement(type, nobreak=False)''
 
 Close the specified element.
-If I<type> is not open at all, a warning is issued and nothing is closed.
-If I<type> is open but is not the innermost/current open element,
+If '''type''' is not open at all, a warning is issued and nothing is closed.
+If '''type''' is open but is not the innermost/current open element,
 a warning is issued and all elements out to  and including it are closed.
 
-If I<type> is omitted, the innermost element is closed regardless of type.
+If '''type''' is omitted, the innermost element is closed regardless of type.
 
-B<Note:> To close an element even if there are other
-elements also close, and avoid the warning, use I<closeThroughElement>().
+''Note:'' To close an element even if there are other
+elements also close, and avoid the warning, use '''closeThroughElement'''().
 
-=item * B<closeAllElements>(nobreak=False)
+* ''closeAllElements''(nobreak=False)
 
 Close all open elements.
 
-=item * B<closeToElement(type, nobreak=False)>
+* ''closeToElement(type, nobreak=False)''
 
 Close down to, but not including, the specified element.
 If the element is not open, nothing happens.
 
-=item * B<closeThroughElement(type)>
+* ''closeThroughElement(type)''
 
 Close down to and including, the specified element.
 If the element is not open, nothing happens.
 
-=item * B<howManyAreOpen(typelist)>
+* ''howManyAreOpen(typelist)''
 
 Return the number of instances of the listed element types that are open.
-I<typelist> may be a string (which will be split to tokens), or a list.
+'''typelist''' may be a string (which will be split to tokens), or a list.
 
-=item * B<closeAllOfThese(typelist)>
+* ''closeAllOfThese(typelist)''
 
 Close all instances of any element types in the (space-delimited)
-list I<typelist>.
+list '''typelist'''.
 
-=item * B<adjustToRank(n)>
+* ''adjustToRank(n)''
 
 This is for structures which do not have a depth number as part of
-the element type name, but do nest. For example, the HTML C<div> element.
-The recursive element type is specified by the I<divTag> option.
+the element type name, but do nest. For example, the HTML `div` element.
+The recursive element type is specified by the '''divTag''' option.
 
 It is intended to make it easy to build such nested/container structures,
 even when your input only has (non-nested) headings (like much HTML), or
 you don't want to track levels, instead creating items at whatever level
 is needed at any given moment.
 
-This method closes elements down to and including the I<n>th
+This method closes elements down to and including the '''n'''th
 nested "div" (if any); then it opens divs (automatically adding a
-I<class="level_X"> attribute to each, until I<n> are open. This leaves
+'''class="level_X"''' attribute to each, until '''n''' are open. This leaves
 everything ready for writing a div title (or in HTML, Hn heading).
-If you are already at level I<n> it closes the div and opens a new one.
+If you are already at level '''n''' it closes the div and opens a new one.
 If you are nested deeper, the deeper stuff is closed first.
 And if you aren't that deep, it opens as many "div"s as needed.
-The default name is "div", but you can change that via the I<divTag> option.
+The default name is "div", but you can change that via the '''divTag''' option.
 
 
-=item * B<setOutput(self, pathOrHandle, version="1.0", encoding="utf-8")>
+* ''setOutput(self, pathOrHandle, version="1.0", encoding="utf-8")''
 
 Opens the requested file (or StringIO instance), and sets the values
-for the XML Declaration parameters I<version> and I<encoding>. Either or both
+for the XML Declaration parameters '''version''' and '''encoding'''. Either or both
 of the last two can be set to '' or None, to indicate that they should be
 entirely omitted from the XML Declaration. This is mainly
-to accommodate C<lxml>, which apparently has issues with I<encoding>
-(see L<https://stackoverflow.com/questions/2686709/>).
+to accommodate `lxml`, which apparently has issues with '''encoding'''
+(see [https://stackoverflow.com/questions/2686709]).
 
-=item * B<startDocument>(doctypename, publicID="", systemID="")
+* ''startDocument''(doctypename, publicID="", systemID="")
 
-You can call this to do I<makeXMLDeclaration>() and I<makeDoctype>().
-See also I<endDocument>().
+You can call this to do '''makeXMLDeclaration'''() and '''makeDoctype'''().
+See also '''endDocument'''().
 
-=item * B<startHTML(version, title="")>
+* ''startHTML(version, title="")''
 
-Shorthand for getting you from start to having C<body> open.
-I<version> should be one of "4strict", "4transitional" (or just "4"), "xhtml",
+Shorthand for getting you from start to having `body` open.
+'''version''' should be one of "4strict", "4transitional" (or just "4"), "xhtml",
 or "html5". In all but the last, an XML declaration is issued. Then the
 DOCTYPE, html, head, a title, end head, and body.
 
-=item * B<endDocument>()
+* ''endDocument''()
 
 Do a closeAllElements(), and then close the output file.
-See also I<startDocument>() and I<startHTML>().
+See also '''startDocument'''() and '''startHTML'''().
 
-=item * B<makeXMLDeclaration(self)>
+* ''makeXMLDeclaration(self)''
 
-Issue an XML declaration. I<version> and/or I<encoding> are generated
-in accord with the latest setting from C<setOutput>(), which can include
-setting them to C<None> in order to suppress them.
+Issue an XML declaration. '''version''' and/or '''encoding''' are generated
+in accord with the latest setting from `setOutput`(), which can include
+setting them to `None` in order to suppress them.
 
-=item * B<makeDoctype(doctypename, publicID="", systemID="")>
+* ''makeDoctype(doctypename, publicID="", systemID="")''
 
 Output a DOCTYPE declaration.
-Also calls C<makeXMLDeclaration()> if it hasn't been called already,
-unless both I<publicID> and I<systemID> are explicitly set to C<None>.
+Also calls `makeXMLDeclaration()` if it hasn't been called already,
+unless both '''publicID''' and '''systemID''' are explicitly set to `None`.
 
-=item * B<makeEmptyElement(type, attrs)>
+* ''makeEmptyElement(type, attrs)''
 
-Output an XML empty element of the given element I<type> and I<attributes>.
+Output an XML empty element of the given element '''type''' and '''attributes'''.
 Queued attributes (if any) are also applied.
 
-=item * B<makeSmallElement(type, attrs, text)>
+* ''makeSmallElement(type, attrs, text)''
 
-Output a complete XML element of the given element I<type> and I<attributes>,
-containing the given I<text>.
+Output a complete XML element of the given element '''type''' and '''attributes''',
+containing the given '''text'''.
 Queued attributes (if any) are also applied.
 
-=item * B<makeComment(text)>
+* ''makeComment(text)''
 
-Output an XML comment. I<text> is escaped as needed.
+Output an XML comment. '''text''' is escaped as needed.
 
-=item * B<makeText(text)>
+* ''makeText(text)''
 
-Output I<text> as XML content. XML delimiters are escaped as needed,
-unless you unset the I<escapeText> option.
-If you set the I<ASCIIOnly> option, all non-ASCII characters
+Output '''text''' as XML content. XML delimiters are escaped as needed,
+unless you unset the '''escapeText''' option.
+If you set the '''ASCIIOnly''' option, all non-ASCII characters
 are turned into character references.
 
-=item * B<makeRaw(text)>
+* ''makeRaw(text)''
 
-Dumps I<text> to the output, with no escaping, no stack management, etc.
+Dumps '''text''' to the output, with no escaping, no stack management, etc.
 This is usually a bad idea, but just in case....
 
-=item * B<makePI(target, text)>
+* ''makePI(target, text)''
 
-Create a Processing Instruction directed to the specified I<target>,
-with the given I<content>. I<text> is escaped as needed.
+Create a Processing Instruction directed to the specified '''target''',
+with the given '''content'''. '''text''' is escaped as needed.
 
-=item * B<makeCharRef(e, printIt=True)>
+* ''makeCharRef(e, printIt=True)''
 
 Create and return an entity or character reference, from an integer or
 name (the name is not required to be one of the HTML 4 or XML predefined
 entities, but must consist only of XML Name characters).
-Unless C<printIt> is set false, also print it.
-If I<e> is numeric, it results in a 4-digit (or more if needed),
+Unless `printIt` is set false, also print it.
+If '''e''' is numeric, it results in a 4-digit (or more if needed),
 hexadecimal or decimal (according to the 'entityBase' setting),
 numeric character reference.
-Otherwise I<e> is treated as an entity name. It is I<not> required to
+Otherwise '''e''' is treated as an entity name. It is '''not''' required to
 be a known HTML entity name.
 
-=item * B<normalizeTag(tag)>
+* ''normalizeTag(tag)''
 
 Given a complete start (or empty) tag, normalize it to canonical XML
 form. That is, normalize whitespace, and alphabetize the attributes.
 
-=item * B<doPrint(s)>
+* ''doPrint(s)''
 
-Write I<s> literally to the output (this is mainly used internally).
-No escaping is done. If you use this method (or I<makeRaw()>, which just
+Write '''s''' literally to the output (this is mainly used internally).
+No escaping is done. If you use this method (or '''makeRaw()''', which just
 calls it), all bets are off as far as producing well-formed XML.
 
-=item * B<fixName(name)>
+* ''fixName(name)''
 
 Ensure that the argument is a valid XML NAME.
 Any other characters become "_".
 
-=item * B<escapeXmlContent>(s)
+* ''escapeXmlContent''(s)
 
 Escape XML delimiters as needed in text content.
 
-=item * B<normalizeSpace>(s)
+* ''normalizeSpace''(s)
 
-Do the equivalent of XSLT's normalize-space() function on I<s>.
+Do the equivalent of XSLT's normalize-space() function on '''s'''.
 That is, remove leading and trailing whitespace, and reduce any internal
 runs of whitespace to a single regular space character.
 
-=item * B<escapeURI>(s)
+* ''escapeURI''(s)
 
-Escape non-URI characters in C<s> using the URI %xx convention.
-If the I<iri> option is set, don't escape chars just because they're
+Escape non-URI characters in `s` using the URI %xx convention.
+If the '''iri''' option is set, don't escape chars just because they're
 non-ASCII; only escape URI-prohibited ASCII characters.
-See also options I<URIchars> and I<escapeHREFs>.
+See also options '''URIchars''' and '''escapeHREFs'''.
 
 
-=item * B<escapeXmlAttribute(s)>
+* ''escapeXmlAttribute(s)''
 
-Escape the string I<s> to be acceptable as an attribute value
-(removing <, &, and "). If the I<ASCIIOnly> option is set, escape non-ASCII
-characters in I<s> as well.
+Escape the string '''s''' to be acceptable as an attribute value
+(removing <, &, and "). If the '''ASCIIOnly''' option is set, escape non-ASCII
+characters in '''s''' as well.
 
-=item * B<escapeNonASCII(s)>
+* ''escapeNonASCII(s)''
 
 Replace any non-ASCII characters in the text with entity references.
 
-=item * B<sysgen>()
+* ''sysgen''()
 
 Returns a unique identifier each time it's called. You can control the
-prefix applied, via the I<sysgenPrefix> option.
+prefix applied, via the '''sysgenPrefix''' option.
 Other than the prefix, this just generates a counter.
 
-=back
 
-
-=head1 Known bugs and limitations
+=Known bugs and limitations=
 
 Should hook up to XML::DOM so you can just write out a subtree in one step, or
 create an actual DOM with no "writing" per se.
@@ -471,73 +465,64 @@ create an actual DOM with no "writing" per se.
 Doesn't know anything about namespaces (should at least track which ones
 are declared and in effect, unify prefixes, avoid nested re-declarations, etc).
 
-Automation of C<xml:lang> attributes is not finished.
+Automation of `xml:lang` attributes is not finished.
 
 Pretty-printing is incomplete. For example,
-I<breakAttrs> does not put breaks between attributes that are
-specified via the second argument to I<openElement>() and its kin. To get
-those breaks, use I<queueAttribute>() instead.
+'''breakAttrs''' does not put breaks between attributes that are
+specified via the second argument to '''openElement'''() and its kin. To get
+those breaks, use '''queueAttribute'''() instead.
 
-Perhaps add an I<insertFile>(escape=True) method?
+Perhaps add an '''insertFile'''(escape=True) method?
 
 Doesn't know anything about conforming to a particular schema.
 
-=head1 Ownership
 
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0>.
+=History=
 
-For the most recent version, see L<http://www.derose.net/steve/utilities> or
-L<http://github.com/sderose>.
-
-=head1 Options
-
-
-=head1 History
-
-*Ported from Perl original written 2010-12-22 by Steven J. DeRose.
-*2012-01-10 sjd: Port to Python.
-*2012-01-25 sjd: Clean up. Redo options.
-*2012-12-21 sjd: More work on porting.
-*2015-04-03: Make escaping to ASCII option work for all contexts.
+* Ported from Perl original written 2010-12-22 by Steven J. DeRose.
+* 2012-01-10 sjd: Port to Python.
+* 2012-01-25 sjd: Clean up. Redo options.
+* 2012-12-21 sjd: More work on porting.
+* 2015-04-03: Make escaping to ASCII option work for all contexts.
 Add HTMLEntities option.
-*2015-06-02: More port. pylint. escaping comments, pis, uris. entities.
-*2018-06-01: Hook up to StringIO.
-*2018-07-16: Add entityBase.
-*2018-07-21: Add startHTML(), openElements(). Separate makeXMLDeclaration().
-*2018-09-12: Add normalizeTag().
-*2018-10-15: Fix encoding/version options to allow None. Better self-test.
+* 2015-06-02: More port. pylint. escaping comments, pis, uris. entities.
+* 2018-06-01: Hook up to StringIO.
+* 2018-07-16: Add entityBase.
+* 2018-07-21: Add startHTML(), openElements(). Separate makeXMLDeclaration().
+* 2018-09-12: Add normalizeTag().
+* 2018-10-15: Fix encoding/version options to allow None. Better self-test.
 Allow either string or real list for rest of name-lists. Fix bug in
 dictToAttrs() and use it in getQueuedAttributes().
-*2018-11-15: Set encoding even when output file is already open. Clean msgs.
+* 2018-11-15: Set encoding even when output file is already open. Clean msgs.
 Fix py 2/3 for htmlentitydefs. Add startDocument(). Check output for
 illegal control characters. self.encoding vs. options['oencoding']!
-*2019-12-11: Start adding support to directly create a DOM.
+* 2019-12-11: Start adding support to directly create a DOM.
 
-=head1 To do
+
+=To do=
+
 *    Add shorter synonyms? open/close/empty/small/text/current/isopen
 *    Do fancier indenting.
 *    Option to omit inheritable xml:lang and xmlns attributes.
 *    Div interpolation? See cleanMediaWiki.py:DivWrapper.
 *    Possibly add a MECS option with extended open/close semantics?
 
-=cut
+
+=Rights=
+
+Copyright 2010-12-22, 2012-01-10 by Steven J. DeRose.
+This work is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+For further information on this license, see
+[https://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities]
+or [https://github.com/sderose].
+
+
+=Options=
 """
 
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-if PY2:
-    from htmlentitydefs import codepoint2name
-    #import HTMLParser
-    string_types = basestring
-else:
-    from html.entities import codepoint2name
-    #from html.parser import HTMLParser
-    string_types = str
-    def unichr(n): return chr(n)
-
-__version__ = "2019-12-11"
 
 def uwarn(m):
     sys.stderr.write(m+"\n")
@@ -1214,7 +1199,6 @@ class XmlOutput:
 
 
 ###############################################################################
-###############################################################################
 #
 if __name__ == "__main__":
     import argparse
@@ -1250,7 +1234,8 @@ if __name__ == "__main__":
         """Call a bunch of things for a basic smoke-test.
         """
         if (encoding != 'utf-8'):
-            uwarn("\n******* WARNING: sys.stdout with encoding '%s'!\n\n" % (encoding))
+            uwarn("\n******* WARNING: sys.stdout with encoding '%s'!\n\n" %
+                (encoding))
         x.setOutput(sys.stdout, version="1.0", encoding=encoding)
         #x.setSpace(enames, code)
         x.setInline([ 'i', 'b', 'u', 'tt', 'a' ])

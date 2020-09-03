@@ -2,6 +2,7 @@
 #
 # alogging: messaging, logging, and statistics features from sjdUtils.py.
 # Fairly compatible with Python's Logging package.
+# Written 2011-12-09 by Steven J. DeRose
 #
 from __future__ import print_function
 import sys
@@ -35,8 +36,7 @@ __metadata__ = {
 }
 __version__ = __metadata__['modified']
 
-###############################################################################
-#
+
 descr = """
 =Description=
 
@@ -761,14 +761,18 @@ All those works are by the same author and are licensed under the same license
 =Options=
 """
 
+
+###############################################################################
+#
 class ALogger:
     def __init__(self,
-        verbose      = None,       # Level of detail for 'info' messages.
+        verbose:int  = None,       # Level of detail for 'info' messages.
         color        = None,
-        filename     = None,
-        encoding     = 'utf-8',
-        level        = None,
-        direct       = True,
+        filename:str = None,
+        encoding:str = 'utf-8',
+        level:int    = None,
+        direct:bool  = True,
+        options:dict = None
         ):
 
         if (color is None):
@@ -789,7 +793,15 @@ class ALogger:
             'indentString'   : "  ",        # For pretty-printing
             'noMoreStats'    : False,       # Warn on new stat names
             'plineWidth'     : 30,          # Columns for label for pline()
+            'displayForm'    : "SIMPLE",    # UNICODE, HTML, or SIMPLE
         }
+
+        if (options is not None):
+            for k, v in options.items():
+                if (k not in self.options):
+                    raise KeyError("Unrecognized option '%s'." % (k))
+                self.options[k] = self.optionTypes[k](v)
+
         self.optionTypes = {
             'verbose'        : int,
             'color'          : bool,
@@ -803,6 +815,7 @@ class ALogger:
             'indentString'   : str,
             'noMoreStats'    : bool,
             'plineWidth'     : int,
+            'displayForm'    : str,
         }
 
         if (filename):
@@ -832,18 +845,18 @@ class ALogger:
         self.defineMsgTypes()
 
         # String to display to delimit types of objects
-        displayForm = "SIMPLE"
-        if (displayForm == "UNICODE"):
+        # Factor out string-quoting too, to make it distinctive.
+        if (self.options['displayForm'] == "UNICODE"):
             self.openDict = "{"; self.closeDict = "}"
             self.openList = "["; self.closeList = "]"
             self.openObject = "\u00ab"; self.closeObject = "\u00bb"  # ANGLE BKT
             self.disp_None = "\u2205"  # NULL SET
-        elif (displayForm == "HTML"):
+        elif (self.options['displayForm'] == "HTML"):
             self.openDict = "<DL>"; self.closeDict = "</DL>"
             self.openList = "<OL>"; self.closeList = "</OL>"
             self.openObject = "<UL>"; self.closeObject = "</UL>"
             self.disp_None = "&#x2205;"  # NULL SET
-        else:  # (displayForm == "SIMPLE"):
+        else:  # (self.options['displayForm'] == "SIMPLE"):
             self.openDict = "{"; self.closeDict = "}"
             self.openList = "["; self.closeList = "]"
             self.openObject = "<<"; self.closeObject = ">>"
@@ -868,7 +881,6 @@ class ALogger:
             self.colorStrings = { 'bold': '*', 'off':'*' }
 
 
-    ###########################################################################
     ###########################################################################
     # Options
     #
@@ -1014,7 +1026,8 @@ class ALogger:
         mt = msgType.lower()
         if (mt and mt in self.msgTypes and
             self.msgTypes[mt]['color'] in self.colorStrings):
-            #print("getPickedColorString: msgType color '%s'." % (self.msgTypes[mt]['color']))
+            #print("getPickedColorString: msgType color '%s'." %
+            #    (self.msgTypes[mt]['color']))
 
             return(self.colorStrings[self.msgTypes[mt]['color']],
                    self.colorStrings[u'off'])
@@ -1157,7 +1170,7 @@ class ALogger:
     # Messages of various kinds (sync with Perl version)
     def Msg(self,msgType,m1="",m2="",
         color=None,escape=None,stat=None,verbose:int=0):
-        """Issue a message of the given ''msgType'' (define via I<defineMsgType).
+        """Issue a message of the given ''msgType'' (see I<defineMsgType).
         See also the wrappers ''hMsg''(), ''vMsg''(), and ''hMsg''().
 
         Checks ''verbose'' against the value of the 'verbose' option; if that
@@ -1316,7 +1329,7 @@ class ALogger:
     def showStats(self, zeros=False, descriptions=None,
                   dotfill=0, fillchar='.', onlyMatching='', lists='len'):
         """Display all the stat values, via ''pline''()
-        @param ''zeros'': if not True, statistics with a count of 0 are excluded.
+        @param ''zeros'': if not True, statistics counts of 0 are excluded.
         @param ''descriptions'': map from names to a ''label'' argument to
             have ''pline''() display. Unmapped names use the name as label.
         @param ''dotfill'': Use dot-fills for readability (@see pline()).
@@ -1435,13 +1448,25 @@ class ALogger:
 
     ###########################################################################
     #
-    def formatRec(self, obj, depth:int=0, specials:bool=False, showSize:bool=True,
-        maxDepth:int=3, maxItems:int=0,
-        quoteKeys:bool=False, keyWidth:int=14, sortKeys:bool=True,
-        indentSize:int=4, noExpand:dict=None, propWidth:int=16,
-        options:dict=None):
-        """NOTE: This is not protected against circular structures, except
-        by 'maxDepth'.
+    def formatRec(self,
+        obj,			        # Data to format
+        depth:int=0,        	# (internal depth tracking)
+        specials:bool=False,	#
+        showSize:bool=True, 	# Display len() of aggregates
+        maxDepth:int=3,			# Limit recursion levels
+        maxItems:int=0,     	# Limit items to show from lists
+        quoteKeys:bool=False,	# Put quotation marks around dict keys?
+        keyWidth:int=14,		# Columns to leave for keys
+        sortKeys:bool=True, 	# Dicts shown in key order?
+        indentSize:int=4,		# Spaces per indent level
+        noExpand:dict=None,		# Items *not* to expand
+        propWidth:int=16,   	#
+        options:dict=None   	# Same options, but as a dict
+        ):
+        """Format a pretty wide range of data structures for pretty-printing.
+        Based on a similar PHP tool I built with ccel.org.
+        @return: A printable string.
+        NOTE: This is protected against circular structures only by 'maxDepth'.
         """
         # Now prefer a dict for 'options', but allow old keyword params instead
         if (options is None): options = {}
