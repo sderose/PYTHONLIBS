@@ -1,50 +1,207 @@
 #!/usr/bin/env python
 #
 # SimplifyUnicode
-#
 # 2010-11-19ff: Written by Steven J. DeRose (in Perl)
-# ...
-# 2012-01-10 sjd: Port to Python.
-#
-# To do:
-#     ?? Generalize to be able to operate on any \p{name} classes??
-#     Deal with ligature/accent interaction (combining long s).
-#     Add stripXML, nine, num, ignorecase, degeminate, punct?
-#     Perhaps just work off of actual long names? "LATIN LETTER A" -> "A"...
-#
-# Possible additions:
-#     old italic, gothic, etc. U'10300?
-#     roman numerals, enclosed alphanumerics
-#     vertical forms U'fe00
-#     Greek and Cyrillic and Hebrew math variants?
-#     ellipsis, punc ligatures U'203c...
-#     sup/sub U'2070
-#     Halfwidth/fullwidth U'ff00
-#     Non-Latin ligatures.
-#     supplemental punct U'
-#     Arrows? U'2190, 2799, 27f0, 2900, 2b00
-#     letterlike symbols U'2100, fractions,
-#     braille U'2800
-#     high surrogates U'd800, low surrogates U'dc00
-#
-# Integrate into:
-#     findKeyWords
-#     normalizeXML
-#     tuples
-#     vocab
 #
 import re
 import unicodedata
 
 try:
-    x = unichr(0x0a)
+    xx = unichr(0x0a)
 except NameError:
     def unichr(n): return chr(n)
+
+
+__metadata__ = {
+    'title'        : "SimplifyUnicode.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2010-11-19ff",
+    'modified'     : "2020-09-23",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
+
+
+descr = """
+=Usage=
+
+  from SimplifyUnicode import SimplifyUnicode
+  ...
+  s = SimplifyUnicode()
+  s.setOptions("dashes", 1)
+  myString = s.simplify(myString)
+
+This module maps many classes of Unicode characters to more basic ones.
+For example, it can strip accents; normalize spaces, dashes, or quotes;
+fiddle with ligatures, math characters; and so on.
+
+B<Note>: This is documentation for the library. There is also a shell
+command C<simplifyUnicode>, which exposes the options (see under
+L<setOption>(), below), and runs files through as needed.
+
+(Python version)
+
+==What to do with I<accents>, I<ligatures>, I<maths>, I<super>, I<sub>.==
+
+Most options are simply left off or turned on. However, several options
+provide more flexibility for how the relevant characters are treated:
+
+* I<unchanged> -- leave as-is.
+
+* I<split> -- expand the character to its separate component parts
+(not generally applicable to I<--maths>)
+
+* I<join> -- combine when possible -- for example, turn 'fi' into
+a ligature, 'a' plus acute accent to the combined character, etc.
+
+* I<unaccent> -- remove any accent or special property, making the
+character "plain" (usually it becomes a single ASCII character).
+
+* I<space> -- replace the affected character by a space.
+
+* I<delete> -- delete  the affected character entirely.
+
+* I<markup> -- where possible, replace the special property of an
+affected character by markup. For example, a mathematical bold "G" will
+be turned into a regular "G" inside <b>...</b>.
+
+
+=Methods=
+
+* B<__init__({options})>
+The constructor. Any of the options listed below under I<setOption>(), can
+also be set via the constructor.
+
+* b<string = su.simplify(string)>
+Simplifies the Unicode string according to the current options.
+
+* B<setOption(name,value)>
+Use this method to configure just what kinds of characters will be
+normalized:
+
+** B<accents> I<disp>
+
+Handle accents and other diacritics according to I<disp> (see above).
+
+** B<bQuotes>
+Normalize backquote to apostrophe.
+
+** B<dashes>
+Turn em dash, en dash, hyphen, etc. to hyphen.
+
+** B<dquotes>
+Turn many kinds of double quotes to double-quote.
+
+** B<entities>
+Turn XML numeric and predefined references
+into literal Unicode characters.
+
+** B<halfWidths>
+Normalize halfwidth characters to normal width.
+
+** B<ligatureDomain>
+Whether I<ligatures> does only the basics, or all.
+
+** B<ligatures>
+Turn ligatures to some form:
+join, split, deleted, space, unchanged.
+
+** B<maths>
+Normalize alternate math Latin alphabets to ASCII.
+
+** B<numbers>
+Normalize alternate forms of numbers to ASCII.
+
+** B<quotes>
+Shorthand for I<bquotes squotes dquotes>.
+
+** B<spaces>
+Normalize various whitespace chars to ASCII space.
+
+** B<squotes>
+Turn many kinds of single quotes to apostrophe.
+
+** B<uriEscapes>
+Resolve URI %-escapes.
+
+
+=Related Commands=
+
+C<simplifyUnicode> is a command-line interface to this package.
+
+Lists of characters in certain classes (ligatures, dashes, etc.) can be
+obtained, including in the form of Perl or other code, with C<ord>.
+For example:
+
+    ord --listFormat python --find 'ligature'
+
+
+=Known bugs and Limitations=
+
+Does not include Arabic ligatures, because there are so many.
+
+Does not include alternate mathematical Greek alphabets.
+
+
+=History=
+
+  2010-11-19ff: Written by Steven J. DeRose (in Perl)
+  ...
+  2012-01-10 sjd: Port to Python.
+
+
+=To do=
+
+* Add a test driver/standalone.
+* ?? Generalize to be able to operate on any \\p{name} classes??
+* Deal with ligature/accent interaction (combining long s).
+* Add stripXML, nine, num, ignorecase, degeminate, punct?
+* Perhaps just work off of actual long names? "LATIN LETTER A" -> "A"...
+
+==Possible additions==
+
+* old italic, gothic, etc. U'10300?
+* roman numerals, enclosed alphanumerics
+* vertical forms U'fe00
+* Greek and Cyrillic and Hebrew math variants?
+* ellipsis, punc ligatures U'203c...
+* sup/sub U'2070
+* Halfwidth/fullwidth U'ff00
+* Non-Latin ligatures.
+* supplemental punct U'
+* Arrows? U'2190, 2799, 27f0, 2900, 2b00
+* letterlike symbols U'2100, fractions,
+* braille U'2800
+* high surrogates U'd800, low surrogates U'dc00
+
+==Integrate into==
+
+* findKeyWords
+* normalizeXML
+* tuples
+* vocab
+
+
+=Ownership=
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see http://www.derose.net/steve/utilities/.
+
+=Options=
+"""
+
 
 ###############################################################################
 #
 class SimplifyUnicode:
-    dispChoices = [   # for accents, ligatures, maths
+    dispChoices = [  # for accents, ligatures, maths
         'unchanged', 'split', 'join', 'unaccent', 'space', 'delete', 'markup',
     ]
 
@@ -82,16 +239,21 @@ class SimplifyUnicode:
         self.sQuoteChars    = self.setupSQuotes()
         self.spaceChars     = self.setupSpaces()
         self.dashChars      = self.setupDashes()
-        self.ligatureChars  = self.setupLigatures()
+
+        # TODO: Switch this over to much more recent mathAlphanumerics.py.
         self.mathStarts     = self.setupListOfMathAlphabets()  # HashRefs
+
         self.lig2seqBasic   = None
         self.seq2ligBasic   = None
         self.lig2seq        = None
         self.seq2lig        = None
+        self.setupLigatures()
+
+        self.supers         = self.setupSupers()
         return(None)
 
 
-    #############################################################################
+    #########################################################################
     # Apply all the selected simplifications
     #
     def simplify(self, rec):
@@ -148,7 +310,7 @@ class SimplifyUnicode:
             self.options[oname] = bool(v)
         return(v)
 
-    def getOption(self, oname, v):
+    def getOption(self, oname):
         return(self.options[oname])
 
 
@@ -194,7 +356,6 @@ class SimplifyUnicode:
 
     ###########################################################################
     #
-
     def handle_Entities(self, rec):
         rec = re.sub(r'&#x([a-f0-9]+);',
             lambda x: unichr(int(x.group[1],16)), rec)
@@ -283,12 +444,10 @@ class SimplifyUnicode:
     # Return basic ASCII letter if we got a math letter; else undef.
     #
     def math2letter(self, n):
-        mathStartsRef = self.mathStarts
-        ms = mathStartsRef
-        for mathRange in (ms):
+        for mathRange in (self.mathStarts):
             if (n<mathRange or n>=mathRange+26): continue
             diff = n - mathRange
-            theType = ms[mathRange]
+            theType = self.mathStarts[mathRange]
             if (theType == "UPPER"):
                 return("ABCDEFGHIJKLMNOPQRSTUVWXYZ",diff[1:])
             elif (theType == "LOWER"):
@@ -299,8 +458,6 @@ class SimplifyUnicode:
         return(None)
 
 
-
-    ###########################################################################
     ###########################################################################
     # Following setupXxx() methods create lists of characters to map.
     #
@@ -351,7 +508,6 @@ class SimplifyUnicode:
             "")
         return(dashChars)
 
-
     def setupDQuotes(self):
         dQuoteChars = (
             u'\u00AB' +   # LEFT-POINTING DOUBLE ANGLE QUOTATION MARK *
@@ -370,7 +526,6 @@ class SimplifyUnicode:
         "")
         return(dQuoteChars)
 
-
     def setupSQuotes(self):
         sQuoteChars = (
             u'\u2018' +   # LEFT SINGLE QUOTATION MARK
@@ -385,8 +540,6 @@ class SimplifyUnicode:
             u'\u276F' +   # HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT
         "")
         return(sQuoteChars)
-
-
 
     def setupSpaces(self):
         spaceChars = (
@@ -424,11 +577,10 @@ class SimplifyUnicode:
         "")
         return(spaceChars)
 
-
     # Arabic ligatures are not here yet, because there are hundreds of them.
     #
     def setupLigatures(self):
-        seq2ligBasic = {
+        self.seq2ligBasic = {
             u'\ufb00' : 'ff',  # 'LATIN SMALL LIGATURE FF'
             u'\ufb01' : 'fi',  # 'LATIN SMALL LIGATURE FI'
             u'\ufb02' : 'fl',  # 'LATIN SMALL LIGATURE FL'
@@ -436,7 +588,7 @@ class SimplifyUnicode:
             u'\ufb04' : 'ffl', # 'LATIN SMALL LIGATURE FFL'
         }
 
-        seq2lig = {
+        self.seq2lig = {
             # Latin
             u'\u0132' : 'IJ',  # 'LATIN CAPITAL LIGATURE IJ'
             u'\u0133' : 'ij',  # 'LATIN SMALL LIGATURE IJ'
@@ -475,19 +627,19 @@ class SimplifyUnicode:
             u'\ufe21' : '',  # 'COMBINING LIGATURE RIGHT HALF'
         }
 
-        lig2seqBasic = {}
-        lig2seq = {}
+        self.lig2seqBasic = {}
+        self.lig2seq = {}
 
         # Add the basic to the main map
-        for seq in (seq2ligBasic):
-            seq2lig[seq] = seq2ligBasic[seq]
+        for seq in (self.seq2ligBasic):
+            self.seq2lig[seq] = self.seq2ligBasic[seq]
 
         # Make both reverse maps
-        for seq in (seq2lig):
-            lig = seq2lig[seq]
-            lig2seq[lig] = seq
-            if (seq in seq2ligBasic):
-                lig2seqBasic[lig] = seq
+        for seq in (self.seq2lig):
+            lig = self.seq2lig[seq]
+            self.lig2seq[lig] = seq
+            if (seq in self.seq2ligBasic):
+                self.lig2seqBasic[lig] = seq
         return
 
     def setupSupers(self):
@@ -568,7 +720,7 @@ class SimplifyUnicode:
         """List where each math-version of the Latin alphabet occurs, and
         what it is.
         """
-        mathAlphabetStarts = {
+        mathStarts = {
             # Start      Case     Tag(s)   Description
             0x0249c : [ "LOWER",  'parenthesized'],  # no upper!
             0x024b6 : [ "UPPER",  'circled'],
@@ -600,7 +752,7 @@ class SimplifyUnicode:
             0x1d670 : [ "UPPER",  'mathematical monospace'],
             0x1d68a : [ "LOWER",  'mathematical monospace'],
             }
-        for k, v in mathAlphabetStarts.items():
+        for k, v in mathStarts.items():
             cl = re.sub(r' ', '_', v[1])
             cl = re.sub(r'mathematical', '_M', cl)
             sty = ""
@@ -624,7 +776,7 @@ class SimplifyUnicode:
 
             st = '<span class="%s" style="%s">' % (cl, sty)
             en = '</span>'
-            mathAlphabetStarts[k].append(st + form + en)
+            mathStarts[k].append(st + form + en)
 
         # FIX:
         #     U+ff41	FULLWIDTH LATIN SMALL LETTER A
@@ -658,8 +810,7 @@ class SimplifyUnicode:
         #     U+3248	CIRCLED NUMBER TEN ON BLACK SQUARE
         #     U+3251	CIRCLED NUMBER TWENTY ONE
 
-        return
-
+        return mathStarts
 
 
     ###########################################################################
@@ -702,173 +853,3 @@ class SimplifyUnicode:
         x = (r'\s+SMALL\s+CAPITAL\s.*$', " SMALLCAP ", sname)
         return(sname)
 
-# End of SimplifyUnicodePackage
-
-
-
-###############################################################################
-###############################################################################
-#
-pod="""
-
-=pod
-
-=head1 Usage
-
-  from SimplifyUnicode import SimplifyUnicode
-  ...
-  s = SimplifyUnicode()
-  s.setOptions("dashes", 1)
-  myString = s.simplify(myString)
-
-This module maps many classes of Unicode characters to more basic ones.
-For example, it can strip accents; normalize spaces, dashes, or quotes;
-fiddle with ligatures, math characters; and so on.
-
-B<Note>: This is documentation for the library. There is also a shell
-command C<simplifyUnicode>, which exposes the options (see under
-L<setOption>(), below), and runs files through as needed.
-
-(Python version)
-
-==What to do with I<accents>, I<ligatures>, I<maths>, I<super>, I<sub>.==
-
-Most options are simply left off or turned on. However, several options
-provide more flexibility for how the relevant characters are treated:
-
-=over
-
-=item I<unchanged> -- leave as-is.
-
-=item I<split> -- expand the character to its separate component parts
-(not generally applicable to I<--maths>)
-
-=item I<join> -- combine when possible -- for example, turn 'fi' into
-a ligature, 'a' plus acute accent to the combined character, etc.
-
-=item I<unaccent> -- remove any accent or special property, making the
-character "plain" (usually it becomes a single ASCII character).
-
-=item I<space> -- replace the affected character by a space.
-
-=item I<delete> -- delete  the affected character entirely.
-
-=item I<markup> -- where possible, replace the special property of an
-affected character by markup. For example, a mathematical bold "G" will
-be turned into a regular "G" inside <b>...</b>.
-
-=back
-
-
-=head1 Methods
-
-=over
-
-=item * B<__init__({options})>
-
-The constructor. Any of the options listed below under I<setOption>(), can
-also be set via the constructor.
-
-=item * b<string = su.simplify(string)>
-
-Simplifies the Unicode string according to the current options.
-
-=item * B<setOption(name,value)>
-
-Use this method to configure just what kinds of characters will be
-normalized:
-
-=over
-
-=item * B<accents> I<disp>
-
-Handle accents and other diacritics according to I<disp> (see above).
-
-=item * B<bQuotes>
-
-Normalize backquote to apostrophe.
-
-=item * B<dashes>
-
-Turn em dash, en dash, hyphen, etc. to hyphen.
-
-=item * B<dquotes>
-
-Turn many kinds of double quotes to double-quote.
-
-=item * B<entities>
-
-Turn XML numeric and predefined references
-into literal Unicode characters.
-
-=item * B<halfWidths>
-
-Normalize halfwidth characters to normal width.
-
-=item * B<ligatureDomain>
-
-Whether I<ligatures> does only the basics, or all.
-
-=item * B<ligatures>
-
-Turn ligatures to some form:
-join, split, deleted, space, unchanged.
-
-=item * B<maths>
-
-Normalize alternate math Latin alphabets to ASCII.
-
-=item * B<numbers>
-
-Normalize alternate forms of numbers to ASCII.
-
-=item * B<quotes>
-
-Shorthand for I<bquotes squotes dquotes>.
-
-=item * B<spaces>
-
-Normalize various whitespace chars to ASCII space.
-
-=item * B<squotes>
-
-Turn many kinds of single quotes to apostrophe.
-
-=item * B<uriEscapes>
-
-Resolve URI %-escapes.
-
-=back
-
-=back
-
-
-
-=head1 Related Commands
-
-C<simplifyUnicode> is a command-line interface to this package.
-
-Lists of characters in certain classes (ligatures, dashes, etc.) can be
-obtained, including in the form of Perl or other code, with C<ord>.
-For example:
-
-    ord --listFormat python --find 'ligature'
-
-
-=head1 Known bugs and Limitations
-
-Does not include Arabic ligatures, because there are so many.
-
-Does not include alternate mathematical Greek alphabets.
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-
-For the most recent version, see http://www.derose.net/steve/utilities/.
-
-=cut
-"""

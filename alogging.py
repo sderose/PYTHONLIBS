@@ -676,6 +676,11 @@ then all such messages are displayed, regardless of their verbosity-level
 (assuming that ''logging'''s message level is at most 20.
 
 
+=Related commands=
+
+My `ColorManager.py`: provides color support when requested.
+
+
 =Known bugs and limitations=
 
 If you don't call the constructor (or `setVerbose()`) with a non-zero argument,
@@ -700,20 +705,22 @@ Seems to be a problem with `maxItems` in `formatRec()`.
 =History=
 
 * 2011-12-09: Port from Perl to Python by Steven J. DeRose.
-(... see sjdUtils.py)
-* 2015-10-13: Split messaging features from sjdUtils to new ALogger.
-Integrate with Python 'logging' package.
+(... see `sjdUtils.py`)
+* 2015-10-13: Split messaging features from `sjdUtils` to new `ALogger`.
+Integrate with Python `logging` package.
 * 2015-12-31ff: Improve doc.
-* 2018-04-02: Add 'direct' option to make Anaconda Nav happier.
-* 2018-07-29: Add showSize option to formatRec.
-* 2018-08-07: Add quoteKey and keyWidth options to formatRec().
-* 2018-08-17: Add maxItems option to formatRec().
-* 2020-03-02: New layout, doc to MarkDown, document formatRec() better. Lint.
-* 2020-03-06: Add formatRec() support for numpy and Torch vectors.
-Move formatRec() options to a dict instead of individual parameters, and make
-them inherit right. Add propWidth, noExpand, disp_None, improve formatting.
+* 2018-04-02: Add `direct` option to make Anaconda Nav happier.
+* 2018-07-29: Add `showSize` option to `formatRec`.
+* 2018-08-07: Add `quoteKey` and `keyWidth` options to `formatRec()`.
+* 2018-08-17: Add `maxItems` option to `formatRec()`.
+* 2020-03-02: New layout, doc to MarkDown, document `formatRec()` better. Lint.
+* 2020-03-06: Add `formatRec()` support for numpy and Torch vectors.
+Move `formatRec()` options to a dict instead of individual parameters, and make
+them inherit right. Add `propWidth`, `noExpand`, `disp_None`.
+Improve formatting.
 * 2020-08-19: Cleanup, lint, add some type-hinting. Improve messaging when
 Linux command `dircolors` is not available. POD to MarkDown.
+* 2020-09-23: Add forward for `colorize()`, and a fallback. lint.
 
 
 =To do=
@@ -796,12 +803,6 @@ class ALogger:
             'displayForm'    : "SIMPLE",    # UNICODE, HTML, or SIMPLE
         }
 
-        if (options is not None):
-            for k, v in options.items():
-                if (k not in self.options):
-                    raise KeyError("Unrecognized option '%s'." % (k))
-                self.options[k] = self.optionTypes[k](v)
-
         self.optionTypes = {
             'verbose'        : int,
             'color'          : bool,
@@ -817,6 +818,12 @@ class ALogger:
             'plineWidth'     : int,
             'displayForm'    : str,
         }
+
+        if (options is not None):
+            for k, v in options.items():
+                if (k not in self.options):
+                    raise KeyError("Unrecognized option '%s'." % (k))
+                self.options[k] = self.optionTypes[k](v)
 
         if (filename):
             logging.basicConfig(level=self.options['level'],
@@ -841,6 +848,7 @@ class ALogger:
         # Also available via ColorManager.uncolorizer()
         self.colorRegex     = re.compile(r'\x1b\[\d+(;\d+)*m')
 
+        self.colorManager   = None
         if (self.options['color']): self.setupColor()
         self.defineMsgTypes()
 
@@ -879,6 +887,13 @@ class ALogger:
         except ImportError as e:
             sys.stderr.write("Cannot import ColorManager:\n    %s" % (e))
             self.colorStrings = { 'bold': '*', 'off':'*' }
+
+    def colorize(self, argColor='red', s="", endAs="off",
+        fg='', bg='', effect=''):
+        if (self.colorManager):
+            return self.colorManager.colorize(argColor=argColor, s=s,
+                endAs=endAs, fg=fg, bg=bg, effect=effect)
+        return "*" + s + "*"
 
 
     ###########################################################################
@@ -926,7 +941,7 @@ class ALogger:
                     chr(0x2400+ord(x.group(1))) if (cp and ord(x.group(1))<32)
                     else (u"\\u%04x;" % (ord(x.group(1))))),
                 s)
-        except Exception as e:
+        except re.error as e:
             sys.stderr.write("Regex error: %s" % (e))
         return(s)
 

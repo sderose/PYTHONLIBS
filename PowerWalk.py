@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # PowerWalk: More capable version os Python's os.walk.
 #
@@ -8,12 +8,11 @@ from os.path import getatime, getctime, getmtime, getsize, splitext
 import argparse
 import re
 from collections import namedtuple
-
-# Libraries for particular file "formats":
-import codecs
-import io
 import random
 from enum import Enum
+
+from alogging import ALogger
+lg = ALogger(0)
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -24,14 +23,15 @@ else:
     #import importlib
     pass
 
-from alogging import ALogger
-lg = ALogger(1)
-
-# We don't actually need the following modules unless requested
-#
-verbose = 2
+verbose = 0  # Also set by PowerWalk.setOptions('verbose')
 def warn(lvl, msg):
     if (verbose>=lvl): sys.stderr.write("%s\n" % (msg))
+
+
+###############################################################################
+# Libraries for particular file "formats":
+import codecs
+import io
 
 # try:
 #     import zip
@@ -45,22 +45,22 @@ try:
     import tarfile
 except ImportError:
     warn(0, "Cannot import module 'tarfile'.")
-try:
-    import uu
-except ImportError:
-    warn(0, "Cannot import module 'uu'.")
-try:
-    import bz2
-except ImportError:
-    warn(0, "Cannot import module 'bz2'.")
-try:
-    import zlib
-except ImportError:
-    warn(0, "Cannot import module 'zlib'.")  # supports gzip
-try:
-    import zipfile
-except ImportError:
-    warn(0, "Cannot import module 'zipfile'.")
+# try:
+#     import uu
+# except ImportError:
+#     warn(0, "Cannot import module 'uu'.")
+# try:
+#     import bz2
+# except ImportError:
+#     warn(0, "Cannot import module 'bz2'.")
+# try:
+#     import zlib
+# except ImportError:
+#     warn(0, "Cannot import module 'zlib'.")  # supports gzip
+# try:
+#     import zipfile
+# except ImportError:
+#     warn(0, "Cannot import module 'zipfile'.")
 
 
 __metadata__ = {
@@ -84,15 +84,28 @@ descr="""
 additional features, especially for file selection.
 
 It has a simple iterator that returns a triple for each item,
-containing a complete path, an open file handle for non-containers, and a flag
-that say whether this is a container OPEN, an actual LEAF item, or
-a container CLOSE. You can
-set an option to get only the LEAF items, or to not open the files for you.
+containing a complete path, an (optional) open file handle
+for non-containers, and a flag
+that says whether this is a container OPEN (such as starting a new
+directory or tar file), an actual LEAF item, or a container CLOSE. You can
+set an option to get only the LEAF items, or to open the files for you,
+or to raise exceptions for OPEN and CLOSE instead of returning them as
+regular events.
 
-It can open several kinds of compressed and
-container formats; include or exclude by extensions, name patterns, and
-path patterns; exclude hidden or backup items; sort the items of a directory
-in various order; and even random-sample only a % of eligible items.
+`PowerWalk` can open several kinds of compressed and
+container formats;
+include or exclude by extensions, name patterns, and path patterns;
+exclude hidden or backup items;
+sort the items of a directory
+in various order;
+and even random-sample only a % of eligible items.
+
+The package also supplies a few useful idependent tests:
+
+* isBackup(path)
+* isHidden(path)
+* isGenerated(path)
+
 
 ==Usage as a command==
 
@@ -101,54 +114,82 @@ files under the specified
 directory(s), or the current directory if none are specified.
 
 * Our chief options, for file '''selection''':
-  ** --include and --exclude like grep
-  ** whether to include backup files, hidden files, etc.
-  ** specific filtering by extension
-  ** whether to be recursive (like -r in many commands), and depth limits
-  ** whether to follow hard, soft (and eventually Mac and Windows) links
-  ** filtering by "file" characteristics (e.g., to get Python w/o .py)
-  ** whether to return non-directories, only directories, or both
+    Note: "include" and "exclude" in option names can be abbreviated to
+just "i" and "e", and a hyphen may be used instead of camel-case for
+these options.
+
+  ** `--includeNames` and `--excludeNames` are
+like grep `-include` and `-exclude`, but take full regexes to match against.
+''Note'': matches may occur anywhere within the name (including the extension).
+To require a match to the complete name, start the regex with "^" and end it
+with "$".
+  ** `--includeDirs` and `--excludeDirs` are
+like grep `-include-dirs` and `-exclude-dirs`,
+but take full regexes to match against.
+  ** `--includeExtensions` and `--excludeExtensions` match file extensions (without the ".") against full regexes. In particular, the "|" operator
+  is supported for "or". For example: `--ie '(py|pl|pm|cc)' works.
+  ** `--includeInfos` and `--excludeInfos` match
+  characteristics reported by the *nix `file` command.
+For example, this makes it easy to get Python files whether they have a `.py`
+extension of not.
+  ** `--backups` includes backup files, hidden files, etc.
+  ** `--recursive` or `-r` (which you'll often want) makes `PowerWalk` descend
+  into sub-directories (but not tar or other container files -- for which
+  there are separate options). `--minDepth` and `maxDepth` constrain what
+  directory or container depth limits to return files from.
+  **`--followLinks` make PowerWalk follow *nix links.
 
 * Our two options, for '''selection''' and '''container''' files:
-  ** automatic decoding of zip, gzip, uuencode, etc.
-  ** automatic traversal into tar and similar files
+  ** `--containers` can be set in order to return events not just for
+  files, but also for the OPEN and CLOSE of directories (as well as tar
+  or other container files if those are to be opened).
+  ** options allow automatic opening of zip, gzip, uuencode, and other
+  container files (not all the envisioned ones are supported yet, however).
+  One that can have internal filesystems (tar, dmg, etc) can be treated
+  as if they were just directories.
 
 * Our three options, for '''selection''', '''containers''', and '''reading''':
-  ** what encoding to open the file with (`--encoding`)
+  ** `--open` will cause files to be opened automatically, and the handle
+  passed back, while `--close` automatically closes them when you request
+  the next event.
+  ** what encoding to open the file with (`--encoding`, default utf-8)
   ** the file `--mode` (read or write, binary, etc) to apply.
 
 * Amongst our options:
-  ** sorting found files into various orders (--sort)
-  ** whether to random-sample only some of the files
-  ** whether to generate events for start and end of containers (--containers)
-  ** whether to generate events for ignorable leafs (--ignorables).
-  ** whether to generate events for nonexistent or unopenable file (--missing).
+  ** `--sort` enables sorting found files into various orders
+  ** `--sampleFactor` lets you random-sample only some of the files
+  ** `--ignorables` adds events for ignorable leafs (with a special type field)
+  ** `--missing` adds events for nonexistent or unopenable files
 
 ==Usage from code==
 
-`PowerWalk` can be used as an iterator/generator:
+`PowerWalk` can be used as an iterator/generator. If you just want a lot of
+files, each passed back with its full path and an open file handle,
+you can just to this:
 
-    pw = PowerWalk(".", recursive=True)
+    pw = PowerWalk(".", recursive=True, open=True, close=True)
     for path, fh, what in pw.traverse:
-        for i, rec in enumerate(fh.readlines()):
-            if (what == PWType.LEAF):
-                print("%6d: %s" % (i, rec))
+        if (what == PWType.LEAF):
+            nrecs = len(fh.readlines)
+            print("%6d lines in %s" % (nrecs, path))
 
 `what` will be a PWType Enum, one of:
-    PWType.OPEN  -- Issued when a container (tar, directory, etc) opens.
-    PWType.LEAF  -- Issued when a file-like item opens.
-    PWType.IGNORE -- Issued IF requested, for items ignored.
-    PWType.CLOSE  -- Issued when a container (tar, directory, etc) <s.
+    PWType.OPEN  -- Issued when a container (tar, directory, etc.) opens.
+    PWType.LEAF  -- Issued when a file-like item is returned.
+    PWType.IGNORE -- Issued (only if requested), for items ignored.
+    PWType.CLOSE  -- Issued when a container (tar, directory, etc.) closes.
     PWType.MISSING -- Issued when a file cannot be found (or opened).
 
-For example, this prints an
-outline of the file directory subtree of the current directory. Special
-items for opening and closing recursive directories, zip files, and tar files
-are generated because of the 'containers' option:
+You can ignore the OPEN and CLOSE events (as shown here), or turn off the
+`containers` option to have them not be generated at all.
+You can also turn auto-opening and/or closing of files on or off.
+
+The following example prints an
+outline of the file directory subtree of the current directory:
 
     depth = 0
     pw = PowerWalk(".", recursive=True, containers=True)
-    pw.setOption('includeExtensions', [ 'txt' ])
+    pw.setOption('includeExtensions', 'txt')
     for path, fh, what in pw.traverse():
         if (what == PWType.OPEN):
             print(" " * depth + ">>> Starting container %s" % (path))
@@ -160,10 +201,21 @@ are generated because of the 'containers' option:
             print(" " * depth + srcFile)
             doOneFile(srcFile)
 
-If you don't want OPEN and CLOSE events for containers, turn off
-the `containers` option.
-If you'd instead like exceptions raised (for ItemOpening and ItemClosing,
-then set the `exceptions` option (some might say that's more Pythonic).
+If you'd rather think of directory boundaries as exceptional
+(some might say that's more Pythonic), you can  do this:
+
+    pw = PowerWalk(".", recursive=True, exceptions=True)
+    while True:
+        try:
+            path, fh, what = pw.traverse:
+            nrecs = len(fh.readlines)
+            print("%6d lines in %s" % (nrecs, path))
+        except ItemOpening:
+            print("\n\n*** Starting directory")
+        except ItemOpening:
+            print("\n\n*** Ending directory")
+        except Finished:
+            break
 
 Files and containers
 that are filtered out do not get returned by default, but you can get
@@ -172,7 +224,8 @@ by setting the `ignorables` option.
 
 ''Note 1'': If you exercise options to traverse down into containers like
 tar files, there may be no "path" per se for each individual item. In that case,
-the returned path is that of the container.
+the returned path is that of the container, and you'll be given an open
+file handle (whether or not you requested them for regular files).
 
 
 =Methods=
@@ -180,7 +233,7 @@ the returned path is that of the container.
 (the main one is `traverse()`, which unfortunately comes last in the
 alphabetical list below)
 
-==addTraversalOptions(parser, prefix='', singletons=True)==
+==addOptionsToArgparse(parser, prefix='', singletons=True)==
 
 Add PowerWalk's options to a Python `argparse` instance.
 If `singletons` is True, this will include single-character names such
@@ -241,46 +294,104 @@ be added.
 Returns true if the obj is of one of the known classes:
 
 
-==showStats(self, writer=sys.stderr)==
+==getStats(self, writer=sys.stderr)==
 
-Display a few statistics (stored in the PowerWalk instance as pw.stats).
+Return a printable string listing various statistics
+(statistics are stored in the PowerWalk instance as a dict called `pw.stats`).
+The statistics kept include:
+
+    * nodesTried: Total number of files examined. This
+includes files that are filtered out, but not the descendants of directories,
+tar files, or other containers that are themselves filtered out.
+    * containersOpened: Total number of directories, tar files, and other
+containers that are actually opened.
+    * leafs: Files (not directories or containers) examined.
+    * ignored: Total items ignored (see below for finer details).
+    * erroneous: Files that could not be examined or opened, for
+example due to not existing.
+    * maxDepthReached: How deep the deepest branch of the traversal went.
+
+The total number of files of each of these kinds is tracked:
+    * regular
+    * directory
+    * tar
+    * gzip
+
+Also included are the number of files that were skipped for various
+reasons (if a file has several reasons to be skipped, only the one that
+was checked first is counted):
+    * ignoredSamples: Due to --sampleFactor.
+    * ignoredBackups: Due to being an apparent backup file.
+    * ignoredHiddens: Due to having a dot-initial name.
+    * ignoredByExclExtensions: The file extension was excluded.
+    * ignoredByInclExtensions: The file extension was included.
+    * ignoredByExclNames: The file name was excluded.
+    * ignoredByInclNames: The file name was included.
+    * ignoredByExclPaths: The file path was excluded.
+    * ignoredByInclPaths:  The file path was included.
 
 
 =======
 
 ==setOption(self, name, value)==
 
-Change the value of an available option, chosen from this list. These can also
-be set on the constructor via like-named keyword options.
+Change the value of an available option. Options can also
+be set on the constructor via like-named keyword options, or en masse
+using ` addOptionsToArgparse()` and `setOptionsFromArgparse()`.
 ''Note'': There are a few more options that are not part of the PowerWalk
-class, but are available when this script is run standalong. There are
+class, but are available when this script is run standalone. They are
 described in the full list of options generated at the end of this help.
 
 
 ===File selection options===
 
-* "backups": Include .bak and similar files? Default: False
+''Note'': Regexes given for these options (where applicable), do not
+automatically have "^" and "$" added. They match if they match anywhere
+in the string. You can of course add one or both of those metacharacters
+explicitly to the option value.
 
-* "hidden": Include hidden (.-initial) files? Default: False
+* "backups": Include `.bak` and similar files? Default: False
 
-* "excludeExtensions": List of file extension not to allow. Default: [].
-See also I<includeExtensions>. Repeatable.
+* "hidden": Include hidden (.-initial) files '''and''' directories.
+This option differs from most other file selection options, in that it
+affects directories. This is to address things like excluding `.git` and the
+many config directories commonly placed in home directories.
+Default: False (that is, hidden items are ignored). Items under
+ignored directories are '''entirely''' skipped -- their descendants are not
+traversed, examined, or counted.
 
-* "excludeNames": Regex of item basenames not to allow. Default: [].
-See also I<includeNames>. Repeatable.
+* "excludeExtensions": Regex for item extensions not to allow. Default: ''.
+See also I<includeExtensions>. As with `grep` and many other
+tools, exclusions override inclusions if both apply to the same file.
+The "or" operator ("|") is allowed in the regex, which is an easy
+way to exclude (or include) multiple extensions.
 
-* "excludePaths": Regex of paths not to allow. Default: [].
-See also I<includePaths>. Repeatable.
+* "excludeNames": Regex for item basenames not to allow. Default: ''.
+This matches against the names ''without'' any extension.
+See also I<includeNames>.
 
-* "includeExtensions": List of (only) item extensions to allow. Default: [].
-See also I<excludeExtensions>. Repeatable.
+* "excludePaths": Regex for paths not to allow. Default: ''.
+See also I<includePaths>.
 
-* "includeNames": Regex of (only) item basenames to allow. Default: [].
-See also I<excludeNames>. Repeatable.
+* "includeExtensions": Regex for (only) item extensions to allow. Default: ''.
+See also I<excludeExtensions>.
 
-* "excludePaths": Regex of paths not to allow. Default: [].
-See also I<includePaths>. Repeatable.
+* "includeNames": Regex for (only) item basenames to allow. Default: ''.
+This matches against the names ''without'' any extension.
+See also I<excludeNames>.
 
+* "excludePaths": Regex for paths not to allow. Default: ''.
+See also I<includePaths>.
+
+* "includeInfos": Regex to match what the *nix `file` command (q.v.) says
+about the file. For example, some versions of `file` return descriptions like:
+
+    ** POSIX shell script text executable, ASCII text
+    ** ASCII text, with very long lines, with no line terminators
+    ** Python script text executable, UTF-8 Unicode text, with very long lines, with CRLF, CR, LF line terminators, with escape sequences, with overstriking
+
+* "excludeInfo": Regex for `file` command results not to allow. Default: ''.
+See also I<includeInfos>.
 
 ===Container and similar options===
 
@@ -291,8 +402,9 @@ directories, and the individual items within them will be returned.
 (optionally generating PWType.OPEN and PWType.CLOSE events),
 and the individual items within them will be returned.
 
-* "followLinks": If True (the default is False), *nix symbolic links will be followed, and
-their targets opened or traversed as if they had been at the link's location.
+* "followLinks": If True (the default is False), *nix symbolic
+links will be followed, and their targets opened or traversed
+as if they had been at or under the link's location.
 This does not include Mac "aliases", Windows "shortcuts", weblocs, etc.
 
 
@@ -303,7 +415,8 @@ one (only makes sense if `open` is also specified).
 
 * `encoding`: Use this character encoding for input. Default: `utf-8`
 
-* `mode`: What `mode` to pass to `codecs.open`. Default: `rb`.
+* `mode`: What `mode` to pass to `codecs.open` (when the `open`
+options is in effect. Default: `rb`.
 
 * `open`: When a non-ignorable leaf is reached, open it and return the handle
 as the second item in the returned tuple (which is otherwise None).
@@ -317,13 +430,13 @@ regardless of how the `open` option is set.
 * `containers` (default True): If True,
 then open and close events will be generated
 for each container (such as a directory, gzip, or tar file) that is entered.
-The third member of the returned tuple (`what`) is PWType.OPEN (1) and
-PWType.CLOSE (4), respectively.
+The third member of the returned tuple (`what`) is PWType.OPEN and
+PWType.CLOSE, respectively.
 
 * `ignorables` (default False): If True, then events will be generated
 even for items (containers and leaves) that are filtered out -- such as
 hidden files or directories, etc. Such events will have `what`
-returned as PWType.IGNORE (3).
+returned as PWType.IGNORE.
 
 * `exceptions` (default False): If True, then containers (and ignorable
 files (if `ignorables` is also set) will be signaled by raising exceptions
@@ -344,10 +457,11 @@ items do not count).
 
 * `recursive` (default False): Traverse through subdirectories?
 
-* `sampleFactor` (default: 100.0): Include only this % of the available files.
+* `sampleFactor` (default: 100.0): Include only this % of the eligible files.
 If set to a value above 0.0 and below 100.0, each leaf item that would have
 been returned, has only this % change of actually being returned.
-Others are reclassified as ignorable.
+Others are reclassified as ignorable. The result will only
+amount to approximately the requested percentage.
 
 * `sort`: Sort the items in each directory in the specified way.
 Default: "" (just use whatever `os.listdir` returns).
@@ -361,54 +475,76 @@ Default: "" (just use whatever `os.listdir` returns).
 ** `extension`: Extension as returned by `os.path.splitext`
 * `notify`: Display a message as each new file starts. Default: False
 
-==traverse(self, path, depth=0)==
+==traverse(self)==
 
-Iterate, returning the chosen files (or pseudo-files, such as items
-from a zip, tar, or siilar archive). Each iteration returns a tuple of
+Generate a sequence of chosen files (and if requested, pseudo-files,
+such as items
+from a zip, tar, or other container). Each iteration returns a tuple of
 (path, fh), where `fh` is a readable. For regular files this is as returned
-by `codecs.open()` with the `mode` and `encoding` specified as options.
+by `codecs.open()` with the `mode` and `encoding` specified as options
+(if the `open` option is in effect; otherwise fh is returned as None).
 For items within tar, gzip, or other supported archive types, it will be
-the readable interface from the corresponding package.
+the readable interface from the corresponding package (regardless of whether
+`open` is set).
 
-Ignored items (such as backups if the option to include them has not
-been set), are quietly skipped.
+Ignored items (such as backups if the `backups` option has not
+been set), are quietly skipped unless the `ignorables` options is set.
 
-Containers such as directories and archive files, generate start and end
-events, with the appropriate path, but instead of a file handle or similar,
-a string is returned: DIR_START, DIR_END, GZIP_START, GZIP_END, TAR_START,
-TAR_END. These events can be suppressed by setting the `containers` option
+Containers such as directories and archive files generate start and end
+events with the appropriate path, but the file handle is returned as None,
+and the `what` is PWType.OPEN or PWType.CLOSE, respectively.
+These events can be suppressed entirely by setting the `containers` option
 to False.
 
 
 =Known bugs and limitations=
 
+* The script will warn if it can't find all the file-format libraries
+installed (for tar, gzip, etc.),
+but it will work fine as long as you don't specifically need the missing ones.
+
 * I've used this almost exclusively for reading (for example, picking
-out all the desired files from an NLP corpus like OANC or MASC). So writing
-is not yet thoroughly tested. I imagine it doesn't work well for containers
-(directories, tar, gzip, etc.).
+out just the desired files from an NLP corpus like OANC or MASC). So writing
+is not yet thoroughly tested. I imagine writing doesn't work well for container
+files (tar, gzip, etc.).
 
-* Script will fail if you don't have all the file-format libraries
-installed, even if you don't need certain ones. Fixing.
-
-* Statistics of the current run (a .stats), as well as the current
-nesting depth of the traversal (in .depth),
-are kept directly in the PowerWalk object instance. So if you try to
-run two simultaneous traversal from the same PowerWalk instance, you may
-have problems. Other than such statistics it should be ok. The traversal
-stack itself is specific to each traversal.
+* Statistics of the current run as well as the current
+nesting depth of the traversal (in .depth), are separated into a
+TraversalState object. A reference to that object is
+kept directly in the PowerWalk object instance as PowerWalk.travState.
+So if you try to run two traversals from the same PowerWalk instance, you may
+have problems accessing PowerWalk.travState. However, PowerWalk
+itself doesn't use it, so it should be ok. It's really only stored there
+so command-line usage can display statistics at the end.
+That won't work if you modify it to run a second
+PowerWalk.traverse() before printing statistics that way. If you create two
+separate `PowerWalk` instances in such cases, you should be fine.
 
 * You can only specify one regex for each of the 4 include/exclude options
-that take regexes.
+that take regexes. These options do not apply to directories (ideally, they
+should be separately settable for dirs and files (and maybe other containers).
+
+* There is no protection against circular links.
 
 
 =Related commands=
 
-`find` + `exec`
+`find` + `exec`. Find does a really nice job of finding things. PowerWalk is mainly intended to be even easier to use
+from Python code, especially for people (like corpus linguists) who work with
+tons of sample files in complicated directory and container structures.
 
-My `lss`, `findIdenticalFiles`, `grep`, `find`.
+My [../FileManagement/lss], [../FileManagement/findIdenticalFiles].
 
-My `lsoutline` produces a file listing similar to what `PowerWalk` produces
+My [../FileManagement/lsoutline] produces a file listing
+similar to what `PowerWalk` produces
 when run from the command line. But you can do fancier selection here.
+
+
+=References=
+
+See [../FileSelectionOptionsOfNixCommands.md] for a survey of what different
+*nix command provide for file-selection, sorting, format support, etc.
+
 
 =History=
 
@@ -421,50 +557,56 @@ when run from the command line. But you can do fancier selection here.
 into categories in help and where listed in code. Add `--exceptions`
 and several new filtering options, type-check them.
 Refactor event generation, item stack, and statistics into TraversalState class.
+* 2020-09-15: Fix several bugs in filtering, improve reporting and
+option-setting. Add `--includeInfos` and `--excludeInfos`.
+
 
 =To do=
 
-* Provide a better way to pass all the relevant options from argparse
-in to the constructor.
+==Most wanted==
 
-* Make a way for the caller to find out what kind of container they're in.
-Maybe just pass back the container handle? Or they can poke at the path,
-of course.
+* Option to cat all leafs.
 
-* Make a way for the caller to get the depth. Could store it in the PWFrame,
-but that doesn't scale nicely for other things. Maybe bit the bullet and make
-a full-fledge iterator object?
+* Support additional compression methods
 
-* Make opening leafs optional!
+* copy/move/link picked files somewhere, serializing names, setting
+xattr to say where copied from.
 
-* Additional filters  (cf 'find'):
+* Protect against circular links.
 
-** permissions, owner and group ids (and none), inode
-** Add date and age options.
-** regex for filename or dirname or path
-** mindepth, name, path, iname, ipath, xattr
-** text v. binary.
-** Add support for identifying file type via *nix 'file', like
-traversing all Python files regardless of extension (cf `findViaFile` shell
-function in [https:github.com/sderose/BashSetup]).
-** Current nesting depth, file count, whether
-it's in a tar or gzip or container in general, etc.
-** Mac fs metadata (kmdItem... and all that). See my `macFinderInfo`.
-** Option to not cross filesystem bounds (say, via links or mount points).
+* include/exclude for dirs (and containers?), not just files.
 
-* Compare "PRIMARIES" for `find` and adopt userful ones.
-''Issue'': Getting argparse to do arguments with sub-arguments.
-** atime, ctime, mtime mindepth
+==Additional filters  (cf 'find')==
+
+* permissions, owner and group ids (and none), inode
+* Add date and age options.
+* file size
+* Current nesting depth, file count
+* Mac fs metadata (kmdItem... and all that). See my `macFinderInfo`.
+* Option to not cross filesystem bounds.
+* distinguish maxfiles tried vs. succeeded
+
+* Compare `find`'s "PRIMARIES" and adopt useful ones. Perhaps:
+** atime, ctime, mtime, mindepth, cf Bmin [aBcm]?(newer|time|min)
 ** depth
+** empty
+** exec(dir)
+** group/nogroup, user/nouser/uname/uid/
 ** newer/old cre/mod/acc time vs. specified file
+** -perm
+** -print0
 ** -type block special, char special, dir, regular, s-link, FIFI, socket.
 ** -size n
-** -xattr
+** 'i' prefix for specific tests
+** inum
+** -xattr, -xattrname (and xattr k op v)
 ** negation
 
-* Sort should provide a `reverse` option.
+==Other options==
 
-* A callback for filtering? Nah, user can just check and discard.
+* Limit max/min/total size of files
+
+* `--sort` should provide a `reverse` option.
 
 * Support Mac aliases, bookmarks, and webloc files.
 See my `resolveLinks` attempt.
@@ -473,17 +615,29 @@ See [https://stackoverflow.com/questions/48862093] (how-to-read-change-and-write
 [http://mac-alias.readthedocs.io/en/latest] and
 [https://docs.python.org/2/library/macostools.html].
 
-* Protect against circular links?
-
-* Protect against caller changing working dir (unlike `os.walk`)
+* Support URLs (can *nix, Mac, or Wind aliases point to URLs?
 
 * Sampling of every nth file, first n from each directory, etc.
 
-* Limit total size of files
+* Option to "mark" the files, e.g. with an xattr or Finder flag?
 
-* Support additional compression methods
+==Interface==
 
-* Support URLs (can *nix, Mac, or Wind aliases point to URLs?
+* Make a way for the caller to find out what kind of container they're in.
+Maybe just pass back the container handle? Or they can poke at the path,
+of course.
+
+* Synchronize with `find` option and/or names where appropriate:
+** -L for --followlinks (`find` used to use -follow)
+** -s for sort
+** -d (depth-first)?
+** -x (don't cross device boundaries) = -mount = -xdev
+** -acl?
+** -wholename for -path
+
+* Protect against caller changing working dir (unlike `os.walk`)
+
+* Offer warning if no eligible files found in each leaf dir?
 
 
 =Rights=
@@ -502,29 +656,7 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 
 
 ###############################################################################
-# Simple way to sample a certain fraction of the files....
-#
-class Sampling:
-    def __init__(self, fraction=1.0):
-        self.fraction = fraction
-        self.requested = 0
-        self.returned = 0
-
-    def reset(self):
-        self.requested = 0
-        self.returned = 0
-
-    def thisOne(self):
-        self.requested += 1
-        if (self.returned <= self.requested * self.fraction):
-            self.returned += 1
-            return True
-        return False
-
-
-###############################################################################
-# A bunch of classes. There has to be an easier way to check read/writeability,
-# short of try/catch.
+# A bunch of classes for readable stuff. There has to be an easier way....
 # This list may need to be extended.
 # See https://docs.python.org/3/library/io.html
 #
@@ -554,12 +686,11 @@ def isStreamable(x):
 
 
 ###############################################################################
-# One form of traversal signals directory start/end by raising an
-# exception, so you can just catch it that way. Seems to me cleaner than
-# passes a "magic" event type back, or forcing the user to check.
+# The 'exceptions' option signals directory start/end by raising exceptions.
+# Seems to me cleaner than passing a "magic" event type back.
 #
-# There is no exception corresponding to sucessfully return a readable/writable
-# item, because that's the unexceptional case.
+# There is no exception corresponding to sucessfully returning a
+# readable/writable leaf item, because that's the unexceptional case.
 #
 class ItemOpening(Exception):
     pass
@@ -567,20 +698,26 @@ class ItemClosing(Exception):
     pass
 class ItemIgnorable(Exception):
     pass
-class ItemMissing(Exception):
-    pass
 class ItemError(Exception):
+    pass
+class ItemMissing(ItemError):
+    pass
+class Finished(Exception):
     pass
 
 
 ###############################################################################
+# These are the types of events that are stored as the third item in
+# PWFrame objects (see next section), which are kept on the TraversalState
+# stack during active traversals.
 #
 class PWType(Enum):
-    OPEN   = 1          # The beginning of a directory, tar file, etc.
-    LEAF   = 2          # An actual readable/writable object
-    IGNORE = 3          # Notification of a filtered-out object
-    CLOSE  = 4          # The end of a directory, tar file, etc.
-    ERROR  = -1         # Missing, open error, etc.
+    OPEN    = 1          # The beginning of a directory, tar file, etc.
+    CLOSE   = 2          # The end of a directory, tar file, etc.
+    IGNORE  = 3          # Notification of a filtered-out object
+    LEAF    = 4          # An actual readable/writable object
+    ERROR   = -1         # Generic error
+    MISSING = -2         # Specific error, item not found
 
 
 ###############################################################################
@@ -618,49 +755,62 @@ class TraversalState(list):
     This object is passed down the recursive traversal.
     The main (list) content is a stack of PWFrame namedtuples.
 
-    It has methods that do "the right thing" when we've called for an item
+    It has methods that do "the right thing" when called for an item
     confirmed as an OPEN, CLOSE, LEAF, IGNORE, or ERROR (based on the
     options in effect, a reference to which is passed to the constructor).
     """
     def __init__(self, options):
+        super(TraversalState, self).__init__()
         self.depth = 0
         self.iString = '    '
         self.options = options
-
         self.stats = {
-            "nodesTried"              : 0,  # +
-            "containersOpened"        : 0,  # +
-            "leafs"                   : 0,  # +
-            "ignored"                 : 0,
-            "erroneous"               : 0,  # +
+            "nodesTried"                 : 0,  # +
+            "containersOpened"           : 0,  # +
+            "leafs"                      : 0,  # +
+            "ignored"                    : 0,
+            "erroneous"                  : 0,  # +
 
-            "regular"                 : 0,
-            "directory"               : 0,
-            "tar"                     : 0,
-            "gzip"                    : 0,
+            "regular"                    : 0,
+            "directory"                  : 0,
+            "hiddenDir"                  : 0,
+            "hiddenFile"                 : 0,
+            "tar"                        : 0,
+            "tarSubdir"                  : 0,
+            "gzip"                       : 0,
+            "backup"                     : 0,
 
-            "ignoredSamples"          : 0,
-            "ignoredBackups"          : 0,
-            "ignoredHiddens"          : 0,
-            "ignoredByExclExtensions" : 0,
-            "ignoredByInclExtensions" : 0,
-            "ignoredByExclNames"      : 0,
-            "ignoredByInclNames"      : 0,
-            "ignoredByExclPaths"      : 0,
-            "ignoredByInclPaths"      : 0,
+            "ignoredSamples"             : 0,
+            "ignoredHiddens"             : 0,  # TODO: Not counted yet
 
-            "maxDepth"                : 0,
+            "ignoredByExcludeExtensions" : 0,
+            "ignoredByExcludeNames"      : 0,
+            "ignoredByExcludePaths"      : 0,
+            "ignoredByExcludeInfos"      : 0,
 
+            "ignoredByIncludeExtensions" : 0,
+            "ignoredByIncludeNames"      : 0,
+            "ignoredByIncludePaths"      : 0,
+            "ignoredByIncludeInfos"      : 0,
+
+            "ignoredByMinDepth"          : 0,
+            "maxDepthReached"            : 0,
         }
-        super(TraversalState, self).__init__()
 
-    def showStats(self, writer=sys.stderr):
-        writer.write("\nItems processed:\n")
+    def getStats(self, showZeroes=True):
+        """Generate a displayable list of the statistics.
+        """
+        buf = "\nItems processed:\n"
         for k in sorted(self.stats.keys()):
-            writer.write("    %-30s %8d\n" % (k, self.stats[k]))
+            if (showZeroes or self.stats[k]>0):
+                buf += "    %-30s %8d\n" % (k, self.stats[k])
+        return buf
 
     def bump(self, name, n=1):
-        assert(name in self.stats)
+        """Increment a named statistic.
+        """
+        if (name not in self.stats):
+            raise ValueError("No stat named '%s'." % (name))
         self.stats[name] += n
 
     def indent(self):
@@ -670,32 +820,29 @@ class TraversalState(list):
     # Stack managers for the main event types.
     #
     _ = """Event/Exception/Stack managers.
-        * If caller doesn't want the event, return None
-        * If called wants it as an exceptions, raise one then return None
+        * If caller doesn't want the event, return None.
+        * If called wants it as an exceptions, raise one then return None.
         * Otherwise stack it, return the PWFrame, then pop it.
-        ==> Iff we return a PWFrame, the caller should yield it.
+        ==> Iff this returns a PWFrame the caller should yield it.
     """
     def openContainer(self, path:str, fh:object):
         """Create and push a stack frame for the thing we found.
         Files that are filtered out don't even get here. But for containers,
         we mightgenerate events or excpetions (see options['containers')
         """
-        if (not isinstance(path, str)):  # TODO: Fix so we don't need this
-            warn(0, "open() was passed a %s for path." % (type(path)))
-            path = path.path
         thePWFrame = PWFrame(path, fh, PWType.OPEN)
         assert isPWFrameOK(thePWFrame)
 
         self.bump("containersOpened")
         self.append(thePWFrame)
+        self.depth += 1  # not thread-safe
+        if (self.depth > self.stats['maxDepthReached']):
+            self.stats['maxDepthReached'] = self.depth
 
         if (not self.options['containers']):
             return None
         elif (self.options['exceptions']):
             raise ItemOpening
-        self.depth += 1  # not thread-safe
-        if (self.depth > self.options['maxdepth']):
-            self.options['maxdepth'] = self.depth
         return thePWFrame
 
     def handleLeaf(self, path:str, fh:object):
@@ -703,10 +850,7 @@ class TraversalState(list):
         Files that are filtered out don't even get here. But for containers,
         we mightgenerate events or excpetions (see options['containers')
         """
-        warn(1, "handleLeaf: %s" % (path))
-        if (not isinstance(path, str)):  # TODO: Fix so we don't need this
-            #warn(0, "open() was passed a %s for path." % (type(path)))
-            path = path.path
+        warn(2, "handleLeaf: %s" % (path))
         thePWFrame = PWFrame(path, fh, PWType.LEAF)
         assert isPWFrameOK(thePWFrame)
         self.bump("leafs")
@@ -721,7 +865,7 @@ class TraversalState(list):
             tsf = self.handleIgnorable(travState, path)
             if (tsf): yield tsf
         """
-        warn(1, "handleIgnorable: %s" % (path))
+        #warn(1, "handleIgnorable: %s" % (path))
         self.bump("ignored")
         if (not self.options['ignorables']):
             return None
@@ -730,7 +874,8 @@ class TraversalState(list):
         else:
             return PWFrame(path, None, PWType.IGNORE)
 
-    def handleError(self, path:str, message:str="Item Error"):
+    def handleError(self, path:str, message:str="Item Error",
+        errorType:PWType=PWType.ERROR):
         """Called for missing, unopenable, etc.
         """
         warn(1, "handleError: %s" % (path))
@@ -738,9 +883,12 @@ class TraversalState(list):
         if (not self.options['errors']):
             return None
         elif (self.options['exceptions']):
-            raise ItemError(message + " [%s]" % (path))
+            if (errorType == PWType.MISSING):
+                raise ItemMissing(message + " [%s]" % (path))
+            else:
+                raise ItemError(message + " [%s]" % (path))
         else:
-            return PWFrame(path, None, PWType.ERROR)
+            return PWFrame(path, None, errorType)
 
     def closeContainer(self):
         """Called at the end of any node, whether container or leaf.
@@ -769,17 +917,19 @@ class PowerWalk:
     """
 
     __optionTypes = {
-        # What to include
+        # Options for what to include
         "backups"             : bool,
         "hidden"              : bool,
         "followLinks"         : bool,
 
-        "excludeExtensions"   : list,
-        "excludeNames"        : list,
-        "excludePaths"        : list,
-        "includeExtensions"   : list,
-        "includeNames"        : list,
-        "includePaths"        : list,
+        "excludeExtensions"   : "REGEX",
+        "excludeNames"        : "REGEX",
+        "excludePaths"        : "REGEX",
+        "excludeInfos"        : "REGEX",
+        "includeExtensions"   : "REGEX",
+        "includeNames"        : "REGEX",
+        "includePaths"        : "REGEX",
+        "includeInfos"        : "REGEX",
 
         "maxDepth"            : int,
         "maxFiles"            : int,
@@ -792,18 +942,19 @@ class PowerWalk:
         "recursive"           : bool,
         "sampleFactor"        : float,
 
-        # How to open
+        # Options for how to open
         "encoding"            : str,
         "mode"                : str,
         "sort"                : str,
 
-        # Events handling and generation
+        # Options for event handling and generation
         "close"               : bool,
         "containers"          : bool,
         "exceptions"          : bool,
         "ignorables"          : bool,
         "notify"              : bool,
         "open"                : bool,
+        "verbose"             : int,
     }
 
     def __init__(self, topLevelItems=None, **kwargs):
@@ -817,17 +968,20 @@ class PowerWalk:
         self.travState = None  # Used during traversal (not thread-safe!) TO DO
 
         self.options = {
-            # What to include
+            # Options for what to include
             "backups"             : False,
             "hidden"              : False,
             "followLinks"         : False,
 
-            "excludeExtensions"   : [],
-            "excludeNames"        : [],
-            "excludePaths"        : [],
-            "includeExtensions"   : [],
-            "includeNames"        : [],
-            "includePaths"        : [],
+            "excludeExtensions"   : "",
+            "excludeNames"        : "",
+            "excludePaths"        : "",
+            "excludeInfos"        : "",
+
+            "includeExtensions"   : "",
+            "includeNames"        : "",
+            "includePaths"        : "",
+            "includeInfos"        : "",
 
             "maxDepth"            : 0,
             "maxFiles"            : 0,
@@ -840,76 +994,115 @@ class PowerWalk:
             "recursive"           : False,
             "sampleFactor"        : 100.0,    # Take everything.
 
-            # How to open
-            "encoding"           : "utf-8",   # Character encoding
+            # Options for how to open
+            "encoding"            : "utf-8",  # Character encoding
             "mode"                : "rb",     # Read, write, bin, etc.
             "sort"                : "",       # TODO: Test in tar, zip, etc.
 
-            # Events handling and generation
+            # Options for event handling and generation
             "close"               : False,    # Do fh.close() on leafs for user.
             "containers"          : True,     # Events for container start/end?
             "exceptions"          : False,    # Exception for containers, errs.
             "ignorables"          : False,    # Events even for ignored stuff?
             "notify"              : False,    # Tell caller on start/end dir
-            "open"                : True,     # Do leaf open()s for user.
+            "open"                : False,    # Do leaf open()s for user.
+            "verbose"             : 0,
         }
 
         if (kwargs):
             for k, v in kwargs.items():
-                self.setOption(k, v)
-
-    def setOption(self, name, value):
-        """Note: If the options are coming in from argparse, an inset
-        list will perhaps be None, so fix to an empty list.
-        """
-        #if (name not in self.options):
-        #    raise ValueError("Unknown option '%s'." % (name))
-        if (name in self.__optionTypes):
-            theType = self.__optionTypes[name]
-            if (value is None):
-                if (theType == list): value = []
-                else: value = 0
-            try:
-                self.options[name] = theType(value)
-            except TypeError as e:
-                warn(0, "Error setting option '%s':\n    %s" % (name, e))
+                self.setOption(k, v, strict=True)
 
     def getOption(self, name):
         if (name not in self.options):
             raise ValueError("Unknown option '%s'." % (name))
         return self.options[name]
 
-    @staticmethod
-    def addTraversalOptions(parser, prefix='', singletons=True):
-        """Provide an easy way to add all our options to a main program.
+    def setOption(self, name, value, strict=False):
+        """Note: If the options are coming in from argparse, an unset
+        list or dict will perhaps be None, so fix to an empty one.
         """
-        prefix = "--" + prefix
+        if (name not in self.__optionTypes):
+            if (strict):
+                raise ValueError("Unknown option '%s'." % (name))
+        else:
+            theType = self.__optionTypes[name]
+            if (theType == "REGEX"):
+                if (value):
+                    try:
+                        self.options[name] = re.compile(value)
+                    except (re.error, TypeError) as e:
+                        warn(0, "Cannot compile option %s: %s\n    %s" %
+                            (name, value, e))
+                return
+            if (value is None):
+                if (theType == list): value = []
+                elif (theType == dict): value = {}
+                else: value = 0
+            try:
+                self.options[name] = theType(value)
+                if (name=='verbose'):
+                    global verbose
+                    verbose = value
+                elif (name in [ 'excludeNames', 'includeNames' ] and
+                    '.' in value):
+                    warn(0, "Option --%s '%s' won't match against extensions." %
+                        (name, value))
+            except (TypeError, re.error) as e:
+                warn(0, "Cannot cast value '%s' for option '%s' to %s:\n    %s"
+                    % (value, name, theType.__name__, e))
 
-        parser.add_argument(
-            prefix + "excludeExtensions",
-            type=str, metavar='X', action='append',
-            help='Exclude items with these extensions (repeatable).')
-        parser.add_argument(
-            prefix + "excludeNames",
-            type=str, metavar='R', action='append',
-            help='Exclude base names matching this regex (repeatable).')
-        parser.add_argument(
-            prefix + "excludePaths",
-            type=str, metavar='R', action='append',
-            help='Exclude path matching this regex (repeatable).')
+    def setOptionsFromArgparse(self, ap=None, prefix=""):
+        """Have to ignore any that aren't ours.
+        """
+        for k, v in ap.__dict__.items():
+            qname = prefix+k
+            if (qname in self.options): self.setOption(qname, v, strict=False)
 
-        parser.add_argument(
-            prefix + "includeExtensions",
-            type=str, metavar='X', action='append',
-            help='Include (only) items with these extensions (repeatable).')
-        parser.add_argument(
-            prefix + "includeNames",
-            type=str, metavar='R', action='append',
-            help='Include (only) base names matching this regex (repeatable).')
-        parser.add_argument(
-            prefix + "includePaths",
-            type=str, metavar='R', action='append',
-            help='Include (only) path matching this regex (repeatable).')
+    @staticmethod
+    def addOptionsToArgparse(parser, prefix='', singletons=True):
+        """Provide an easy way to add all our options to a main program
+        (without getting all the others). Use addOptionsFromArgparse() to
+        copy them in from the argparse result, ignoring any others.
+        """
+        if (not prefix.startswith('-')):
+            prefix = "--" + prefix
+
+        if (1):
+            for thing in [ "Extensions", "Names", "Paths", "Infos" ]:
+                for sign, abbr in [ ("Include", "i"), ("Exclude", "x") ]:
+                    n1 = prefix + sign.lower() + thing
+                    n2 = prefix + sign.lower() + "-" + thing
+                    n3 = prefix + abbr + thing
+                    parser.add_argument(n1, n2, n3, type=str, metavar='R',
+                    help='%s items with %s matching this regex.' %
+                        (sign, thing.lower()))
+        else:
+            parser.add_argument(
+                prefix + "excludeExtensions", type=str, metavar='R',
+                help='Exclude extensions matching this regex.')
+            parser.add_argument(
+                prefix + "excludeNames", type=str, metavar='R',
+                help='Exclude base names matching this regex.')
+            parser.add_argument(
+                prefix + "excludePaths", type=str, metavar='R',
+                help='Exclude path matching this regex.')
+            parser.add_argument(
+                prefix + "excludeInfos", type=str, metavar='R',
+                help='Exclude "file" info matching this regex.')
+
+            parser.add_argument(
+                prefix + "includeExtensions", type=str, metavar='R',
+                help='Include (only) extensions matching this regex.')
+            parser.add_argument(
+                prefix + "includeNames", type=str, metavar='R',
+                help='Include (only) base names matching this regex.')
+            parser.add_argument(
+                prefix + "includePaths", type=str, metavar='R',
+                help='Include (only) path matching this regex.')
+            parser.add_argument(
+                prefix + "includeInfos", type=str, metavar='R',
+                help='Include (only) file output matching this regex.')
 
         parser.add_argument(
             prefix + "backups",           action='store_true',
@@ -937,7 +1130,7 @@ class PowerWalk:
             help='Return events (or exceptions) for ignorable items.')
         parser.add_argument(
             prefix + "notify",            action='store_true',
-            help='Some extra notifications')  # TODO
+            help='Some extra notifications')
         parser.add_argument(
             prefix + "open",              action='store_true',
             help='Open leaf items and return a readable handle.')
@@ -1003,7 +1196,6 @@ class PowerWalk:
         TODO: This should really make a separate iterator object, to be
         thread-safe for accessing things like depth.
         """
-
         # Reference the traversal state in the main object, so the caller
         # can get at stats, depth, etc. But this isn't thread-safe, and
         # we don't refer to it via the PowerWalk object.
@@ -1014,17 +1206,19 @@ class PowerWalk:
             warn(1, "\n******* Starting top-level item '%s'." % (tl))
             for tsf in self.ttraverse(tl, trav):
                 trav.bump("nodesTried")
-                warn(1, "tried %d, max %d." %
+                warn(2, "tried %d, max %d." %
                     (trav.stats["nodesTried"], self.options["maxFiles"]))
                 if (self.options["maxFiles"] and
                     trav.stats["nodesTried"] > self.options["maxFiles"]): break
                 yield tsf
+        if (self.options["exceptions"]):
+            raise Finished()
         return
 
     def ttraverse(self, path:str, trav:TraversalState):
         """Recurse as needed.
         """
-        warn(1, "%sttraverse at '%s'" % ("  "*len(trav), path))
+        warn(2, "%sttraverse at '%s'" % ("  "*len(trav), path))
 
         if (self.options['maxDepth'] > 0 and               # MAXDEPTH REACHED
             len(trav) > self.options['maxDepth']):
@@ -1040,7 +1234,8 @@ class PowerWalk:
             if (tsf): yield tsf
 
         elif (os.path.isdir(path)):                        # DIRECTORY
-            self.trySomething(trav, 'directory')
+            trav.bump('directory')
+            self.recordEvent(trav, 'directory')
             if (not self.options['recursive']):
                 tsf = trav.handleIgnorable(path)
                 if (tsf): yield tsf
@@ -1058,7 +1253,7 @@ class PowerWalk:
                 if (tsf): yield tsf
 
         elif (False and tarfile.is_tarfile(path)):         # TAR FILE
-            self.trySomething(trav, "tar file")
+            self.recordEvent(trav, "tar")
             if (not self.options['openTar']):
                 tsf = trav.handleIgnorable(path)
                 if (tsf): yield tsf
@@ -1073,7 +1268,7 @@ class PowerWalk:
                         if (self.options['close'] and fh2):
                             fh2.close()
                     elif (tfMember.isdir()):
-                        self.trySomething(trav, "tar subdir")
+                        self.recordEvent(trav, "tarSubdir")
                         # TODO: add tar internal recursion!
                     else:  # also issyn, islnk, ischr, isblk, isfifo, isdev
                         warn(0, "Non-file, non-dir) in tar file.")
@@ -1082,7 +1277,7 @@ class PowerWalk:
                 if (tsf): yield tsf
 
         elif (path.endswith(".gz")):                       # GZIP FILE
-            self.trySomething(trav, 'gzip')
+            self.recordEvent(trav, 'gzip')
             if (not self.options['openGzip']):
                 tsf = trav.handleIgnorable(path)
                 if (tsf): yield tsf
@@ -1112,14 +1307,19 @@ class PowerWalk:
             if (tsf): yield tsf
 
         else:                                              # SELECTED FILE
-            fh = codecs.open(path, mode=self.options['mode'],
-                encoding=self.options['encoding'])
-            # Py 2: codecs.open returns old-style class StreamReaderWriter
-            if (PY2 and '__class__' in fh and
-                fh.__class__.__name__ != 'StreamReaderWriter'):
-                raise ValueError("Got type '%s' (%s) for %s." %
-                    (type(fh), fh.__class__.__name__, path))
+            if (not self.options['open']):
+                fh = None
+            else:
+                fh = codecs.open(path, mode=self.options['mode'],
+                    encoding=self.options['encoding'])
+                # Py 2: codecs.open returns old-style class StreamReaderWriter
+                if (PY2 and '__class__' in fh and
+                    fh.__class__.__name__ != 'StreamReaderWriter'):
+                    raise ValueError("Got type '%s' (%s) for %s." %
+                        (type(fh), fh.__class__.__name__, path))
             yield trav.handleLeaf(path, fh)
+            if (self.options['close'] and fh):
+                fh.close()
 
         return
 
@@ -1127,52 +1327,78 @@ class PowerWalk:
         """Check the file at 'path' against all the filters, and
         return True iff it's one the user wants. The same name, date, and
         other filters apply to containers (such as directories) and
-        to leafs (such as files)
+        to leafs (such as files).
         """
-        base = os.path.basename(path)
-        # TODO: Directories with dot in name!
-        if (os.path.isdir(base)):
-            (_, ext) = base, ""
-        else:
-            (_, ext) = os.path.splitext(base)
-            ext = ext.strip(". \t\n\r")
+        if (os.path.isdir(path)):  # TODO: make more flexible
+            return self.dirPassesFilters(path, trav)
+        return self.filePassesFilters(path, trav)
 
-        if (not self.options['hidden'] and isHidden(base)):
-            self.trySomething(trav, "hidden", "exclude")
+    def dirPassesFilters(self, path, trav):
+        if (not self.options['hidden'] and isHidden(path)):
+            self.recordEvent(trav, "hiddenDir")
+            return False
+        self.recordEvent(trav, 'directory')
+        return True
+
+    def filePassesFilters(self, path, trav):
+        """Test most of the file-filtering conditions.
+        Return True only if the all pass (reaching the final 'else').
+        """
+        head, tail = os.path.split(path)
+        (namepart, extPart) = os.path.splitext(tail)
+        extPart = extPart.strip(". \t\n\r")
+
+        passes = False  # Assume the worst for now...
+
+        if (len(trav)<self.options['minDepth']):
+            self.recordEvent(trav, "ignoredByMinDepth")
+
+        elif (not self.options['hidden'] and isHidden(path)):
+            self.recordEvent(trav, "hiddenFile")
 
         elif (self.options['excludeExtensions'] and
-            ext in self.options['excludeExtensions']):
-            self.trySomething(trav, 'ignoredByExclExtensions', "exclude")
+            re.search(self.options['excludeExtensions'], extPart)):
+            self.recordEvent(trav, 'ignoredByExcludeExtensions')
         elif (self.options['includeExtensions'] and
-            ext not in self.options['includeExtensions']):
-            self.trySomething(trav, 'ignoredByInclExtensions', "exclude")
+            re.search(self.options['includeExtensions'], extPart)):
+            self.recordEvent(trav, 'ignoredByIncludeExtensions')
 
         elif (self.options['excludeNames'] and
-            re.search(self.options['excludeNames'][0], base)):
-            self.trySomething(trav, 'ignoredByExclNames', "exclude")
+            re.search(self.options['excludeNames'], namepart)):
+            self.recordEvent(trav, 'ignoredByExcludeNames')
         elif (self.options['includeNames'] and
-            not re.search(self.options['includeNames'][0], base)):
-            self.trySomething(trav, 'ignoredByInclNames', "exclude")
+            not re.search(self.options['includeNames'], namepart)):
+            self.recordEvent(trav, 'ignoredByIncludeNames')
 
         elif (self.options['excludePaths'] and
-            re.search(self.options['excludePaths'][0], path)):
-            self.trySomething(trav, 'ignoredByExclPaths', "exclude")
+            re.search(self.options['excludePaths'], path)):
+            self.recordEvent(trav, 'ignoredByExcludePaths')
         elif (self.options['includePaths'] and
-            not re.search(self.options['includePaths'][0], path)):
-            self.trySomething(trav, 'ignoredByInclPaths', "exclude")
+            not re.search(self.options['includePaths'], path)):
+            self.recordEvent(trav, 'ignoredByIncludePaths')
+
+        elif (self.options['excludeInfos'] and
+            re.search(self.options['excludeInfos'], getFileInfo(path))):
+            self.recordEvent(trav, 'ignoredByExcludeInfos')
+        elif (self.options['includeInfos'] and
+            not re.search(self.options['includeInfos'], getFileInfo(path))):
+            self.recordEvent(trav, 'ignoredByIncludeInfos')
 
         elif (not self.options['backups'] and isBackup(path)):
-            self.trySomething(trav, "backup", "exclude")
+            self.recordEvent(trav, "backup")
         else:
-            self.trySomething(trav, 'regular')
-            return True
+            self.recordEvent(trav, 'regular')
+            passes = True
 
-        return False
+        warn(1, "%s filter: %s" % ("PASS" if passes else "FAIL", tail))
+        return passes
 
     def chSort(self, curPath, chList):
         """Sort a file-list returned from os.listdir somehow.
         """
-        if (self.options['sort'] == 'name'):
+        if (self.options['sort'] == 'none'):
+            pass
+        elif (self.options['sort'] == 'name'):
             chList.sort()
         elif (self.options['sort'] == 'iname'):
             chList.sort(key=lambda x: x.lowercase())
@@ -1186,29 +1412,53 @@ class PowerWalk:
             chList.sort(key=lambda x: getsize(os.path.join(curPath, x)))
         elif (self.options['sort'] == 'extension'):
             chList.sort(key=lambda x: splitext(os.path.join(curPath, x))[1])
+        else:
+            raise ValueError("Unknown sort method '%s'." %
+                (self.options['sort']))
         return chList
 
-    def trySomething(self, theStack:list, thing:str, statusMsg:str="included"):
+    def recordEvent(self, theStack:list, thing:str):
         """Count the kind of thing, and maybe say something.
         """
+        self.travState.bump(thing)
         if (len(theStack) == 0):
-            warn(1, "%s  Trying: empty stack (%s, %s)" %
-            ("  "*len(theStack), thing, statusMsg))
+            warn(1, "%s  Trying: empty stack (%s)" %
+                ("  "*len(theStack), thing))
             return
         if (self.options['notify']):
             frame = theStack[-1]
-            warn(1, "Trying %s: '%s' (cont=%s) [%s]" %
-                (thing, frame.path, frame.what, statusMsg))
+            warn(1, "Trying %s: '%s' (cont=%s)" %
+                (thing, frame.path, frame.what))
         return
 
 
 ###############################################################################
 # Generic filename tests.
 #
-# See also diffDirs.py, findDuplicateFiles, lss
+# See also diffDirs.py, findDuplicateFiles, lss, renameFiles
 #
-def isBackup(name):
-    b = os.path.basename(name)
+def isBackup(path, descendants=False):
+    """Given a path, check the basename whether it's a backup file.
+    If 'descendants' is set, also count if a containing dir name has 'backup'.
+
+    Conventions vary, we catch quite a few, such as:
+        foo.txt.bak
+        #foo.txt#
+        #foo#.txt
+        ~foo.txt~
+        Backup (\\d+) of foo.txt           -- Mac OS
+        Copy (\\d+) of foo.txt             -- Mac OS
+        foo.txt backup( \\d*)
+        foo.txt (2020-09-15 13-34-38-374) -- bbedit backup convention
+
+    Should anything with r'\\bbackup\\b' at all, count?
+    Do we need something for temp files? /tmp..., .tmp, .temp...?
+
+    TODO: Call this from other utils that need it...
+
+    """
+    bbeditDate = r' \(\d\d\d\d-\d\d-\d\d \d\d-\d\d-\d\d-\d+\)$'
+    b = os.path.basename(path)
     root, ext = os.path.splitext(b)
     keywords = r'(backup|copy)'
     if (not b): return False
@@ -1218,16 +1468,20 @@ def isBackup(name):
         return True
     if (re.search(r'\b(backup|copy|bak)\b', root, re.IGNORECASE)):
         return True
+    if (descendants and re.match(r'\bbackups?\b', path)):
+        return True
+    if (re.match(bbeditDate, path)):
+        return True
     return False
 
 def isHidden(name):
-    b = os.path.basename(name)
-    if (b.startswith(".")): return True
-    return False
+    """Given a path, check the basename for initial dot.
+    """
+    return os.path.basename(name).startswith(".")
 
 def isGenerated(name):
     """Is the name one that you probably don't need to archive, diff, or
-    do certain other things with, since it's derived.
+    do certain other things with, since it's derived?
     """
     b = os.path.basename(name)
     gExprs = [
@@ -1238,6 +1492,13 @@ def isGenerated(name):
     for ge in gExprs:
         if (re.search(ge, b)): return(True)
     return(False)
+
+def getFileInfo(path):
+    """See what the "file" command has to say about something...
+    """
+    from subprocess import check_output
+    buf = check_output([ "file", "-b", path ])
+    return buf
 
 
 ###############################################################################
@@ -1265,6 +1526,9 @@ if __name__ == "__main__":
             "--short",             action='store_true',
             help='Only show the bottom-level name in the outline view.')
         parser.add_argument(
+            "--stats",             action='store_true',
+            help='Report overall statistics at the end.')
+        parser.add_argument(
             "--verbose", "-v",     action='count', default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
@@ -1276,7 +1540,7 @@ if __name__ == "__main__":
             nargs=argparse.REMAINDER,
             help='Path(s) to files, directories, containers to traverse.')
 
-        PowerWalk.addTraversalOptions(parser)
+        PowerWalk.addOptionsToArgparse(parser)
 
         args0 = parser.parse_args()
         return(args0)
@@ -1287,20 +1551,21 @@ if __name__ == "__main__":
     #
     args = processOptions()
     verbose = args.verbose
-
     argDict = {}
     for k0 in vars(args).keys():
         argDict[k0] = vars(args)[k0]
 
-    if (args.verbose):
+    if (False and args.verbose):
         print("Args:\n%s")
         for k0 in sorted(argDict.keys()):
-            print("    %-20s %s" % (k0, argDict[k0]))
+            print("    %-20s %-12s %s" %
+                (k0, type(argDict[k0]).__name__, argDict[k0]))
 
     cwd = os.environ['PWD']
     if (not args.files): args.files = [ os.environ['PWD'] ]
 
-    pw = PowerWalk(**argDict)
+    pw = PowerWalk()
+    pw.setOptionsFromArgparse(args)
 
 #     pw = PowerWalk(args.files,
 #         recursive=args.recursive,
@@ -1315,16 +1580,17 @@ if __name__ == "__main__":
             path0 = '"' + re.sub(r'"', "\\\"", path0) + '"'
 
         if (what0 == PWType.OPEN):
-            print("%s>>%s" % (args.iString*depth, path0))
+            print("%s==>%s" % (args.iString*depth, path0))
             depth += 1
         elif (what0 == PWType.LEAF):
             print("%s%s" % (args.iString*depth, path0))
         elif (what0 == PWType.CLOSE):
             depth -= 1
-            print("%s<<%s" % (args.iString*depth, path0))
+            print("%s<==%s" % (args.iString*depth, path0))
         elif (what0 == PWType.IGNORE):
             print("%sIGNORING: %s" % (args.iString*depth, path0))
         elif (what0 == PWType.ERROR):
             print("%sERROR: %s" % (args.iString*depth, path0))
 
-    if (not args.quiet): pw.travState.showStats()
+    if (args.stats):
+        sys.stderr.write(pw.travState.getStats(showZeroes=True))
