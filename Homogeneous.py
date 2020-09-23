@@ -28,20 +28,24 @@ Subclasses of `list` and `dict` that enforce the datatypes of keys and/or values
 For example:
 
     myDict = hdict(keyType=str, valueType=int)
+
+Attempts to add, access, or replace items using the wrong datatypes,
+will raise a `TypeError` exception. So the first following line is fine,
+but the second will raise TypeError (for two reasons, actually: both the
+key and the value are of the wrong types):
+
     myDict['fooBar'] = 12
     myDict[12] = 'foo'
 
-Attempts to add, access, or replace items using the wrong datatypes,
-will raise a `TypeError` exception.
-
 If you set `valueNone=True`, then `None` is also an acceptable value.
 
-If the required type is a class name, you can choose whether subclasses are
+If the required valueType is a class, you can choose whether subclasses are
 acceptable or not (default: True)
 
     myList = hlist(valueType=someClass, valueSubs=False)
 
-If desired, set `valueTest` to a function that returns True only for values
+If desired, you can set constraints other than just type:
+set `valueTest` to a function that returns True only for values
 that are acceptable:
 
     probabilityList = hlist(valueType=float,
@@ -54,9 +58,11 @@ or
 
 Other operations are all intended to work normally.
 
+
 =Related Commands=
 
-`LooseDict`
+`LooseDict`, `Record`.
+
 
 =Known bugs and Limitations=
 
@@ -65,9 +71,18 @@ There is no way to constrain the size of the hlist or hdict itself.
 Perhaps `valueTest` failures should raise ValueError instead of TypeError,
 but I decided to just use TypeError for everything.
 
+
 =History=
 
 2020-02-19: Written by Steven J. DeRose.
+
+
+=To do=
+
+`Record` is largely the same but for `namedtuple`.
+
+Should probably add the same idea for other Python container types:
+set, frozenset, defaultdict, dequeue, Counter, OrderedDict....
 
 =Rights=
 
@@ -78,6 +93,7 @@ For further information on this license, see
 
 For the most recent version, see [http://www.derose.net/steve/utilities]
 or [https://github.com/sderose].
+
 
 =Options=
 """

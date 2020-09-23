@@ -8,21 +8,8 @@
 from __future__ import print_function
 import sys, re
 
-#from alogging import ALogger
-
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
-if PY2:
-    string_types = basestring
-    from urllib import quote as urlquote
-    from htmlentitydefs import codepoint2name
-else:
-    from urllib.parse import quote as urlquote
-    from html.entities import codepoint2name
-    string_types = str
-    def unichr(n): return chr(n)
-    def unicode(s, encoding='utf-8', errors='strict'): str(s, encoding, errors)
-
 
 __metadata__ = {
     'title'        : "Datatypes.py",
@@ -49,7 +36,7 @@ If you set option '''xsv''', a few more types are supported, as described below.
     typeChecker = Datatypes()
     myValues = [ '1', '-2', 'False', 'spam' ]
     for s in myValues:
-        if (not checkValueForType(s, 'int')):
+        if (not typeChecker.checkValueForType('int', s)):
             print("String does not represent an integer: '%s'." % (s))
 
 This is intended to handle all the datatypes defined by XML Schema Datatypes
@@ -103,6 +90,9 @@ See [http://www.w3.org/TR/xmlschema-2/],
 "XML Schema Part 2: Datatypes Second Edition."
 W3C Recommendation 28 October 2004.
 
+Note that this packages checks '''strings''' against given types. Trying to
+text an actual Python int, bool, etc. will raise a TypeError exception.
+
 * ''anyURI'', ''base64Binary'', ''hexBinary''
 
 ===Truth values===
@@ -136,7 +126,9 @@ W3C Recommendation 28 October 2004.
 These additions are used by my [XSV] format, and might be useful to others too
 (handling them requires '''setOption("xsv", 1)'''):
 
-* ''X-Char'' -- a single Unicode character.
+* ''X-UChar'' -- a single Unicode character.
+
+* ''X-XMLChar'' -- a single Unicode character.
 
 * ''X-ASCII'' -- an ASCII string.
 
@@ -164,7 +156,7 @@ be specified as an option when defining each named pattern.
 
 `tinyRegexParser.py`, `tinierRegexParser.py`.
 
-`XmlConstructs.py`: A collection of relevant regexes for XML.
+`XmlRegexes.py`: A collection of relevant regexes for XML.
 
 
 =Known bugs and limitations=
@@ -177,6 +169,8 @@ No option for trimming whitespace first.
 
 No option for multiple tokens with `X-Enum` or `X-Match`.
 
+The X- types don't check properly with the driver (at least).
+
 
 =History=
 
@@ -185,7 +179,8 @@ No option for multiple tokens with `X-Enum` or `X-Match`.
 * 2020-08-12: New layout. Add X-Probability. Much cleaner regexes.
 POD to MarkDown. Add methods for defining and applying specific
 regexes and enums. Distinguish "Regex" type from "Match".
-* 2020-09-02: Pull in accurate Unicode XML character sets from XmlConstructs.py.
+* 2020-09-02: Pull in accurate Unicode XML character sets from XmlRegexes.py.
+* 2020-09-22: Improve test harness, fix several bugs.
 
 
 =To do=
@@ -194,7 +189,7 @@ regexes and enums. Distinguish "Regex" type from "Match".
 
 * Lots more testing.
 
-* Add a built-in test driver.
+* Should it accept actual Python data, not just strings?
 
 * Add a type that accepts H-style numbers like 3.2M.
 
@@ -293,7 +288,7 @@ class Datatypes:
         "unsignedLong":      (posi,              0,  0x7FFFFFFFFFFFFFFF, int),
 
         ### Dates and times (unfinished)  TODO: Check vs. XML Schema Datatypes
-        "gDay":              (day,               1,     366, int),
+        "gDay":              (r'\d+',            1,     366, int),
         "gMonth":            (mon,               1,      12, int),
         "gMonthDay":         (mon+'-'+day,       1,      31, str),
         "gYear":             (year,              None, None, int),
@@ -324,7 +319,8 @@ class Datatypes:
         #"X-Enum":      [SPECIAL]
         #"X-Match":     [SPECIAL]
         "X-Regex":           (None,              None, None, str),
-        "X-Char":            (r'.',              None, None, str),
+        "X-UChar":           (r'.',              None, None, str),
+        "X-XMLChar":         (r'.',              None, None, str),
         "X-ASCII":           (r'[[:ASCII:]]*',   None, None, str),
         "X-HexInt":          (r'([0-9a-fA-F]+)', None, None, str),
         "X-OctInt":          (r'([0-7]+)',       None, None, str),
@@ -340,7 +336,8 @@ class Datatypes:
         self.enums = {}
         self.patts = {}
 
-        for k, v in (Datatypes.__DatatypeData__):
+        for k in (Datatypes.__DatatypeData__):
+            v = Datatypes.__DatatypeData__[k]
             try:
                 self.exprs[k] = re.compile(r'^(' + v[0] + r')$')
             except Exception as e:
@@ -464,6 +461,9 @@ if __name__ == "__main__":
             formatter_class=BlockFormatter
         )
         parser.add_argument(
+            "--list",              action='store_true',
+            help='Show a list of the known types.')
+        parser.add_argument(
             "--quiet", "-q",       action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
@@ -483,6 +483,8 @@ if __name__ == "__main__":
 
         return args0
 
+    # Some test data, as tuples of (typeName, expected result, string
+    #
     testStrings = [
         ### Wonky strings
         ( "anyURI",                 True,  'http://example.com/foo.html#bar' ),
@@ -490,7 +492,7 @@ if __name__ == "__main__":
         ( "hexBinary",              True,  'DEADBEEF' ),
 
         ### Truth values
-        ( "boolean",                True,  '' ),
+        ( "boolean",                False, '' ),
 
         ### Real numbers
         ( "decimal",                True,  '134217727' ),
@@ -510,45 +512,62 @@ if __name__ == "__main__":
         ( "positiveInteger",        True,  '1776' ),
 
         ( "unsignedByte",           True,  '127' ),
-        ( "unsignedShort",          True,  '65535' ),
-        ( "unsignedInt",            True,  '' ),
-        ( "unsignedLong",           True,  '' ),
+        ( "unsignedShort",          True,  '32767' ),
+        ( "unsignedShort",          False, 'ersatz' ),
+        ( "unsignedShort",          False, '65535' ),
+        ( "unsignedInt",            False, '2**31' ),
 
         ### Dates and times         True,  '' ),
-        ( "gDay",                   True,  '' ),
+        ( "gDay",                   True,  '123' ),
         ( "gMonth",                 True,  '12' ),
         ( "gMonthDay",              True,  '12-31' ),
         ( "gYear",                  True,  '2525' ),
         ( "gYearMonth",             True,  '1942-01' ),
         ( "date",                   True,  '1960-04-02' ),
-        ( "dateTime",               True,  '' ),
+        ( "dateTime",               True,  '1960-04-02T23:59:59+03:00' ),
         ( "time",                   True,  '23:59:59.999Z' ),
-        ( "duration",               True,  '' ),
+        ( "duration",               True,  '3600' ),
 
         ### Strings
         ( "language",               True,  'EN.US' ),
-        ( "normalizedString",       True,  '' ),
+        ( "normalizedString",       True,  'This  is  a string. ' ),
         ( "string",                 True,  'uchambuzi' ),
         ( "token",                  True,  'DIV3' ),
 
         ### XML constructs          True,  '' ),
-        ( "ID",                     True,  '' ),
-        ( "IDREF",                  True,  '' ),
-        ( "IDREFS",                 True,  '' ),
-        ( "Name",                   True,  '' ),
-        ( "NCName",                 True,  '' ),
-        ( "NMTOKEN",                True,  '' ),
-        ( "NMTOKENS",               True,  '' ),
-        ( "QName",                  True,  '' ),
+        ( "ID",                     True,  'DIV3' ),
+        ( "IDREF",                  True,  'MY_id_17.2' ),
+        ( "IDREFS",                 True,  'A1 A2  A3  ' ),
+        ( "Name",                   True,  'bazingaTag' ),
+        ( "Name",                   False, '999bazingaTag' ),
+        ( "NCName",                 True,  'p12-a_2.ix' ),
+        ( "NMTOKEN",                False, ' 999' ),
+        ( "NMTOKENS",               True,  ' aardvark beefalo' ),
+        ( "QName",                  True,  'svg:g' ),
 
         # ( "X-Enum",      [SPECIAL]
         # ( "X-Match",     [SPECIAL]
         # ( "X-Regex",     [SPECIAL]
-        ( "X-Char",                 True,  '' ),
-        ( "X-ASCII",                True,  '' ),
-        ( "X-HexInt",               True,  '' ),
-        ( "X-OctInt",               True,  '' ),
-        ( "X-Probability",          True,  '' )
+        ( "X-UChar",                True,  'x' ),
+        ( "X-UChar",                True,  "\u2402" ),
+
+        ( "X-XMLChar",              True,  'x' ),
+        ( "X-XMLChar",              False, "\x27" ),
+
+        ( "X-ASCII",                True,  '!' ),
+        ( "X-ASCII",                False, "\u2402" ),
+
+        ( "X-HexInt",               True,  'deadBEEF' ),
+        ( "X-HexInt",               False, '123G' ),
+        ( "X-HexInt",               False, '0x01' ),
+
+        ( "X-OctInt",               True,  '007' ),
+        ( "X-OctInt",               False, '082' ),
+
+        ( "X-Probability",          True,  '0.99' ),
+        ( "X-Probability",          True,  '50E-2' ),
+        ( "X-Probability",          False,  '1.99' ),
+        ( "X-Probability",          False,  '-0.5' ),
     ]
 
     ###########################################################################
@@ -557,7 +576,28 @@ if __name__ == "__main__":
     args = processOptions()
 
     dt = Datatypes()
-    if (args.strings):
+
+    if (args.list):
+        for k in sorted(dt.__DatatypeData__.keys()):
+            regex, minVal, maxVal, pyType = dt.__DatatypeData__[k]
+            print("%-20s (->%-8s): /%s/" % (k, pyType.__name__, regex))
+        sys.exit()
+
+    nPass = nFail = 0
+    if (not args.strings):
         for typeName, isOK, s in testStrings:
-            print("%-16s '%s': %s" %
-                (typeName, s, dt.checkValueForType(s, typeName)))
+            print("%-20s [%5s] for '%s'" %
+                (typeName, isOK, s))
+            try:
+                rc = dt.checkValueForType(typeName, s)
+            except ValueError as e:
+                print("    ERROR: %s" % (e))
+            if (rc == isOK):
+                print("    PASS")
+                nPass += 1
+            else:
+                print("    FAIL")
+                nFail += 1
+    print("\nDone. %d pass, %d fail, %6.2f%%." %
+        (nPass, nFail, 100.0*nPass/(nPass+nFail)))
+    sys.exit()

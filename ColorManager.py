@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
 # ColorManager.py: ANSI color utilities for Python, by Steven J. DeRose.
+# 2011-12-09: sjdUtils Ported to Python; 2016-10-31 ColorManager separated.
 #
 from __future__ import print_function
 import sys
@@ -15,7 +16,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2011-12-09",
-    'modified'     : "2020-01-01",
+    'modified'     : "2020-09-16",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -35,13 +36,6 @@ For information on these codes, see for example
 
 The color names available are defined in F<bingit/SHELL/colorNames.pod>,
 which supercedes anything in specific scripts (although they I<should> match).
-
-This is a separate class for managing ANSI terminal colors.
-However, if using `sjdUtils.py`, the `ColorManager.py` methods
-are patched in , so when color is enabled you can just
-call them as if they were methods of `sjdUtils.py` itself.
-There is also a Perl version in `ColorManager.pm`,
-and an `uncolorize` wrapper for command-line use.
 
 
 =Usage=
@@ -109,6 +103,7 @@ Remove any ANSI terminal color escapes from I<s>.
 Return the length of I<s>, but ignoring any ANSI terminal color strings.
 This is just shorthand for `len(uncolorize(s))`.
 
+
 =Known bugs and limitations=
 
 If you I<colorize>() a string, it resets the color to default at the end.
@@ -119,7 +114,17 @@ You can specify the I<endAs> option when colorizing A to avoid this.
 
 ColorManager has no support (yet) for 256-color terminals.
 
+
 =Related commands=
+
+There is a Perl version in `ColorManager.pm`,
+and an `uncolorize` wrapper for command-line use.
+
+The `colorstring` shell command is just a wrapper for this.
+
+My `sjdUtils.py` forwards several `ColorManager.py` methods,
+so when color is enabled you can just
+call them as if they were methods of `sjdUtils.py` itself.
 
 See L<https://stackoverflow.com/questions/287871/> on "How to print colored text in terminal in python." It references Python modules I<termcolor> (apparently
 no longer maintained?), I<chromalog>, I<Colorama>, and others.
@@ -127,19 +132,15 @@ For information on these codes, see for example
 [https://en.wikipedia.org/wiki/ANSI_escape_code].
 
 
-The `colorstring` shell command (just a wrapper for this), `sjdUtils.py`,
-and Perl versions in `ColorManager.pm` and `sjdUtils.pm`.
-
 =History=
 
 * 2011-12-09: sjdUtils Port from Perl to Python by Steven J. DeRose.
-
 * 2016-10-31: Split ColorManager.py out of sjdUtils.py.
-
 * 2018-09-04: Make basic tables accessible. Simplify string construction.
 Add test feature as main.
-
 * 2018-10-22: Catch KeyError on color names.
+* 2020-09-16: Add separate fg, bg, effect args for `colorize()`.
+
 
 =To do=
 
@@ -165,6 +166,7 @@ proportional spacing ("not known to be used on terminals");
     5 magenta -- #F0F
     6 cyan    -- #0FF
     7 white   -- #FFF
+
 
 =Rights=
 
@@ -318,14 +320,21 @@ class ColorManager:
             buf += "    %s  %s\n" % (self.colorize(k, sampleText), k)
         return(buf)
 
-    def colorize(self, argColor='red', s="", endAs="off"):
+    def colorize(self, argColor='red', s="", endAs="off",
+        fg='', bg='', effect=''):
         """If color is enabled, surround `string` with the escape sequences
         needed to put it in the specified color (assuming the name is known).
+        The color may be specified either by;
+            argColor: A full name, such as "red" or "red/blue/bold", or
+            fg="red", bg="blue", effect="bold"
         `endAs` is the color that will be changed to at the end.
         """
-        if (argColor not in self.colorStrings):
-            return("<%s>%s</%s>" % (argColor, s, argColor))
-        buf = self.colorStrings[argColor] + s + self.colorStrings[endAs]
+        if (not argColor):
+            argColor = "%s/%s/%s" % (fg, bg, effect)
+        if (argColor in self.colorStrings):
+            buf = self.colorStrings[argColor] + s + self.colorStrings[endAs]
+        else:
+            buf = "<%s>%s</%s>" % (argColor, s, argColor)
         return(buf)
 
     def uncolorize(self, s):
@@ -341,7 +350,6 @@ class ColorManager:
         return(len(self.uncolorize(s)))
 
 
-###############################################################################
 ###############################################################################
 #
 if __name__ == "__main__":

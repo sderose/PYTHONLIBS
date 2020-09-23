@@ -1533,7 +1533,7 @@ def getCharInfo(n):
 
     charInfo['ent16']      = "&#x%05x;" % (n)
     charInfo['ent10']      = "&#%d;" % (n)
-    print("type: %s" % (type(codepoint2name)))
+    #print("type: %s" % (type(codepoint2name)))
     if (n in codepoint2name):
         charInfo['entNamed'] = "  &%s;" % (codepoint2name[n])
     else:
