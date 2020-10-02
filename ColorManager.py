@@ -34,8 +34,8 @@ See colorNames.pod for information re. the colors supported by this package.
 For information on these codes, see for example
 [https://en.wikipedia.org/wiki/ANSI_escape_code].
 
-The color names available are defined in F<bingit/SHELL/colorNames.pod>,
-which supercedes anything in specific scripts (although they I<should> match).
+The color names available are defined in `bingit/SHELL/colorNames.pod`,
+which supercedes anything in specific scripts (although they ''should'' match).
 
 
 =Usage=
@@ -49,8 +49,8 @@ which supercedes anything in specific scripts (although they I<should> match).
 
 * '''__init__(effects=None)'''
 
-Set up the color manager. I<effects> is merely passed down to
-I<setupColors()>.
+Set up the color manager. ''effects'' is merely passed down to
+''setupColors()''.
 
 * '''setupColors(effects=None)'''
 
@@ -65,7 +65,7 @@ Adds a synonym for an existing color.
 
 * '''isColorName(name)'''
 
-Returns True iff I<name> is a known color name.
+Returns True iff ''name'' is a known color name.
 
 * '''getColorString(name)'''
 
@@ -81,36 +81,36 @@ the escape strings needed to get them.
 Obsolete.
 
 Return a printable buffer with one line for each defined color name.
-Each line consist of colorized I<sampleText> and then the color name.
+Each line consist of colorized ''sampleText'' and then the color name.
 
-If I<filter> is supplied, it is treated as a regular expression, and any
+If ''filter'' is supplied, it is treated as a regular expression, and any
 color names that do not match it are excluded. This is useful because
 there are about 1000 combinations available.
 
 * '''colorize(argColor='red', s="", endAs="off")'''
 
-Return the string I<s>, but with
+Return the string ''s'', but with
 the ANSI terminal escape sequences to display it in the specified
-I<argColor> added at the start, and the escape to switch to color I<endAs>
+''argColor'' added at the start, and the escape to switch to color ''endAs''
 added at the end.
 
 * '''uncolorize>I<(s)'''
 
-Remove any ANSI terminal color escapes from I<s>.
+Remove any ANSI terminal color escapes from ''s''.
 
-* '''uncoloredLen>I<(s)'''
+* '''uncoloredLen(s)'''
 
-Return the length of I<s>, but ignoring any ANSI terminal color strings.
+Return the length of ''s'', but ignoring any ANSI terminal color strings.
 This is just shorthand for `len(uncolorize(s))`.
 
 
 =Known bugs and limitations=
 
-If you I<colorize>() a string, it resets the color to default at the end.
+If you ''colorize''() a string, it resets the color to default at the end.
 Thus, if you insert colorized string A within colorized string B, the portion
-of B following A will I<not> be colorized; if B was already colorized, the
+of B following A will ''not'' be colorized; if B was already colorized, the
 trailing portion will likewise not be colorized.
-You can specify the I<endAs> option when colorizing A to avoid this.
+You can specify the ''endAs'' option when colorizing A to avoid this.
 
 ColorManager has no support (yet) for 256-color terminals.
 
@@ -126,20 +126,21 @@ My `sjdUtils.py` forwards several `ColorManager.py` methods,
 so when color is enabled you can just
 call them as if they were methods of `sjdUtils.py` itself.
 
-See L<https://stackoverflow.com/questions/287871/> on "How to print colored text in terminal in python." It references Python modules I<termcolor> (apparently
-no longer maintained?), I<chromalog>, I<Colorama>, and others.
+See [https://stackoverflow.com/questions/287871] on "How to print colored text in terminal in python." It references Python modules ''termcolor'' (apparently
+no longer maintained?), ''chromalog'', ''Colorama'', and others.
 For information on these codes, see for example
 [https://en.wikipedia.org/wiki/ANSI_escape_code].
 
 
 =History=
 
-* 2011-12-09: sjdUtils Port from Perl to Python by Steven J. DeRose.
-* 2016-10-31: Split ColorManager.py out of sjdUtils.py.
+* 2011-12-09: `sjdUtils` port from Perl to Python by Steven J. DeRose.
+* 2016-10-31: Split `ColorManager.py` out of `sjdUtils.py`.
 * 2018-09-04: Make basic tables accessible. Simplify string construction.
 Add test feature as main.
-* 2018-10-22: Catch KeyError on color names.
-* 2020-09-16: Add separate fg, bg, effect args for `colorize()`.
+* 2018-10-22: Catch `KeyError` on color names.
+* 2020-09-16ff: Add separate fg, bg, effect args for `colorize()`.
+Cleanup doc. Move effects to end, not beginning per ColorNames.md.
 
 
 =To do=
@@ -265,10 +266,10 @@ class ColorManager:
                 self.colorStrings["/"+c] = "%s%dm" % (eb, 40+cn)
                 for e in ColorManager.effectNumbers:
                     en = ColorManager.effectNumbers[e]
-                    self.colorStrings[    e+"/"+c]  = fmt2 % (eb, en, 30+cn)
-                    self.colorStrings[    e+"//"+c] = fmt2 % (eb, en, 40+cn)
-                    self.colorStrings["!"+e+"/"+c]  = fmt2 % (eb, 20+en, 30+cn)
-                    self.colorStrings["!"+e+"//"+c] = fmt2 % (eb, 20+en, 40+cn)
+                    self.colorStrings[c+"/"+e]   = fmt2 % (eb, en,    30+cn)
+                    self.colorStrings[c+"//"+e]  = fmt2 % (eb, en,    40+cn)
+                    self.colorStrings[c+"/!"+e]  = fmt2 % (eb, 20+en, 30+cn)
+                    self.colorStrings[c+"//!"+e] = fmt2 % (eb, 20+en, 40+cn)
 
                 for c2 in ColorManager.colorNumbers:
                     c2n = ColorManager.colorNumbers[c2]
@@ -276,7 +277,7 @@ class ColorManager:
                         fmt2 % (eb, 30+cn, 40+c2n))
                     for e in ColorManager.effectNumbers:
                         en = ColorManager.effectNumbers[e]
-                        self.colorStrings[e+"/"+c+"/"+c2] = (
+                        self.colorStrings[c+"/"+c2+"/"+e] = (
                             "%s%d;%d;%dm" % (eb, en, 30+cn, 40+c2n))
         except KeyError as err:
             sys.stderr.write(
@@ -284,9 +285,9 @@ class ColorManager:
         return()
 
     def addColor(self, newName, oldName):
-        """Add I<newName> to the color table, so it can be passed to I<vMsg>.
-        It becomes a synonym for I<oldName> (any previous meaning of I<newName>
-        is replaced, but I<oldName> remains).
+        """Add `newName` to the color table, so it can be passed to ''vMsg''.
+        It becomes a synonym for ''oldName'' (any previous ''newName''
+        is replaced, but ''oldName'' remains).
         """
         try:
             self.colorStrings[newName] = self.colorStrings[oldName]
@@ -320,7 +321,7 @@ class ColorManager:
             buf += "    %s  %s\n" % (self.colorize(k, sampleText), k)
         return(buf)
 
-    def colorize(self, argColor='red', s="", endAs="off",
+    def colorize(self, s="", argColor='red', endAs="off",
         fg='', bg='', effect=''):
         """If color is enabled, surround `string` with the escape sequences
         needed to put it in the specified color (assuming the name is known).
@@ -362,7 +363,7 @@ if __name__ == "__main__":
         help='Show samples with bold foreground colors.')
     parser.add_argument(
         "--color",            type=str, default=None,
-        help="Show sample of the specified color combination.")
+        help="Show a sample of the specified color combination.")
     parser.add_argument(
         "--effects",          type=str, default=None,
         #choices=ColorManager.effectNumbers.keys(),
@@ -373,6 +374,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--showAll",          action='store_true',
         help='Show samples of all combinations.')
+    parser.add_argument(
+        "--text",             type=str, default="Sample text",
+        help="The text to display with --color.")
     parser.add_argument(
         "--version",          action='version', version=__version__,
         help='Display version information, then exit.')
@@ -389,9 +393,8 @@ if __name__ == "__main__":
     ctable = cm.getColorStrings()
 
     if (args.color):
-        toShow = { args.color: ctable[args.color] }
-    else:
-        toShow = ctable
+        print(ctable[args.color] + args.text + ctable['off'], end=ender)
+        sys.exit()
 
     """
     for name1, seq (toShow) {
@@ -407,6 +410,8 @@ if __name__ == "__main__":
         ));
     }
     """
+
+    toShow = ctable
 
     if (args.showAll):
         tot = 0
