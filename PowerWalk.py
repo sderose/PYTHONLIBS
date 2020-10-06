@@ -10,6 +10,7 @@ import re
 from collections import namedtuple
 import random
 from enum import Enum
+from shutil import copyfile
 
 from alogging import ALogger
 lg = ALogger(0)
@@ -167,11 +168,12 @@ extension of not.
 files, each passed back with its full path and an open file handle,
 you can just to this:
 
+    from PowerWalk import PowerWalk, PWType
     pw = PowerWalk(".", recursive=True, open=True, close=True)
-    for path, fh, what in pw.traverse:
-        if (what == PWType.LEAF):
-            nrecs = len(fh.readlines)
-            print("%6d lines in %s" % (nrecs, path))
+    for path, fh, what in pw.traverse():
+        if (what != PWType.LEAF): continue
+        nrecs = len(fh.readlines)
+        print("%6d lines in %s" % (nrecs, path))
 
 `what` will be a PWType Enum, one of:
     PWType.OPEN  -- Issued when a container (tar, directory, etc.) opens.
@@ -207,7 +209,7 @@ If you'd rather think of directory boundaries as exceptional
     pw = PowerWalk(".", recursive=True, exceptions=True)
     while True:
         try:
-            path, fh, what = pw.traverse:
+            path, fh, what = pw.traverse():
             nrecs = len(fh.readlines)
             print("%6d lines in %s" % (nrecs, path))
         except ItemOpening:
@@ -509,16 +511,16 @@ is not yet thoroughly tested. I imagine writing doesn't work well for container
 files (tar, gzip, etc.).
 
 * Statistics of the current run as well as the current
-nesting depth of the traversal (in .depth), are separated into a
+nesting depth of the traversal (in `.depth`), are separated into a
 TraversalState object. A reference to that object is
-kept directly in the PowerWalk object instance as PowerWalk.travState.
+kept directly in the PowerWalk object instance as `PowerWalk.travState`.
 So if you try to run two traversals from the same PowerWalk instance, you may
-have problems accessing PowerWalk.travState. However, PowerWalk
+have problems accessing `PowerWalk.`. However, PowerWalk
 itself doesn't use it, so it should be ok. It's really only stored there
 so command-line usage can display statistics at the end.
 That won't work if you modify it to run a second
-PowerWalk.traverse() before printing statistics that way. If you create two
-separate `PowerWalk` instances in such cases, you should be fine.
+`PowerWalk.traverse()` before printing statistics that way. If you create two
+separate PowerWalk instances in such cases, you should be fine.
 
 * You can only specify one regex for each of the 4 include/exclude options
 that take regexes. These options do not apply to directories (ideally, they
@@ -559,20 +561,22 @@ and several new filtering options, type-check them.
 Refactor event generation, item stack, and statistics into TraversalState class.
 * 2020-09-15: Fix several bugs in filtering, improve reporting and
 option-setting. Add `--includeInfos` and `--excludeInfos`.
+* 02020-10-06: Fix --includeNames, make it and --excludeName include extension.
+Add --copyTo and --serialize.
 
 
 =To do=
 
 ==Most wanted==
 
-* Option to cat all leafs.
-
-* Support additional compression methods
-
-* copy/move/link picked files somewhere, serializing names, setting
-xattr to say where copied from.
+* Support additional compression methods.
 
 * Protect against circular links.
+
+* Option to cat all leafs?
+
+* move/link picked files somewhere, serializing names, setting
+xattr to say where copied from.
 
 * include/exclude for dirs (and containers?), not just files.
 
@@ -615,7 +619,7 @@ See [https://stackoverflow.com/questions/48862093] (how-to-read-change-and-write
 [http://mac-alias.readthedocs.io/en/latest] and
 [https://docs.python.org/2/library/macostools.html].
 
-* Support URLs (can *nix, Mac, or Wind aliases point to URLs?
+* Support URLs (can *nix, Mac, or Win aliases point to URLs?
 
 * Sampling of every nth file, first n from each directory, etc.
 
@@ -1345,7 +1349,7 @@ class PowerWalk:
         Return True only if the all pass (reaching the final 'else').
         """
         head, tail = os.path.split(path)
-        (namepart, extPart) = os.path.splitext(tail)
+        (_, extPart) = os.path.splitext(tail)
         extPart = extPart.strip(". \t\n\r")
 
         passes = False  # Assume the worst for now...
@@ -1360,14 +1364,14 @@ class PowerWalk:
             re.search(self.options['excludeExtensions'], extPart)):
             self.recordEvent(trav, 'ignoredByExcludeExtensions')
         elif (self.options['includeExtensions'] and
-            re.search(self.options['includeExtensions'], extPart)):
+            not re.search(self.options['includeExtensions'], extPart)):
             self.recordEvent(trav, 'ignoredByIncludeExtensions')
 
         elif (self.options['excludeNames'] and
-            re.search(self.options['excludeNames'], namepart)):
+            re.search(self.options['excludeNames'], tail)):
             self.recordEvent(trav, 'ignoredByExcludeNames')
         elif (self.options['includeNames'] and
-            not re.search(self.options['includeNames'], namepart)):
+            not re.search(self.options['includeNames'], tail)):
             self.recordEvent(trav, 'ignoredByIncludeNames')
 
         elif (self.options['excludePaths'] and
@@ -1500,6 +1504,11 @@ def getFileInfo(path):
     buf = check_output([ "file", "-b", path ])
     return buf
 
+def xset(path, prop, val):
+    #import xattr
+    warn(0, "--xattr is not yet supported.")
+    sys.exit()
+
 
 ###############################################################################
 #
@@ -1514,6 +1523,9 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
+            "--copyTo",  metavar='P', type=str,
+            help='Copy chosen files to this directory (see --serialize).')
+        parser.add_argument(
             "--iString", metavar='S', type=str, default='    ',
             help='Repeat this string to create indentation.')
         parser.add_argument(
@@ -1526,6 +1538,9 @@ if __name__ == "__main__":
             "--short",             action='store_true',
             help='Only show the bottom-level name in the outline view.')
         parser.add_argument(
+            "--serialize",         action='store_true',
+            help='With --copy, add a serial number to each file.')
+        parser.add_argument(
             "--stats",             action='store_true',
             help='Report overall statistics at the end.')
         parser.add_argument(
@@ -1534,6 +1549,9 @@ if __name__ == "__main__":
         parser.add_argument(
             "--version",           action='version', version=__version__,
             help='Display version information, then exit.')
+        parser.add_argument(
+            "--xattrs",            action='store_true',
+            help='With --copyTo, set xattr kmdItemWhereFroms to point back (not yet supported).')
 
         parser.add_argument(
             'files',               type=str,
@@ -1543,6 +1561,12 @@ if __name__ == "__main__":
         PowerWalk.addOptionsToArgparse(parser)
 
         args0 = parser.parse_args()
+
+        if (args0.copyTo):
+            if (not os.path.isdir(args0.copyTo)):
+                warn(0, "No directory available at '%s'." % (args0.copyTo))
+                sys.exit()
+
         return(args0)
 
 
@@ -1572,6 +1596,7 @@ if __name__ == "__main__":
 #         notify=args.verbose)
 
     depth = 0
+    leafNum = 0
     for path0, fh0, what0 in pw.traverse():
         path0 = path0.replace(cwd, '.')
         if (args.short and depth > 1):
@@ -1583,7 +1608,20 @@ if __name__ == "__main__":
             print("%s==>%s" % (args.iString*depth, path0))
             depth += 1
         elif (what0 == PWType.LEAF):
+            leafNum += 1
             print("%s%s" % (args.iString*depth, path0))
+            if (args.copyTo):
+                _, baseName = os.path.split(path0)
+                if (args.serialize): baseName = "_%04d%s" % (leafNum, baseName)
+                warn(1, "copyTo '%s', base '%s'." % (args.copyTo, baseName))
+                tgtPath = os.path.join(args.copyTo, baseName)
+                if (os.path.exists(tgtPath)):
+                    warn(0, "Target already exists: %s => %s" %
+                        (path0, tgtPath))
+                else:
+                    copyfile(path0, tgtPath)
+                    if (args.xattrs):
+                        xset(tgtPath, "kmdItemWhereFroms", "file://"+path0)
         elif (what0 == PWType.CLOSE):
             depth -= 1
             print("%s<==%s" % (args.iString*depth, path0))

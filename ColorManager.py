@@ -400,7 +400,7 @@ if __name__ == "__main__":
     for name1, seq (toShow) {
         name1 = $b;
         name2 = "white/$b";
-        name3 = "bold/$b";
+        name3 = "$b/bold";
         name4 = "$b/white";
         warn (sprintf("## %s ## %s ## %s ## %s ##\n",
             colorize($name1, sprintf("%-14s", $name1)),

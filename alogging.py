@@ -969,7 +969,7 @@ class ALogger:
             self.defineMsgType(u'v',
               u'blue',             escape=0, indent=1)
             self.defineMsgType(u'e',
-              u"bold/white/red",   escape=1, indent=1,  prefix=u"ERROR: ")
+              u"white/red/bold",   escape=1, indent=1,  prefix=u"ERROR: ")
             self.defineMsgType(u'h',
               u'magenta/white',    escape=0, indent=1,  prefix=u"\n******* ")
             self.defineMsgType(u'x',

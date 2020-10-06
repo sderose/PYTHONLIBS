@@ -467,13 +467,12 @@ class DialectX:
             if (k in theArgs.__dict__ and theArgs.__dict__[k] is not None):
                 self.__dict__[k] = theArgs.__dict__[k]
 
-    def add_my_arguments(self, parser, prefix="", csvOnly=False):
-        """Add argparse arguments corresponding to those for the Python 'csv'
-        library.
-        @param prefix: If specified, add this at the start of all the name,
+    @staticmethod
+    def add_my_arguments(parser, prefix="", csvOnly=False):
+        """Add argparse arguments for our options.
+        @param prefix: If specified, add this at the start of all the names,
         to prevent name conflicts.
-        @param csvOnly: If set, don't include arguments specific to my fsplit
-        package.
+        @param csvOnly: If set, don't include arguments specific to fsplit.
         """
         pre = "--" + prefix
 
