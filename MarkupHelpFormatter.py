@@ -527,10 +527,11 @@ class Loader:
 
     instanceCount = 0
 
-    def __init__(self, *args, prog="Program", **kw):
+    def __init__(self, *args, **kw):
         MarkupHelpFormatter.instanceCount += 1
         self.whichInstanceAmI = MarkupHelpFormatter.instanceCount
-
+        self.prog = "???"
+        if ('prog' in kw): self.prog = kw['prog']
         self._add_defaults = False
         self.podListLevel = 0
         self.html = outHTML()

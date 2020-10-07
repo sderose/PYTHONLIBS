@@ -522,11 +522,15 @@ That won't work if you modify it to run a second
 `PowerWalk.traverse()` before printing statistics that way. If you create two
 separate PowerWalk instances in such cases, you should be fine.
 
-* You can only specify one regex for each of the 4 include/exclude options
+* You can only specify one regex for each of the include/exclude options
 that take regexes. These options do not apply to directories (ideally, they
 should be separately settable for dirs and files (and maybe other containers).
 
 * There is no protection against circular links.
+
+* With `--serialize`, there is no control over 0-padding (always a minimum
+of 4 digits), or whether the serial number is prefixed or suffixed. I provide
+other utilities that may help with file organization (see next section).
 
 
 =Related commands=
@@ -535,11 +539,12 @@ should be separately settable for dirs and files (and maybe other containers).
 from Python code, especially for people (like corpus linguists) who work with
 tons of sample files in complicated directory and container structures.
 
-My [../FileManagement/lss], [../FileManagement/findIdenticalFiles].
+[https://github.com/sderose/FileManagement/lss], [https://github.com/sderose/FileManagement/findIdenticalFiles].
 
-My [../FileManagement/lsoutline] produces a file listing
+[https://github.com/sderose/FileManagement/lsoutline] produces a file listing
 similar to what `PowerWalk` produces
-when run from the command line. But you can do fancier selection here.
+when run from the command line. But you can do fancier selection here (that
+script may be upgraded to just use PowerWalk underneath).
 
 
 =References=

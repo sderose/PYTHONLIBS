@@ -30,7 +30,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2011-12-09",
-    'modified'     : "2020-03-02",
+    'modified'     : "2020-10-07",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -41,22 +41,23 @@ descr = """
 =Description=
 
 A logging facility, largely compatible with Python 'logging.Logger'.
-Derived from sjdUtils.py's messaging methods.
+Derived from `sjdUtils.py`'s messaging methods.
 
-=Extra features compared to logging.Logger:=
+=Extra features compared to `logging.Logger`=
 
 * Traditional *nix-style `-v` verbosity levels
 
 * Better Unicode and non-printable char handling
 
-* Defined named message types, with their own layouts
+* Definable named message types, with their own layouts
 
-* Strong support for ANSI terminal color
+* Support for ANSI terminal color
 
-* Controllable indentation levels for messages
+* Controllable indentation levels
 
-* Option to bump a counter for any/all messages, making it easy
+* Option to bump counters for any/all messages, making it easy
 to keep and report error statistics
+
 
 =Usage=
 
@@ -78,6 +79,11 @@ by passing 0 or more `-v` options on a command line. It also allows a 2nd
 message parameter, just for flexibility (probably should change to allow any
 number).
 
+`vMsg()` is meant for
+verbose or informational messages `eMsg()` is for errors,
+while `hMsg` is for headings. They have different formatting
+characteristics, which can be changed independently.
+
 The `stat` option may be used to provide the name of a counter to increment.
 This can be handy for tracking how many times various messages occur. Separate
 messages may increment the same-named stat counter.
@@ -86,7 +92,7 @@ Other `stat` methods include (see also the more detailed discussion below):
 
 * `getStat('name')`
 * `bumpStat('name')`
-* `bumpStat('name', newCounterValue)`
+* `bumpStat('name', incrementAmount)`
 * `setStat('name', newCounterValue)`
 * `appendStat(self, stat, datum)` -- converts the stat to a list if it isn't
 already, and appends `datum` to the list.
@@ -97,12 +103,8 @@ from being accepted (causing an exception on any such attempt).
 You can control the indentation level of messages with `MsgPush()` and `MsgPop()`.
 
 Verbosity can be set with `setOption("verbose", n)` or `setVerbose(n)`.
-There are many other options as well.
 
-`vMsg()` is meant for
-verbose or informational messages `eMsg()` is for errors,
-while `hMsg` is for headings. They have different formatting
-characteristics, which can be changed independently.
+There are many other options as well.
 
 `MsgRule(v=0, color=None, width=79)` prints a horizontal rule.
 
@@ -146,9 +148,14 @@ as just present, without all their (non-callable) properties. At the moment,
 these are checked by == on the type and the typename, so subclasses must be
 explicitly listed to be affected.
 
+==formatPickle(self, path)==
+
+This loads a pickle file, and then runs `formatRec()` on it and returns the
+result.
+
 ===Layout conventions===
 
-Lists and dicitonaries get a header line indicating their type and lenght,
+Lists and dictionaries get a header line indicating their type and length,
 and the usual delimiters then enclose their members, each on a separate line.
 Members that are themselves collections, do the same thing but indented one
 more level. List items are prefixed by their index (like "#0:"), and dict
@@ -165,12 +172,12 @@ dimensionality, length, and item datatype.
 
 ==getLoc(startLevel=0, endLevel=0)==
 
-gets a decently-formatted partial or complete stack trace (not counting internals
-of `alogging` itself).
+gets a decently-formatted partial or complete stack trace
+(not counting internals of `alogging` itself).
 
 ==getCaller(self)==
 
-Just returns the name of the (direct) caller of alogging, using Python `inspect`.
+Just returns the name of the (direct) caller of `alogging`, using Python `inspect`.
 
 
 ==Notes on speed==
@@ -186,10 +193,12 @@ is still taken).
 
 You can get reduce such overhead by:
 
-* (a) removing or commenting out the calls, especially in inner loops.
+* (a) removing or commenting out the calls when no longer needed,
+especially in inner loops.
 You may want to use a profiler to be sure which ones actually matter.
 
-* (b) putting code under an "if", for example "if (False)", "if (args.verbose)", or even better,
+* (b) putting code under an "if", for example "if (False)",
+"if (args.verbose)", or (even better)
 "if (__debug__)" (which makes them go away when Python is run with the `-O`
 option.
 
@@ -721,7 +730,7 @@ Improve formatting.
 * 2020-08-19: Cleanup, lint, add some type-hinting. Improve messaging when
 Linux command `dircolors` is not available. POD to MarkDown.
 * 2020-09-23: Add forward for `colorize()`, and a fallback. lint.
-
+* 2020-10-07: Add formatPickle().
 
 =To do=
 
@@ -1463,6 +1472,12 @@ class ALogger:
 
     ###########################################################################
     #
+    def formatPickle(self, path):
+        import pickle
+        with open(path, "rb") as ifh:
+            stuff = pickle.load(ifh)
+        return self.formatRec(stuff)
+
     def formatRec(self,
         obj,			        # Data to format
         depth:int=0,        	# (internal depth tracking)
