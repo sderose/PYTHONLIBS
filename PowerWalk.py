@@ -11,6 +11,7 @@ from collections import namedtuple
 import random
 from enum import Enum
 from shutil import copyfile
+from subprocess import check_output, CalledProcessError
 
 from alogging import ALogger
 lg = ALogger(0)
@@ -501,6 +502,9 @@ to False.
 
 =Known bugs and limitations=
 
+* `--exec` is still experimental, and related `find` options like `--execdir`
+are not there at all.
+
 * The script will warn if it can't find all the file-format libraries
 installed (for tar, gzip, etc.),
 but it will work fine as long as you don't specifically need the missing ones.
@@ -553,23 +557,6 @@ See [../FileSelectionOptionsOfNixCommands.md] for a survey of what different
 *nix command provide for file-selection, sorting, format support, etc.
 
 
-=History=
-
-* 2006-06-07: `countTags.py` written by Steven J. DeRose.
-* 2018-04-21: `PowerWalk.py` split out of `countTags.py`.
-* 2020-06-10: New layout. Static methods.
-* 2020-08-28ff: Add exception-based directory/error event handling. Lint.
-* 2020-09-01: Add `namedtuple` PWFrame as what to return. Add Enum
-`PWType` for what kind of thing is being returned. Reorganize options
-into categories in help and where listed in code. Add `--exceptions`
-and several new filtering options, type-check them.
-Refactor event generation, item stack, and statistics into TraversalState class.
-* 2020-09-15: Fix several bugs in filtering, improve reporting and
-option-setting. Add `--includeInfos` and `--excludeInfos`.
-* 02020-10-06: Fix --includeNames, make it and --excludeName include extension.
-Add --copyTo and --serialize.
-
-
 =To do=
 
 ==Most wanted==
@@ -580,7 +567,7 @@ Add --copyTo and --serialize.
 
 * Option to cat all leafs?
 
-* move/link picked files somewhere, serializing names, setting
+* add move/link similar to `--copyTo`, and support setting
 xattr to say where copied from.
 
 * include/exclude for dirs (and containers?), not just files.
@@ -588,11 +575,9 @@ xattr to say where copied from.
 ==Additional filters  (cf 'find')==
 
 * permissions, owner and group ids (and none), inode
-* Add date and age options.
-* file size
-* Current nesting depth, file count
+* date, age, and file size, file count
 * Mac fs metadata (kmdItem... and all that). See my `macFinderInfo`.
-* Option to not cross filesystem bounds.
+* Option to not cross device or filesystem bounds (see `find -x`)
 * distinguish maxfiles tried vs. succeeded
 
 * Compare `find`'s "PRIMARIES" and adopt useful ones. Perhaps:
@@ -604,12 +589,13 @@ xattr to say where copied from.
 ** newer/old cre/mod/acc time vs. specified file
 ** -perm
 ** -print0
-** -type block special, char special, dir, regular, s-link, FIFI, socket.
-** -size n
+** -type b block special, c char special, d dir, f regular,
+l symlink, p FIFO, s socket.
+** -size n (chars, bytes, blocks, kmgtp.
 ** 'i' prefix for specific tests
 ** inum
 ** -xattr, -xattrname (and xattr k op v)
-** negation
+** negation and maybe booleans?
 
 ==Other options==
 
@@ -648,6 +634,23 @@ of course.
 
 * Offer warning if no eligible files found in each leaf dir?
 
+
+=History=
+
+* 2006-06-07: `countTags.py` written by Steven J. DeRose.
+* 2018-04-21: `PowerWalk.py` split out of `countTags.py`.
+* 2020-06-10: New layout. Static methods.
+* 2020-08-28ff: Add exception-based directory/error event handling. Lint.
+* 2020-09-01: Add `namedtuple` PWFrame as what to return. Add Enum
+`PWType` for what kind of thing is being returned. Reorganize options
+into categories in help and where listed in code. Add `--exceptions`
+and several new filtering options, type-check them.
+Refactor event generation, item stack, and statistics into TraversalState class.
+* 2020-09-15: Fix several bugs in filtering, improve reporting and
+option-setting. Add `--includeInfos` and `--excludeInfos`.
+* 2020-10-06: Fix `--includeNames`, make it and `--excludeName` use extension.
+Add `--copyTo` and `--serialize`.
+* 2020-10-09: Add `--exex`.
 
 =Rights=
 
@@ -1086,32 +1089,20 @@ class PowerWalk:
                     parser.add_argument(n1, n2, n3, type=str, metavar='R',
                     help='%s items with %s matching this regex.' %
                         (sign, thing.lower()))
-        else:
-            parser.add_argument(
-                prefix + "excludeExtensions", type=str, metavar='R',
-                help='Exclude extensions matching this regex.')
-            parser.add_argument(
-                prefix + "excludeNames", type=str, metavar='R',
-                help='Exclude base names matching this regex.')
-            parser.add_argument(
-                prefix + "excludePaths", type=str, metavar='R',
-                help='Exclude path matching this regex.')
-            parser.add_argument(
-                prefix + "excludeInfos", type=str, metavar='R',
-                help='Exclude "file" info matching this regex.')
 
-            parser.add_argument(
-                prefix + "includeExtensions", type=str, metavar='R',
-                help='Include (only) extensions matching this regex.')
-            parser.add_argument(
-                prefix + "includeNames", type=str, metavar='R',
-                help='Include (only) base names matching this regex.')
-            parser.add_argument(
-                prefix + "includePaths", type=str, metavar='R',
-                help='Include (only) path matching this regex.')
-            parser.add_argument(
-                prefix + "includeInfos", type=str, metavar='R',
-                help='Include (only) file output matching this regex.')
+        # And the grep-like ones
+        parser.add_argument(
+            prefix + "include",           action='store_true',
+            help='Like grep. Still experimental.')
+        parser.add_argument(
+            prefix + "exclude",           action='store_true',
+            help='Like grep. Still experimental.')
+        parser.add_argument(
+            prefix + "include-dir",           action='store_true',
+            help='Like grep. Still experimental.')
+        parser.add_argument(
+            prefix + "exclude-dir",           action='store_true',
+            help='Like grep. Still experimental.')
 
         parser.add_argument(
             prefix + "backups",           action='store_true',
@@ -1133,7 +1124,7 @@ class PowerWalk:
             help='Follow *nix links to the destination.')
         parser.add_argument(
             prefix + "hidden",            action='store_true',
-            help='Include items whose names begin with dot.')
+            help='Include file and directories whose names begin with dot.')
         parser.add_argument(
             prefix + "ignorables",        action='store_true',
             help='Return events (or exceptions) for ignorable items.')
@@ -1334,15 +1325,16 @@ class PowerWalk:
 
     def passesFilters(self, path, trav):
         """Check the file at 'path' against all the filters, and
-        return True iff it's one the user wants. The same name, date, and
-        other filters apply to containers (such as directories) and
-        to leafs (such as files).
+        return True iff it's one the user wants. 'hidden' applies to
+        containers (such as directories) and to leafs (such as files).
+        Most other filters apply only to one or the other.
         """
-        if (os.path.isdir(path)):  # TODO: make more flexible
+        if (os.path.isdir(path)):
             return self.dirPassesFilters(path, trav)
         return self.filePassesFilters(path, trav)
 
     def dirPassesFilters(self, path, trav):
+        # TODO: Add --include-dir and --exclude-dir like for grep
         if (not self.options['hidden'] and isHidden(path)):
             self.recordEvent(trav, "hiddenDir")
             return False
@@ -1353,7 +1345,8 @@ class PowerWalk:
         """Test most of the file-filtering conditions.
         Return True only if the all pass (reaching the final 'else').
         """
-        head, tail = os.path.split(path)
+        # TODO: Add --include and --exclude like for grep
+        _, tail = os.path.split(path)
         (_, extPart) = os.path.splitext(tail)
         extPart = extPart.strip(". \t\n\r")
 
@@ -1505,13 +1498,12 @@ def isGenerated(name):
 def getFileInfo(path):
     """See what the "file" command has to say about something...
     """
-    from subprocess import check_output
     buf = check_output([ "file", "-b", path ])
     return buf
 
 def xset(path, prop, val):
     #import xattr
-    warn(0, "--xattr is not yet supported.")
+    warn(0, "--xattr is not yet supported for %s: %s=%s." % (path, prop, val))
     sys.exit()
 
 
@@ -1530,6 +1522,9 @@ if __name__ == "__main__":
         parser.add_argument(
             "--copyTo",  metavar='P', type=str,
             help='Copy chosen files to this directory (see --serialize).')
+        parser.add_argument(
+            "--exec",  metavar='CMD', type=str,
+            help='Run CMD on each selected item (like "find --exec").')
         parser.add_argument(
             "--iString", metavar='S', type=str, default='    ',
             help='Repeat this string to create indentation.')
@@ -1627,6 +1622,14 @@ if __name__ == "__main__":
                     copyfile(path0, tgtPath)
                     if (args.xattrs):
                         xset(tgtPath, "kmdItemWhereFroms", "file://"+path0)
+            if (args.exec):
+                cmd = args.exec
+                if ('{}' in cmd): re.sub(r'{}', path0, cmd)
+                else: cmd += ' ' + path0
+                try:
+                    check_output(cmd, shell=True)
+                except CalledProcessError as e:
+                    warn(0, "Failed on %s:\n    %s" % (cmd, e))
         elif (what0 == PWType.CLOSE):
             depth -= 1
             print("%s<==%s" % (args.iString*depth, path0))
@@ -1636,4 +1639,4 @@ if __name__ == "__main__":
             print("%sERROR: %s" % (args.iString*depth, path0))
 
     if (args.stats):
-        sys.stderr.write(pw.travState.getStats(showZeroes=True))
+        warn(0, pw.travState.getStats(showZeroes=True))
