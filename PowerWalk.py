@@ -170,7 +170,7 @@ files, each passed back with its full path and an open file handle,
 you can just to this:
 
     from PowerWalk import PowerWalk, PWType
-    pw = PowerWalk(".", recursive=True, open=True, close=True)
+    pw = PowerWalk("myDir1", recursive=True, open=True, close=True)
     for path, fh, what in pw.traverse():
         if (what != PWType.LEAF): continue
         nrecs = len(fh.readlines)
@@ -182,6 +182,10 @@ you can just to this:
     PWType.IGNORE -- Issued (only if requested), for items ignored.
     PWType.CLOSE  -- Issued when a container (tar, directory, etc.) closes.
     PWType.MISSING -- Issued when a file cannot be found (or opened).
+
+You can pass a list of paths as the first argument if desired.
+Or you can pass one or a list of paths to pw.traverse(), which will use
+them instead of the one(s) set on the constructor (if any).
 
 You can ignore the OPEN and CLOSE events (as shown here), or turn off the
 `containers` option to have them not be generated at all.
@@ -341,9 +345,9 @@ was checked first is counted):
 Change the value of an available option. Options can also
 be set on the constructor via like-named keyword options, or en masse
 using ` addOptionsToArgparse()` and `setOptionsFromArgparse()`.
-''Note'': There are a few more options that are not part of the PowerWalk
-class, but are available when this script is run standalone. They are
-described in the full list of options generated at the end of this help.
+''Note'': There are a few more options that are not part of
+the PowerWalk class, but are available when this script is run standalone.
+They are described in the full list of options at the end of this help.
 
 
 ===File selection options===
@@ -651,6 +655,8 @@ option-setting. Add `--includeInfos` and `--excludeInfos`.
 * 2020-10-06: Fix `--includeNames`, make it and `--excludeName` use extension.
 Add `--copyTo` and `--serialize`.
 * 2020-10-09: Add `--exex`.
+* 2020-10-14: Improve how topLevelItems are passed and defaulted.
+
 
 =Rights=
 
@@ -969,13 +975,18 @@ class PowerWalk:
         "verbose"             : int,
     }
 
-    def __init__(self, topLevelItems=None, **kwargs):
+    def handlePathsArg(self, topLevelItems):
         if (not topLevelItems):
-            self.topLevelItems = [ os.environ['PWD'] ]
+            return [ os.environ['PWD'] ]
         elif (isinstance(topLevelItems, list)):
-            self.topLevelItems = topLevelItems
+            return topLevelItems
+        elif (isinstance(topLevelItems, str)):
+            return[ topLevelItems ]
         else:
-            self.topLevelItems = [ topLevelItems ]
+            raise ValueError("First arg must be path, list, or None for PWD.")
+
+    def __init__(self, topLevelItems=None, **kwargs):
+        self.topLevelItems = self.handlePathsArg(topLevelItems)
 
         self.travState = None  # Used during traversal (not thread-safe!) TO DO
 
@@ -1184,9 +1195,9 @@ class PowerWalk:
                 "Not yet supported.")
         return parser
 
-    def traverse(self):
-        """Use ttraverse on each top-level file or dir, to
-        recurse through the files/directories requested and return
+    def traverse(self, topLevelItems=None):
+        """Use ttraverse on the given path (or each top-level file or dir,
+        to recurse through the files/directories requested and return
         a PWFrame (a namedtuple of path, file handle, and PWType) for each.
 
         We have to return the file handle in the case of "files"
@@ -1202,7 +1213,12 @@ class PowerWalk:
         #
         trav = self.travState = TraversalState(self.options)
 
-        for tl in (self.topLevelItems):
+        if (topLevelItems is not None):
+            tops = self.handlePathsArg(topLevelItems)
+        else:
+            tops = self.topLevelItems
+
+        for tl in (tops):
             warn(1, "\n******* Starting top-level item '%s'." % (tl))
             for tsf in self.ttraverse(tl, trav):
                 trav.bump("nodesTried")
@@ -1588,7 +1604,7 @@ if __name__ == "__main__":
     cwd = os.environ['PWD']
     if (not args.files): args.files = [ os.environ['PWD'] ]
 
-    pw = PowerWalk()
+    pw = PowerWalk(args.files)
     pw.setOptionsFromArgparse(args)
 
 #     pw = PowerWalk(args.files,

@@ -612,6 +612,7 @@ Generate SAX.
 
 =To do=
 
+* Add a way to turn off all indenting for collectAllXml2 with one option.
 * Add insertPrecedingSibling, insertFollowingSibling, insertParent, insertAfter
 * Allow creating nodes with no ownerDocument; they get attached when inserted
 * Implement splitNode and warp/surround(see help)
@@ -2673,7 +2674,6 @@ class DomExtensions:
         return
 
 
-###############################################################################
 ###############################################################################
 # Test driver
 #
