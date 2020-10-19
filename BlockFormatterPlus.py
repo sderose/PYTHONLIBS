@@ -8,10 +8,12 @@
 #
 import sys, re, codecs
 import argparse
-from enum import Enum
+from enum import Enum, Flag
+from collections import namedtuple
 
+import ColorManager
 try:
-    import mathAlphanumerics
+    from mathAlphanumerics import mathAlphanumerics
 except ImportError as e:
     print(e)
     print("Looked in:\n    %s" % ("\n    ".join(sys.path)))
@@ -49,10 +51,18 @@ a text formatter
 It is a pluggable upgrade to `BlockFormatter.py`,
 and so keeps the same class name. To use it:
 
-    from BlockFormatterPlus import BlockFormatter
+    from BlockFormatterPlus import BlockFormatterPlus
     descr = "..."
     parser = argparse.ArgumentParser(description=descr,
-        formatter_class=BlockFormatter)
+        formatter_class=BlockFormatterPlus)
+
+Pr, to use it as an independent formatter:
+
+    from BlockFormatter import BlockFormatter
+    doc = "..."
+    hf = BlockFormatter(None)
+    print(hf._format_text(doc))
+
 
 This is "Level 2" of a series of formatters. Level 1 just upgrades argparse
 to retain apparently-meaningful lines breaks rather than wrapping everything
@@ -74,7 +84,7 @@ used in MediaWiki and git-style MarkDown (which are ery different from
     *text*          Italic
     [text]          Links.
 
-BlockFormatter plus (like most terminal programs)
+BlockFormatterPlus (like most terminal programs)
 only handles monospace fonts. Because of that, markup
 like `text` of `<tt>` also causes an additional e, such as color.
 
@@ -109,7 +119,7 @@ learning ex[tp]ensive GUIs to do basic file-manipulation.
 
 ==Options==
 
-There is a class variable `BlockFormatter._options`, which is a dict that
+There is a class variable `_options`, which is a dict that
 defaults to:
 
     _options = {
@@ -123,11 +133,12 @@ defaults to:
         'breakLong':   False,
         'altFill':     None,
         'comment':     '#',
+        'quotes':      'STRAIGHT',
     }
 
 There is not yet an API to change or set these, but you can set them
 directly like:
-    BlockFormatter._options['tabStops'] = 8
+    BlockFormatterPlus._options['tabStops'] = 8
 
 'verbose' can be increased to generate debugging messages.
 
@@ -153,9 +164,23 @@ This happens after 'xescapes'.
 with very long tokens such as URLs.
 
 'altFill' can be set to a callable replacement for _fill_text().
-One such is provided: BlockFormatter._alt_fill (experimental).
+One such is provided: `_alt_fill`.
 
 'comment' is a string that identifies comment lines (no space before).
+
+'quotes' determines what kind of quotation marks to use, from this list.
+They may be passed as string literals, or as values of the Enum `QuoteType`.
+* NONE      = 0
+* S_PLAIN   = 1
+* D_PLAIN   = 2
+* S_CURLY   = 3
+* D_CURLY   = 4
+* S_ANGLE   = 5
+* D_ANGLE   = 6
+* T_ANGLE   = 7
+* BACKP     = 8
+* LOW9      = 9
+
 
 =Related commands and libraries=
 
@@ -203,14 +228,12 @@ Refactor entity/escape/tab handling.
 
 =To Do=
 
-Finish inline support.
-
-Option for `[!url|anchorText]` for transclusion?
-
-Option to skip to regex, element, or section xptr?
-
-Markdown convention for anchor/id?
-
+*Finish inline support.
+*Option for `[!url|anchorText]` for transclusion?
+*Option to skip to regex, element, or section xptr?
+*Markdown convention for anchor/id?
+*Option to add blank line above list items
+*Add option for TEX special chars (and allow as XML entities, too? :)
 
 =Rights=
 
@@ -228,11 +251,15 @@ Thanks to Anthon van der Neut for help on integrating with `argparse`. Also:
     * [http://hg.python.org/cpython/file/2.7/Lib/argparse.py]
     * [https://docs.python.org/2/library/textwrap.html]
 
+
 =Options=
 """
 
 ##############################################################################
 #
+class UnimplementedError(Exception):
+    pass
+
 esc = chr(27)
 specialChars = {
     "lsquo":   unichr(0x2018),    "rsquo":   unichr(0x2019),
@@ -252,11 +279,11 @@ specialChars = {
 }
 
 def hMsg(level, msg):
-    if (BlockFormatter._options['verbose']>=level):
+    if (BlockFormatterPlus._options['verbose']>=level):
         sys.stderr.write("\n*******" + msg+'\n')
 
 def vMsg(level, msg):
-    if (BlockFormatter._options['verbose']>=level):
+    if (BlockFormatterPlus._options['verbose']>=level):
         sys.stderr.write(msg+'\n')
 
 def makeVis(s):
@@ -287,7 +314,7 @@ def uescapes(s):
 
 ##############################################################################
 #
-class BlockFormatter(argparse.HelpFormatter):
+class BlockFormatterPlus(argparse.HelpFormatter):
     """A formatter for argparse. This differs from the default formatter, in
     that it does *not* wrap lines across blank or indented lines.
 
@@ -297,6 +324,8 @@ class BlockFormatter(argparse.HelpFormatter):
                 wrap(para, width)
                     _fill_text(self, text, width, indent)
     """
+    cm = None  # A ColorManager instance, created by _fill_text()
+
     _options = {
         'verbose':     0,         # Extra messages?
         'showInvis':   False,     # Replace invisible chars
@@ -316,16 +345,21 @@ class BlockFormatter(argparse.HelpFormatter):
             * Keep newline before line-initial [*#] (probably list items)
             * For indented blocks, apply their indented to following unindented
               lines in the same block.
+            * Measure and break properly even once color escaped are inserted.
         NOTE: 'indent' expects a string, not a number of columns.
         """
-        #print("_fill_text called for %d chars." % (len(text)))
-        hang = BlockFormatter._options['hangIndent']
+
+        vMsg(0, "_fill_text called for %d chars." % (len(text)))
+        if (not BlockFormatterPlus.cm):
+            BlockFormatterPlus.cm = ColorManager.ColorManager()
+
+        hang = BlockFormatterPlus._options['hangIndent']
 
         # Divide at blank lines line breaks to keep
-        blocks = BlockFormatter.makeBlocks(text)
+        blocks = BlockFormatterPlus.makeBlocks(text)
         for i in range(len(blocks)):
             vMsg(2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
-            item, istring = BlockFormatter.doSpecialChars(blocks[i])
+            item, istring = BlockFormatterPlus.doSpecialChars(blocks[i])
 
             #print("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
             #    (width, indent, ind, mat.group(1), mat.group(2)))
@@ -334,11 +368,17 @@ class BlockFormatter(argparse.HelpFormatter):
             if (istring!=''): indParam = indent + istring + (' '*hang)
             else: indParam = indent
 
-            if (callable(BlockFormatter._options['altFill'])):
-                withNewlines = BlockFormatter._options['altFill'](
+            if (callable(self._options['altFill'])):
+                print(1)
+                withNewlines = BlockFormatterPlus._options['altFill'](
+                    item, width, indParam)
+            elif (callable(self._fill_despite_color)):
+                print(2)
+                withNewLines = self._fill_despite_color(
                     item, width, indParam)
             else:
-                withNewlines = super(BlockFormatter, self)._fill_text(
+                print(3)
+                withNewlines = super(BlockFormatterPlus, self)._fill_text(
                     item, width, indParam)
             if (istring and withNewlines.startswith(' '*hang)):
                 withNewlines = withNewlines[hang:]  # Un-hang first line
@@ -369,8 +409,8 @@ class BlockFormatter(argparse.HelpFormatter):
         breakAfter = False
         for t in re.split(r'\n', text, flags=re.MULTILINE | re.UNICODE):
             blockType = '???'
-            if (BlockFormatter._options['comment']!='' and
-                t.startswith(BlockFormatter._options['comment'])):
+            if (BlockFormatterPlus._options['comment']!='' and
+                t.startswith(BlockFormatterPlus._options['comment'])):
                 blockType = 'COMMENT'
             elif (t.strip() == ''):                 # blank line
                 blocks.append("")
@@ -412,38 +452,90 @@ class BlockFormatter(argparse.HelpFormatter):
         mat = re.match(r'^([ \t]+)', item)
         if (mat):
             indentString = mat.group(1).expandtabs(
-                BlockFormatter._options['tabStops'])
+                BlockFormatterPlus._options['tabStops'])
             item = item[len(mat.group(1)):]
-        if (BlockFormatter._options['xescapes']):
+        if (BlockFormatterPlus._options['xescapes']):
             item = xescapes(item)
-        if (BlockFormatter._options['uescapes']):
+        if (BlockFormatterPlus._options['uescapes']):
             item = uescapes(item)
-        if (BlockFormatter._options['entities']):
+        if (BlockFormatterPlus._options['entities']):
             assert False, "entities not yet implemented"
-        if (BlockFormatter._options['showInvis']):
+        if (BlockFormatterPlus._options['showInvis']):
             item = makeVis(item)
         return item, indentString
 
     @staticmethod
     def _alt_fill(item, width, indentString):
-        """In case _fill_text changes or goes away....
+        """Wrap the text in 'item' to the given width, with all lines
+        indented (prefixed) by 'indentString'.
+        Be careful to count correctly around ANSI escapes, and potentially
+        fullwidth characters (although we don't expect them, really).
+
+        This should not even be called for pre/code/verbatim-like blocks.
+        Though we should have a way to truncate, hang-wrap, etc. for them.
+
+        _fill_text won't suffice at this level, because color escape....
         """
+        vMsg(0, "\n******* In _alt_fill")
         lines = []
         for x in re.finditer(
-            r'\s*(\S.{,%d}(?=[-/\s]))' % (width-indentString-2),
+            r'\s*(\S.{,%d}(?=[-/\s]))' % (width-len(indentString)-2),
             item, re.MULTILINE):
             print("Wrap trial: '%s'" % (x.group(1)))
             lines.append(indentString + x.group(1))
         return "\n".join(lines)
+
+    def _fill_despite_color(self, item, width, indentString):
+        """Wrap the text in 'item' to the given width, with all lines
+        indented (prefixed) by 'indentString'.
+        Be careful to count correctly around ANSI escapes, and potentially
+        fullwidth characters (although we don't expect them, really).
+
+        This should not even be called for pre/code/verbatim-like blocks.
+        Though we should have a way to truncate, hang-wrap, etc. for them.
+        """
+        # First remove color and break normally
+        # OR: make fn to move the color escapes aside, then back.
+        ncItem = self.cm.uncolorize(item)
+        withBreaks = self._alt_fill(item, width, indentString)
+        if (ncItem == item): return withBreaks
+
+        # If needed, use the lengths of those lines to re-extract the
+        # corresponding parts from the original (colorized) version.
+        lines = withBreaks.split("\n")
+        startPos = 0
+        for i, lin in enumerate(lines):
+            endPos += len(lin)
+            # TODO: Finish
+        lines = []
+        raise UnimplementedError("Finish _fill_despite_color().")
+        return "\n".join(lines)
+
+    ColorTag = namedtuple('ColorTag', ['startTextPos', 'escapeSequence'])
+
+    def extractColor(self, item):
+        """Remove all the ANSI color escapes, *but* save the offset into
+        the resulting (escapeless) string where each of them belongs.
+        """
+        leaves = re.split(colorRegex, item)
+        txt = ""
+        colorTags = []
+        for leaf in leaves:
+            if (leaf.startswith(chr(27))):
+                colorTags.append( (len(txt), leaf) )
+            else:
+                txt += leaf
+        return txt, colorTags
 
 
 ###############################################################################
 #
 class FancyText:
     """Do fancier typography.
-    Roman numerals? Emoticons?
+    Roman numerals? Emoticons? TEX? Math ops?
+    Please don't call this on code blocks....
     """
-    qPairs = {  # QUOTATION MARKs
+    qPairs = {  # QUOTATION MARKs (see Charsets/Unicode/asPython/quotes.py)
         # menmonic: [ left,   right],
         'splain':   [ ord("'"), ord("'") ], # Apostrophe / single quotation mark
         'dplain':   [ ord('"'), ord('"') ], # Double quotation mark
@@ -502,40 +594,58 @@ class FancyText:
         "0/3":  chr(0x02189),  # VULGAR FRACTION ZERO THIRDS
     }
 
+    texChars = {
+
+    }
+
     @staticmethod
     def zing(s,
         ellipsis=True, quotes=True, ligatures=False,
-        dashes=False, fractions=False
+        dashes=False, fractions=False,
+        spacedEm=True, sentenceSpace=False, texChars=False
         ):
         if (ellipsis):
             s = re.sub(r"\.\.\.", "\u2026", s)
 
         if (quotes):
-            s = re.sub(r"'(?=[dst]?\W)", chr(self.qPairs['single'][1]), s)
-            s = re.sub(r'"(?!\w)', chr(self.qPairs['double'][1]), s)
-            s = re.sub(r'(?<!\w)"', chr(self.qPairs['double'][0]), s)
+            # Treat as opener if there's space or newline or nothing before.
+            # Else it's a closer. BUT don't mess with any of this in code!
+            #
+            s = re.sub(r"(?<\s|^)'", chr(FancyText.qPairs['single'][0]), s)
+            s = re.sub(r"'",         chr(FancyText.qPairs['single'][1]), s)
+            s = re.sub(r'(?<\s|^)"', chr(FancyText.qPairs['double'][0]), s)
+            s = re.sub(r'"',         chr(FancyText.qPairs['double'][1]), s)
 
         if (ligatures):
-            s = re.sub(r'(f?f[il])', self.ligatureFn, s)
+            s = re.sub(r'(f?f[il])', FancyText.ligatureFn, s)
 
         # Dashes
         if (dashes):
-            s = re.sub(r'--', "\u2014", s)
+            if (spacedEm): s = re.sub(r'--', " \u2014 ", s)
+            else: s = re.sub(r'--', "\u2014", s)
 
         if (fractions):
             s = re.sub(r'\b([1-5]/[234568]|1/7|1/9|1/10|0/3)\b',
-                self.fractionFn, s)
+                FancyText.fractionFn, s)
+
+        if (sentenceSpace):
+            s = re.sub(r'([\.?!]) (?! )', "\\1  ", s)
+        else:
+            s = re.sub(r'([\.?!])  ', "\\1 ", s)
+
+        if (texChars):
+            raise UnimplementedError("Not yet, sorry.")
 
         return s
 
     @staticmethod
     def ligatureFn(mat):
-        return self.ligatureMap[mat.group(1)]
+        return FancyText.ligatureMap[mat.group(1)]
 
     @staticmethod
     def fractionFn(mat):
-        if (mat.group(1) in self.fractionMap):
-            return self.fractionMap[mat.group(1)]
+        if (mat.group(1) in FancyText.fractionMap):
+            return FancyText.fractionMap[mat.group(1)]
         return mat.group(1)
 
 
@@ -552,7 +662,7 @@ class InlineMapper:
     Tables are special: rows are commonly marked up in single lines, but
     the cell markup isn't just changing character appearance.
 
-    For now these are hard-coded. The next level of BlockFormatter adds a
+    For now these are hard-coded. The next level formatter should add a
     more general stylesheet mechanism and syntax.
     """
     # Regexes used in multiple variants
@@ -574,68 +684,72 @@ class InlineMapper:
     INS   = r"\{\+\+(.*?)\+\+\}"                # inserted
     DEL   = r"\{--(.*?)--\}"                    # deleted
 
-    attrs =
-    def HTML(x):
-        return r'<%s(attrs)\s*>(.*?)</%s\s*>'
+    # attrs =
+
     def __init__(self, variantName:str="OurMap"):
         if (variantName == "OurMap"):
-            self.setup_OurMap()
+            self.theMap = self.setup_OurMap()
         else: raise KeyError(
             "Unknown Markup/down variant '%s'." % (variantName))
 
+    @staticmethod
+    def HtmlExpr(x):
+        return r'<%s(attrs)\s*>(.*?)</%s\s*>' % (x, x)
+
     def setup_OurMap(self):
-        'OurMap' : [
-            # Regex, HTML,     Format spec
-            ( POP3,  "I",      TextStyle(italic=1)),
-            ( POP2,  "B",      TextStyle(bold=1)),
-            ( TICK,  "TT",     TextStyle(sans_serif=1)),
-            ( STAR,  "I",      TextStyle(italic=1)),
-            ( UNDER, "B",      TextStyle(bold=1)),
-            ( HYPH,  "STRIKE", TextStyle(strike=1)),
-            ( BRACK, "A",      TextStyle(link=1, ul=1)),
-        ],
+        im = InlineMapper
+        return [
+            # Regex,    HTML,     Format spec
+            ( im.POP3,  "I",      TextStyle(italic=1)),
+            ( im.POP2,  "B",      TextStyle(bold=1)),
+            ( im.TICK,  "TT",     TextStyle(sans_serif=1)),
+            ( im.STAR,  "I",      TextStyle(italic=1)),
+            ( im.UNDER, "B",      TextStyle(bold=1)),
+            ( im.HYPH,  "STRIKE", TextStyle(strike=1)),
+            ( im.BRACK, "A",      TextStyle(link=1, ul=1)),
+        ]
 
         # Maps for specific variants. See:
         # [https://www.iana.org/assignments/markdown-variants/]
 
     def setup_MarkDown(self):      # Markdown                    [RFC7763]
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_MultiMarkdown(self): # MultiMarkdown               [RFC7764]
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_GFM(self):           # GitHub Flavored Markdown    [RFC7764]
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_pandoc(self):        # Pandoc                      [RFC7764]
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_Fountain(self):      # Fountain                    [RFC7764]
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_CommonMark(self):    # CommonMark                  [RFC7764]
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
-    def setup_kramdown-rfc2629(self):  # Markdown for RFCs       [RFC7764]
-        raise KeyError("Unimplemented")
+    def setup_kramdown_rfc2629(self):  # Markdown for RFCs       [RFC7764]
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_rfc7328(self):       # Pandoc2rfc                  [RFC7764]
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_Extra(self):         # Markdown Extra              [RFC7764]
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
-    def setup_SSW(self):           # Markdown for SSW            [Paulina_Ciupak]
-        raise KeyError("Unimplemented")
+    def setup_SSW(self):           # Markdown for SSW [Paulina_Ciupak]
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_mediaWiki(self):     #
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_POD(self):           #
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
     def setup_HTML(self):          #
-        raise KeyError("Unimplemented")
+        raise UnimplementedError("Not yet, sorry.")
 
 
     def formatBlock(self, b):
@@ -655,8 +769,8 @@ class InlineMapper:
         """
         global theStyle
         theStyle = self
-        for matchTuple in self.Variants[self.variantName]:
-            regex, html, theStyle = matchTuple
+        for matchTuple in self.theMap:
+            regex, _, theStyle = matchTuple
             b = re.sub(regex, theStyle.applyViaMatchObject, b)
         return b
 
@@ -692,7 +806,7 @@ class ANSI_Effect(Enum):
 
 # Bit flags to identify the features of Unicode alternates
 #
-class UBits(Enum):
+class UBits(Flag):
     UNONE = 0x0000
 
     UBOLD = 0x0001
@@ -772,18 +886,19 @@ class Transclusion:
     """A class to represent automatically-embedded links.
     TODO Later
     """
-    pass
 
 class QuoteType(Enum):
     NONE      = 0
     S_PLAIN   = 1
-    D_PLAIN   = 2
-    S_CURLY   = 3
-    D_CURLY   = 4
-    S_ANGLE   = 5
-    D_ANGLE   = 6
-    T_ANGLE   = 7
-    BACKP     = 8
+    S_CURLY   = 2
+    S_ANGLE   = 3
+    S_LOW9    = 4
+    D_PLAIN   = 11
+    D_CURLY   = 12
+    D_ANGLE   = 13
+    D_LOW9    = 14
+    T_ANGLE   = 21
+    BACKP     = 99
 
 
 ###############################################################################
@@ -832,6 +947,7 @@ class TextStyle(dict):
         'hot'         : (bool, False),
     }
     def __init__(self, **kwargs):
+
         self.bold        = False
         self.italic      = False
         self.sans        = False
@@ -847,7 +963,7 @@ class TextStyle(dict):
         self.sub         = False
 
         self.ufont       = None
-        self.quote       = QuoteType.CURLY  ## Watch out for code blocks!
+        self.quote       = QuoteType.D_CURLY  ## Watch out for code blocks!
 
         # color etc.
         self.color       = None
@@ -859,13 +975,16 @@ class TextStyle(dict):
         self.after       = None
         self.hot         = False
 
+        # Make sure everybody got initialized
+        for k in TextStyle.textPropInfos.keys():
+            assert k in self.__dict__
 
         for k, v in kwargs.items():
             if (k in self.textPropInfos and
                 self.textPropInfos[0](v)):
                 self[k] = self.textPropInfos[0](v)
 
-        if self.mono: self.quote = QuoteType.PLAIN
+        if self.mono: self.quote = QuoteType.D_PLAIN
         super(TextStyle, self).__init__()
 
     def __setitem__(self, propName, val):
@@ -904,7 +1023,7 @@ class TextStyle(dict):
         if (self.allCap):      txt = Styler.mk_allCap(txt)
         if (self.smallCap):    txt = Styler.mk_link(txt)
 
-        if (self.link):        txt = Styler.mk_sans(txt)
+        if (self.hot):         txt = Styler.mk_sans(txt)
         if (self.quote):       txt = Styler.mk_quote(txt)
 
         if (self.underline):   txt = Styler.mk_underline(txt)
@@ -925,7 +1044,7 @@ class TextStyle(dict):
 
 ###############################################################################
 #
-class Styler:
+class Styler:  # All methods static
     """Actually apply various rendering options/properties. This is
     highly device/medium dependent, which is the main reason it's not just
     part of TextStyle. For example, a request for bold italic could:
@@ -938,13 +1057,143 @@ class Styler:
         * generate HTML or something else
         * signal a speech module to be emphatic or loud or...
     """
+    cm = ColorManager.ColorManager()
+
+    loadedXTabs = {}
+
+    ### Case-related effects
+    #
     @staticmethod
     def mk_allCap(txt):
         return txt.upper()
+
+    @staticmethod
+    def mk_titleCap(txt):
+        return txt.title()
+
+    @staticmethod
+    def mk_noCap(txt):
+        return txt.lower()
+
     @staticmethod
     def mk_smallCap(txt):
-        pass
+        raise UnimplementedError()
 
+    ### Quotation-related effects
+    #
+    @staticmethod
+    def mk_quote(txt, quoteOption='D_CURLY'):
+        """Add quotes around the text.
+        """
+        qt = quoteOption
+        if (qt=='D_PLAIN'):	# Double straight quotes, then single
+            pair = FancyText.qPairs['dplain']
+        elif (qt=='D_CURLY'):		# Double open/close quotes, then single
+            pair = FancyText.qPairs['double']
+        elif (qt=='D_ANGLE'):		# Double angle quotes, then single
+            pair = FancyText.qPairs['dangle']
+        elif (qt=='D_LOW9'):		# hi-9 on open, low-9 on close
+            pair = FancyText.qPairs['dlow9']
+
+        elif (qt=='S_PLAIN'):	# Single straight quotes, then double
+            pair = FancyText.qPairs['splain']
+        elif (qt=='S_CURLY'):	# Single open/close quotes, then double
+            pair = FancyText.qPairs['single']
+        elif (qt=='S_ANGLE'):	# Single angle quotes, then double
+            pair = FancyText.qPairs['sangle']
+        elif (qt=='LOW9'):		# hi-9 on open, low-9 on close
+            pair = FancyText.qPairs['slow9']
+
+        elif (qt=='BACKP'):		# "`" on both ends.
+            pair = ( ord("`"), ord("`") )
+        else:
+            raise ValueError("Unknown quote type '%s'." % (qt))
+
+        return chr(pair[0]) + txt + chr(pair[1])
+
+    ### Color and ANSI terminal-related effects
+    #
+    @staticmethod
+    def mk_bolditalic(txt):  # Or use math bold italic
+        return(Styler.cm.colorize(txt.group(1), fg="red", effect='bold'))
+
+    @staticmethod
+    def mk_bold(txt):  # Or use math bold
+        return(Styler.cm.colorize(txt.group(1), effect='bold'))
+
+    @staticmethod
+    def mk_italic(txt):  # Or use math italic
+        return(Styler.cm.colorize(txt.group(1), fg="red"))
+
+    ### Unicode alternate effects
+    #
+    @staticmethod
+    def mk_sans(txt):
+        mathKey = ('Latin', 'SANS-SERIF')
+        if (mathKey not in Styler.loadedXTabs):  # First time
+            Styler.loadedXTabs[mathKey] = mathAlphanumerics.getTranslateTable(
+                mathKey[0], mathKey[1])
+        return txt.translate(Styler.loadedXTabs[mathKey])
+
+    @staticmethod
+    def mk_mono(txt):
+        mathKey = ('Latin', 'MONOSPACE')
+        if (mathKey not in Styler.loadedXTabs):  # First time
+            Styler.loadedXTabs[mathKey] = mathAlphanumerics.getTranslateTable(
+                mathKey[0], mathKey[1])
+        return txt.translate(Styler.loadedXTabs[mathKey])
+
+    @staticmethod
+    def mk_super(txt):
+        mathKey = ('Latin', 'SUPERSCRIPT')
+        if (mathKey not in Styler.loadedXTabs):  # First time
+            Styler.loadedXTabs[mathKey] = mathAlphanumerics.getTranslateTable(
+                mathKey[0], mathKey[1])
+        return txt.translate(Styler.loadedXTabs[mathKey])
+
+    @staticmethod
+    def mk_sub(txt):
+        mathKey = ('Latin', 'SUBSCRIPT')
+        if (mathKey not in Styler.loadedXTabs):  # First time
+            Styler.loadedXTabs[mathKey] = mathAlphanumerics.getTranslateTable(
+                mathKey[0], mathKey[1])
+        return txt.translate(Styler.loadedXTabs[mathKey])
+
+    ### Overstrike effects   # TODO: Make length counting handle combiners
+    # TODO: Add U+0033c COMBINING SEAGULL BELOW
+    #
+    @staticmethod
+    def mk_underline(txt):
+        COMBINER = chr(0x00332)  # COMBINING LOW LINE
+        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+
+    @staticmethod
+    def mk_underline2(txt):
+        COMBINER = chr(0x00333)  # COMBINING DOUBLE LOW LINE
+        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+
+    @staticmethod
+    def mk_strike(txt):
+        COMBINER = chr(0x00305)  # COMBINING OVERLINE
+        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+
+    @staticmethod
+    def mk_overline(txt):
+        COMBINER = chr(0x00305)  # COMBINING OVERLINE
+        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+
+    @staticmethod
+    def mk_overline2(txt):
+        COMBINER = chr(0x0033f)  # COMBINING DOUBLE OVERLINE
+        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+
+    @staticmethod
+    def mk_slashed(txt):
+        COMBINER = chr(0x00338)  # COMBINING LONG SOLIDUS OVERLAY
+        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+
+    ### Hypertext-related effects
+    #
     @staticmethod
     def mk_link(txt):
         if (':' in txt.group(1)):
@@ -953,60 +1202,13 @@ class Styler:
             anchor = ref = txt.group(1)
         ref = ref.strip("\"'")
         mat = re.match(r'(IETF\s*)?RFC\s*(\d+)', ref)
-        msg = colorize(anchor, fg="blue", bold=1)
+        msg = Styler.cm.colorize(anchor, fg="blue", bold=1)
         return(msg)
 
+    ### Other effects
+    #
     @staticmethod
-    def mk_quote(txt):
-        """Add quotes around the text.
-        """
-        if (Renderer.OutputOptions["quoteType"] == 'D'):
-            return(specialChars["ldquo"] + txt.group(1) +
-                specialChars["rdquo"])
-        elif (Renderer.OutputOptions["quoteType"] == 'S'):
-            return(specialChars["lsquo"] + txt.group(1) +
-                specialChars["rsquo"])
-        elif (Renderer.OutputOptions["quoteType"] == 'A'):
-            return(specialChars["laquo"] + txt.group(1) +
-                specialChars["raquo"])
-        return('"' + txt.group(1) + '"')
-
-    @staticmethod
-    def mk_underline(txt):
-        return(colorize(txt.group(1), fg="underline"))
-    @staticmethod
-    def mk_strike(txt):
-        return(colorize(txt.group(1), fg="strike"))
-    @staticmethod
-    def mk_overline(txt):
-        return(colorize(txt.group(1), fg="mk_overline"))
-
-    @staticmethod
-    def mk_bolditalic(txt):
-        return(colorize(txt.group(1), fg="red", bold=1))
-    @staticmethod
-    def mk_bold(txt):
-        return(colorize(txt.group(1), bold=1))
-    @staticmethod
-    def mk_italic(txt):
-        return(colorize(txt.group(1), fg="red"))
-
-    @staticmethod
-    def mk_sans(txt):
-        return txt
-    @staticmethod
-    def mk_mono(txt):
-        return txt
-
-    @staticmethod
-    def mk_super(txt):
-        return txt
-    @staticmethod
-    def mk_sub(txt):
-        return txt
-
-    @staticmethod
-    def mk_nBrk(txt):
+    def mk_nBrk(txt):  # Prevent line-breaks inside
         return(re.sub(r'\s', unichr(160), txt.group(1)))
 
 
@@ -1030,8 +1232,8 @@ class BlockStyle(TextStyle):  # TODO: Later
         "listType"      : None,
     }
     def __init__(self):
-        for k, v in StyleType.styleProps:
-            self[k] = v
+        #for k, v in StyleType.styleProps:
+        #    self[k] = v
         super(BlockStyle, self).__init__()
 
 
@@ -1040,10 +1242,8 @@ class BlockStyle(TextStyle):  # TODO: Later
 #
 if __name__ == "__main__":
     def processOptions():
-        ### We use the same class name as plain BlockFormatter, but you
-        ### import a different file (this one) to get BlockFormatterPlus.
         parser = argparse.ArgumentParser(
-            description=descr, formatter_class=BlockFormatter)
+            description=descr, formatter_class=BlockFormatterPlus)
 
         parser.add_argument(
             "--altFill",        action='store_true',
@@ -1080,16 +1280,15 @@ if __name__ == "__main__":
 
     ###########################################################################
     #
-
     args = processOptions()
-    BlockFormatter._options['verbose'] = args.verbose
+    BlockFormatterPlus._options['verbose'] = args.verbose
     if (args.altFill):
-        BlockFormatter._options['altFill'] = BlockFormatter._alt_fill
+        BlockFormatterPlus._options['altFill'] = BlockFormatterPlus._alt_fill
 
-    print("*** Testing BlockFormatter.py 1 ***\n")
+    print("*** Testing BlockFormatterPlus.py (level 2) ***\n")
 
     if (len(args.files) == 0):
-        tfile = "/tmp/BlockFormatter.md"
+        tfile = "/tmp/BlockFormatterPlus.md"
         vMsg(0, "No files specified, copying own help text to %s" % (tfile))
         fh = codecs.open(tfile, "wb", encoding=args.iencoding)
         fh.write(descr)
@@ -1110,7 +1309,7 @@ if __name__ == "__main__":
                 lenSoFar += len(t0)
             sys.exit()
 
-        hf = BlockFormatter(None)
+        hf = BlockFormatterPlus(None)
         print(hf._format_text(testText))
 
     vMsg(0, "*** DONE ***")

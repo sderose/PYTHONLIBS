@@ -187,7 +187,7 @@ a lot, so I've just chosen ones that seem quite common):
     INLINE: "''"   "''"   "italic"
     INLINE: '['    ']'    "underline blue"
 
-''NOTE'': These are check by regexes, in the order specified. Thus, you need
+''NOTE'': These are checked by regexes, in the order specified. Thus, you need
 to specify a match for "'''" before one for "''", or insert some extra
 complexity, such as look-behind assertions to ensure that there's andappropriate boundary before the starting delimter (say, space, start of string, opening
 punctuation like '(', etc.).
@@ -477,80 +477,108 @@ class BlockFormatter(argparse.HelpFormatter):
         latestBF = self
 
     def _fill_text(self, text, width, indent):
-        """Override argparse's aggressive line-filler, to do these things:
+        """Override the aggressive line-filler, to do these things:
             * Retain blank lines
-            * Keep newline before line-initial block markup: [-*#=|0-9]
-            * For indented blocks, apply their indent to following unindented
+            * Keep newline before line-initial [*#] (probably list items)
+            * For indented blocks, apply their indented to following unindented
               lines in the same block.
-        @param text: The whole text, MarkDown, or other source file.
-        @param width: Window width in columns
-        @param indent: expects a string (e.g. '    '), not number of columns.
+        NOTE: 'indent' expects a string, not a number of columns.
         """
-         # Divide at blank lines and markup
-        self.blocks = self.makeBlocks(text, verbose=args.verbose)
+        #print("_fill_text called for %d chars." % (len(text)))
+        hang = BlockFormatter._options['hangIndent']
 
-        hang = self._options.get('hangIndent')
+        # Divide at blank lines line breaks to keep
+        blocks = BlockFormatter.makeBlocks(text)
+        for i in range(len(blocks)):
+            vMsg(2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
+            item, istring = BlockFormatter.doSpecialChars(blocks[i])
 
-        for i in range(len(self.blocks)):
-            warn(2, "\n******* BLOCK %d (len %d) *******" %
-                (i, len(self.blocks[i].txt)))
-            block = self.blocks[i]
+            #print("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
+            #    (width, indent, ind, mat.group(1), mat.group(2)))
+            # _fill_text return a string with newlines, not a list.
 
-            if (block.leadSpace != ''):
-                srcIndent = block.leadSpace
-            # TODO: What about "PRE"? Must each line be indented?
+            if (istring!=''): indParam = indent + istring + (' '*hang)
+            else: indParam = indent
 
-            items = [ ]
-            # --- obsolete ---
-            # Divide block at newlines followed by punct or indentation
-            # (combine with prior blank-line split?)
+            if (callable(BlockFormatter._options['altFill'])):
+                withNewlines = BlockFormatter._options['altFill'](
+                    item, width, indParam)
+            else:
+                withNewlines = super(BlockFormatter, self)._fill_text(
+                    item, width, indParam)
+            if (istring and withNewlines.startswith(' '*hang)):
+                withNewlines = withNewlines[hang:]  # Un-hang first line
 
-            for item in re.split(r'\n(?=[ \t*=#•])', block.txt, flags=re.UNICODE):
-                warn(2, "LINE ITEM: %s" % (item))
-                item, srcIndent = specialChars(item, lastBF._options)
-
-                #print("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
-                #    (width, indent, ind, mat.group(1), mat.group(2)))
-                # _fill_text return a string with newlines, not a list.
-
-                if (srcIndent): indParam = indent + srcIndent + (' '*hang)
-                else: indParam = indent
-
-                if (callable(lastBF._options.get('altFill'))):
-                    withNewlines = self._options.get('altFill')(
-                        item, width, indParam)
-                else:
-                    withNewlines = super(BlockFormatter, self)._fill_text(
-                        item, width, indParam)
-                if (srcIndent and withNewlines.startswith(' '*hang)):
-                    withNewlines = withNewlines[hang:]  # Un-hang first line
-
-                if (lastBF._options.get(showInvis)):
-                    withNewlines = makeVis(withNewlines)
-
-                items.append(withNewlines)
-            self.blocks[i] = "\n".join(items)
-        warn(2, "\n******* FORMATTING DONE *******\n")
-        return "\n\n".join(self.blocks)
+            blocks[i] = withNewlines
+        vMsg(2, "\n******* FORMATTING DONE *******\n")
+        return "\n".join(blocks)
 
     @staticmethod
-    def specialChars(theTxt, opts:Options):
-        """Expand tabs, backslash sequences, entities, etc.
+    def makeBlocks(text):
+        """Parse the input line by line and:
+            * discard comments
+            * combine each wrappable group of lines into one
+        Explicit blank lines stay as one block each.
+        The returned blocks do NOT have final \n.
         """
-        srcIndent = ""
-        mat = re.match(r'^([ \t]+)', theTxt)
-        if (mat):
-            srcIndent = mat.group(1).expandtabs(
-                latestBF._options.get(tabStops))
-            theTxt = theTxt[len(mat.group(1)):]
+        blocks = [ "" ]
+        breakAfter = False
+        for t in re.split(r'\n', text, flags=re.MULTILINE | re.UNICODE):
+            blockType = '???'
+            if (BlockFormatter._options['comment']!='' and
+                t.startswith(BlockFormatter._options['comment'])):
+                blockType = 'COMMENT'
+            elif (t.strip() == ''):                 # blank line
+                blocks.append("")
+                breakAfter = True
+                blockType = 'BLANK'
+            elif (t[0] == '='):                     # heading
+                blocks.append(t)
+                breakAfter = True
+                blockType = 'HEADING'
+            elif (re.match(r'-{3,}|={3,}\s*$', t)): # rule
+                blocks.append("=" * 79)
+                breakAfter = True
+                blockType = 'RULE'
+            elif (t[0] == '|'):                     # table
+                blocks.append(t)
+                breakAfter = True
+                blockType = 'TABLE'
+            elif (t[0] in "*#:0123456789 \t"):      # keep line break
+                blocks.append(t)
+                blockType = 'LIST, IND'
+            else:                                   # continued text
+                if (breakAfter):
+                    blocks.append(t)
+                    breakAfter = False
+                    blockType = 'TEXT POST BR'
+                else:
+                    if (blocks[-1] != ''): blocks[-1] += ' '
+                    blocks[-1] += t
+                    blockType = 'TEXT CONTINUE'
+            if (args.verbose): print("+%s: %s" % (blockType, blocks[-1]))
+        return blocks
 
-        if (opts.get('xescapes')):  # \xFF
-            theTxt = xescapes(theTxt)
-        if (opts.get('uescapes')):  # \uFFFF
-            theTxt = uescapes(theTxt)
-        if (opts.get('entities')):  # &hellip; &#65;...
+    @staticmethod
+    def doSpecialChars(item):
+        """Expand tabs, escapes, entities, etc.
+        Return the expanded text, but with leading indent separate
+        """
+        indentString = ""
+        mat = re.match(r'^([ \t]+)', item)
+        if (mat):
+            indentString = mat.group(1).expandtabs(
+                BlockFormatter._options['tabStops'])
+            item = item[len(mat.group(1)):]
+        if (BlockFormatter._options['xescapes']):
+            item = xescapes(item)
+        if (BlockFormatter._options['uescapes']):
+            item = uescapes(item)
+        if (BlockFormatter._options['entities']):
             assert False, "entities not yet implemented"
-        return theTxt, srcIndent
+        if (BlockFormatter._options['showInvis']):
+            item = makeVis(item)
+        return item, indentString
 
     @staticmethod
     def _alt_fill(item, width, indentString):
@@ -563,76 +591,6 @@ class BlockFormatter(argparse.HelpFormatter):
             lines.append(indentString + x.group(1))
         return "\n".join(lines)
 
-    def makeBlocks(self, text, verbose=0):
-        """Parse the input line by line and do 3 things:
-            1: process any #style or #set or #include lines
-            2: discard comments
-            3: create a block for each wrappable set of lines
-        NOTE: verbatim/pre/code blocks are not recognized here,
-        so we keep literal newlines until later.
-        """
-        blocks = [ Block(Block.NONE, rNum=-1) ]
-        for i, t in enumerate(re.split(r'\r?\n|\r', text,
-            flags=re.MULTILINE | re.UNICODE)):
-            # Evaluate and discard (settings and comments)
-            #
-            if (t.startswith("#")):
-                if (t.startwith("#set")):         # option
-                    self._options.doSetLine(t[4:])
-                elif (t.startwith("#style")):     # style def
-                    self._styles.doStyleDefLine(t[4:])
-                elif (t.startwith("#include")):   # file inclusion
-                    warn(0, "#include not yet supported.")
-                else:                             # comment
-                    pass
-                continue
-
-            if (t.strip() == ''):                 # blank line
-                if (blocks[-1].txt):
-                    blocks.append(Block(Block.NONE, rNum=i))
-                blocks[-1].nBlanksAbove += 1
-                continue
-
-            # limited to one input line: head, rule, table, bnf
-            #
-            if (t[0] == '='):                     # heading
-                mat = re.match(r'(=+)(.*)(=*\s*$)', t)
-                blocks.append(Block(Block.HEAD, rNum=i,
-                    markup=mat.group(1), txt=mat.group(2)))
-                continue
-            if (re.match(r'-{3,}|={3,}\s*$', t)): # rule
-                blocks.append(Block(Block.RULE, rNum=i, marker=t))
-                continue
-            if (t[0] == '|'):                     # table
-                blocks.append(Block(Block.TROW, rNum=i, txt=t))
-                continue
-            mat = re.match(r'(\s*)(\w+)\s*::=\s*(.*)', t)
-            if (mat):                             # EBNF
-                blocks.append(Block(Block.EBNF,
-                    leadSpace=mat.group(1), rNum=i, txt=mat.group(2)))
-                continue
-
-            # Continuable on following lines
-            #
-            mat = re.match(r'(\s*)([*#:\d]*)', t) # indent and/or markup
-            if (mat and (mat.group(1) or mat.group(2))):
-                newB = Block(Block.CODE,
-                    leadSpace=mat.group(1), txt=mat.group(2))
-                blocks.append(newB)
-                continue
-
-            blocks[-1].txt += t                  # continued text
-
-        blocks[0].txt = blocks[0].txt.lstrip("\n")
-
-        if (verbose):
-            print("\n======= blank-line-separated blocks =======")
-            for b in blocks:
-                print("\n*** (btype %s, nBlanks %d, ind '%s', mk '%s':\n%s" %
-                    (b.blockType, b.nBlanksAbove, b.leadSpace, b.markup, b.txt))
-            print("\n======= end of blank-line-separated blocks =======\n")
-
-        return blocks
 
 
 ###############################################################################
@@ -800,20 +758,44 @@ class StyleSpec:
     }
 
     listStyleTypeValues = {
-        "disc"          : 1,
-        "circle"        : 1,
-        "square"        : 1,
-        "decimal"       : 1,
-        "georgian"      : 1,
-        "trad-chinese-informal" : 1,
-        "kannada"       : 1,
-        str             : 1,
-        "custom-counter-style" : 1,
-        "none"          : 1,
-        "inherit"       : 1,
-        "initial"       : 1,
-        "unset"         : 1,
     }
+    """class ListStyleTypeValues(Enum):
+    INITIAL             = 1
+    INHERIT             = 2
+    NONE                = 3
+
+    # BULLETS
+    DISC                =  10  # Default value. a filled circle
+    CIRCLE              =  11  # a circle
+    SQUARE              =  12  # a square
+
+    # NUMBERS
+    ARMENIAN            = 100  # traditional Armenian numbering
+    CJKIDEOGRAPHIC      = 101  # plain ideographic numbers
+    DECIMAL             = 102  # a number
+    DECIMALLEADINGZERO  = 103  # a number with leading zeros (01, 02, 03, etc.)
+    GEORGIAN            = 104  # traditional Georgian numbering
+    HEBREW              = 105  # traditional Hebrew numbering
+    HIRAGANA            = 106  # traditional Hiragana numbering
+    HIRAGANAIROHA       = 107  # traditional Hiragana iroha numbering
+    KATAKANA            = 108  # traditional Katakana numbering
+    KATAKANAIROHA       = 109  # traditional Katakana iroha numbering
+    LOWERALPHA          = 110  # lower case alpha (a, b, c, d, e, etc.)
+    LOWERGREEK          = 111  # lower case greek
+    LOWERLATIN          = 112  # lower case latin (a, b, c, d, e, etc.)
+    LOWERROMAN          = 113  # lower case roman (i, ii, iii, iv, v, etc.)
+    UPPERALPHA          = 114  # upper case alpha (A, B, C, D, E, etc.)
+    UPPERGREEK          = 115  # upper case greek
+    UPPERLATIN          = 116  # upper case latin (A, B, C, D, E, etc.)
+    UPPERROMAN          = 117  # upper case roman (I, II, III, IV, V, etc.)
+
+    # Non-CSS???
+    DINGBAT             = -101
+    TITLE               = -100
+    HEX                 = -16
+    OCTAL               =  -8
+    """
+
 
     textAlignmentValues = {
         "left"          : 1,
@@ -858,36 +840,58 @@ class StyleSpec:
     # TODO: Issue that there are clear features here, but nowhere near all
     # feature combinations can occur.
     #
-    unicodeFakeFontInfos = {
-        'PLAIN'                   : (PLAIN         , 'ULD'),
-        'BOLD'                    : (BOLD          , 'ULD'),
-        'ITALIC'                  : (ITAL          , 'UL-'),
-        'BOLD_ITALIC'             : (BOLD | ITAL   , 'UL-'),
+    UNONE = 0x0000
 
-        'SANS-SERIF'              : (SANS          , 'ULD'),
-        'SANS-SERIF_BOLD'         : (SANS | BOLD   , 'ULD'),
-        'SANS-SERIF_ITALIC'       : (SANS | ITAL   , 'UL-'),
-        'SANS-SERIF_BOLD_ITALIC'  : (SANS | BOLD | ITAL , 'UL-'),
+    UBOLD = 0x0001
+    UITAL = 0x0002
+    USANS = 0x0004
+    UMONO = 0x0008
 
-        'FRAKTUR'                 : (FRAK          , 'UL-'),
-        'BOLD_FRAKTUR'            : (FRAK | BOLD   , 'UL-'),
+    UFRAK = 0x0010
+    ISCRP = 0x0020
+    UDOUB = 0x0040
 
-        'SCRIPT'                  : (SCRP          , 'UL-'),
-        'BOLD_SCRIPT'             : (SCRP | BOLD   , 'UL-'),
+    USUB  = 0x0100
+    USUP  = 0x0200
+    WIDE  = 0x0400
 
-        'MONOSPACE'               : (MONO          , 'ULD'),
+    UCIRC = 0x1000
+    USQUA = 0x2000
+    UPARE = 0x4000
+    UNEGA = 0x8000
 
-        'DOUBLE-STRUCK'           : (DOUB          , 'ULD'),
-        'FULLWIDTH'               : (WIDE          , 'ULD'),
+    class UFakeFontInfos = {
+            'PLAIN'                   : (UNONE           , 'ULD'),
+            'BOLD'                    : (UBOLD           , 'ULD'),
+            'ITALIC'                  : (UITAL           , 'UL-'),
+            'BOLD_ITALIC'             : (UBOLD | UITAL   , 'UL-'),
 
-        'CIRCLED'                 : (CIRC          , 'ULD'),
-        'NEGATIVE_CIRCLED'        : (CIRC | NEGA   , 'U--'),
-        'SQUARED'                 : (SQUA          , 'U--'),
-        'NEGATIVE_SQUARED'        : (SQUA | NEGA   , 'U--'),
-        'PARENTHESIZED'           : (PARE          , 'ULD'),  # (no 0)
+            'SANS_SERIF'              : (USANS           , 'ULD'),
+            'SANS_SERIF_BOLD'         : (USANS | UBOLD   , 'ULD'),
+            'SANS_SERIF_ITALIC'       : (USANS | UITAL   , 'UL-'),
+            'SANS_SERIF_BOLD_ITALIC'  : (USANS | UBOLD | UITAL , 'UL-'),
 
-        'SUBSCRIPT'               : (SUB           , '--D'),
-        'SUPERSCRIPT'             : (SUP           , '--D'),
+            'FRAKTUR'                 : (UFRAK           , 'UL-'),
+            'BOLD_FRAKTUR'            : (UFRAK | UBOLD   , 'UL-'),
+
+            'SCRIPT'                  : (USCRP           , 'UL-'),
+            'BOLD_SCRIPT'             : (USCRP | UBOLD   , 'UL-'),
+
+            'MONOSPACE'               : (UMONO           , 'ULD'),
+
+            'DOUBLE_STRUCK'           : (UDOUB           , 'ULD'),
+            'FULLWIDTH'               : (UWIDE           , 'ULD'),
+
+            'CIRCLED'                 : (UCIRC           , 'ULD'),
+            'NEGATIVE_CIRCLED'        : (UCIRC | UNEGA   , 'U--'),
+            'SQUARED'                 : (USQUA           , 'U--'),
+            'NEGATIVE_SQUARED'        : (USQUA | UNEGA   , 'U--'),
+            'PARENTHESIZED'           : (UPARE           , 'ULD'),  # (no 0)
+
+            'SUBSCRIPT'               : (USUB            , '--D'),
+            'SUPERSCRIPT'             : (USUP            , '--D'),
+    }
+
 
         #'REGIONAL_INDICATOR_SYMBOL': (1  , 'U--'),
     }
@@ -912,6 +916,98 @@ class StyleSpec:
         tokens = re.split(r'\s+', txt)
         if (tokens[0] not in StyleValues.displayValues):
             raise ValueError("Unrecognized style keyword '%s'." % (tokens[0]))
+
+
+###############################################################################
+# Bundles of style properties.
+#
+class LineType:  # TODO: Later
+    def __init__(self):
+        self.color  = Color.BLUE
+        self.weight = 1
+        self.dash   = [ 1, 1 ]
+
+class BorderType:  # Takes LineTypes   # TODO: Later
+    def __init__(self):
+        self.uBoxDraw = (bool,  False)
+        self.bottom   = ( LineType, None )
+        self.left     = ( LineType, None )
+        self.right    = ( LineType, None )
+        self.miter    = ( object,   None )
+
+class ListType:
+    def __init__(self):
+        self.level        = None    # From 1
+        self.styleType    = None    # Bullet, Number, Head
+        self.markerValue  = 1
+        self.markerText   = None    # code point or 'disc' etc.
+        self.markerPath   = None    # For run-in titles, deflist terms, etc.
+        self.markerPos    = None    #
+
+class Transclusion:
+    def __init__(self):
+        self.literal      = (str, None)
+        self.xpath        = (str, None)
+        self.url          = (str, None)
+
+
+###############################################################################
+# Full-up style defs.
+#
+class TextStyle:
+    """Wayyyyy oversimplified stylesheet mechanism.
+    """
+    textProps = {
+        # fonts etc.
+        'bold'        : (bool,  False),
+        'italic'      : (bool,  False),
+        'sans'        : (bool,  False),
+        'mono'        : (bool,  False),
+        'underline'   : (bool,  False),
+        'strike'      : (bool,  False),
+        'super'       : (bool,  False),
+        'sub'         : (bool,  False),
+        'ufont'       : (MFont,  None),
+
+        # color etc.
+        'color'       : (Color, None),
+        'bgcolor'     : (Color, None),
+        'effect'      : (Effect,None),
+
+        # hypertext
+        'before'      : (Transclusion, None),
+        'after'       : (Transclusion, None),
+        'hot'         ; (bool, False)
+    }
+    def __init__(self):
+        for k, v in StyleType.styleProps:
+            self.__dict__[k] = v
+
+
+class BlockStyle(TextStyle):  # TODO: Later
+    blockProps = {
+        'marginTop'     : None,
+        'marginBottom'  : None,
+        'marginLeft'    : None,
+        'marginRight'   : None,
+        'marginFirst'   : None,
+
+        'textAlignment' : None,
+        'whitespace'    : None,    # wrap, trunc, hang
+        'marker'        : None,
+        'markerPos'     : None,
+        'border'        : (BorderType, None),
+        "border-collapse": None,
+        "padding"       : None,
+
+        "hidden"        : None,
+        "listType"      : None,
+        "borderType"    : None,
+        "borderPAd"     : None,
+    }
+    def __init__(self):
+        for k, v in StyleType.styleProps:
+            self.__dict__[k] = v
 
 
 ###############################################################################

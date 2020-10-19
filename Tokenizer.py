@@ -1120,8 +1120,6 @@ class SimpleTokenizer:
 
 ###############################################################################
 #
-import nltk
-
 class NLTKTokenizerPlus:
     """
     See also https://keras.io/preprocessing/text/
@@ -1148,6 +1146,11 @@ class NLTKTokenizerPlus:
         Lots of Unicode punctuation issues.
     """
     def __init__(self):
+        try:
+            import nltk
+        except ImportError:
+            print("\n******* Cannot import nltk *******")
+
         self.options = {}
         self.srcData = ""
         self.tokens = []

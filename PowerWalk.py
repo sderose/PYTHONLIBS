@@ -162,6 +162,7 @@ extension of not.
   ** `--sampleFactor` lets you random-sample only some of the files
   ** `--ignorables` adds events for ignorable leafs (with a special type field)
   ** `--missing` adds events for nonexistent or unopenable files
+  ** `--errorEvents` adds events for errors such as unreadable files, etc.
 
 ==Usage from code==
 
@@ -314,7 +315,7 @@ tar files, or other containers that are themselves filtered out.
 containers that are actually opened.
     * leafs: Files (not directories or containers) examined.
     * ignored: Total items ignored (see below for finer details).
-    * erroneous: Files that could not be examined or opened, for
+    * errors: Files that could not be examined or opened, for
 example due to not existing.
     * maxDepthReached: How deep the deepest branch of the traversal went.
 
@@ -656,6 +657,7 @@ option-setting. Add `--includeInfos` and `--excludeInfos`.
 Add `--copyTo` and `--serialize`.
 * 2020-10-09: Add `--exex`.
 * 2020-10-14: Improve how topLevelItems are passed and defaulted.
+Clean up `errorEvents` options vs. `errors` statistic.
 
 
 =Rights=
@@ -787,7 +789,7 @@ class TraversalState(list):
             "containersOpened"           : 0,  # +
             "leafs"                      : 0,  # +
             "ignored"                    : 0,
-            "erroneous"                  : 0,  # +
+            "errors"                     : 0,  # +
 
             "regular"                    : 0,
             "directory"                  : 0,
@@ -897,8 +899,8 @@ class TraversalState(list):
         """Called for missing, unopenable, etc.
         """
         warn(1, "handleError: %s" % (path))
-        self.bump("erroneous")
-        if (not self.options['errors']):
+        self.bump("errors")
+        if (not self.options['errorEvents']):
             return None
         elif (self.options['exceptions']):
             if (errorType == PWType.MISSING):
@@ -1025,7 +1027,8 @@ class PowerWalk:
             # Options for event handling and generation
             "close"               : False,    # Do fh.close() on leafs for user.
             "containers"          : True,     # Events for container start/end?
-            "exceptions"          : False,    # Exception for containers, errs.
+            "errorEvents"         : False,    # Return events for errors?
+            "exceptions"          : False,    # Exception for containers?
             "ignorables"          : False,    # Events even for ignored stuff?
             "notify"              : False,    # Tell caller on start/end dir
             "open"                : False,    # Do leaf open()s for user.
@@ -1125,8 +1128,11 @@ class PowerWalk:
             prefix + "containers",        action='store_true',
             help='Generate events (or --exceptions) for container open/close.')
         parser.add_argument(
-            prefix + "encoding", type=str, metavar='E', default="utf-8",
+            prefix + "encoding", type=str,metavar='E', default="utf-8",
             help='Assume this character set. Default: utf-8.')
+        parser.add_argument(
+            prefix + "errorEvents",       action='store_true',
+            help='Return events for errors like unopenable items.')
         parser.add_argument(
             prefix + "exceptions",        action='store_true',
             help='Report container oper/close as exceptions, not events.')

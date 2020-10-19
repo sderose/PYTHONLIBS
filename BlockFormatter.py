@@ -3,6 +3,10 @@
 # BlockFormatter.
 # Upgrade for Python argparse, that don't forcibly wrap all text.
 #
+# This is "Level" 1, which wraps lines to fit a given width, but retains
+# blank lines and line-breaks before MarkDown-ish lists, tables, headings, etc.
+# It does no colorizing, fonts, etc.
+#
 #pylint: disable=W0212
 #
 import sys, re, codecs
@@ -11,7 +15,12 @@ import argparse
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
-if PY3:
+if PY2:
+    def unbackslash(self, s):
+        return s.decode('string_escape') # python2
+else:
+    def unbackslash(self, s):
+        return bytes(s, "utf-8").decode("unicode_escape") # python3
     def unichr(n): return chr(n)
 
 __metadata__ = {
@@ -44,28 +53,46 @@ class that can be used with Python's
 This simple class is like the default argparse formatter except that
 it does ''not'' wrap lines across blank lines. That is, blank lines stay there.
 
-To use it:
-    doc = ""
-    First paragraph of documentation,
-    which wraps to fill output lines.
+===To use it with argparse===
+    from BlockFormatter import BlockFormatter
 
-    Second paragraph.
+    doc = ""
+    =Description=
+
+    This is a simple formatter. You can use it with `argparse` in order to
+    get prettier formatting. You can just use blank lines and indentation,
+    or use MarkDown-like conventions (like asterisk at start of line) that
+    will also preventing aggressive line-wrapping.
+
+    * It's useful.
+    * It's easy.
+    * It's upgradeable.
     ...
     ""
+
     parser = argparse.ArgumentParser(description=doc,
         formatter_class=BlockFormatter)
 
+===To use it as an independent formatter===
+
+    from BlockFormatter import BlockFormatter
+    doc = "..."
+    hf = BlockFormatter(None)
+    print(hf._format_text(doc))
+
+
 ==Behavior==
 
-Blank lines remain. This includes lines that contain only space and TAB, though
-(they will be actually empty on output, however).
+Blank lines remain. This includes lines that contain only spaces and TABs
+(they will actually be empty on output, however).
 
 Lines that are indented get a newline and indentation before them,
 but no blank line (unless there was one there in the input too). Tabs will be
 expanded in the indentation, assuming tabstops every 4 spaces.
 
-Unindented lines following an indented lines, will be wrapped with it, but all
-the resulting visual lines will be indented to match.
+Unindented lines will be wrapped with preceding lines, except:
+* when the previous lines looks like a heading, horizontal rule, etc; or
+* when the current line start with a markdown-like block markup such as [*=\d].
 
 ==Options==
 
@@ -82,11 +109,12 @@ defaults to:
         'entities':    False,
         'breakLong':   False,
         'altFill':     None,
-        'comment':     '#',
+        'comment':     '//',
     }
 
-There is not yet an API to change or set these, but you can set them
-directly like:
+If you are using `BlockFormatter` via the command line, you can set these
+with options. If you are using it from Python code (such as with `argparse`,
+you can set them directly like:
     BlockFormatter._options['tabStops'] = 8
 
 'verbose' can be increased to generate debugging messages.
@@ -117,31 +145,58 @@ One such is provided: BlockFormatter._alt_fill (experimental).
 
 'comment' is a string that identifies comment lines (no space before).
 
+
 =Related commands and libraries=
 
-See also my formatter for MarkDown, MediaWiki, and POD (same API as this):
-`MarkupHelpFormatter`.
+This is the lowest level of my formatters: it only outputs a single, monospace
+font, with no support for color, bold, etc.
 
-A different Python Markdown formatter: [https://pypi.org/project/markdown-formatter/]
+One step up is `BlockFormatterPlus`, which adds:
+* support for ANSI terminal basic color and effects (by integrating my `ColorManager.py` package (q.v.)), and
+* emulation of font variation via Unicode's alternate Latin alphabets (by
+integrating my `mathAlphanumerics.py` package (q.v.). This provides
+italic, bold, script, double-struck, sans-serif, and other variations
+(but only for Latin letters and Arabic digits).
 
-My `argparsePP.py`:
-* Hooks up MarkupHelpFormatter
+Another step up, but not really finished/working yet, is my formatter for MarkDown, MediaWiki, and POD, which adds customizable input parsing and
+output styles.
+
+A different Python Markdown formatter (though not, to my knowledge, integrated with argparse), is [https://pypi.org/project/markdown-formatter/].
+
+My `argparsePP.py` variant adds some other features to argparse itself:
+
 * Adds a showDefaults option
-* Adds a shortMetavars option
+* Adds a shortMetavars option (to save space on the screen)
 * Supports alternative hyphen conventions
-* Supports adding 'toggle' attributes, with 'no-' prefix (changeable)
+* Supports adding 'toggle' attributes, with '--no-' prefix (changeable)
+* Add an 'anyInt' type that accepts decimal, hex, or octal numbers
+
 
 =Known bugs and limitations=
 
-* Long tokens such as URIs should be able to break at slashes, etc.
-
 * It seems that the API in `argparse` for formatting
 (such as it is), is not considered "public" -- so attempts to subclass it
-could break any time. See [https://stackoverflow.com/questions/29484443]. But
-it also does not seem to change much. I have no idea why more attention
-has not been paid to this; it seems to me a very basic/common tool.
+could break any time. See [https://stackoverflow.com/questions/29484443].
+But it also does not seem to change much.
 
-* Option to page the output, or send directly to 'less'
+* Does not support the MarkDown way of marking headings by adding a
+following line of "=" for level 1, or "-". I like the Wikipedia and other
+variants much better, for what I think are very good reasons.
+
+* Does not support MarkDown per se's "Two spaces at the end of a line
+produces a line break." I think using impossible-to-see markup that
+some editors will freely delete, is a non-starter.
+
+=To Do=
+
+* Handle backslashed line-initials.
+* Finish support for command-line setting of options.
+* Long tokens such as URIs should be able to break at slashes, etc.
+* Option to page the output, or send directly to 'less'.
+* Keep in sync with `BlockFormatterPlus`, etc.
+* Add "<" to block-indicators?
+* Add ">" to block-indicators, for "included mail"?
+
 
 =Rights=
 
@@ -159,6 +214,7 @@ Thanks to Anthon van der Neut for help on integrating with `argparse`. Also:
     * [http://hg.python.org/cpython/file/2.7/Lib/argparse.py]
     * [https://docs.python.org/2/library/textwrap.html]
 
+
 =History=
 
 2014-2015: Written by Steven J. DeRose, along with `MarkupHelpFormatter`.
@@ -170,6 +226,7 @@ adding the various options.
 
 2020-08-22: Improve handling of MarkDown-like lines. Simplify wrapping.
 Refactor entity/escape/tab handling.
+
 
 =Options=
 """
@@ -204,6 +261,7 @@ def vMsg(level, msg):
 
 def makeVis(s):
     """Turn control characters into Unicode Control Pictures.
+    TODO: Make wrapping treat these as breakable?
     """
     return re.sub(r'([\x01-\x0F\x11-\x1F])', toPix, s)  # NOT NEWLINE!
 
@@ -377,8 +435,20 @@ if __name__ == "__main__":
             description=descr, formatter_class=BlockFormatter)
 
         parser.add_argument(
-            "--altFill",        action='store_true',
+            "--altFill",          action='store_true',
             help='Use an alternate method to fill lines.')
+        parser.add_argument(
+            "--breakLong",        action='store_true',
+            help='Allow breaking long tokens (like URLs) at non-spaces.')
+        parser.add_argument(
+            "--comment",          type=str, metavar='C', default="//",
+            help='Treat lines starting with this, as comment lines.')
+        parser.add_argument(
+            "--entities",         action='store_true',
+            help='Recognize HTML/XML special characters.')
+        parser.add_argument(
+            "--hangIndent",       type=int, default=2,
+            help='Apply hanging indents of this many spaces.')
         parser.add_argument(
             "--iencoding",        type=str, metavar='E', default="utf-8",
             help='Assume this character set for input files. Default: utf-8.')
@@ -389,8 +459,17 @@ if __name__ == "__main__":
             "--quiet", "-q",      action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
+            "--showInvis",        action='store_true',
+            help='Turn control characters etc. to visible forms.')
+        parser.add_argument(
             "--split",            action='store_true',
             help='Just split lines.')
+        parser.add_argument(
+            "--tabStops",         type=int, default=4,
+            help='Assume tabstops every n columns.')
+        parser.add_argument(
+            "--uescapes",         action='store_true',
+            help='Recognize \\uFFFF-style special characters.')
         parser.add_argument(
             "--unicode",          action='store_const',  dest='iencoding',
             const='utf8', help='Assume utf-8 for input files.')
@@ -400,6 +479,9 @@ if __name__ == "__main__":
         parser.add_argument(
             "--version", action='version', version=__version__,
             help='Display version information, then exit.')
+        parser.add_argument(
+            "--xescapes",         action='store_true',
+            help='Recognize \\xFF-style special characters.')
 
         parser.add_argument(
             'files',             type=str,
@@ -417,7 +499,7 @@ if __name__ == "__main__":
     if (args.altFill):
         BlockFormatter._options['altFill'] = BlockFormatter._alt_fill
 
-    print("*** Testing BlockFormatter.py 1 ***\n")
+    print("*** Testing BlockFormatter.py (level 1) ***\n")
 
     if (len(args.files) == 0):
         tfile = "/tmp/BlockFormatter.md"
