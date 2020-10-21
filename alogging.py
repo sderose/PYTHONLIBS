@@ -1479,19 +1479,19 @@ class ALogger:
         return self.formatRec(stuff)
 
     def formatRec(self,
-        obj,			        # Data to format
-        depth:int=0,        	# (internal depth tracking)
-        specials:bool=False,	#
-        showSize:bool=True, 	# Display len() of aggregates
-        maxDepth:int=3,			# Limit recursion levels
-        maxItems:int=0,     	# Limit items to show from lists
-        quoteKeys:bool=False,	# Put quotation marks around dict keys?
-        keyWidth:int=14,		# Columns to leave for keys
-        sortKeys:bool=True, 	# Dicts shown in key order?
-        indentSize:int=4,		# Spaces per indent level
-        noExpand:dict=None,		# Items *not* to expand
-        propWidth:int=16,   	#
-        options:dict=None   	# Same options, but as a dict
+        obj,                    # Data to format
+        specials:bool=False,    #
+        showSize:bool=True,     # Display len() of aggregates
+        maxDepth:int=3,         # Limit recursion levels
+        maxItems:int=0,         # Limit items to show from lists
+        quoteKeys:bool=False,   # Put quotation marks around dict keys?
+        keyWidth:int=14,        # Columns to leave for keys
+        sortKeys:bool=True,     # Dicts shown in key order?
+        indentSize:int=4,       # Spaces per indent level
+        noExpand:dict=None,     # Items *not* to expand
+        propWidth:int=16,       #
+        options:dict=None,      # Same options, but as a dict
+        depth:int=0             # (internal depth tracking)
         ):
         """Format a pretty wide range of data structures for pretty-printing.
         Based on a similar PHP tool I built with ccel.org.

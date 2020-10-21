@@ -4,7 +4,7 @@
 #
 from __future__ import print_function
 import sys, os
-from os.path import getatime, getctime, getmtime, getsize, splitext
+from os.path import getatime, getctime, getmtime, getsize, splitext, stat
 import argparse
 import re
 from collections import namedtuple
@@ -98,8 +98,7 @@ regular events.
 container formats;
 include or exclude by extensions, name patterns, and path patterns;
 exclude hidden or backup items;
-sort the items of a directory
-in various order;
+sort the items of a directory in various orders;
 and even random-sample only a % of eligible items.
 
 The package also supplies a few useful idependent tests:
@@ -113,7 +112,35 @@ The package also supplies a few useful idependent tests:
 
 If run on its own, `PowerWalk` will display the paths of selected
 files under the specified
-directory(s), or the current directory if none are specified.
+directory(s), or the current directory if none are specified. Several
+special options apply in that case:
+
+* `--oformat` [x] -- formats the list as plain, json, html, or s-expressions.
+Setting this to other than 'plain' (the default), overrides the specific
+delimiter options described below.
+
+* `--openQuote 'x'` and `--closeQuote 'x'` -- set delimiters to be put
+before and after each name (typically both would be set to '"' or "'").
+
+* `--anonymousClose` -- if set, do not print the name of directories or
+other containers as they close.
+
+* `--openDelim` and `--closeDelim` -- Display these around
+the contents of directories and other containers (after their name').
+
+* `--copyTo [path]` -- Copy the chosen files to this directory (see also
+`--serialize`).
+
+* `--exec` '[...{}...]\\;' -- Run a given command on each selected item,
+like `find --exec`.
+
+* `--iString [s]` -- Repeat this string to create indentation.
+
+* `--itemSep` -- Put this in to separate items (e.g., a comma).
+
+* `--serialize` -- put a serial number on each file with `--copyTo`.
+
+===General options available in command or API use===
 
 * Our chief options, for file '''selection''':
     Note: "include" and "exclude" in option names can be abbreviated to
@@ -159,6 +186,7 @@ extension of not.
 
 * Amongst our options:
   ** `--sort` enables sorting found files into various orders
+(see under "Other Options" below for details).
   ** `--sampleFactor` lets you random-sample only some of the files
   ** `--ignorables` adds events for ignorable leafs (with a special type field)
   ** `--missing` adds events for nonexistent or unopenable files
@@ -172,10 +200,13 @@ you can just to this:
 
     from PowerWalk import PowerWalk, PWType
     pw = PowerWalk("myDir1", recursive=True, open=True, close=True)
+    maxDepth = 0
     for path, fh, what in pw.traverse():
+        if (pw.travState.depth > maxDepth): maxDepth = pw.travState.depth
         if (what != PWType.LEAF): continue
         nrecs = len(fh.readlines)
         print("%6d lines in %s" % (nrecs, path))
+    print("Maximum nesting depth: %d." % (maxDepth))
 
 `what` will be a PWType Enum, one of:
     PWType.OPEN  -- Issued when a container (tar, directory, etc.) opens.
@@ -196,7 +227,7 @@ The following example prints an
 outline of the file directory subtree of the current directory:
 
     depth = 0
-    pw = PowerWalk(".", recursive=True, containers=True)
+    pw = PowerWalk(args.files, recursive=True, containers=True)
     pw.setOption('includeExtensions', 'txt')
     for path, fh, what in pw.traverse():
         if (what == PWType.OPEN):
@@ -212,7 +243,7 @@ outline of the file directory subtree of the current directory:
 If you'd rather think of directory boundaries as exceptional
 (some might say that's more Pythonic), you can  do this:
 
-    pw = PowerWalk(".", recursive=True, exceptions=True)
+    pw = PowerWalk("myDir", recursive=True, exceptions=True)
     while True:
         try:
             path, fh, what = pw.traverse():
@@ -472,7 +503,7 @@ Others are reclassified as ignorable. The result will only
 amount to approximately the requested percentage.
 
 * `sort`: Sort the items in each directory in the specified way.
-Default: "" (just use whatever `os.listdir` returns).
+Default: 'none' (just use whatever `os.listdir` returns). Other choices:
 
 ** `name`:  sort by filename
 ** `iname`: sort by filename, ignoring case.
@@ -480,7 +511,8 @@ Default: "" (just use whatever `os.listdir` returns).
 ** `ctime`: file creation time
 ** `mtime`: file modification time
 ** `size`: File length in bytes
-** `extension`: Extension as returned by `os.path.splitext`
+** `ext`: Extension as returned by `os.path.splitext`
+
 * `notify`: Display a message as each new file starts. Default: False
 
 ==traverse(self)==
@@ -506,6 +538,9 @@ to False.
 
 
 =Known bugs and limitations=
+
+* Default indented list unindents some files, and/or fails to display
+directory events.
 
 * `--exec` is still experimental, and related `find` options like `--execdir`
 are not there at all.
@@ -570,43 +605,35 @@ See [../FileSelectionOptionsOfNixCommands.md] for a survey of what different
 
 * Protect against circular links.
 
-* Option to cat all leafs?
-
-* add move/link similar to `--copyTo`, and support setting
+* add move/link/cat similar to `--copyTo`, and support setting
 xattr to say where copied from.
 
 * include/exclude for dirs (and containers?), not just files.
 
 ==Additional filters  (cf 'find')==
 
-* permissions, owner and group ids (and none), inode
-* date, age, and file size, file count
+* permissions, owner and group ids (and none), inum
+* date, age, and file size (chars, bytes, blocks, kmgtp), file count
 * Mac fs metadata (kmdItem... and all that). See my `macFinderInfo`.
 * Option to not cross device or filesystem bounds (see `find -x`)
 * distinguish maxfiles tried vs. succeeded
-
-* Compare `find`'s "PRIMARIES" and adopt useful ones. Perhaps:
-** atime, ctime, mtime, mindepth, cf Bmin [aBcm]?(newer|time|min)
-** depth
-** empty
-** exec(dir)
-** group/nogroup, user/nouser/uname/uid/
-** newer/old cre/mod/acc time vs. specified file
-** -perm
-** -print0
-** -type b block special, c char special, d dir, f regular,
-l symlink, p FIFO, s socket.
-** -size n (chars, bytes, blocks, kmgtp.
-** 'i' prefix for specific tests
-** inum
-** -xattr, -xattrname (and xattr k op v)
-** negation and maybe booleans?
+* atime, ctime, mtime, mindepth, cf Bmin [aBcm]?(newer|time|min)
+* depth
+* empty
+* exec(dir)
+* group/nogroup, user/nouser/uname/uid/
+* newer/old cre/mod/acc time vs. specified file
+* -print0
+* 'i' prefix for specific tests
+* -xattr, -xattrname (and xattr k op v)
+* negation and maybe booleans?
 
 ==Other options==
 
 * Limit max/min/total size of files
 
-* `--sort` should provide a `reverse` option.
+* `--sort` should provide a `reverse` option, and an option to put
+directories before files.
 
 * Support Mac aliases, bookmarks, and webloc files.
 See my `resolveLinks` attempt.
@@ -619,25 +646,23 @@ See [https://stackoverflow.com/questions/48862093] (how-to-read-change-and-write
 
 * Sampling of every nth file, first n from each directory, etc.
 
-* Option to "mark" the files, e.g. with an xattr or Finder flag?
+* Option to "mark" the files, e.g. with an xattr or Finder flag, and do set
+operations that refer to the marks.
 
 ==Interface==
 
 * Make a way for the caller to find out what kind of container they're in.
-Maybe just pass back the container handle? Or they can poke at the path,
-of course.
+Maybe just pass back the container handle? Or they can poke at the path.
 
 * Synchronize with `find` option and/or names where appropriate:
 ** -L for --followlinks (`find` used to use -follow)
-** -s for sort
-** -d (depth-first)?
+** -s for `-sort name`
+** -d (depth-first)?  -depth nq
 ** -x (don't cross device boundaries) = -mount = -xdev
 ** -acl?
 ** -wholename for -path
 
-* Protect against caller changing working dir (unlike `os.walk`)
-
-* Offer warning if no eligible files found in each leaf dir?
+* Offer warning if no eligible files found in a dir? (cf `find -empty`).
 
 
 =History=
@@ -658,6 +683,7 @@ Add `--copyTo` and `--serialize`.
 * 2020-10-09: Add `--exex`.
 * 2020-10-14: Improve how topLevelItems are passed and defaulted.
 Clean up `errorEvents` options vs. `errors` statistic.
+* 2020-10-20f: Add `--type` similar to `find` option. Fix depth counting.
 
 
 =Rights=
@@ -859,6 +885,8 @@ class TraversalState(list):
         if (self.depth > self.stats['maxDepthReached']):
             self.stats['maxDepthReached'] = self.depth
 
+        warn(1, "In openContainer, containers %d, exceptions %d." %
+            (self.options['containers'], self.options['exceptions']))
         if (not self.options['containers']):
             return None
         elif (self.options['exceptions']):
@@ -933,15 +961,13 @@ class TraversalState(list):
 class PowerWalk:
     """A class to traverse files in the file system, combining a lot of
     filtering and decoding features, drawing on many *nix commands for
-    inspiration. See the features description under -h.
+    inspiration. See the features description under -h, and the utility
+    to add them to argparse: addOptionsToArgparse().
     """
 
     __optionTypes = {
-        # Options for what to include
-        "backups"             : bool,
-        "hidden"              : bool,
-        "followLinks"         : bool,
 
+        # Name filtering
         "excludeExtensions"   : "REGEX",
         "excludeNames"        : "REGEX",
         "excludePaths"        : "REGEX",
@@ -951,29 +977,28 @@ class PowerWalk:
         "includePaths"        : "REGEX",
         "includeInfos"        : "REGEX",
 
+        "backups"             : bool,
+        "close"               : bool,
+        "containers"          : bool,
+        "encoding"            : str,
+        "exceptions"          : bool,
+        "followLinks"         : bool,
+        "hidden"              : bool,
+        "ignorables"          : bool,
         "maxDepth"            : int,
         "maxFiles"            : int,
         "maxSize"             : int,
         "minDepth"            : int,
         "minSize"             : int,
-
-        "openTar"             : bool,
-        "openGzip"            : bool,
-        "recursive"           : bool,
-        "sampleFactor"        : float,
-
-        # Options for how to open
-        "encoding"            : str,
         "mode"                : str,
-        "sort"                : str,
-
-        # Options for event handling and generation
-        "close"               : bool,
-        "containers"          : bool,
-        "exceptions"          : bool,
-        "ignorables"          : bool,
         "notify"              : bool,
         "open"                : bool,
+        "openGzip"            : bool,
+        "openTar"             : bool,
+        "recursive"           : bool,
+        "sampleFactor"        : float,
+        "sort"                : str,
+        "type"                : str,
         "verbose"             : int,
     }
 
@@ -993,45 +1018,38 @@ class PowerWalk:
         self.travState = None  # Used during traversal (not thread-safe!) TO DO
 
         self.options = {
-            # Options for what to include
-            "backups"             : False,
-            "hidden"              : False,
-            "followLinks"         : False,
-
             "excludeExtensions"   : "",
             "excludeNames"        : "",
             "excludePaths"        : "",
             "excludeInfos"        : "",
-
             "includeExtensions"   : "",
             "includeNames"        : "",
             "includePaths"        : "",
             "includeInfos"        : "",
 
+            "backups"             : False,
+            "close"               : False,    # Do fh.close() on leafs for user.
+            "containers"          : True,     # Events for container start/end?
+            "encoding"            : "utf-8",  # Character encoding
+            "errorEvents"         : False,    # Return events for errors?
+            "exceptions"          : False,    # Exception for containers?
+            "followLinks"         : False,
+            "hidden"              : False,
+            "ignorables"          : False,    # Events even for ignored stuff?
             "maxDepth"            : 0,
             "maxFiles"            : 0,
             "maxSize"             : 0,
             "minDepth"            : 0,
             "minSize"             : 0,
-
-            "openTar"             : False,
-            "openGzip"            : False,
-            "recursive"           : False,
-            "sampleFactor"        : 100.0,    # Take everything.
-
-            # Options for how to open
-            "encoding"            : "utf-8",  # Character encoding
             "mode"                : "rb",     # Read, write, bin, etc.
-            "sort"                : "",       # TODO: Test in tar, zip, etc.
-
-            # Options for event handling and generation
-            "close"               : False,    # Do fh.close() on leafs for user.
-            "containers"          : True,     # Events for container start/end?
-            "errorEvents"         : False,    # Return events for errors?
-            "exceptions"          : False,    # Exception for containers?
-            "ignorables"          : False,    # Events even for ignored stuff?
             "notify"              : False,    # Tell caller on start/end dir
             "open"                : False,    # Do leaf open()s for user.
+            "openGzip"            : False,
+            "openTar"             : False,
+            "recursive"           : False,
+            "sampleFactor"        : 100.0,    # Take everything.
+            "sort"                : "",       # TODO: Test in tar, zip, etc.
+            "type"                : "",
             "verbose"             : 0,
         }
 
@@ -1094,15 +1112,14 @@ class PowerWalk:
         if (not prefix.startswith('-')):
             prefix = "--" + prefix
 
-        if (1):
-            for thing in [ "Extensions", "Names", "Paths", "Infos" ]:
-                for sign, abbr in [ ("Include", "i"), ("Exclude", "x") ]:
-                    n1 = prefix + sign.lower() + thing
-                    n2 = prefix + sign.lower() + "-" + thing
-                    n3 = prefix + abbr + thing
-                    parser.add_argument(n1, n2, n3, type=str, metavar='R',
-                    help='%s items with %s matching this regex.' %
-                        (sign, thing.lower()))
+        for thing in [ "Extensions", "Names", "Paths", "Infos" ]:
+            for sign, abbr in [ ("Include", "i"), ("Exclude", "x") ]:
+                n1 = prefix + sign.lower() + thing
+                n2 = prefix + sign.lower() + "-" + thing
+                n3 = prefix + abbr + thing
+                parser.add_argument(n1, n2, n3, type=str, metavar='R',
+                help='%s items with %s matching this regex.' %
+                    (sign, thing.lower()))
 
         # And the grep-like ones
         parser.add_argument(
@@ -1125,8 +1142,12 @@ class PowerWalk:
             prefix + "close",             action='store_true',
             help='Close leaf items when done (requires --open).')
         parser.add_argument(
-            prefix + "containers",        action='store_true',
+            prefix + "containers",        action='store_true', default=True,
             help='Generate events (or --exceptions) for container open/close.')
+        parser.add_argument(
+            prefix + "no-containers",     action='store_false',
+            dest='containers',
+            help='Do not generate events (or --exceptions) for container open/close.')
         parser.add_argument(
             prefix + "encoding", type=str,metavar='E', default="utf-8",
             help='Assume this character set. Default: utf-8.')
@@ -1196,9 +1217,22 @@ class PowerWalk:
         parser.add_argument(
             prefix + "sort",              type=str, default='none',
             choices = [ 'none',
-                'alpha', 'ALPHA', 'size', 'adate', 'mdate', 'cdate' ],
-            help='Sort directory members by what? Default: none. ' +
-                "Not yet supported.")
+                'name', 'iname', 'atime', 'ctime', 'mtime', 'size', 'ext' ],
+            help='Sort directory members by what? Default: none. ')
+
+        parser.add_argument(
+            prefix + "type",              type=str, default="",
+            choices = [ "b", "c", "d", "f", "l", "p", "s", "D", "P", "W" ],
+            help='As for the "find" command, plus Door, Port, Whiteout.')
+
+        # Test that all the known options are available.
+        for op in PowerWalk.__optionTypes.keys():
+            if (prefix+op not in parser._option_string_actions):
+                warn(0, "addOptionsToArgparse: '%s' not added. List is: %s." %
+                    (prefix+op,
+                    ", ".join(parser._option_string_actions.keys())))
+                sys.exit()
+
         return parser
 
     def traverse(self, topLevelItems=None):
@@ -1244,7 +1278,6 @@ class PowerWalk:
 
         if (self.options['maxDepth'] > 0 and               # MAXDEPTH REACHED
             len(trav) > self.options['maxDepth']):
-            warn(0, "maxDepth exceeded.")
             return
 
         elif (not self.passesFilters(path, trav)):         # IGNORABLE FILE
@@ -1263,6 +1296,7 @@ class PowerWalk:
                 if (tsf): yield tsf
             else:
                 tsf = trav.openContainer(path, None)
+                warn(1, "Opening dir '%s' (tsf %s)." % (path, tsf))
                 if (tsf): yield tsf
                 children = os.listdir(path)
                 if (self.options['sort']):
@@ -1272,6 +1306,7 @@ class PowerWalk:
                     for chFrame in self.ttraverse(chPath, trav):
                         yield chFrame
                 tsf = trav.closeContainer()
+                warn(1, "Closing dir '%s', tsf %s." % (path, tsf))
                 if (tsf): yield tsf
 
         elif (False and tarfile.is_tarfile(path)):         # TAR FILE
@@ -1357,6 +1392,9 @@ class PowerWalk:
 
     def dirPassesFilters(self, path, trav):
         # TODO: Add --include-dir and --exclude-dir like for grep
+        if (self.options['type'] and self.options['type']!='d'):
+            self.recordEvent(trav, "ignoredByType")
+            return False
         if (not self.options['hidden'] and isHidden(path)):
             self.recordEvent(trav, "hiddenDir")
             return False
@@ -1373,8 +1411,10 @@ class PowerWalk:
         extPart = extPart.strip(". \t\n\r")
 
         passes = False  # Assume the worst for now...
+        if (not self.passesType(path)):
+            self.recordEvent(trav, "ignoredByType")
 
-        if (len(trav)<self.options['minDepth']):
+        elif (len(trav)<self.options['minDepth']):
             self.recordEvent(trav, "ignoredByMinDepth")
 
         elif (not self.options['hidden'] and isHidden(path)):
@@ -1414,8 +1454,44 @@ class PowerWalk:
             self.recordEvent(trav, 'regular')
             passes = True
 
-        warn(1, "%s filter: %s" % ("PASS" if passes else "FAIL", tail))
+        warn(2, "%s filter: %s" % ("PASS" if passes else "FAIL", tail))
         return passes
+
+    def passesType(self, path):
+        """Test like "find -type", return if it's ok.
+        """
+        mode = os.stat(path).st_mode
+        ty = self.options['type']
+
+        if (not ty):
+            return True
+
+        elif (ty=="b"):                             # block special
+            if (not stat.S_ISBLK(mode)): return False
+        elif (ty=="c"):                             # character special
+            if (not stat.S_ISCHR(mode)): return False
+        elif (ty=="d"):                             # directory
+            if (not stat.S_ISDIR(mode)): return False
+        elif (ty=="f"):                             # regular file
+            if (not stat.S_ISREG(mode)): return False
+        elif (ty=="l"):                             # symbolic link
+            if (not stat.S_ISLNK(mode)): return False
+        elif (ty=="p"):                             # FIFO
+            if (not stat.S_ISFIFO(mode)): return False
+        elif (ty=="s"):                             # socket
+            if (not stat.S_ISSOCK(mode)): return False
+
+        # Python ones that go beyond "find -type"
+        elif (ty=="D"):                             # DOOR
+            if (not stat.S_ISDOOR(mode)): return False
+        elif (ty=="P"):                             # PORT
+            if (not stat.S_ISPORT(mode)): return False
+        elif (ty=="W"):                             # whiteout
+            if (not stat.S_ISWHT(mode)): return False
+
+        else:
+            warn(0, "Unknown -type value '%s'." % (ty))
+        return True
 
     def chSort(self, curPath, chList):
         """Sort a file-list returned from os.listdir somehow.
@@ -1425,7 +1501,7 @@ class PowerWalk:
         elif (self.options['sort'] == 'name'):
             chList.sort()
         elif (self.options['sort'] == 'iname'):
-            chList.sort(key=lambda x: x.lowercase())
+            chList.sort(key=lambda x: x.lower())
         elif (self.options['sort'] == 'atime'):
             chList.sort(key=lambda x: getatime(os.path.join(curPath, x)))
         elif (self.options['sort'] == 'ctime'):
@@ -1434,7 +1510,7 @@ class PowerWalk:
             chList.sort(key=lambda x: getmtime(os.path.join(curPath, x)))
         elif (self.options['sort'] == 'size'):
             chList.sort(key=lambda x: getsize(os.path.join(curPath, x)))
-        elif (self.options['sort'] == 'extension'):
+        elif (self.options['sort'] == 'ext'):
             chList.sort(key=lambda x: splitext(os.path.join(curPath, x))[1])
         else:
             raise ValueError("Unknown sort method '%s'." %
@@ -1542,6 +1618,15 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
+            "--anonymousClose", action='store_true',
+            help='Suppress container name at close.')
+        parser.add_argument(
+            "--closeDelim",  metavar='S', type=str, default="    <==",
+            help='Display before directory name on close.')
+        parser.add_argument(
+            "--closeQuote", type=str, default='',
+            help='Put this after the reported paths.')
+        parser.add_argument(
             "--copyTo",  metavar='P', type=str,
             help='Copy chosen files to this directory (see --serialize).')
         parser.add_argument(
@@ -1551,11 +1636,21 @@ if __name__ == "__main__":
             "--iString", metavar='S', type=str, default='    ',
             help='Repeat this string to create indentation.')
         parser.add_argument(
+            "--itemSep", metavar='S', type=str, default='',
+            help='Put this in to separate items (e.g., a comma).')
+        parser.add_argument(
+            "--oformat", type=str, default='plain',
+            choices = [ 'plain', 'json', 'html', 'sexp' ],
+            help='format the output in this way.')
+        parser.add_argument(
+            "--openDelim",  metavar='S', type=str, default="==>",
+            help='Display after directory name on open.')
+        parser.add_argument(
+            "--openQuote", type=str, default='',
+            help='Put this before the reported paths.')
+        parser.add_argument(
             "--quiet", "-q",       action='store_true',
             help='Suppress most messages.')
-        parser.add_argument(
-            "--quote",             action='store_true',
-            help='Put quotes around the reported paths.')
         parser.add_argument(
             "--short",             action='store_true',
             help='Only show the bottom-level name in the outline view.')
@@ -1589,6 +1684,28 @@ if __name__ == "__main__":
                 warn(0, "No directory available at '%s'." % (args0.copyTo))
                 sys.exit()
 
+        if (args0.oformat == 'json'):
+            args0.openDelim = '['
+            args0.closeDelim = ']'
+            args0.itemSep = ','
+            args0.openQuote = '"'
+            args0.closeQuote = '"'
+            args0.anonymousClose = True
+        elif (args0.oformat == 'html'):
+            args0.openDelim = '<ol>'
+            args0.closeDelim = '</ol>'
+            args0.itemSep = ''
+            args0.openQuote = '<li><file>'
+            args0.closeQuote = '</file></li>'
+            args0.anonymousClose = True
+        elif (args0.oformat == 'sexp'):
+            args0.openDelim = '('
+            args0.closeDelim = ')'
+            args0.itemSep = ''
+            args0.openQuote = '"'
+            args0.closeQuote = '"'
+            args0.anonymousClose = True
+
         return(args0)
 
 
@@ -1617,21 +1734,22 @@ if __name__ == "__main__":
 #         recursive=args.recursive,
 #         notify=args.verbose)
 
-    depth = 0
     leafNum = 0
     for path0, fh0, what0 in pw.traverse():
         path0 = path0.replace(cwd, '.')
-        if (args.short and depth > 1):
+
+        if (args.short and pw.travState.depth > 1):
             path0 = os.path.basename(path0)
-        if (args.quote):
-            path0 = '"' + re.sub(r'"', "\\\"", path0) + '"'
+
+        ppath = args.openQuote + re.sub(r'"', "\\\"", path0) + args.closeQuote
+
+        indent = args.iString*pw.travState.depth
 
         if (what0 == PWType.OPEN):
-            print("%s==>%s" % (args.iString*depth, path0))
-            depth += 1
+            print("%s%s %s" % (indent[4:], ppath, args.openDelim))
         elif (what0 == PWType.LEAF):
             leafNum += 1
-            print("%s%s" % (args.iString*depth, path0))
+            print("%s%s%s" % (indent, ppath, args.itemSep))
             if (args.copyTo):
                 _, baseName = os.path.split(path0)
                 if (args.serialize): baseName = "_%04d%s" % (leafNum, baseName)
@@ -1639,7 +1757,7 @@ if __name__ == "__main__":
                 tgtPath = os.path.join(args.copyTo, baseName)
                 if (os.path.exists(tgtPath)):
                     warn(0, "Target already exists: %s => %s" %
-                        (path0, tgtPath))
+                        (ppath, tgtPath))
                 else:
                     copyfile(path0, tgtPath)
                     if (args.xattrs):
@@ -1653,12 +1771,12 @@ if __name__ == "__main__":
                 except CalledProcessError as e:
                     warn(0, "Failed on %s:\n    %s" % (cmd, e))
         elif (what0 == PWType.CLOSE):
-            depth -= 1
-            print("%s<==%s" % (args.iString*depth, path0))
+            print("%s%s%s%s" % (indent, args.closeDelim,
+                "" if (args.anonymousClose) else ' '+ppath, args.itemSep))
         elif (what0 == PWType.IGNORE):
-            print("%sIGNORING: %s" % (args.iString*depth, path0))
+            print("%sIGNORING: %s%s" % (indent, ppath, args.itemSep))
         elif (what0 == PWType.ERROR):
-            print("%sERROR: %s" % (args.iString*depth, path0))
+            print("%sERROR: %s%s" % (indent, ppath, args.itemSep))
 
     if (args.stats):
         warn(0, pw.travState.getStats(showZeroes=True))

@@ -80,6 +80,7 @@ See 'condition' type?
 * Document 'anyInt' type
 * entailment? setting x also changes y and z
 * exclusion: can't set both x and y
+* support minimum unique truncations for 'choices'.
 
 * method to add synonym to previously-defined option
 * option for output to $PAGER (incl. links when possible? or should all
