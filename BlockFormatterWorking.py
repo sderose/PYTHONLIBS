@@ -470,10 +470,12 @@ class BlockFormatter(argparse.HelpFormatter):
                 wrap(para, width)
                     _fill_text(self, text, width, indent)
     """
+    _options = {}
+
     def __init__(self):
         super(BlockFormatter, self).__init__(None)
-        self._options = Options()
         self._styles = StyleSpec()
+        self._options = Options()
         latestBF = self
 
     def _fill_text(self, text, width, indent):
@@ -490,7 +492,7 @@ class BlockFormatter(argparse.HelpFormatter):
         # Divide at blank lines line breaks to keep
         blocks = BlockFormatter.makeBlocks(text)
         for i in range(len(blocks)):
-            vMsg(2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
+            warn(2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
             item, istring = BlockFormatter.doSpecialChars(blocks[i])
 
             #print("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
@@ -510,7 +512,7 @@ class BlockFormatter(argparse.HelpFormatter):
                 withNewlines = withNewlines[hang:]  # Un-hang first line
 
             blocks[i] = withNewlines
-        vMsg(2, "\n******* FORMATTING DONE *******\n")
+        warn(2, "\n******* FORMATTING DONE *******\n")
         return "\n".join(blocks)
 
     @staticmethod
@@ -667,7 +669,7 @@ class StyleSpec:
         self.color          = None
         self.bgcolor        = None
         self.display        = StyleSpec.displayValues['BLOCK']
-        self.fontFamily     = StyleSpec.unicodeFakeFontInfos['PLAIN']
+        self.fontFamily     = StyleSpec.UFakeFontInfos['PLAIN']
         self.fontStyle      = StyleSpec.fontStyleValues['normal']
         self.fontWeight     = StyleSpec.fontWeightValues['medium']
         self.margin         = [ 0, 0, 0, 0]
@@ -677,7 +679,7 @@ class StyleSpec:
         # vertical-align
         self.whitespace     = 'wrap'
         self.width          = 79
-        for k, v in kwargs:
+        for k, v in kwargs.items():
             pass
 
     styleProps = {
@@ -694,41 +696,41 @@ class StyleSpec:
    }
 
     globalValues = {
-        "inherit" : -1,
-        "initial" : -2,
-        "unset"   : -3,
+        "inherit"   : -1,
+        "initial"   : -2,
+        "unset"     : -3,
     }
 
     valueDataTypes = {
-        "bool"    : 2,
-        "string"  : 3,
-        "integer" : 4,
-        "float"   : 5,
-        "percentage" : 6
-        "ratio"   : 7,
+        "bool"      : 2,
+        "string"    : 3,
+        "integer"   : 4,
+        "float"     : 5,
+        "percentage"    : 6,
+        "ratio"     : 7,
 
-        "length"  : 11,
-        "angle"   : 12,
-        "color"   : 13,
+        "length"    : 11,
+        "angle"     : 12,
+        "color"     : 13,
 
-        "attrName": 100,
-        "XPath"   : 101,
-        "XPtr"    : 102,
-        "url"     : 103
+        "attrName"  : 100,
+        "XPath"     : 101,
+        "XPtr"      : 102,
+        "url"       : 103
     }
 
     # Enumerated keywords for various props
     #
     colorValues = {
-        "black"   : 0,
-        "red"     : 1,
-        "green"   : 2,
-        "yellow"  : 3,
-        "blue"    : 4,
-        "magenta" : 5,
-        "cyan"    : 6,
-        "white"   : 7,
-        "default" : 9,
+        "black"     : 0,
+        "red"       : 1,
+        "green"     : 2,
+        "yellow"    : 3,
+        "blue"      : 4,
+        "magenta"   : 5,
+        "cyan"      : 6,
+        "white"     : 7,
+        "default"   : 9,
     }
 
     displayValues = {
@@ -848,50 +850,48 @@ class StyleSpec:
     UMONO = 0x0008
 
     UFRAK = 0x0010
-    ISCRP = 0x0020
+    USCRP = 0x0020
     UDOUB = 0x0040
 
     USUB  = 0x0100
     USUP  = 0x0200
-    WIDE  = 0x0400
+    UWIDE = 0x0400
 
     UCIRC = 0x1000
     USQUA = 0x2000
     UPARE = 0x4000
     UNEGA = 0x8000
 
-    class UFakeFontInfos = {
-            'PLAIN'                   : (UNONE           , 'ULD'),
-            'BOLD'                    : (UBOLD           , 'ULD'),
-            'ITALIC'                  : (UITAL           , 'UL-'),
-            'BOLD_ITALIC'             : (UBOLD | UITAL   , 'UL-'),
+    UFakeFontInfos = {
+        'PLAIN'                   : (UNONE           , 'ULD'),
+        'BOLD'                    : (UBOLD           , 'ULD'),
+        'ITALIC'                  : (UITAL           , 'UL-'),
+        'BOLD_ITALIC'             : (UBOLD | UITAL   , 'UL-'),
 
-            'SANS_SERIF'              : (USANS           , 'ULD'),
-            'SANS_SERIF_BOLD'         : (USANS | UBOLD   , 'ULD'),
-            'SANS_SERIF_ITALIC'       : (USANS | UITAL   , 'UL-'),
-            'SANS_SERIF_BOLD_ITALIC'  : (USANS | UBOLD | UITAL , 'UL-'),
+        'SANS_SERIF'              : (USANS           , 'ULD'),
+        'SANS_SERIF_BOLD'         : (USANS | UBOLD   , 'ULD'),
+        'SANS_SERIF_ITALIC'       : (USANS | UITAL   , 'UL-'),
+        'SANS_SERIF_BOLD_ITALIC'  : (USANS | UBOLD | UITAL , 'UL-'),
 
-            'FRAKTUR'                 : (UFRAK           , 'UL-'),
-            'BOLD_FRAKTUR'            : (UFRAK | UBOLD   , 'UL-'),
+        'FRAKTUR'                 : (UFRAK           , 'UL-'),
+        'BOLD_FRAKTUR'            : (UFRAK | UBOLD   , 'UL-'),
 
-            'SCRIPT'                  : (USCRP           , 'UL-'),
-            'BOLD_SCRIPT'             : (USCRP | UBOLD   , 'UL-'),
+        'SCRIPT'                  : (USCRP           , 'UL-'),
+        'BOLD_SCRIPT'             : (USCRP | UBOLD   , 'UL-'),
 
-            'MONOSPACE'               : (UMONO           , 'ULD'),
+        'MONOSPACE'               : (UMONO           , 'ULD'),
 
-            'DOUBLE_STRUCK'           : (UDOUB           , 'ULD'),
-            'FULLWIDTH'               : (UWIDE           , 'ULD'),
+        'DOUBLE_STRUCK'           : (UDOUB           , 'ULD'),
+        'FULLWIDTH'               : (UWIDE           , 'ULD'),
 
-            'CIRCLED'                 : (UCIRC           , 'ULD'),
-            'NEGATIVE_CIRCLED'        : (UCIRC | UNEGA   , 'U--'),
-            'SQUARED'                 : (USQUA           , 'U--'),
-            'NEGATIVE_SQUARED'        : (USQUA | UNEGA   , 'U--'),
-            'PARENTHESIZED'           : (UPARE           , 'ULD'),  # (no 0)
+        'CIRCLED'                 : (UCIRC           , 'ULD'),
+        'NEGATIVE_CIRCLED'        : (UCIRC | UNEGA   , 'U--'),
+        'SQUARED'                 : (USQUA           , 'U--'),
+        'NEGATIVE_SQUARED'        : (USQUA | UNEGA   , 'U--'),
+        'PARENTHESIZED'           : (UPARE           , 'ULD'),  # (no 0)
 
-            'SUBSCRIPT'               : (USUB            , '--D'),
-            'SUPERSCRIPT'             : (USUP            , '--D'),
-    }
-
+        'SUBSCRIPT'               : (USUB            , '--D'),
+        'SUPERSCRIPT'             : (USUP            , '--D'),
 
         #'REGIONAL_INDICATOR_SYMBOL': (1  , 'U--'),
     }
@@ -914,7 +914,7 @@ class StyleSpec:
 
     def doStyleDefLine(self, txt):
         tokens = re.split(r'\s+', txt)
-        if (tokens[0] not in StyleValues.displayValues):
+        if (tokens[0] not in StyleSpec.displayValues):
             raise ValueError("Unrecognized style keyword '%s'." % (tokens[0]))
 
 
@@ -923,7 +923,7 @@ class StyleSpec:
 #
 class LineType:  # TODO: Later
     def __init__(self):
-        self.color  = Color.BLUE
+        self.color  = TextStyle.Color('BLUE')
         self.weight = 1
         self.dash   = [ 1, 1 ]
 
@@ -957,6 +957,10 @@ class Transclusion:
 class TextStyle:
     """Wayyyyy oversimplified stylesheet mechanism.
     """
+    Color = str  # Switch to enum later
+    Effect = str
+    MFont = str
+
     textProps = {
         # fonts etc.
         'bold'        : (bool,  False),
@@ -977,10 +981,11 @@ class TextStyle:
         # hypertext
         'before'      : (Transclusion, None),
         'after'       : (Transclusion, None),
-        'hot'         ; (bool, False)
+        'hot'         : (bool, False)
     }
+
     def __init__(self):
-        for k, v in StyleType.styleProps:
+        for k, v in StyleSpec.styleProps:
             self.__dict__[k] = v
 
 
@@ -1005,8 +1010,9 @@ class BlockStyle(TextStyle):  # TODO: Later
         "borderType"    : None,
         "borderPAd"     : None,
     }
+
     def __init__(self):
-        for k, v in StyleType.styleProps:
+        for k, v in StyleSpec.styleProps:
             self.__dict__[k] = v
 
 
@@ -1073,36 +1079,36 @@ class BlockStyle(TextStyle):  # TODO: Later
 dv = StyleSpec.displayValues
 
 StylableThings = {
-    'P':		{ 'display':dv['BLOCK'], },
-    'H1':   	{ 'display':dv['BLOCK'], },
-    'H2':	    { 'display':dv['BLOCK'], },
-    'H3':	    { 'display':dv['BLOCK'], },
-    'H4':	    { 'display':dv['BLOCK'], },
-    'H5':   	{ 'display':dv['BLOCK'], },
-    'H6':	    { 'display':dv['BLOCK'], },
-    'ULI':		{ 'display':dv['BLOCK'], },
-    'OLI':		{ 'display':dv['BLOCK'], },
-    'DLI':		{ 'display':dv['BLOCK'], },
-    'PRE':		{ 'display':dv['BLOCK'], },
-    'TROW':		{ 'display':dv['BLOCK'], },
-    'TCELL':	{ 'display':dv['BLOCK'], },
-    'EBNF':		{ 'display':dv['BLOCK'], },
-    'HR':		{ 'display':dv['BLOCK'], },
+    'P':        { 'display':dv['BLOCK'], },
+    'H1':       { 'display':dv['BLOCK'], },
+    'H2':       { 'display':dv['BLOCK'], },
+    'H3':       { 'display':dv['BLOCK'], },
+    'H4':       { 'display':dv['BLOCK'], },
+    'H5':       { 'display':dv['BLOCK'], },
+    'H6':       { 'display':dv['BLOCK'], },
+    'ULI':      { 'display':dv['BLOCK'], },
+    'OLI':      { 'display':dv['BLOCK'], },
+    'DLI':      { 'display':dv['BLOCK'], },
+    'PRE':      { 'display':dv['BLOCK'], },
+    'TROW':     { 'display':dv['BLOCK'], },
+    'TCELL':    { 'display':dv['BLOCK'], },
+    'EBNF':     { 'display':dv['BLOCK'], },
+    'HR':       { 'display':dv['BLOCK'], },
     #
     # cf htmlMap, below
     #
-    'BOLD':		{ 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'ITAL':		{ 'display':dv['INLINE'], },           # '''md''', POD I, <i>
-    'MONO':		{ 'display':dv['INLINE'], },           # `md`, POD C, <tt>
-    'LINK':		{ 'display':dv['INLINE'], },           # [md], POD L, <a>
+    'BOLD':     { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    'ITAL':     { 'display':dv['INLINE'], },           # '''md''', POD I, <i>
+    'MONO':     { 'display':dv['INLINE'], },           # `md`, POD C, <tt>
+    'LINK':     { 'display':dv['INLINE'], },           # [md], POD L, <a>
     'STRIKE':   { 'display':dv['INLINE'], },           # [md], POD L, <a>
-    'SUB':		{ 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'SUP':		{ 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    'SUB':      { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    'SUP':      { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
 
-    'VAR':		{ 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'Q':		{ 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'ACRONYM':	{ 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'ABBR':		{ 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    'VAR':      { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    'Q':        { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    'ACRONYM':  { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    'ABBR':     { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
 }
 
 
@@ -1202,7 +1208,7 @@ class Inlines:
         except KeyError:
             cfpath = ''
         cfpath = ':' + self.pathVar
-        for dirName in ':'.split(cfpath):
+        for dirName in cfpath.split(sep=':'):
             warn(1, "Trying for config file in '%s'" % (dirName))
             if (not os.path.isdir(dirName)): continue
             cfile = os.path.join(dirName, 'blockFormatter.cfg')
@@ -1221,7 +1227,7 @@ class Inlines:
     def addMap(self, displayType, delim1, delim2, effects):
         # TODO: Check for duplicates
         regex = re.compile(r'' + delim1 + '(.*?)' + delim2)
-        st = StyleTuple(displayType, delim1, delim2, effects, regex)
+        st = Inlines.StyleTuple(displayType, delim1, delim2, effects, regex)
         self.styleMap.append(st)
 
     def translateInlines(self, s):
