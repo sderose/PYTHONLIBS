@@ -330,16 +330,25 @@ is raised if they don't match.
 
 =To do=
 
-* regex delimiters
-* the "whitespace to nonspace transition" approach (like awk, column, and sort)
-* Support for cycling delimiters (like 'paste -d)
+* Test `quotedNewline` support.
+
+* More flexible delimiters:
+    ** regex delimiters
+    ** the "whitespace to nonspace transition" approach (like awk, column, and sort)
+    ** Support for cycling delimiters (like 'paste -d)
+
 * Special treatment of empty/missing fields
 * Field Defaults
 * Controllable Boolean values (see csv2xml.py)
 * Creating NamedTuple or tuple instead of list or dict?
-* Sub/alternate class for fixed column widths?
-* Maybe support field-specific default values?
-* support for a wider range of formats (probably will be done by separate packages with much the same API), such as:
+
+* Maybe support CONLL format (see Stanford Corenlp output options)?
+This is TSV, but with a blank line between groups of records (each of which
+amounts to a sentence). Easiest support may be to return one extra field,
+which is a generated group number, incremented at each blank line. And maybe
+throw an exception on the blank lines, so the user can tell?
+
+* Support for a wider range of formats (probably will be done by separate packages with much the same API), such as:
     ** HTML and XML tables
     ** XSV
     ** MECS, TAG, Clix, and similar markup systems
@@ -347,6 +356,7 @@ is raised if they don't match.
     ** JSON {[]}, [[]], etc., and similar Perl and Python arrangements
     ** s-expressions
     ** SQL INSERT statements
+    ** Sub/alternate class for fixed column widths?
 
 
 =History=
@@ -360,6 +370,9 @@ Start `multidelimiter`. Add `comment`. Rewrite doc.
 
 * 2020-09-06: Better error messages. Renamed 'types' to 'typeList'.
 Refactor test cases and error handling.
+
+* 2020-10-21: Start support for controlling order of fields with DictWriter.
+Pull in `formatScalar` from my `alogging`.
 
 
 =Rights=
@@ -410,6 +423,7 @@ class DialectX:
         typeList:bool            = None,
         uescapes:bool            = False,
         xescapes:bool            = False,
+        quotedNewline:bool       = False
     ):
         self.dialectName         = dialectName
 
@@ -432,6 +446,7 @@ class DialectX:
         self.typeList            = typeList  # Could also be "AUTO"
         self.uescapes            = uescapes
         self.xescapes            = xescapes
+        self.quotedNewline       = quotedNewline
 
         global dialects
         dialects[dialectName] = self
@@ -457,6 +472,7 @@ class DialectX:
         "types":             ( str,  None ),
         "uescapes":          ( bool, False ),
         "xescapes":          ( bool, False ),
+        "quotedNewline":     ( bool, False ),
     }
 
     def apply_arguments(self, theArgs):
@@ -548,6 +564,7 @@ class DictReader:
         #**theKwds
         ):
         self.f          = f
+        self.recnum     = 0
         self.fieldnames = fieldnames
         self.restkey    = restkey
         self.restval    = restval
@@ -559,15 +576,25 @@ class DictReader:
         # TODO: set up the kwargs
 
     def __next__(self):
-        """TODO: Does not yet handle quoted fields that span lines.
+        """Read and back the next record as a dict of fields by name.
+        Quoted fields that span lines are still experimental; and by
+        definition are unbounded, making is kinda awful to debug.
         """
+        startingRecnum = self.recnum
+        priorParts = ""
         while (1):
             rec = self.f.readline()
-            if (rec==""): return None
+            self.recnum += 1
+            if (rec==""):
+                if (priorParts != ""):
+                    raise ValueError("EOF found parsing record started at %d."
+                        % (startingRecnum))
+                return None
             if (self.dialect.comment and
                 rec.startswith(self.dialect.comment)):
                 pass
-            elif (self.line_num==0 and self.dialect.header):
+            rec = priorParts + rec
+            if (self.line_num==0 and self.dialect.header):
                 self.line_num += 1
                 self.fieldnamesFromHeader = fsplit(rec, self.dialect)
                 if (self.fieldnames and
@@ -576,13 +603,24 @@ class DictReader:
                         "dialect fieldnames:\n    %s\n    %s" %
                         (self.fieldnames != self.fieldnamesFromHeader))
             else:
-                fields = fsplit(rec, self.dialect)
-                fields = fsplit(rec, self.dialect)
+                try:
+                    fields = fsplit(rec, self.dialect)
+                except UnclosedQuote:
+                    priorParts += rec
+                    continue
                 fieldDict = {}
                 for fNum, fd in fields:
                     fieldDict[self.fieldnames[fNum]] = fd
                 return fieldDict
         return None  # EOF
+
+
+###############################################################################
+# Thrown when parsing a line and it ends mid-quote, iff the dialect
+# says that's ok. Caller should catch it, append next line, and call again.
+#
+class UnclosedQuote(Exception):
+    pass
 
 
 ###############################################################################
@@ -609,6 +647,18 @@ def reader(csvfile, **formatParams):
 class DictWriter:
     """Like 'writer' but takes dicts, and writes their members in the
     order specified by 'fieldnames'.
+
+    When using 'writerow()', if 'fieldnames':
+        is None: fields are written in alphabetical order.
+        mentions a field that is not known, it is written as "".
+        mentions a field that is missing, it is written as ""
+            (or an type-appropriate default, if the type is known).
+        does not list a field that does exist, it is omitted.
+
+    The goal here is that the same inventory of fields will be written for
+    every record, regardless of whether some are sometimes missing or extra.
+    For some potential output formats, it may be ok to omit missing/ empty/
+    default fields. This is not yet supported.
     """
 
     # For specifying fieldFormats: format strings like "%-8.4f", etc.
@@ -652,14 +702,64 @@ class DictWriter:
 
     def writerow(self, row:dict):
         buf = ""
-        for _, field in enumerate(row):
+        if (self.fieldnames is None):
+            self.fieldnames = sorted(row.keys())
+        for _, fname in enumerate(self.fieldnames):
             #fname = self.fieldnames[fnum]
-            buf += field + self.dialect.delimiter
+            fval = row[fname] if fname in row else ""
+            formattedVal = self.formatOneField(fname, fval)
+            buf += formattedVal + self.dialect.delimiter
         buf[-len(self.dialect.delimiter):] = self.dialect.lineterminator
         self.f.write(buf)
 
     def writecomment(self, s):
         self.f.write(self.dialect.comment + s + self.dialect.lineterminator)
+
+    def formatOneField(self, fname, fval):
+        return self.formatScalar(fval)
+
+    def formatScalar(self, obj):  # From alogging.py
+        ty = type(obj)
+        if (obj is                             None):
+            return self.disp_None
+        elif (isinstance(obj,                  str) or
+            isinstance(obj,                    basestring)):
+            return '"%s"' % (obj)
+        elif (isinstance(obj,                  unicode)):
+            return 'u"%s"' % (obj)
+        elif (isinstance(obj,                  bytearray)):
+            return 'b"%s"' % (obj)
+        #elif (isinstance(obj,                  buffer)):
+        #    return '"%s"' % (obj)
+        #elif (isinstance(obj,                  storage)):
+        #    return "%s" % (obj)
+
+        elif (isinstance(obj,                  bool)):
+            if (obj): return "True"
+            return "False"
+
+        elif (isinstance(obj,                  int)):
+            return "%8d" % (obj)
+        elif (isinstance(obj,                  float)):
+            return "%12.4f" % (obj)
+        elif (isinstance(obj,                  complex)):
+            return "%s" % (obj)
+
+        elif (isinstance(obj,                  dict)):
+            return "{|%d|}" % (len(obj))
+        elif (isinstance(obj,                  list)):
+            return "[|%d|]" % (len(obj))
+        elif (isinstance(obj,                  tuple)):
+            return "(|%d|)" % (len(obj))
+        elif (isinstance(obj,                  set)):
+            return "[set |%d|]" % (len(obj))
+        elif (isinstance(obj,                  frozenset)):
+            return "[frset |%d|]" % (len(obj))
+
+        elif (isinstance(obj,                  object)):
+            return "[%s |%d|]" % (ty, len(obj))
+        return "[???] %s" % (obj)
+        # end formatScalar
 
 
 ###############################################################################
@@ -989,19 +1089,25 @@ def fsplit(
         else:
             tokens[-1] += c
 
+    if (pendingQuote):
+        # If the end of line is still inside quotes, and that's allowed,
+        # throw exception to signal caller to append another line and
+        # call us to parse again. Not efficient, but easy.
+        if (d.quotedNewline):
+            raise UnclosedQuote()
+        if (d.strict):
+            raise ValueError("Unresolved quote (expected '%s') at '%s'." %
+                (pendingQuote, context(s, i)))
     if (d.strict and (escaped or pendingQuote)):
         raise ValueError("Unresolved escapechar at '%s'." % (context(s, i)))
-    if (d.strict and pendingQuote):
-        raise ValueError("Unresolved quote (expected '%s') at '%s'." %
-            (pendingQuote, context(s, i)))
     if (d.minsplit is not None and len(tokens) < d.minsplit+1):
         raise ValueError("min %d tokens needed, but found %d at '%s'." %
             (d.minsplit, len(tokens), context(s, i)))
     # maxsplit just stops splitting, no error.
 
     if (d.typeList):
-        if (isinstance(d.types, list)):
-            for i, typ in enumerate(d.types):
+        if (isinstance(d.typeList, list)):
+            for i, typ in enumerate(d.typeList):
                 if (not typ): continue
                 tokens[i] = typ(tokens[i])
         elif (d.typeList=='AUTO'):
