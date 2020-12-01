@@ -5,7 +5,12 @@
 #
 from __future__ import print_function
 import sys, os
-import codecs
+#import codecs
+import stat
+import math
+import time
+from functools import partial
+
 #from collections import defaultdict, namedtuple
 
 #from sjdUtils import sjdUtils
@@ -15,16 +20,10 @@ import codecs
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
-if PY2:
-    #import HTMLParser
-    #from htmlentitydefs import codepoint2name, name2codepoint
-    string_types = basestring
-else:
+if PY3:
     #from html.parser import HTMLParser
     #from html.entities import codepoint2name, name2codepoint
     import re
-    string_types = str
-    from io import StringIO
     def unichr(n): return chr(n)
     def unicode(s, encoding='utf-8', errors='strict'): str(s, encoding, errors)
     if (sys.version_info[1] < 7):
@@ -34,7 +33,7 @@ else:
 
 __metadata__ = {
     'title'        : "PowerStat.py",
-    'description'  : "A Python clone (more or less) of 'stat'.",
+    'description'  : "A Python clone+lib (more or less) of 'stat'.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -50,17 +49,37 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
-Do pretty much what *nix `stat` does, but from and for Python.
+Do pretty much what *nix `stat` does, but from and for Python. This also adds
+access to a variety of other file information accessible via the Python `stat`
+interface, using an extension of the usul `stat -f` %-string, to accept names
+rather than just single letters to specify the datum desired.
 
 ==Usage==
 
-    PowerStat.py [options] [files]
+    import PowerStat
+    statFormat = "-%Hu%Mu%Lu%Hg%Mg%Lg%Ho%Mo%Lo  %8su %8sg %6ds %12sm %sn"
+    ps = PowerStat.PowerStat(statFormat)
+    for f in myFiles:
+        print(ps.format(f))
+
+produces a display quite like `ls -ld`.
+
+Items that don't have %-codes in normal `stats` can be gotten using similar
+syntax, but replacing the final single-letter code (such as 'm' for modification
+time), by `{name}`, where name is any of identifiers specified at
+(for example) [https://docs.python.org/3/library/stat.html] (such as UF_HIDDEN
+and many others).
 
 
 =Related Commands=
 
+*nix `stat`, `lstat`, `strftime`.
+
 
 =Known bugs and Limitations=
+
+Does not catch and report %-codes that violate the syntax rules. They're just
+ignored.
 
 
 =History=
@@ -85,39 +104,12 @@ or [https://github.com/sderose].
 """
 
 
-dirCount = 0
-fileCount = 0
-
-
 ###############################################################################
 #
 def warn(lvl, msg):
     if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
     if (lvl < 0): sys.exit()
 
-def doOneFile(path):
-    """Read and deal with one individual file.
-    """
-    if (not path):
-        if (sys.stdin.isatty()): print("Waiting on STDIN...")
-        fh = sys.stdin
-    else:
-        try:
-            fh = codecs.open(path, "rb", encoding=args.iencoding)
-        except IOError as e:
-            sys.stderr.write("Cannot open '%s':\n    %s" %
-                (e), stat="readError")
-            return 0
-
-    recnum = 0
-    for rec in fh.readlines():
-        recnum += 1
-        if (args.tickInterval and (recnum % args.tickInterval==0)):
-            sys.stderr.write("Processing record %s." % (recnum))
-        rec = rec.rstrip()
-        if (rec == ''): continue  # Blank record
-        print(rec)
-    return(recnum)
 
 ###############################################################################
 #
@@ -129,25 +121,32 @@ class PowerStat:
     Add datum field like {statName}', to just use any name python stat knows?
     (see https://docs.python.org/3/library/stat.html)
     """
-    flag    = r'(?P<flag>[#+-0])?'
-    space	= r'(?P<space>[ ])?'
-    size	= r'(?P<size>\d)?'
-    prec	= r'(?P<prec>\.\d+)?'
-    fmt	    = r'(?P<fmt>[DOUXFS])?'  # dec, oct, udec, hex, float, s
-    sub	    = r'(?P<sub>[HLM])?'    # which part for pdrT
-    datum	= r'(?P<datum>[diplugramcBzbkfvNTYZ])'
+    flag    = r'(?P<flag>[#+-0 ])?'     # sign, padding, justify,...
+    siz     = r'(?P<siz>\d)?'
+    prc     = r'(?P<prc>\.\d+)?'        # only for time fields
+    fmt     = r'(?P<fmt>[DOUXFS])?'     # dec, oct, udec, hex, float, str
+    sub     = r'(?P<sub>[HLM])?'        # which part for pdrT
+    datum   = r'(?P<datum>[diplugramcBzbkfvNTYZ])'
     # datum += r'|{<?P<datumName>\w+)'
 
-    itemExpr = ('%' + flag + space + size + prec + fmt + sub + datum +
+    itemExpr = ('%' + flag + siz + prc + fmt + sub + datum +
         "|%(?P<esc>[nt%@])")
 
-    @staticmethod
-    def format(path, fmtSpec):
+    def __init__(self, statFormat=None, timeFormat=None):
+        self.statFormat = statFormat
+        if (timeFormat is None):
+            self.timeFormat ="%a %b %d %H:%M:%S %Z %Y"   # asctime
+        elif (timeFormat == 'ISO8601'):
+            self.timeFormat ="%Y-%m-%dT%H:%M:%S%z"       # ISO 8601
+        else:
+            self.timeFormat = timeFormat
+
+    def format(self, path):
         st = os.stat(path)
         buf = re.sub(
             PowerStat.itemExpr,
             partial(PowerStat.makeItem, st=st),
-            fmtSpec)
+            self.statFormat)
         return buf
 
     @staticmethod
@@ -163,15 +162,37 @@ class PowerStat:
             else: raise ValueError(
                 "Unrecognized escape '%s'." % (mat.group('esc')))
 
-        fmtCode = 's'
+        if (mat.group('datumName')):
+            fmtCode = 's'
+            raise ValueError(
+                "Not yet supported: %s." % (mat.group('datumName')))
+        else:
+            datumCode = mat.group('datum')
+            if (datumCode == 'p'): fmtCode = 'o'
+            elif (datumCode in 'amc'): fmtCode = 'd'
+            elif (datumCode in 'YTN'): fmtCode = 's'
+            else: fmtCode = 'u'
+
+        flag = '0'
+        if mat.group('flag'): flag = mat.group('flag')
+        siz = ''
+        if mat.group('siz'): flag = mat.group('siz')
+        prc = ''
+        if mat.group('prc'): flag = mat.group('prc')
         if mat.group('fmt'):
             if (mat.group('fmt') == 'Y'): fmtCode = 's'
             else: fmtCode = mat.group('fmt').lower()
+        sub = ''
+        if mat.group('sub'):
+            if (datumCode not in 'pdrT'): raise ValueError(
+                "sub code '%s' used for field '%d', not allowed." %
+                (sub, datumCode))
+            else:
+                flag = mat.group('sub')
 
-        datumValue = PowerStat.getDatum(st,
-            mat.group('datum'), mat.group('sub'), fmtCode)
+        datumValue = PowerStat.getDatum(st, datumCode, sub, fmtCode)
 
-        fmt = ("%" + ("%d" % (mat.group('size'))) + mat.group('prec') + fmtCode)
+        fmt = "%" + siz + prc + fmtCode
         val = fmt % (datumValue)
         if (mat.group('fmt') == 'Y'): val = ' -> ' + val
         return val
@@ -184,76 +205,87 @@ class PowerStat:
             return None
 
     @staticmethod
-    def getDatum(st, itemLetter, subCode, fmtCode):
+    def getDatum(st, itemLetter, subCode, fmtCode, theTimeFormat=None):
         # Cases that use 'sub' code
-        if (itemLetter == 'p'):  # type and perm
+        if (itemLetter == 'p'):                 # type and perm
             return PowerStat.doPermissionBits(st, subCode, fmtCode)
 
-        if (itemLetter == 'd'):  # device
-            dev = st.st_DEV
-            if   (subCode == 'H'):  # major number
-                return dev
-            elif (subCode == 'L'):  # minor number
+        if (itemLetter == 'd'):                 # device
+            # TODO: if (fmtCode == 's'): actual device name
+            # d gives a 4-byte int, where high order byte is major, low minor.
+            dev = st[stat.ST_DEV]
+            if   (subCode == 'H'):              # major number
+                return dev >> 24
+            elif (subCode == 'L'):              # minor number
+                return dev & 0xFF
+            elif (subCode == ''):               # raw number
                 return dev
             else: raise ValueError(
                 "Unrecognized d subCode '%s'." % (subCode))
 
-        elif (itemLetter == 'r'):  # dev # for device special ***
+        elif (itemLetter == 'r'):               # dev # for device special ***
             assert (st.IFBLK or st.IFCHR)
-            dev = st.st_DEV
-            if   (subCode == 'H'):  # major number
+            dev = st[stat.ST_DEV]
+            if   (subCode == 'H'):              # major number
                 return dev
-            elif (subCode == 'L'):  # minor number
+            elif (subCode == 'L'):              # minor number
                 return dev
             else: raise ValueError(
                 "Unrecognized r subCode '%s'." % (subCode))
 
-        elif (itemLetter == 'T'):  # file type like ls -F   ***
-            dev = st.st_XXX
-            if   (subCode == 'H'):  # long form
+        elif (itemLetter == 'T'):               # file type like ls -F   ***
+            dev = st.ST_XXX
+            # TODO: if (fmtCode == 's'): actual file type
+            if   (subCode == 'H'):              # long form
                 return dev
-            elif (subCode == 'L'):  # single-char flag
+            elif (subCode == 'L'):              # single-char flag
                 return dev
             else: raise ValueError(
                 "Unrecognized d subCode '%s'." % (subCode))
 
         # Datetimes (returned as epoch times
         # (stat has a -t [fmt] option, which passes these through strftime)
-        elif (itemLetter == 'a'):  # access time
-            return st.ST_ATIME
-        elif (itemLetter == 'm'):  # mod time
-            return st.ST_MTIME
-        elif (itemLetter == 'c'):  # cre time
-            return st.ST_CTIME
-        elif (itemLetter == 'B'):  # inode birth time       ***
-            return st.ST_XXX
+        elif (itemLetter in 'amcB'):
+            if   (itemLetter == 'a'):           # access time
+                tim = st[stat.ST_ATIME]
+            elif (itemLetter == 'm'):           # mod time
+                tim = st[stat.ST_MTIME]
+            elif (itemLetter == 'c'):           # cre time
+                tim = st[stat.ST_CTIME]
+            elif (itemLetter == 'B'):           # inode birth time       ***
+                tim = st.st_birthtime
+            return PowerStat.formatTime(tim, theTimeFormat)
 
         # Numerics
-        elif (itemLetter == 'i'):  # inode
-            return st.ST_INO
-        elif (itemLetter == 'l'):  # hard link count
-            return st.ST_NLINK
-        elif (itemLetter == 'u'):  # owner uid
-            return st.ST_UID
-        elif (itemLetter == 'g'):  # group id
-            return st.ST_GID
-        elif (itemLetter == 'z'):  # size in bytes
-            return st.ST_SIZE
-        elif (itemLetter == 'b'):  # num blocks             ***
+        elif (itemLetter == 'i'):               # inode
+            return st[stat.ST_INO]
+        elif (itemLetter == 'l'):               # hard link count
+            return st[stat.ST_NLINK]
+        elif (itemLetter == 'u'):               # owner uid
+            return st[stat.ST_UID]
+        elif (itemLetter == 'g'):               # group id
+            return st[stat.ST_GID]
+        elif (itemLetter == 'z'):               # size in bytes
+            return st[stat.ST_SIZE]
+
+        elif (itemLetter == 'b'):               # num blocks             ***
             return st.ST_XXX
-        elif (itemLetter == 'k'):  # optimal blocksize      ***
+        elif (itemLetter == 'k'):               # optimal blocksize      ***
             return st.ST_XXX
-        elif (itemLetter == 'v'):  # inode generation num   ***
+        elif (itemLetter == 'v'):               # inode generation num   ***
             return st.ST_XXX
 
         # Other
-        elif (itemLetter == 'f'):  # user flags             ***
+        elif (itemLetter == 'f'):               # user flags             ***
             return st.ST_XXX
-        elif (itemLetter == 'N'):  # file name              ***
+
+        # Not actually from 'stat' struct (likewise 'T')
+        elif (itemLetter == 'N'):               # file name              ***
+            # TODO: if (fmtCode == 's'): actual file name
             return st.ST_XXX
-        elif (itemLetter == 'Y'):  # symlink target         ***
+        elif (itemLetter == 'Y'):               # symlink target         ***
             return st.ST_XXX
-        elif (itemLetter == 'Z'):  # rdev major,minor or size ***
+        elif (itemLetter == 'Z'):               # rdev major,minor or size ***
             return st.ST_XXX
         else:
             raise ValueError("Unrecognized datum code '%s'." % (itemLetter))
@@ -307,11 +339,18 @@ class PowerStat:
             buf = "%6.2f%s" % (scaled, suffixes[rank])
         return buf
 
+    @staticmethod
+    def formatTime(epochTime, f=None):
+        if (f is None): f = "%a, %d %b %Y %H:%M:%S %Z"
+        return time.strftime(f, epochTime)
+
 
 ###############################################################################
 # Main
 #
 if __name__ == "__main__":
+    statFormat = "-%Hu%Mu%Lu%Hg%Mg%Lg%Ho%Mo%Lo  %8su %8sg %6ds %12sm %sn"
+    timeFormat = "%Y-%m-%dT%H:%M:%S %Z"
     import argparse
     def anyInt(x):
         return int(x, 0)
@@ -330,6 +369,12 @@ if __name__ == "__main__":
         parser.add_argument(
             "--quiet", "-q",      action='store_true',
             help='Suppress most messages.')
+        parser.add_argument(
+            "--statFormat", "-f", type=str, default=statFormat,
+            help='stat-like %-codes to determine output format.')
+        parser.add_argument(
+            "--timeFormat", "-f", type=str, default=timeFormat,
+            help='strftime-like %-codes to determine time output format.')
         parser.add_argument(
             "--verbose", "-v",    action='count',       default=0,
             help='Add more messages (repeatable).')
@@ -351,21 +396,13 @@ if __name__ == "__main__":
 
     ###########################################################################
     #
-    fileCount = 0
     args = processOptions()
+
+    warn(1, "Stat format spec is: '%s'" % (args.statFormat))
+    ps = PowerStat(args.statFormat, args.timeFormat)
 
     if (len(args.files) == 0):
         warn(0, "stat.py: No files specified....")
-        doOneFile(None)
-    else:
-        pw = PowerWalk(args.files, open=False, close=False,
-            encoding=args.iencoding, recursive=args.recursive)
-        pw.setOptionsFromArgparse(args)
-        for path0, fh0, what0 in pw.traverse():
-            if (what0 != PWType.LEAF): continue
-            fileCount += 1
-            if (path0.endswith(".xml")): doOneXmlFile(path0)
-            else: doOneFile(path0)
-
-    if (not args.quiet):
-        warn(0, "stat.py: Done, %d files.\n" % (pw.getStat('regular')))
+        sys.exit()
+    for f0 in args.files:
+        print(ps.format(f0))

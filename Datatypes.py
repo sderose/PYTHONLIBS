@@ -13,6 +13,7 @@ PY3 = sys.version_info[0] == 3
 
 __metadata__ = {
     'title'        : "Datatypes.py",
+    'description'  : "Provide basic type-checking, conversions, formatting.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -28,9 +29,9 @@ descr = """
 =Usage=
 
 Provide checking for whether strings represent values conforming
-to XSD built-in datatypes.
+to a wide range of fairly atomic datatypes, including XSD's built-in datatypes.
 
-If you set option '''xsv''', a few more types are supported, as described below.
+If you set option '''xsv''' a few more types are supported, as described below.
 
     import Datatypes
     typeChecker = Datatypes()
@@ -154,7 +155,22 @@ be specified as an option when defining each named pattern.
 
 =Related commands=
 
-`tinyRegexParser.py`, `tinierRegexParser.py`.
+==Datatype-related==
+
+[https://github.com/sderose/PYTHONLIBS/blob/master/Record.py]: Similar
+to Python `namedtuple`, but supporting type contraints similer to those
+of `Homogeneous.py`, as well as value defaults
+
+[https://github.com/sderose/PYTHONLIBS/blob/master/LooseDict.py]:
+A subclass of `dict` that includes key normalization. For example, matching
+string keys via case-folding or Unicode normalization, or
+numeric values with rounding, etc.
+
+[https://github.com/sderose/PYTHONLIBS/blob/master/Homogeneous.py]:
+Type-checked lists ad dicts.
+
+
+==XSD-related==
 
 `XmlRegexes.py`: A collection of relevant regexes for XML.
 
@@ -336,13 +352,13 @@ class Datatypes:
         self.enums = {}
         self.patts = {}
 
-        for k in (Datatypes.__DatatypeData__):
-            v = Datatypes.__DatatypeData__[k]
+        for k2 in (Datatypes.__DatatypeData__):
+            v = Datatypes.__DatatypeData__[k2]
             try:
-                self.exprs[k] = re.compile(r'^(' + v[0] + r')$')
+                self.exprs[k2] = re.compile(r'^(' + v[0] + r')$')
             except Exception as e:
                 self.warn("Datatypes: Bad regex for %-20s '%s':\n    %s" %
-                    (k, v[0], e))
+                    (k2, v[0], e))
 
     def warn(self, msg):
         if (self.options["quiet"]): return
@@ -579,8 +595,8 @@ if __name__ == "__main__":
 
     if (args.list):
         for k in sorted(dt.__DatatypeData__.keys()):
-            regex, minVal, maxVal, pyType = dt.__DatatypeData__[k]
-            print("%-20s (->%-8s): /%s/" % (k, pyType.__name__, regex))
+            regex0, minVal, maxVal, pyType = dt.__DatatypeData__[k]
+            print("%-20s (->%-8s): /%s/" % (k, pyType.__name__, regex0))
         sys.exit()
 
     nPass = nFail = 0

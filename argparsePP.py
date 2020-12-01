@@ -14,12 +14,13 @@ import unicodedata
 
 __metadata__ = {
     'title'        : "argParsePP.py",
+    'description'  : "A slightly extended `argparse`.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2014-06",
-    'modified'     : "2020-08-31",
+    'modified'     : "2020-10-22",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -53,30 +54,29 @@ Unicode, XSD, and other widely-used standards.
 Unfinished.
 
 
-=History=
-
-* 2004-06 Written by Steven J. DeRose.
-* 2020-08-28ff: Clean up doc. Start improving toggle attributes,
-and make entailments automatic.
-
-
 =To do=
 
+==More types==
+
+* dict? works like append but add to a dict, with const value or serial num.
+* tuples?
+* XSD types via `Datatypes.py`
+* type "type", that accepts defined type names.
+* 'globbable'?
+* IEEE that accepts +/- inf, NaN.
+* Comparison args?  -xattr whereFrom=~/foo.bar/ or -xattr foo<=12
+* Slice: take n:m where n>=0 and m>=n (or option with negatives)
+
+==Other options==
+
+* Option to group options into categories (so doc shows them in groups;
+esp. useful for added groups like with PowerWalk.py).
 * Ignore case
-* Add more types
-** dict? works like append but add to a dict, with const value or serial num.
-** tuples?
-** append that does a split() then extend()?
-** XSD types via `Datatypes.py`
-** encoding (how to test if known?)
-** folded string
-** type "type", that accepts defined type names.
-** 'globbable'?
-** IEEE that accepts +/- inf, NaN.
-** Comparison args?  -xattr whereFrom=~/foo.bar/ or -xattr foo<=12
-See 'condition' type?
+* append that does a split() then extend()?
+* encoding (how to test if known?)
+* folded string
+* See 'condition' type?
 * Add way to limit range for int and float (-zorkRange [1:20])
-* Make anyInt accept 3.14M, etc.
 * Document 'anyInt' type
 * entailment? setting x also changes y and z
 * exclusion: can't set both x and y
@@ -102,6 +102,15 @@ that go into BlockFormatter?). The printing in argparse goes through:
                 file = _sys.stderr
             file.write(message)
 
+
+=History=
+
+* 2004-06 Written by Steven J. DeRose.
+* 2020-08-28ff: Clean up doc. Start improving toggle attributes,
+and make entailments automatic.
+* 2020-10-22: Add types for class, type, exception, hInt, slice, datetime,
+keyword, identifier.
+Fix percentage.
 
 =Rights=
 
@@ -137,11 +146,22 @@ def t_anyInt(s):
         pass
     raise ValueError(genericMsg % (s))
 
+def t_hInt(s):
+    """Accept rank suffixes for Kilo, Mega, etc.
+    """
+    try:
+        loc = "KMGTP".find(s[-1])
+        if (loc < 0): factor = 1
+        else: factor = 1000**(loc+1)
+        return int(s[0:-1], 0) * factor
+    except ValueError:
+        pass
+    raise ValueError(genericMsg % (s))
+
 def t_probability(s):
     try:
         f = float(s)
-        assert (f>=0.0 and f<=1.0)
-        return f
+        if (f>=0.0 and f<=1.0): return f
     except ValueError:
         pass
     raise ValueError(genericMsg % (s))
@@ -153,8 +173,20 @@ def t_percentage(s):
     """
     try:
         f = float(s.strip('% '))
-        assert (f>=0.0 and f<=1.0)
-        return f
+        if (f>=0.0 and f<=100.0): return f
+    except ValueError:
+        pass
+    raise ValueError(genericMsg % (s))
+
+def t_slice(s):
+    """A span of integer indexes.
+    """
+    try:
+        mat = re.match(r'(\d+):(\d+)', s)
+        if (mat):
+            fr = int(mat.group(1))
+            to = int(mat.group(2))
+            if (fr>=0 and to>=fr): return (fr, to)
     except ValueError:
         pass
     raise ValueError(genericMsg % (s))
@@ -164,8 +196,7 @@ def t_percentage(s):
 #
 def t_char(s):
     try:
-        assert len(s) == 1
-        return s
+        if (len(s) == 1): return s
     except ValueError:
         pass
     raise ValueError(genericMsg % (s))
@@ -217,21 +248,29 @@ def t_NFKC(s):
 def t_NFKD(s):
     return unicodedata.normalize('NFKD', s)
 
+# TODO: Add case-folding PLUS canonicalization?
+
 
 ### Constrained text items
 #
 def checkX(expr, s):  ### Regex checking feature
-    if (re.match(expr, s)): return s
+    if (re.match(expr, s, flags=re.UNICODE)): return s
     raise ValueError(genericMsg % (s))
 
 def t_identifier(s):
     return checkX(r'[.\w][-_.:\w]*$', s)
 
+dateX = r'\d\d\d\d-[01]\d-[0-3]\d$'
+timeX = r'[012]\d:[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[-+]\d\d:\d\d)?$'
+
 def t_date_8601(s):
-    return checkX(r'\d\d\d\d-[01]\d-[0-3]\d$', s)
+    return checkX(dateX, s)
 
 def t_time_8601(s):
-    return checkX(r'[012]\d:[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[-+]\d\d:\d\d)?$', s)
+    return checkX(timeX, s)
+
+def t_datetime_8601(s):
+    return checkX(dateX[0:-1]+'T' + timeX, s)
 
 
 ### XML and XSD stuff
@@ -241,10 +280,11 @@ NMCHAR  = r'[-_.:\w]'
 NAME = NMSTART + NMCHAR + "*"   # Add Unicode!
 
 def t_xml_lang(s):
-    return checkX(r'\w\w(\.\w\w)?$', s)
+    return checkX(r'\w{2,3}(\.\w{2,3})?$', s)
 
 def x_NMTOKEN(s):
-    return checkX(r'[.A-Z][-_.:\w]*$', s)
+    if (s[0].isdigit()): raise ValueError(genericMsg % (s))
+    return checkX(r'[.\w][-_.:\w]*$', s)
 
 
 ### Python stuff
@@ -258,17 +298,36 @@ def p_encoding(s):
         pass
     raise ValueError(genericMsg % (s))
 
+pythonReservedWords = frozenset([
+    'and', 'as', 'assert', 'async', 'await', 'break', 'class',
+    'continue', 'def', 'del', 'elif', 'else', 'except', 'False',
+    'finally', 'for', 'from', 'global', 'if', 'import', 'in',
+    'is', 'lambda', 'None', 'nonlocal', 'not', 'or', 'pass',
+    'raise', 'return', 'True', 'try', 'while', 'with', 'yield',
+])
+
 def p_keyword(s):
-    pass
+    if (s in pythonReservedWords): return s
+    raise ValueError(genericMsg % (s))
+
+def p_identifier(s):
+    if (s.isidentifier()): return s
+    raise ValueError(genericMsg % (s))
 
 def p_exception(s):
-    pass
+    if (s.isidentifier()):
+        if (eval("issubclass(%s, Exception)")): return s
+    raise ValueError(genericMsg % (s))
 
 def p_class(s):
-    pass
+    if (s.isidentifier()):
+        if (eval("type(%s) == type(str)")): return s
+    raise ValueError(genericMsg % (s))
 
 def p_type(s):
-    pass
+    if (s.isidentifier()):
+        if (eval("isinstance(%s, type)")): return s
+    raise ValueError(genericMsg % (s))
 
 
 ### XSD types (cf Datatypes.py)
@@ -412,6 +471,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
         """Display the args with types and values.
         """
         print("Args:\n%s")
+        argDict = self.__dict__  # TODO: Check
         for k0 in sorted(argDict.keys()):
             print("    %-20s %-12s %s" %
                 (k0, type(argDict[k0]).__name__, argDict[k0]))

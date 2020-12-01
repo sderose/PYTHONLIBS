@@ -7,10 +7,10 @@ from __future__ import print_function
 import sys
 import os
 import re
-import argparse
 
 __metadata__ = {
     'title'        : "ColorManager.py",
+    'description'  : "ANSI terminal color utilities.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -22,6 +22,7 @@ __metadata__ = {
 }
 __version__ = __metadata__['modified']
 
+
 descr = u"""
 =Description=
 
@@ -30,20 +31,61 @@ colorize a string using a color name such as "blue/white/bold", remove
 all color escapes, measure the character length of a string while
 disregarding color escapes, etc.
 
-See colorNames.pod for information re. the colors supported by this package.
-For information on these codes, see for example
+==Color names==
+
+Color names are of the form ''foreground/background/effect'', with all
+items options. For example:
+
+    red/italic produces red italic text on default background
+    /blue/bold produces default color but bold text on blue background (broken)
+    yellow/black/underline produces underscored yellow text on black background
+
+The colors are: "black", "red", "green", "yellow",
+"blue", "magenta", "cyan", "white", "default".
+
+The effect names are as shown below, but support varies widely from one
+terminal program to another:
+"bold" (aka 'bright'),
+"faint",
+"italic" (rare),
+"underline",
+"blink",
+"fblink" (aka 'fastblink' (rare)),
+"reverse" (aka 'inverse'),
+"concealed" (aka 'invisible' or 'hidden'),
+"strike" (aka 'strikethru' or 'strikethrough'),
+"plain" (no special effect)
+
+For detailed information on the color-name conventions, see `colorNames.md`.
+For information on the ANSI codes, see for example
 [https://en.wikipedia.org/wiki/ANSI_escape_code].
 
-The color names available are defined in `bingit/SHELL/colorNames.pod`,
-which supercedes anything in specific scripts (although they ''should'' match).
-
-
-=Usage=
+==Usage from Python==
 
     from ColorManager import ColorManager
     cm = ColorManager()
     ...
     print(cm.colorize('red/white', myMessage)
+
+==Usage from shell==
+
+* ColorManager.py --color 'red/blue' --text 'Spam, spam, eggs, and spam.'
+
+Display the `text` in the specified `color`.
+
+* ColorManager.py --showAll
+
+Display a list of all the available color names.
+
+* ColorManager.py --uncolorize
+
+Copy stdin to stdout, but removing any color escapes.
+
+* ColorManager.py --testEffects
+
+Show samples with the supported effects, which is a good way to see which ones
+your terminal programs supports.
+
 
 =Methods=
 
@@ -118,9 +160,10 @@ ColorManager has no support (yet) for 256-color terminals.
 =Related commands=
 
 There is a Perl version in `ColorManager.pm`,
-and an `uncolorize` wrapper for command-line use.
+and wrappers in `uncolorize` and `colorstring`.
 
-The `colorstring` shell command is just a wrapper for this.
+My `hilite` uses the Perl version, and lets you specify any number of regexes,
+with a color to highlight their matches in.
 
 My `sjdUtils.py` forwards several `ColorManager.py` methods,
 so when color is enabled you can just
@@ -131,6 +174,9 @@ no longer maintained?), ''chromalog'', ''Colorama'', and others.
 For information on these codes, see for example
 [https://en.wikipedia.org/wiki/ANSI_escape_code].
 
+Pypi has an `ansicolors` package (by Jonathan Eunice) at
+[https://pypi.org/project/ansicolors/] which is similar to this.
+
 
 =History=
 
@@ -140,14 +186,16 @@ For information on these codes, see for example
 Add test feature as main.
 * 2018-10-22: Catch `KeyError` on color names.
 * 2020-09-16ff: Add separate fg, bg, effect args for `colorize()`.
-Cleanup doc. Move effects to end, not beginning per ColorNames.md.
+Clean up doc. Move effects to end, not beginning per ColorNames.md.
+* 2020-11-24: Clean up and describe command-line usage. Add `--uncolorize` and
+`--testEffects`. Make `--text` and stdin work the same way.
 
 
 =To do=
 
 * Resync Perl version.
 
-* Make localizable.
+* Make color names localizable.
 
 * Consider additional ANSI codes
 ([https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters]):
@@ -354,33 +402,55 @@ class ColorManager:
 ###############################################################################
 #
 if __name__ == "__main__":
-    from MarkupHelpFormatter import MarkupHelpFormatter
-    parser = argparse.ArgumentParser(
-        description=descr,
-        formatter_class=MarkupHelpFormatter)
-    parser.add_argument(
-        "--bold",             action='store_true',
-        help='Show samples with bold foreground colors.')
-    parser.add_argument(
-        "--color",            type=str, default=None,
-        help="Show a sample of the specified color combination.")
-    parser.add_argument(
-        "--effects",          type=str, default=None,
-        #choices=ColorManager.effectNumbers.keys(),
-        help="Show sample only for the given effect(s).")
-    parser.add_argument(
-        "--pack",             action='store_true',
-        help='Pack samples, instead of showing one per line.')
-    parser.add_argument(
-        "--showAll",          action='store_true',
-        help='Show samples of all combinations.')
-    parser.add_argument(
-        "--text",             type=str, default="Sample text",
-        help="The text to display with --color.")
-    parser.add_argument(
-        "--version",          action='version', version=__version__,
-        help='Display version information, then exit.')
-    args = parser.parse_args()
+    import argparse
+
+    def warn(lvl, msg):
+        if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
+
+    def processOptions():
+        try:
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
+        except ImportError:
+            parser = argparse.ArgumentParser(description=descr)
+
+        parser.add_argument(
+            "--bold", action='store_true',
+            help='Show samples with bold foreground colors.')
+        parser.add_argument(
+            "--colorize", type=str, default=None,
+            help="Apply the given color to --text or stdin.")
+        parser.add_argument(
+            "--effects", type=str, default=None,
+            #choices=ColorManager.effectNumbers.keys(),
+            help="Show sample only for the given effect(s).")
+        parser.add_argument(
+            "--pack", action='store_true',
+            help='Pack samples, instead of showing one per line.')
+        parser.add_argument(
+            "--showAll", action='store_true',
+            help='Show samples of all combinations.')
+        parser.add_argument(
+            "--testEffects", action='store_true',
+            help='Show samples of all known effects.')
+        parser.add_argument(
+            "--text", type=str, default="Sample text",
+            help="The text to display with --color.")
+        parser.add_argument(
+            "--uncolorize", action='store_true',
+            help='Remove ANSI terminal color escapes from the input.')
+        parser.add_argument(
+            "--version", action='version', version=__version__,
+            help='Display version information, then exit.')
+
+        args0 = parser.parse_args()
+        return args0
+
+
+    ###########################################################################
+    #
+    args = processOptions()
 
     theEffects = []
     if (args.effects):
@@ -389,31 +459,38 @@ if __name__ == "__main__":
 
     ender = "\n"
     if (args.pack): ender = " "
+
     cm = ColorManager(effects=True)
     ctable = cm.getColorStrings()
 
     if (args.color):
-        print(ctable[args.color] + args.text + ctable['off'], end=ender)
-        sys.exit()
+        try:
+            onSeq = ctable[args.color]
+        except KeyError:
+            print("\nCan't find color '%s'. See colorNames.md." % (args.color))
+            sys.exit()
+        offSeq = ctable['off']
+        if (args.text):
+            print(onSeq + args.text + offSeq, end=ender)
+        else:
+            for rec in sys.stdin.readlines():
+                print(onSeq + cm.uncolorize(rec) + offSeq)
 
-    """
-    for name1, seq (toShow) {
-        name1 = $b;
-        name2 = "white/$b";
-        name3 = "$b/bold";
-        name4 = "$b/white";
-        warn (sprintf("## %s ## %s ## %s ## %s ##\n",
-            colorize($name1, sprintf("%-14s", $name1)),
-            colorize($name2, sprintf("%-14s", $name2)),
-            colorize($name3, sprintf("%-14s", $name3)),
-            colorize($name4, sprintf("%-14s", $name4))
-        ));
-    }
-    """
+    elif (args.uncolorize):
+        if (args.text):
+            print(cm.uncolorize(args.text), end=ender)
+        else:
+            for rec in sys.stdin.readlines():
+                print(cm.uncolorize(rec))
 
-    toShow = ctable
+    elif (args.testEffects):
+        theText = "(Sample Text)"
+        if (args.text): theText = args.text
+        for eName, eNumber in ColorManager.effectNumbers.items():
+            print(" %d %-10s  '%s'" %
+                (eNumber, eName, cm.colorize(theText, effect=eName)))
 
-    if (args.showAll):
+    elif (args.showAll):
         tot = 0
         for ct in (sorted(ctable.keys())):
             if (args.effects):
@@ -423,4 +500,5 @@ if __name__ == "__main__":
             tot += 1
         print("\nDone, %d combinations." % (tot))
 
-    sys.exit()
+    else:
+        print("No action requested. See -h.")

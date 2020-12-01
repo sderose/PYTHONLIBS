@@ -69,12 +69,14 @@ class XmlNlpLoad:
         self.theDOM      = None
 
     def setHTMLConventions(self):
-        self.noSpaceElements = htmlInlines = (
-            " a abbr acronym b bdo big cite code dfn em i img input kbd q" +
-            " s small span strike strong sub sup tt var" +
-            " applet center dir font samp strike u".split(" "))
-        self.dropElements = 'del object img head form'.split(" ")
-        self.untagElements = 'ins a'.split(" ")
+        inlines = (" a abbr acronym b bdo big cite code dfn em i img input " +
+            " kbd q s small span strike strong sub sup tt var" +
+            " applet center dir font samp strike u")
+        self.noSpaceElements = (
+            inlines.split(sep=" "))
+        drops = 'del object img head form'
+        self.dropElements = drops.split(sep=" ")
+        self.untagElements = 'ins a'.split(sep=" ")
         self.runTidyFirst = True
 
     def open(self, path):

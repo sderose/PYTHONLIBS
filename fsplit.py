@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 #
-# fsplit.py: A better (I hope) split().
-#
+# fsplit.py: A better (I hope) str.split() or csv package.
 # 2020-02-28: Written. Copyright by Steven J. DeRose.
 #
 #pylint: disable=W0603,W0511
@@ -15,6 +14,7 @@ import re
 
 __metadata__ = {
     'title'        : "fsplit.py",
+    'description'  : "A better (I hope) str.split() or csv package.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -25,6 +25,7 @@ __metadata__ = {
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
+
 
 descr = """
 =Description=
@@ -63,7 +64,8 @@ It also handles the usual features of `csv` and `string.split()`:
 * Optionally discarding leading whitespace (`skipinitialspace`)
 * Limiting the number of splits (`maxsplit`)
 
-See "To do" for some features that may be added.
+See "To do" and my related scripts such as Record.py, Homogeneous.py, Datatypes.py for some features that may be added.
+
 
 =Usage=
 
@@ -228,7 +230,7 @@ their string names. For example:
 If using `bool`, remember that Python
 takes any non-empty string as True, even strings like "0" or "False".
 
-If specified as `AUTO` instead of a list of types,
+If specified as `AUTO` instead of a list of types (or the default None),
 tokens are examined and automatically cast to the
 most specific type they can, from among datetime, int, float, complex, or str.
 Booleans are not attempted (though see below under [autoTyping]).
@@ -296,6 +298,10 @@ takes any non-empty string as True, even "0" or "False".
 
 Python `csv` [https://docs.python.org/3/library/csv.html].
 
+`csv2xml.py` -- Obsolete precursor to `fsplit.py`, but has a number of
+possibly useful export formats.
+
+
 For a more complete list, including generalized and Unicode-aware ports
 of several *nix utilities, see [http://github.com/sderose/CSV] and
 [http://github.com/sderose/XML/CONVERT].
@@ -356,7 +362,8 @@ throw an exception on the blank lines, so the user can tell?
     ** JSON {[]}, [[]], etc., and similar Perl and Python arrangements
     ** s-expressions
     ** SQL INSERT statements
-    ** Sub/alternate class for fixed column widths?
+
+* Sub/alternate class for fixed column widths?
 
 
 =History=
@@ -405,25 +412,25 @@ class DialectX:
         dialectName:str,
 
         # Options like Python 'csv' package:
-        delimiter:str            = "\t",
-        doublequote:bool         = True,  # TODO
-        escapechar:str           = "\\",
-        lineterminator:str       = "\n",
-        quotechar:str            = '"',
-        quoting:int              = QUOTE_NONNUMERIC,
-        skipinitialspace:bool    = True,
+        delimiter:str            = "\t",    # What char?
+        doublequote:bool         = True,    # TODO Support ""
+        escapechar:str           = "\\",    # Backslashing?
+        lineterminator:str       = "\n",    # What's the line-break?
+        quotechar:str            = '"',     # What's the quote mark?
+        quoting:int              = QUOTE_NONNUMERIC,  # What to quote
+        skipinitialspace:bool    = True,    # Strip leading spaces
         strict:bool              = True,
 
         # Other options:
-        comment:str              = None,
+        comment:str              = None,    # Marker for comment lines
         entities:bool            = False,
-        maxsplit:bool            = None,
-        minsplit:bool            = None,
-        multidelimiter:bool      = False,
-        typeList:bool            = None,
-        uescapes:bool            = False,
-        xescapes:bool            = False,
-        quotedNewline:bool       = False
+        maxsplit:bool            = None,    # Limit to this many fields
+        minsplit:bool            = None,    # Scream if < this many fields
+        multidelimiter:bool      = False,   # Ignore repeated delimiters?
+        typeList:bool            = None,    # To support datatypes
+        uescapes:bool            = False,   # Interpret \uFFFF
+        xescapes:bool            = False,   # Interpret \xFF
+        quotedNewline:bool       = False    # Allow multiline quoted values
     ):
         self.dialectName         = dialectName
 
@@ -554,18 +561,20 @@ class DialectX:
 ###############################################################################
 #
 class DictReader:
+    """Modelled after Python 'csv' package.
+    """
     def __init__(self,
-        f,
-        fieldnames,
-        restkey,
-        restval,
-        dialect,
+        f,                  # file handle, File object, etc.
+        fieldnames=None,    # iterable of names (None->use header rec)
+        restkey=None,       # store any extras as list under this key
+        restval=None,       # default any missing fields to this value
+        dialect=None,       #
         # *args,  # ???
         #**theKwds
         ):
         self.f          = f
         self.recnum     = 0
-        self.fieldnames = fieldnames
+        self.fieldnames = fieldnames or []
         self.restkey    = restkey
         self.restval    = restval
         self.dialect    = dialect
@@ -874,86 +883,126 @@ def parseEntity(s:str):
     result = unescape(mat.group(0))
     return result, len(mat.group(0))
 
-def datetimeCaster(s:str):
-    """Return a date, time, or datetime object created from a string, or
-    raises ValueError otherwise.
+
+###############################################################################
+#
+class DatatypeHandler:
+    """Check and cast among some types.
+    See also: CSV/countData.TrivialTypes;
+              PYTHONLIBS/Datatypes.py
+              PYTHONLIBS/Homogeneous.py
+              XML/SCHEMAS/ElementManager.py:class AttrTypes
+              alogging/formatRec
     """
-    dateRegex = r'\d\d\d\d-\d\d-\d\d'
-    timeRegex = r'\d\d:\d\d:\d\d(\.\d+)?(Z|[-+]\d+)?'
-    dateTimeRegex = dateRegex + 'T' + timeRegex
+    def __init__(self,
+        boolCasterFunc=None,
+        datetimeCasterFunc=None,
+        specialFloats:bool = False
+        ):
+        """
+        @param datetimeCasterFunc:
+            Function to produce date/time/datetime or ValueError.
+            Defaults to use the datetimeCaster() method below, for ISO 8601 form.
+        @param boolCasterFunc:
+            Likewise, but to recognize booleans (for examle, "T" and "Nil".
+            Default to None so it doesn't take over commonplace strings.
+            No bools are returned unless a function is passed (see boolCaster()).
+        @specialfloats:
+            If set, "NaN" and (optionally signed) "inf" count as floats.
+        """
+        if (boolCasterFunc): self.boolCasterFunc = boolCasterFunc
+        else: self.boolCasterFunc = self.boolCaster
 
-    from datetime import datetime
-    if (re.match(dateTimeRegex, s)):
-        return datetime.datetime(s)
-    if (re.match(dateRegex, s)):
-        return datetime.date(s)
-    if (re.match(timeRegex, s)):
-        return datetime.time(s)
-    raise ValueError("String cannot be parsed as date and/or time: '%s'" % (s))
+        if (datetimeCasterFunc): self.datetimeCasterFunc = datetimeCasterFunc
+        else: self.datetimeCasterFunc = self.datetimeCaster
 
-def boolCaster(s:str):
-    """Returns True (perhaps a paradox, given that I wrote this function
-    on 2020-02-29) for more than just the empty string; False for a similar
-    range, and raises ValueError otherwise (like for 'xyz').
-    """
-    if (s.strip in [ '', '0', 'False' ]): return False
-    try:
-        if (float(s) == 0): return False
-    except ValueError:
-        pass
-    return True
+        self.specialFloats = specialFloats
 
-def autoType(tok:str,
-    boolCasterFunc = None,
-    datetimeCasterFunc = datetimeCaster,
-    specialFloats:bool = False
-    ):
-    """Convert a string to the most specific type we can.
+    def handleDatatypes(self, d:DialectX, tokens):
+        import Datatypes
+        if (isinstance(d.typeList, list)):
+            for i, typ in enumerate(d.typeList):
+                if (not typ): continue
+                tokens[i] = typ(tokens[i])
+        elif (d.typeList=='AUTO'):
+            for i, token in enumerate(tokens):
+                tokens[i] = autoType(token)
+        else:
+            raise ValueError(
+                "typeList option must be 'AUTO' or a list of types, not '%s'." %
+                (type(d.typeList)))
 
-    @param datetimeCasterFunc:
-        Function to produce date/time/datetime or ValueError.
-        Defaults to use the datetimeCaster() method below, for ISO 8601 form.
-    @param boolCasterFunc:
-        Likewise, but to recognize booleans (for examle, "T" and "Nil".
-        Default to None so it doesn't take over commonplace strings.
-        No bools are returned unless a function is passed (see boolCaster()).
-    @specialfloats:
-        If set, "NaN" and (optionally signed) "inf" count as floats.
+    @staticmethod
+    def datetimeCaster(s:str):
+        """Return a date, time, or datetime object created from a string, or
+        raises ValueError otherwise.
+        """
+        dateRegex = r'\d\d\d\d-\d\d-\d\d'
+        timeRegex = r'\d\d:\d\d:\d\d(\.\d+)?(Z|[-+]\d+)?'
+        dateTimeRegex = dateRegex + 'T' + timeRegex
 
-    Complex uses the Python "1+1j" (not "1+1i"!) form)
-    Leading and trailing whitespace are stripped for testing, but
-    not for returned string values.
+        from datetime import datetime
+        if (re.match(dateTimeRegex, s)):
+            return datetime.datetime(s)
+        if (re.match(dateRegex, s)):
+            return datetime.date(s)
+        if (re.match(timeRegex, s)):
+            return datetime.time(s)
+        raise ValueError("String cannot be parsed as date and/or time: '%s'" % (s))
 
-    Other types to maybe add:
-        SVG paths:    "M 10 10 H 90 V 90 H 10 L 10 10"
-        n-D vectors:  "(1.0, -2.1)"
-    """
-    tok2 = tok.strip()
+    @staticmethod
+    def boolCaster(s:str):
+        """Returns True (perhaps a paradox, given that I wrote this function
+        on 2020-02-29) for more than just the empty string; False for a similar
+        range, and raises ValueError otherwise (like for 'xyz').
+        """
+        if (s.strip in [ '', '0', 'False' ]): return False
+        try:
+            if (float(s) == 0): return False
+        except ValueError:
+            pass
+        return True
 
-    if (tok2 is ''):
-        return tok
-    if (boolCasterFunc):
-        try: return boolCasterFunc(tok2)
+    def autoType(self, tok:str):
+        """Convert a string to the most specific type we can.
+
+        Complex uses the Python "1+1j" (not "1+1i"!) form)
+        Leading and trailing whitespace are stripped for testing, but
+        not for returned string values.
+
+        Other types to maybe add:
+            SVG paths:    "M 10 10 H 90 V 90 H 10 L 10 10"
+            n-D vectors:  "(1.0, -2.1)"
+        """
+        tok2 = tok.strip()
+
+        if (tok2 is ''):
+            return tok
+        if (self.boolCasterFunc):
+            try: return self.boolCasterFunc(tok2)
+            except ValueError: pass
+        # Prevent 'float' from catching these when not wanted:
+        if (not self.specialFloats and tok2 in ("NaN", "inf", "-inf", "+inf")):
+            return tok
+        if (tok2.isdigit()):
+            return int(tok2)
+        try: return self.datetimeCasterFunc(tok2)
         except ValueError: pass
-    # Prevent 'float' from catching these when not wanted:
-    if (not specialFloats and tok2 in ("NaN", "inf", "-inf", "+inf")):
+        try: return int(tok2, 0)
+        except ValueError: pass
+        try: return float(tok2)
+        except ValueError: pass
+        try: return complex(tok2)  # Test *after* float
+        except ValueError: pass
         return tok
-    if (tok2.isdigit()):
-        return int(tok2)
-    try: return datetimeCasterFunc(tok2)
-    except ValueError: pass
-    try: return int(tok2, 0)
-    except ValueError: pass
-    try: return float(tok2)
-    except ValueError: pass
-    try: return complex(tok2)  # Test *after* float
-    except ValueError: pass
-    return tok
+
 
 ###############################################################################
 # The function that actually parses up lines, dealing with various escaping
 # and quoting variations, etc.
 #
+dtHandler = None                        # TODO: make better
+
 def fsplit(
     s:str,                              # The string to split:
     dialect:DialectX         = None,    # The DialectX to assume
@@ -1091,7 +1140,7 @@ def fsplit(
 
     if (pendingQuote):
         # If the end of line is still inside quotes, and that's allowed,
-        # throw exception to signal caller to append another line and
+        # throw exception, to signal caller to append another line and
         # call us to parse again. Not efficient, but easy.
         if (d.quotedNewline):
             raise UnclosedQuote()
@@ -1105,19 +1154,7 @@ def fsplit(
             (d.minsplit, len(tokens), context(s, i)))
     # maxsplit just stops splitting, no error.
 
-    if (d.typeList):
-        if (isinstance(d.typeList, list)):
-            for i, typ in enumerate(d.typeList):
-                if (not typ): continue
-                tokens[i] = typ(tokens[i])
-        elif (d.typeList=='AUTO'):
-            for i, token in enumerate(tokens):
-                tokens[i] = autoType(token)
-        else:
-            raise ValueError(
-                "typeList option must be 'AUTO' or a list of types, not '%s'." %
-                (type(d.typeList)))
-
+    if (d.typeList): dtHandler.handleDatatypes(d, tokens)
     return tokens
 
 def context(txt:str, i:int, sideSize=16):

@@ -481,7 +481,8 @@ added at the end.
 
 * '''uncolorize''' ''(s)''
 
-Remove any ANSI terminal color escapes from ''s''.
+Remove any ANSI terminal color escapes from ''s'' (via `ColorManager.py`).
+Also available as standalone Python script `uncolorize`.
 
 * '''uncoloredLen''' ''(s)''
 

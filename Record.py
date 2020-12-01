@@ -6,15 +6,17 @@
 from __future__ import print_function
 from collections import namedtuple
 from enum import Enum
+import re
 
 __metadata__ = {
     'title'        : "Record.py",
+    'description'  : "A cross between namedtuple and dict.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2018-06-09",
-    'modified'     : "2020-08-19",
+    'modified'     : "2020-10-21",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -27,12 +29,15 @@ descr = """
 
 The "Record" class is a collection of data items, that conform to certain
 constraints. The contraints are specified by a RecordDef, which can
-specify a lisst of field, and for each field:
+specify a lisst of field, and for each field (all optional except the name):
 
 * a name,
-* an optional datatype
-* whether it is optional or required
-* a default value if not set
+* a datatype
+* whether subclass of that datatype are ok
+* a default value
+* whether None is ok
+* how to format() the value
+* what order the field comes in (normally defaulted)
 
 In addition, the RecordDef may specify that one or more fields constitute
 a key, which should be used to uniquely identify each Record instance with
@@ -77,13 +82,13 @@ in instances of the Record. Required, and must be unique.
 * type: an actual type to constrain the values that may be set for the
 field of the given 'name'. if 'type' is omitted or 'None', any type is allowed.
 
-* strictness: one of three values (only meaningful is a type is specified;
+* subs: one of three values (only meaningful is a type is specified;
 the default is CAST):
 ** STRICT: only values of exactly the specified type are allowed
 ** SUB: values of subclasses are also allowed
 ** CAST: any value CAST to the speciied type are allowed
 
-* nullable: If True, "None" is an acceptable value for the field.
+* nil: If True, "None" is an acceptable value for the field.
 
 * defaultValue: if the field is missing, requests for it return this
 value (which should be of an acceptable 'type'. If not specified,
@@ -93,9 +98,9 @@ For example:
     EmpRecord = RecordDef('EmpRecord', [
         [ 'fullName', str ],
         [ 'age'     , int ],
-        [ 'gender'  , str,   Strictness.STRICT, True, None ],
-        [ 'salary'  , float, Strictness.STRICT, True,  1.0 ],
-        [ 'userdata', None,  Strictness.CAST, True, None ]
+        [ 'gender'  , str,   SubsValues.STRICT, True, None ],
+        [ 'salary'  , float, SubsValues.STRICT, True,  1.0 ],
+        [ 'userdata', None,  SubsValues.CAST, True, None ]
     ])
 
 ==Record==
@@ -189,6 +194,7 @@ dict, and what the structure of the values is.
 * 2018-06-09: Written by Steven J. DeRose.
 * 2020-09-08: Add Strictness as Enum. Add 'format' to FieldInfo.
 Add prettyPrint().
+* 2020-10-21: Rename Strictness to SubsValues, shorten fieldInfo prop names.
 
 
 =To do=
@@ -215,23 +221,78 @@ or [https://github.com/sderose].
 
 
 ###############################################################################
-#
 # Where we store meta-info about each allowed Record entry.
 #
 FieldInfo = namedtuple('FieldInfo', [
     'name',         # String field name
     'type',         # Datatype expected (None for any)
-    'strictness',   # Are subclasses or castable values ok?
+    'subs',         # Are subclasses or castable values ok?
     'default',      # Default value if requested but not set
-    'nullable',     # Is None an acceptable value?
-    'defOrder',     # Was this field defined first or second or what?
-    'format',       # How to format it for output ("%12.6f" or similar)
+    'nil',          # Is None an acceptable value?
+    'fmt',          # How to format it for output ("%12.6f" or similar)
+    'seq',          # Was this field defined first or second or what?
     ])
 
-class Strictness(Enum):
+class SubsValues(Enum):
     ONLY = 0
     SUBS = 1
     CAST = 2
+
+def makeFieldInfo(
+    name:str,
+    typ:type = None,
+    subs     = SubsValues.CAST,
+    dft      = None,
+    nil:bool = True,
+    fmt      = None,
+    seq      = None
+    ):
+    assert (name.isalnum)
+    assert (isinstance(typ, type) or typ is None)
+    sv = int(subs)
+    assert (sv in [ 0, 1, 2 ])
+    if (typ is not None):
+        assert (isinstance(dft, type) or typ is None)
+    assert (fmt is None or FormatField.isFormatSpec(fmt))
+    return FieldInfo(name, typ, subs, dft, nil, fmt, seq)
+
+
+###############################################################################
+#
+class FormatField:  #  cf FormatRec(). Move to Datatypes?
+    """A format spec can include:
+    * Minimum width (how to pad)
+    * Maximum width (how to chop)
+    * Absolute width (just set min/max?)
+    * Justification (l/c/r/dec)
+    * Char encoding?
+    *
+    * For None: string to use
+    * For Bool: string to use
+    * For numbers:
+    *    Base
+    *    Sign (none, negativeOnly, always)
+    *    Flag negative via (), red, etc.
+    *    Commas (or other seps)
+    *    KMGTPX notation
+    *    Unit suffix (and whether to scale units)
+    * Reals:
+    *    Exponential notation
+    *    Post-decimal digits
+    *    Round vs. truncate
+    *    percent and permil
+    * Complex
+    *    i vs. j
+    * For strings
+    *    truncate/wrap
+    *    quote
+    *    escaping (showInvisible, entities, etc)
+    * DatesTimes -- a la strftime?
+    *    Named forms
+    """
+    @staticmethod
+    def isFormatSpec(s):
+        if (re.match(r'%-?\d+(\.\d+)[bcdefgx]', s)): return True
 
 
 ###############################################################################
@@ -239,41 +300,81 @@ class Strictness(Enum):
 class RecordDef():
     """A class representing the set of constraints on a given Record, such
     as the permitted field names, their types, defaults, etc.
+
+    Define a certain set of entries/fields (by name and type),
+    each represented as a FieldInfo that gives its properties. The
+    definition object is attached to Record instances.
+
+    @param name: Just a name for the record type.
+    @param fields: specifies the fields allowed, and their constraint.
+        This can be a list or a dict.
+        If it's a list, each item can be:
+            a string field name (all constraints default); or
+            a (sub)list with constraints in order for FieldInfo construction
+        If it's a dict, the keys are fieldNames, which will be added in
+        alphabetical order. Each value can be either:
+            None
+            a list as just described, or
+            a dict mapping fieldnames to constraints named as for FieldInfo.
+    @param keyFields is a list of field names, together defining a key.
+    This lets the caller define something like the SQL notion of a compound
+    key applicable to Records of the given record type.
+    TODO: Add a way to use just parts of fields (esp. strings), or at
+    least let user give a function to derive the key from the record.
+
+    Should this be a subclass of list, dict, or tuple? Could be any.
+    It doesn't want to be very mutable, so maybe tuple?
+    But do people think of "fields" as ordered, so maybe list?
+    But we want to encourage names, not numbers, so maybe dict?
     """
     def __init__(self, name:str, fields:list=None, keyFields=None):
-        """Define a certain set of entries/fields (by name and type),
-        each represented as a FieldInfo that gives its properties. The
-        definition object is attached to Record instances.
-        @param name: Just a name for the record type.
-        @param fields: a list of the field to be allowed, each one a sublist
-        of several possible constraints (see FieldInfo).
-        For a field that has no constraints,
-        just the name can be passed instead of a sublist.
-        @param keyFields is a list of fields, the tuple of which must be unique.
-        This lets the caller define something like the SQL notion of a compound
-        key applicable to Records of the given record type.
-
-        Should this be a subclass of list, dict, or tuple? Could be any.
-        It doesn't want to be very mutable, so maybe tuple?
-        But do people think of "fields" as ordered, so maybe list?
-        But we want to encourage names, not numbers, so maybe dict?
-        """
         self.name = name
-        self.fieldNames = []
-        self.fieldInfos = {}
-        self.keyFields = keyFields
+        self.fieldNames = []        # In order matching FieldInfo.seq
+        self.fieldInfos = {}        # Index by field name
+        self.keyFields = keyFields  # TODO: Allow multiple named keys
         self.locked = False
 
-        if (fields is None): return
-        assert (isinstance(fields, list))
-        for i, fieldInfo in enumerate(fields):
-            if (isinstance(fieldInfo, list)):
-                self.defineField(*fieldInfo)
-            elif (isinstance(fieldInfo, str)):
-                self.defineField(fieldInfo)
-            else:
-                raise ValueError("Field %d of RecordDef '%s' not list or str." %
-                    (i, name))
+        if (fields is None):
+            return
+
+        if (isinstance(fields, list)):
+            for i, fieldInfo in enumerate(fields):
+                if (isinstance(fieldInfo, list)):
+                    self.defineField(*fieldInfo)
+                elif (isinstance(fieldInfo, str)):
+                    self.defineField(fieldInfo)
+                else:
+                    raise ValueError("Field %d of RecordDef '%s' not list|str."
+                        % (i, name))
+
+        elif (isinstance(fields, dict)):
+            for i, fieldName in enumerate(fields.keys()):
+                fieldInfo = fields[fieldName]
+                if (fieldInfo is None):
+                    self.defineField(fieldName)
+                elif (isinstance(fieldInfo, list)):
+                    self.defineField(fieldName, *fieldInfo)
+                elif (isinstance(fieldInfo, dict)):
+                    if ('typ' not in fieldInfo): fieldInfo['typ'] = None
+                    if ('subs' not in fieldInfo): fieldInfo['subs'] = None
+                    if ('dft' not in fieldInfo): fieldInfo['dft'] = None
+                    if ('nil' not in fieldInfo): fieldInfo['nil'] = None
+                    if ('fmt' not in fieldInfo): fieldInfo['fmt'] = None
+                    self.defineField(
+                        fieldName,
+                        typ         = fieldInfo['typ'],
+                        subs  = fieldInfo['subs'],
+                        dft         = fieldInfo['dft'],
+                        nil    = fieldInfo['nil'],
+                        fmt  = fieldInfo['fmt']
+                    )
+                else:
+                    raise ValueError("Field %d of RecordDef '%s' not list|str."
+                        % (i, name))
+        else:
+            raise ValueError("'fields' arg must be list or dict, not %s." %
+                (type(fields)))
+
         if (self.keyFields):
             for f in self.keyFields:
                 if (f not in self.fieldInfos):
@@ -286,32 +387,82 @@ class RecordDef():
         self.locked = True
 
     def setOrder(self, fieldNames:list):
-        """Reset all the defOrder properties of the fields, to a new sequence.
+        """Reset all the seq numbers of the fields, to a new sequence.
         @param fieldNames: The field names, in the order desired.
+            If None, the fields are put in alphabetical order.
+            Omitted fields go unlisted in the order, and callers may omit
+            them, append them at the end, ban them, or whatever they like.
+            This list must have exactly the same names already known.
+            Add or delete fields first if desired.
         """
+        # Make sure the names all exist, no dups.
+        if (len(fieldNames) != len(self.fieldNames)):
+            raise ValueError("%d fields named, but RecordDef has %d." %
+                (len(fieldNames), len(self.fieldNames)))
+        checkDict = {}
         for i, f in enumerate(fieldNames):
             if (f not in self.fieldNames):
                 raise ValueError("field name '%s' does not exist." % (f))
+            if (f in checkDict):
+                raise ValueError("duplicate field name '%s'." % (f))
+            checkDict[f] = True
+        checkDict = None
+
+        # Re-create the fieldInfos with the new Name, seq, and set our
+        # ordered list of the names to match.
+        self.fieldNames = []
         for i, f in enumerate(fieldNames):
             old = self.fieldInfos[f]
             self.fieldInfos[f] = FieldInfo(
-                old.name, old.typ, old.strictness,
-                old.dft, old.nullable, old.formatSpec, i)
+                old.name, old.typ, old.subs,
+                old.dft, old.nil, old.fmt, i)
+            self.fieldNames[i] = old.name
         return
 
-    def defineField(self, name:str, typ:type=None, strictness=Strictness.CAST,
-        dft=None, nullable:bool=True, formatSpec=None):
+    def checkOrder(self):
+        for i, f in enumerate(self.fieldNames):
+            if (f not in self.fieldInfos):
+                return False
+            if (self.fieldInfos[f].seq != i):
+                return False
+        return True
+
+    def defineField(self,
+        name:str,
+        typ:type = None,
+        subs     = SubsValues.CAST,
+        dft      = None,
+        nil:bool = True,
+        fmt      = None
+        ):
         """Parameters passed should be the same as the items of a FieldInfo
-        (except that defNumber is added automatically).
+        (except that seq is added automatically).
         """
         if (self.locked):
             raise ValueError("Can't defineField in a locked RecordDef.")
         if (name in self.fieldInfos):
             raise KeyError("item '%s' already defined." % (name))
-        defNumber = len(self.fieldInfos)
+        seq = len(self.fieldInfos)
+        try:
+            newFI = makeFieldInfo(name, typ, subs, dft, nil, fmt, seq)
+        except ValueError:
+            return None
         self.fieldNames.append(name)
-        self.fieldInfos[name] = FieldInfo(
-            name, typ, strictness, dft, nullable, formatSpec, defNumber)
+        self.fieldInfos[name] = newFI
+        return newFI
+
+    def removeField(self, fieldName):
+        """This doesn't update instances of this kind of record.
+        """
+        if (self.locked):
+            raise ValueError("Can't removeField in a locked RecordDef.")
+        if (fieldName not in self.fieldInfos):
+            raise ValueError("Can't remove nonexistent field '%s'." %
+                (fieldName))
+        theSeq = self.fieldInfos[fieldName].seq
+        del self.fieldNames[theSeq]
+        del self.fieldInfos[fieldName]
+        self.setOrder(self.fieldNames)
 
     def isValueOK(self, fieldName, value):
         """Test whether a value matches the constraints for the named field.
@@ -320,22 +471,25 @@ class RecordDef():
             raise KeyError("Field '%s' not defined for RecordDef '%s'." %
                 (fieldName, self.name))
         fi = self.fieldInfos[fieldName]
+        return self.isValueOfType(fi, value)
 
-        if (value is None):                      # nullable
-            return fi.nullable
+    def isValueOfType(self, fi, value):
+        if (fi.typ is None):               # no type spec, so take any
+            return True
 
-        if (fi.typ is not None):                 # type and strictness
-            if   (fi.strictness == Strictness.CAST):
-                try:
-                    _ = fi.typ(value)
-                except ValueError:
-                    return False
-            elif (fi.strictness == Strictness.SUBS):
-                if (not isinstance(value, fi.typ)):
-                    return False
-            elif (fi.strictness == Strictness.ONLY):
-                if (type(value) != fi.typ):
-                    return False
+        if (value is None):                # Vaue None, is that ok?
+            return fi.nil
+        if   (fi.subs == SubsValues.CAST):
+            try:
+                _ = fi.typ(value)
+            except ValueError:
+                return False
+        elif (fi.subs == SubsValues.SUBS):
+            if (not isinstance(value, fi.typ)):
+                return False
+        elif (fi.subs == SubsValues.ONLY):
+            if (type(value) != fi.typ):
+                return False
 
         return True
 
@@ -346,20 +500,50 @@ class Record(dict):
     """A subclass of dict that provides a number of features from defaultdict
     and namedtuple as well. It can enforce types for members, allow or
     prohibit None for members, etc.
+
+    To construct and instance, give:
+        * An instance of RecordDef, which determines what fields are allowed,
+        * the data to fill in:
+            * a list: checks and fills the fields in order
+            * a dict: checks and fills the fields by name
+            * None:   check and fill the fields with default or None
     """
-    def __init__(self, dfn:RecordDef, data=None):
+    def __init__(
+        self,
+        dfn:RecordDef,
+        data=None
+        ):
         super(Record, self).__init__()
+
         if (not isinstance(dfn, RecordDef)):
             raise TypeError("dfn is not a RecordDef.")
+
+        # Initialize the fields with default values
+        for fName, fInfo in dfn.fieldInfos.items:
+            if (fInfo.dft): self[fName] = fInfo.dft
+            else: self[fName] = None
+
+        # If they gave us data, apply it
         self.dfn = dfn
-        if (data):
-            assert isinstance(data, list)
-            for i, d in enumerate(data):
-                fieldName = self.dfn.fields[i]
-                self[fieldName] = d
+        if (isinstance(data, list)):
+            self.setFromList(data)
+        elif (isinstance(data, dict)):
+            self.setFromDict(data)
+        elif (data is not None):
+            raise TypeError("Record data must be list, dict, or None.")
+
+    def setFromList(self, data):
+        for i, d in enumerate(data):
+            fieldName = self.dfn.fields[i]
+            self[fieldName] = d
+
+    def setFromDict(self, data):
+        for k, v in enumerate(data):
+            fieldName = self.dfn.fieldInfos[k]
+            self[fieldName] = v
 
     def __setitem__(self, key, value):
-        """
+        """Actually store a value, type-checking it on the way.
         See https://stackoverflow.com/questions/2060972/
         """
         if (key not in self.dfn.fields):
@@ -368,7 +552,7 @@ class Record(dict):
         if (it['type'] and not isinstance(value, it['type'])):
             raise TypeError("value for item '%s' is type %s (need %s)." %
                 (key, type(value), it['type']))
-        if (value is None and not it['nullable']):
+        if (value is None and not it['nil']):
             raise TypeError("value for item '%s' may not be None." % (key))
         super(Record, self).__setitem__(key, value)
 
@@ -430,9 +614,9 @@ if __name__ == "__main__":
     EmpRecord = RecordDef('EmpRecord', [
         [ 'fullName', str ],
         [ 'age'     , int ],
-        [ 'gender'  , str,   Strictness.ONLY, True, None ],
-        [ 'salary'  , float, Strictness.ONLY, True,  1.0 ],
-        [ 'userdata', None,  Strictness.CAST, True, None ]
+        [ 'gender'  , str,   SubsValues.ONLY, True, None ],
+        [ 'salary'  , float, SubsValues.ONLY, True,  1.0 ],
+        [ 'userdata', None,  SubsValues.CAST, True, None ]
     ])
 
     employeeRec = Record(EmpRecord, ['Pat Smith', 30, 'M', 100000])

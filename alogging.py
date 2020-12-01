@@ -732,6 +732,7 @@ Linux command `dircolors` is not available. POD to MarkDown.
 * 2020-09-23: Add forward for `colorize()`, and a fallback. lint.
 * 2020-10-07: Add formatPickle().
 
+
 =To do=
 
 * formatRec():
@@ -759,8 +760,8 @@ Linux command `dircolors` is not available. POD to MarkDown.
 
 =Rights=
 
-Copyright 2019 by Steven J. DeRose. This work is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
+Copyright 2019 by Steven J. DeRose. This work is licensed under a Creative
+Commons Attribution-Share Alike 3.0 Unported License. For further information on
 this license, see [http://creativecommons.org/licenses/by-sa/3.0].
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
@@ -951,7 +952,7 @@ class ALogger:
                     else (u"\\u%04x;" % (ord(x.group(1))))),
                 s)
         except re.error as e:
-            sys.stderr.write("Regex error: %s" % (e))
+            sys.stderr.write("Regex error: %s\n" % (e))
         return(s)
 
     ###########################################################################
@@ -1118,7 +1119,8 @@ class ALogger:
         else: self.lg.critical(msg, *kwargs)
 
     def directMsg(self, msg):
-        if (not msg.endswith("\n")): msg += "\n"
+        #if (not msg.endswith("\n")): msg += "\n"
+        #msg2 = re.sub(r'\n', '*', msg)
         sys.stderr.write(msg)
 
 
@@ -1246,14 +1248,14 @@ class ALogger:
             m1 = self.showInvisibles(m1)
             m2 = self.showInvisibles(m2)
 
+        pre = msgDef['prefix']
+        suf = msgDef['suffix']
+        inf = msgDef['infix']
         if (indent or msgDef['indent']):
             ind = (self.options['indentString'] * self.msgIndentLevel)
-            pre = ind + re.sub(r'\n', r'\n'+ind, msgDef['prefix'])
-            inf = re.sub(r'\n', r'\n'+ind, msgDef['infix'])
-            suf = re.sub(r'\n', r'\n'+ind, msgDef['suffix'])
-        else:
-            pre = msgDef['prefix']
-            suf = msgDef['suffix']
+            #pre = ind + re.sub(r'\n', r'\n'+ind, msgDef['prefix'])
+            #inf = re.sub(r'\n', r'\n'+ind, msgDef['infix'])
+            #suf = re.sub(r'\n', r'\n'+ind, msgDef['suffix'])
 
         caller = ""
         if (msgDef['func']): caller = self.getCaller() + ": "
@@ -1276,7 +1278,8 @@ class ALogger:
                 um2 = re.sub(r'[\x80-\xFF]', self.options['badChar'], m2)
 
         m = u""
-        m += on + pre + caller + um1 + off + inf + um2 + suf + "\n" + locMsg
+        m += on + pre + caller + um1 + off + inf + um2 + suf
+        if (locMsg): m += "\n" + locMsg
         return(m)
 
 
@@ -1370,7 +1373,7 @@ class ALogger:
         statGroups = defaultdict(int)
         for k in self.msgStats.keys():
             if ('/' not in k): continue
-            parts = '/'.split(k)
+            parts = k.split(sep='/')
             statGroups[parts[0]] += self.msgStats[k]
         for statGroup, n in statGroups.items():
             if (statGroup in self.msgStats):

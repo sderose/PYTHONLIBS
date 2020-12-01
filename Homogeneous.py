@@ -9,6 +9,7 @@ import argparse
 
 __metadata__ = {
     'title'        : "Homogeneous.py",
+    'description'  : "Implement homogeneous subclasses of list, dict, etc.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -25,11 +26,20 @@ descr = """
 
 Subclasses of `list` and `dict` that enforce the datatypes of keys and/or values.
 
-For example:
+For example, `hlist` implements a homogeneous `list`:
+
+    myList = hlist(valueType=int)
+
+ensures that `myList` will only include items of type `int`. This mainly just
+involves the __setitem__ method to do some tests and raise `TypeError` if
+a test fails.
+
+`hdist` is analogous, but for `dict`. It can constrain either the key type,
+the value type, or both. For example:
 
     myDict = hdict(keyType=str, valueType=int)
 
-Attempts to add, access, or replace items using the wrong datatypes,
+Attempts to add, replace items using the wrong datatypes
 will raise a `TypeError` exception. So the first following line is fine,
 but the second will raise TypeError (for two reasons, actually: both the
 key and the value are of the wrong types):
@@ -37,16 +47,27 @@ key and the value are of the wrong types):
     myDict['fooBar'] = 12
     myDict[12] = 'foo'
 
-If you set `valueNone=True`, then `None` is also an acceptable value.
+See the next section for how types are checked, and for more options.
 
-If the required valueType is a class, you can choose whether subclasses are
-acceptable or not (default: True)
 
-    myList = hlist(valueType=someClass, valueSubs=False)
+==Constraint details==
 
-If desired, you can set constraints other than just type:
-set `valueTest` to a function that returns True only for values
-that are acceptable:
+You can set several properties regarding each thing to be constrained.
+The following descriptions use value-constraints for example, but
+key constraints work the same way.
+
+* `valueType`: This should be a defined type, such as
+`int`, `float`, `complex`, `bool`, `str`, or a class name.
+
+* `valueSubs:bool`: If set to True (which is the default), then subclasses
+of the given type are also acceptable; otherwise not.
+
+* `valueNone:bool`: If set to True (which is ''not'' the default), then
+the value `None` is acceptable.
+
+* `valueTest`: This defaults to `None`, but can be set to a function
+that shouild return True only for values that are acceptable. For example,
+you can constrain a list to contain only valid probability values like this:
 
     probabilityList = hlist(valueType=float,
         valueTest = lambda x: (x>=0.0 and x<=1.0))
@@ -56,25 +77,55 @@ or
     ages = hlist(keyType=str, keyTest = lambda s: re.match(r'\\w+', x),
         valueType=int, valueTest = lambda x: (x>=0 and x<=130))
 
-Other operations are all intended to work normally.
+
+=API=
+
+* class hlist(self, valueType:type=None, valueSubs:bool=True,
+valueNone:bool=False, valueTest=None)
+
+This is an extension of the normal Python `list` type, that can constrain
+all the values placed in the list to be of a certain type.
+
+* class hdict(self,
+keyType=None, keySubs:bool=True, keyNone:bool=False, keyTest=None,
+valueType:type=None, valueSubs:bool=True,
+valueNone:bool=False, valueTest=None)
+
+This is an extension of the norml Python `dict` type. You can constrain
+the type for keys (typically but not necessarily to `str`), and/or the
+values.
 
 
 =Related Commands=
 
-`LooseDict`, `Record`.
+[https://github.com/sderose/PYTHONLIBS/blob/master/Record.py]: Similar
+to Python `namedtuple`, but supporting type contraints similer to those
+of `Homogeneous.py`, as well as value defaults
+
+[https://github.com/sderose/PYTHONLIBS/blob/master/LooseDict.py]:
+A subclass of `dict` that includes key normalization. For example, matching
+string keys via case-folding or Unicode normalization, or
+numeric values with rounding, etc.
+
+[https://github.com/sderose/PYTHONLIBS/blob/master/Datatypes.py]:
+Support a wide range of named datatype, including XSD's built-ins.
 
 
 =Known bugs and Limitations=
-
-There is no way to constrain the size of the hlist or hdict itself.
 
 Perhaps `valueTest` failures should raise ValueError instead of TypeError,
 but I decided to just use TypeError for everything.
 
 
+=To do=
+
+* Perhaps add set, tuple, and others?
+
+
 =History=
 
 2020-02-19: Written by Steven J. DeRose.
+2020-11-21: Better doc.
 
 
 =To do=
@@ -102,6 +153,8 @@ or [https://github.com/sderose].
 ###############################################################################
 #
 class hlist(list):
+    """A Python list, but with all values required to be same type.
+    """
     def __init__(self, valueType:type=None, valueSubs:bool=True,
         valueNone:bool=False, valueTest=None):
         super(hlist, self).__init__()
@@ -125,7 +178,7 @@ class hlist(list):
 ###############################################################################
 #
 class hdict(dict):
-    """
+    """A Python dict, but with all keys and/or items required to be same type.
     """
     def __init__(self,
         keyType=None, keySubs:bool=True, keyNone:bool=False, keyTest=None,
@@ -158,7 +211,7 @@ class hdict(dict):
 
 
 ###############################################################################
-# Main
+# Main (just a test driver)
 #
 if __name__ == "__main__":
     def processOptions():
@@ -185,7 +238,7 @@ if __name__ == "__main__":
     ###########################################################################
     #
     args = processOptions()
-    print("Testing...")
+    print("Testing Homogeneous.py...")
 
     ld = hdict()
     ld['foobar'] = 12
