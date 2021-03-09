@@ -415,6 +415,7 @@ However, the script is not smart (at least, yet) about special cases such as:
   (a)       501(c)(3)
   @user     #topic    ~a        AT&T
   e'tre     D'Avaux   let's     y'all     and/or
+  house(s)
 
 This needs some adjustments re. which punctuation is allowed on which
 end.  Harder problems include plural genitives: "The three I<dogs'> tails."
@@ -684,6 +685,13 @@ handle):
 
 =Known Bugs and Limitations=
 
+==True tokenization issues==
+
+* house(s) breaks funny.
+* Can't break words in orthographies that lack spaces (e.g., Japanese).
+* Too generous about expanding contractions (e.g. "Tom's")
+
+==Other==
 Not all options are finished. For example:
 I<Ligature, Math, Fullwidth, S_GENITIVE,> etc.
 I<T_NUMBER> is disabled for the moment.
@@ -697,25 +705,22 @@ to just a single category, but affect all if set for any.
 
 Can't distinguish single vs. double quotes while unifying variants.
 
-Can't break words in orthographies that lack spaces (such as many ideographic
-scripts).
-
 Abbreviations, acronyms, and other cases with word-final punctuation
 are a little wonky: "U.S." loses the final ".".
 Acronyms with periods I<and> spaces aren't caught at all.
 Acronyms aren't allowed within Names Entity References.
 
-Too generous about expanding contractions (e.g. "Tom's")
-
 W/ testTokenizer defaults, turns B&O into 9/9&O ... into \\.\\.\\. doesn't
 separate }. Default unifies URIs, emails, and some (?) numerics.  Doesn't do @userid.
-Maybe move Unification out of Tokenizer?
+Probably should move Unification out of Tokenizer?
 
 Processing XML/HTML with default options, ends up splitting the SGML delimiters
 apart from their constructs. Use C<dropXMLtags> is necessary first.
 
 
-=Related commands=
+=Related commands and data=
+
+Fairly thorough tokenizer test cases are available in
 
 This Python program is mostly a port of a much earlier Perl one, which is also
 available.

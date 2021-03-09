@@ -66,6 +66,8 @@ Unfinished.
 * IEEE that accepts +/- inf, NaN.
 * Comparison args?  -xattr whereFrom=~/foo.bar/ or -xattr foo<=12
 * Slice: take n:m where n>=0 and m>=n (or option with negatives)
+* token accumulator: repeatable option, but you can either do `-x foo -x bar`,
+or `-x "foo bar"`, or mix the two.
 
 ==Other options==
 
