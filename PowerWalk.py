@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 #
 # PowerWalk: More capable version os Python's os.walk.
+# 2018-04-21: `PowerWalk.py` split out of my `countTags.py`.
+#
+#pylint: disable=W0212
 #
 from __future__ import print_function
 import sys, os
@@ -74,7 +77,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2018-04-21",
-    'modified'     : "2020-11-24",
+    'modified'     : "2021-03-09",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -84,7 +87,7 @@ __version__ = __metadata__['modified']
 descr="""
 =Description=
 
-`PowerWalk` is similar to Python's built-in `os.walk()`, but offers many
+PowerWalk is similar to Python's built-in `os.walk()`, but offers many
 additional features, especially for file selection (in that respect it is
 more similar to the *nix `find` command).
 
@@ -97,7 +100,7 @@ set options to get only the LEAF items, or to open the files for you,
 or to raise exceptions for OPEN and CLOSE instead of returning them as
 regular events.
 
-`PowerWalk` can open several kinds of compressed and
+PowerWalk can open several kinds of compressed and
 container formats;
 include or exclude by extensions, name patterns, and path patterns;
 exclude hidden or backup items;
@@ -113,7 +116,7 @@ The package also supplies a few useful idependent tests:
 
 ==Usage as a command==
 
-If run on its own, `PowerWalk` will display the paths of selected
+If run on its own, PowerWalk will display the paths of selected
 files under the specified
 directory(s), or the current directory if none are specified. Several
 special options apply in that case:
@@ -141,7 +144,8 @@ much like `find --exec`.
 
 * `--itemSep` -- Put this in to separate items (e.g., a comma).
 
-* `--serialize` -- put a serial number on each file with `--copyTo`.
+* `--serialize` -- put a serial number on each file with `--copyTo`
+(as well as `--serializeFormat` to set the format (default '_%04d')).
 
 ===General options available in command or API use===
 
@@ -165,7 +169,7 @@ but take full regexes to match against.
 For example, this makes it easy to get Python files whether they have a `.py`
 extension of not.
   ** `--backups` includes backup files, hidden files, etc.
-  ** `--recursive` or `-r` (which you'll often want) makes `PowerWalk` descend
+  ** `--recursive` or `-r` (which you'll often want) makes PowerWalk descend
   into sub-directories (but not tar or other container files -- for which
   there are separate options). If directories are specified directly, rathern
   than just being reached, the wil be recursed into in any case. Not sure
@@ -201,7 +205,7 @@ extension of not.
 
 ==Usage from code==
 
-`PowerWalk` can be used as an iterator/generator. To just get a lot of
+PowerWalk can be used as an iterator/generator. To just get a lot of
 files, each passed back with its full path and an open file handle, do this:
 
     from PowerWalk import PowerWalk, PWType
@@ -559,7 +563,7 @@ are specified directly, at the top level, are always recursed into
 regardless of the setting of `--recursive`. I'm not certain what the ideal
 behavior is:
 
-** `ls` (unless you set `-d`) lists content for all dirs specified directly.
+** `ls` (unless you set `-d`) lists content for all directories specified directly.
 ** `ls -d -r` seems to not recurse at all.
 ** `ls *" lists all the files, ''then'' all the directories with their files.
 
@@ -580,10 +584,10 @@ files (tar, gzip, etc.).
 
 * Statistics of the current run as well as the current
 nesting depth of the traversal (in `.depth`), are separated into a
-TraversalState object. A reference to that object is
+`TraversalState` object. A reference to that object is
 kept directly in the PowerWalk object instance as `PowerWalk.travState`.
 So if you try to run two traversals from the same PowerWalk instance, you may
-have problems accessing `PowerWalk.`. However, PowerWalk
+have problems accessing it via PowerWalk. However, PowerWalk
 itself doesn't use it, so it should be ok. It's really only stored there
 so command-line usage can display statistics at the end.
 That won't work if you modify it to run a second
@@ -592,25 +596,23 @@ separate PowerWalk instances in such cases, you should be fine.
 
 * You can only specify one regex for each of the include/exclude options
 that take regexes. These options do not apply to directories (ideally, they
-should be separately settable for dirs and files (and maybe other containers).
+should be separately settable for directories and files (and maybe other containers).
 
 * There is no protection against circular links.
-
-* With `--serialize`, there is no control over 0-padding (always a minimum
-of 4 digits), or whether the serial number is prefixed or suffixed. I provide
-other utilities that may help with file organization (see next section).
 
 
 =Related commands=
 
-`find` + `exec`. Find does a really nice job of finding things. PowerWalk is mainly intended to be even easier to use
+`find` + `-exec` does a really nice job of finding things.
+PowerWalk is mainly intended to be even easier to use
 from Python code, especially for people (like corpus linguists) who work with
 tons of sample files in complicated directory and container structures.
 
-[https://github.com/sderose/FileManagement/lss], [https://github.com/sderose/FileManagement/findIdenticalFiles].
+[https://github.com/sderose/FileManagement/lss],
+[https://github.com/sderose/FileManagement/findIdenticalFiles].
 
 [https://github.com/sderose/FileManagement/lsoutline] produces a file listing
-similar to what `PowerWalk` produces
+similar to what PowerWalk produces
 when run from the command line. But you can do fancier selection here (that
 script may be upgraded to just use PowerWalk underneath).
 
@@ -644,7 +646,13 @@ files to exclude.
 * Mac fs metadata (kmdItem... and all that). See my `macFinderInfo`.
 * Option to not cross device or filesystem bounds (see `find -x`)
 * distinguish maxfiles tried vs. succeeded
-* atime, ctime, mtime, mindepth, cf Bmin [aBcm]?(newer|time|min)
+* Dates and times (options have been added, but don't do anything yet)
+    -amin n:  modified n minutes ago (rounded up)
+    -atime n[smhdw] modified n (default days) ago. Can do `-1h30m`.
+    -anewer
+    (likewise with -c... for creation time, -m... for mod time, -B... inode creation)
+    -newer [file]: if newer mod than [file
+    -newerXY [file]]: if newer [aBcm] than [file]'s [aBcM].
 * depth
 * empty
 * exec(dir)
@@ -717,8 +725,10 @@ Add `--copyTo` and `--serialize`.
 Clean up `errorEvents` options vs. `errors` statistic.
 * 2020-10-20f: Add `--type` similar to *nix `find`. Fix depth counting.
 * 2020-11-24: Add `--no-recursive`. Make exceptions subclass of a cover type.
-Add `--reverseSort` and clean up sorting. Make top-level dirs always
-recurse.
+Add `--reverseSort` and clean up sorting. Make top-level dirs always recurse.
+* 2021-03-09: Add `--serializeFormat`, and file-time options (latter are not
+operational yet).
+
 
 =Rights=
 
@@ -1171,6 +1181,8 @@ class PowerWalk:
                 help='%s items with %s matching this regex.' %
                     (sign, thing.lower()))
 
+        PowerWalk.addTimeOptions(parser, prefix=prefix)
+
         # And the grep-like ones
         parser.add_argument(
             prefix + "include", action='store_true',
@@ -1291,6 +1303,38 @@ class PowerWalk:
                 sys.exit()
 
         return parser
+
+    @staticmethod
+    def addTimeOptions(parser, prefix=""):
+        """Add a boatload of options for testing filetimes, based on `find`.
+        """
+        def timeArg(s):
+            """Check validity of values for -[aBcm]time.
+            (and ...min? and where's ...max?).
+            Also allow absolute times via ISO 8601?
+            """
+            if s=="" or not re.match(r"(\d+w)?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$", s):
+                raise ValueError("Option requires a valid time string.")
+
+        def fileArg(f):
+            """Should there be a way to compare the file against a relative path,
+            not absolute?
+            """
+            if (not os.path.exists(f)):
+                raise ValueError("Option requires an existing file.")
+
+        things = { "a":"access", "B":"inode creation", "c":"creation", "m":"modification" }
+        for abbr, txt in things.items():
+            parser.add_argument(prefix + abbr + "newer", type=fileArg,
+                help="Is %s time newer than mod time of [file]?" % (txt))
+            # Possibly, `find` only takes an int for -xmin?
+            parser.add_argument(prefix + abbr + "min", type=timeArg,
+                help="Is %s time newer than the given age?" % (txt))
+            parser.add_argument(prefix + abbr + "time", type=timeArg,
+                help="Is %s time newer than the given age?" % (txt))
+            for abbr2 in things.keys():
+                parser.add_argument(prefix + "newer" + abbr + abbr2, type=fileArg,
+                    help="Is %s x-time newer than y-time of [file]?" % (txt))
 
     def getStat(self, name):
         return self.travState.stats[name]
@@ -1731,6 +1775,9 @@ if __name__ == "__main__":
             "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
+            "--serializeFormat", "--sformat", type=str, default="_%04d",
+            help="How to format numbers for --serialize. Default: '_%04d'.")
+        parser.add_argument(
             "--short", action='store_true',
             help='Only show the bottom-level name in the outline view.')
         parser.add_argument(
@@ -1847,7 +1894,8 @@ if __name__ == "__main__":
 
             if (args.copyTo):
                 _, baseName = os.path.split(path0)
-                if (args.serialize): baseName = "_%04d%s" % (leafNum, baseName)
+                if (args.serialize):
+                    baseName = args.serializeFormat % (leafNum, baseName)
                 warn(1, "copyTo '%s', base '%s'." % (args.copyTo, baseName))
                 tgtPath = os.path.join(args.copyTo, baseName)
                 if (os.path.exists(tgtPath)):
