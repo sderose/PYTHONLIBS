@@ -272,6 +272,21 @@ Return how deeply nested ''node'' is (the document element is ''1'').
 Return 1 if ''node'' is, or is within, an element of the given ''type'',
 otherwise return 0.
 
+* '''getContentType(node)'''
+
+Returns whether the node has element children, text children, both ("mixed"),
+or nothing ("empty"). This is currently not graceful about other possibilities,
+such as an element that contains only PIs, COMMENTs, etc. ("odd").
+The values returned are drawn from:
+
+CONTENT_EMPTY does not make any distinction between (for example) <b></b> and <b/>.
+
+**CONTENT_EMPTY = 0
+**CONTENT_TEXT = 1
+**CONTENT_ELEMENT = 2
+**CONTENT_MIXED = 3
+**CONTENT_ODD = -1
+
 * '''getFQGI'''(node)
 
 Return the list of element types of ''node'''s
@@ -608,7 +623,7 @@ large documents.
 Pull in other extensions implemented in my BaseDom.py (nee RealDOM.py).
 Generate SAX.
 * 2020-05-22: Add a few items from BS4, and a few new features.
-
+* 2021-03-17: Add getContentType().
 
 =To do=
 
@@ -1236,6 +1251,24 @@ def isWithin(self, node):
         if (cur == node): return True
         cur = cur.parentNode
     return False
+
+CONTENT_EMPTY = 0
+CONTENT_TEXT = 1
+CONTENT_ELEMENT = 2
+CONTENT_MIXED = 3
+CONTENT_ODD = -1
+
+def getContentType(self):
+    """What about PI, COMMENT, CDATA children?
+    """
+    if (len(self.childNodes) == 0): return self.CONTENT_EMPTY
+    eChild = self.selectChild(n=0, elType='*')
+    tChild = self.selectChild(n=0, elType='#TEXT')
+    if (eChild):
+        if tChild: return self.CONTENT_MIXED
+        else: return self.CONTENT_ELEMENT
+    if (tChild): return self.CONTENT_TEXT
+    return self.CONTENT_ODD
 
 
 ###############################################################################

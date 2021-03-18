@@ -282,7 +282,7 @@ alphabetical list below)
 
 ==addOptionsToArgparse(parser, prefix='', singletons=True)==
 
-Add PowerWalk's options to a Python `argparse` instance.
+Add PowerWalk's options to a Python `argparse` instance (static method).
 If `singletons` is True, this will include single-character names such
 as `-r` as a synonym for `--recursive`. If `prefix` is specified, it
 will be prefixed to each name (after the hyphens, of course), to avoid
@@ -750,7 +750,7 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 # This list may need to be extended.
 # See https://docs.python.org/3/library/io.html
 #
-def isStreamable(x):
+def isStreamable(x) -> bool:
     return isinstance(x, (
         io.TextIOWrapper,              # subclass of IOBase
         io.BufferedReader,             # subclass of IOBase
@@ -827,7 +827,7 @@ class PWType(Enum):
 #
 PWFrame = namedtuple('PWFrame', [ 'path', 'fh', 'what' ])
 
-def isPWFrameOK(ts:PWFrame):
+def isPWFrameOK(ts:PWFrame) -> bool:
     if (not isinstance(ts.path, str)):
         warn(0, "Bad PWFrame.path: %s." % (type(ts.path)))
         return False
@@ -899,10 +899,10 @@ class TraversalState(list):
                 buf += "    %-30s %8d\n" % (k, self.stats[k])
         return buf
 
-    def getStat(self, name):
+    def getStat(self, name:str):
         return self.stats[name]
 
-    def bump(self, name, n=1):
+    def bump(self, name:str, n=1):
         """Increment a named statistic.
         """
         if (name not in self.stats):
@@ -1117,12 +1117,12 @@ class PowerWalk:
             for k, v in kwargs.items():
                 self.setOption(k, v, strict=True)
 
-    def getOption(self, name):
+    def getOption(self, name:str):
         if (name not in self.options):
             raise ValueError("Unknown option '%s'." % (name))
         return self.options[name]
 
-    def setOption(self, name, value, strict=False):
+    def setOption(self, name:str, value, strict:bool=False):
         """Note: If the options are coming in from argparse, an unset
         list or dict will perhaps be None, so fix to an empty one.
         """
@@ -1156,7 +1156,7 @@ class PowerWalk:
                 warn(0, "Cannot cast value '%s' for option '%s' to %s:\n    %s"
                     % (value, name, theType.__name__, e))
 
-    def setOptionsFromArgparse(self, argsObj=None, prefix=""):
+    def setOptionsFromArgparse(self, argsObj=None, prefix:str=""):
         """Have to ignore any that aren't ours.
         """
         for k, v in argsObj.__dict__.items():
@@ -1164,7 +1164,7 @@ class PowerWalk:
             if (qname in self.options): self.setOption(qname, v, strict=False)
 
     @staticmethod
-    def addOptionsToArgparse(parser, prefix='', singletons=True):
+    def addOptionsToArgparse(parser, prefix:str='', singletons:bool=True):
         """Provide an easy way to add all our options to a main program
         (without getting all the others). Use setOptionsFromArgparse() to
         copy them in from the argparse result, ignoring any others.
@@ -1305,7 +1305,7 @@ class PowerWalk:
         return parser
 
     @staticmethod
-    def addTimeOptions(parser, prefix=""):
+    def addTimeOptions(parser, prefix:str="") -> None:
         """Add a boatload of options for testing filetimes, based on `find`.
         """
         def timeArg(s):
@@ -1336,10 +1336,10 @@ class PowerWalk:
                 parser.add_argument(prefix + "newer" + abbr + abbr2, type=fileArg,
                     help="Is %s x-time newer than y-time of [file]?" % (txt))
 
-    def getStat(self, name):
+    def getStat(self, name:str):
         return self.travState.stats[name]
 
-    def traverse(self, topLevelItems=None):
+    def traverse(self, topLevelItems=None) -> None:
         """Use ttraverse on the given path (or each top-level file or dir,
         to recurse through the files/directories requested and return
         a PWFrame (a namedtuple of path, file handle, and PWType) for each.
@@ -1375,7 +1375,7 @@ class PowerWalk:
             raise Finished()
         return
 
-    def ttraverse(self, path:str, trav:TraversalState):
+    def ttraverse(self, path:str, trav:TraversalState) -> None:
         """Recurse as needed.
         """
         warn(2, "%sttraverse at '%s'" % ("  "*len(trav), path))
@@ -1490,7 +1490,7 @@ class PowerWalk:
 
         return
 
-    def passesFilters(self, path, trav):
+    def passesFilters(self, path:str, trav) -> bool:
         """Check the file at 'path' against all the filters, and
         return True iff it's one the user wants. 'hidden' applies to
         containers (such as directories) and to leafs (such as files).
@@ -1500,7 +1500,7 @@ class PowerWalk:
             return self.dirPassesFilters(path, trav)
         return self.filePassesFilters(path, trav)
 
-    def dirPassesFilters(self, path, trav):
+    def dirPassesFilters(self, path:str, trav) -> bool:
         if (self.options['type'] and self.options['type']!='d'):
             self.recordEvent(trav, "ignoredByType")
             return False
@@ -1518,7 +1518,7 @@ class PowerWalk:
         self.recordEvent(trav, 'directory')
         return True
 
-    def filePassesFilters(self, path, trav):
+    def filePassesFilters(self, path:str, trav) -> bool:
         """Test most of the file-filtering conditions.
         Return True only if the all pass (reaching the final 'else').
         """
@@ -1574,7 +1574,7 @@ class PowerWalk:
         warn(2, "%s filter: %s" % ("PASS" if passes else "FAIL", tail))
         return passes
 
-    def passesType(self, path):
+    def passesType(self, path:str) -> bool:
         """Test like "find -type", return if it's ok.
         """
         mode = os.stat(path).st_mode
@@ -1610,7 +1610,7 @@ class PowerWalk:
             warn(0, "Unknown -type value '%s'." % (ty))
         return True
 
-    def chSort(self, curPath, chList, reverse=False):
+    def chSort(self, curPath:str, chList, reverse=False) -> list:
         """Sort a file-list returned from os.listdir somehow.
         """
         warn(2, "Sorting by '%s'." % (self.options['sort']))
@@ -1638,7 +1638,7 @@ class PowerWalk:
         chList.sort(key=theLambda, reverse=reverse)
         return chList
 
-    def recordEvent(self, theStack:list, thing:str):
+    def recordEvent(self, theStack:list, thing:str) -> None:
         """Count the kind of thing, and maybe say something.
         """
         self.travState.bump(thing)
@@ -1658,7 +1658,7 @@ class PowerWalk:
 #
 # See also diffDirs.py, findDuplicateFiles, lss, renameFiles
 #
-def isBackup(path, descendants=False):
+def isBackup(path:str, descendants=False) -> bool:
     """Given a path, check the basename whether it's a backup file.
     If 'descendants' is set, also count if a containing dir name has 'backup'.
 
@@ -1695,12 +1695,12 @@ def isBackup(path, descendants=False):
         return True
     return False
 
-def isHidden(name):
+def isHidden(name:str) -> bool:
     """Given a path, check the basename for initial dot.
     """
     return os.path.basename(name).startswith(".")
 
-def isGenerated(name):
+def isGenerated(name:str) -> bool:
     """Is the name one that you probably don't need to archive, diff, or
     do certain other things with, since it's derived?
     """
@@ -1714,13 +1714,13 @@ def isGenerated(name):
         if (re.search(ge, b)): return(True)
     return(False)
 
-def getFileInfo(path):
+def getFileInfo(path:str) -> str:
     """See what the "file" command has to say about something...
     """
     buf = check_output([ "file", "-b", path ])
     return buf
 
-def xset(path, prop, val):
+def xset(path:str, prop:str, val) -> None:
     #import xattr
     warn(0, "--xattr is not yet supported for %s: %s=%s." % (path, prop, val))
     sys.exit()
@@ -1729,7 +1729,7 @@ def xset(path, prop, val):
 ###############################################################################
 #
 if __name__ == "__main__":
-    def processOptions():
+    def processOptions() -> argparse.Namespace:
         try:
             from BlockFormatter import BlockFormatter
             parser = argparse.ArgumentParser(
@@ -1776,7 +1776,7 @@ if __name__ == "__main__":
             help='Suppress most messages.')
         parser.add_argument(
             "--serializeFormat", "--sformat", type=str, default="_%04d",
-            help="How to format numbers for --serialize. Default: '_%04d'.")
+            help="How to format numbers for --serialize. Default: '_%%04d'.")
         parser.add_argument(
             "--short", action='store_true',
             help='Only show the bottom-level name in the outline view.')
