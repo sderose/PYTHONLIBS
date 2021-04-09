@@ -5,20 +5,22 @@
 #
 #pylint: disable=W0212
 #
+#pylint: disable=W0212
+#
 from __future__ import print_function
 import sys, os
-from os.path import getatime, getctime, getmtime, getsize, splitext, stat
 import argparse
 import re
-from collections import namedtuple, defaultdict
 import random
-#import math
+import urllib
+from collections import namedtuple, defaultdict
+from os.path import getatime, getctime, getmtime, getsize, splitext, stat
 from enum import Enum
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 
-from alogging import ALogger
-lg = ALogger(0)
+#from alogging import ALogger
+#lg = ALogger(0)
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -77,7 +79,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2018-04-21",
-    'modified'     : "2021-03-09",
+    'modified'     : "2021-04-09",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -92,7 +94,7 @@ additional features, especially for file selection (in that respect it is
 more similar to the *nix `find` command).
 
 It has a simple iterator that returns a triple for each item,
-containing a complete path, an (optional) open file handle
+containing a path (which can be `--absolute`), an (optional) open file handle
 for non-containers, and a flag
 that says whether this is a container OPEN (such as starting a new
 directory or tar file), an actual LEAF item, or a container CLOSE. You can
@@ -116,7 +118,7 @@ The package also supplies a few useful idependent tests:
 
 ==Usage as a command==
 
-If run on its own, PowerWalk will display the paths of selected
+If run on its own, `PowerWalk` displays the paths of selected
 files under the specified
 directory(s), or the current directory if none are specified. Several
 special options apply in that case:
@@ -125,8 +127,11 @@ special options apply in that case:
 Setting this to other than 'plain' (the default), overrides the specific
 delimiter options described below.
 
-* `--openQuote 'x'` and `--closeQuote 'x'` -- set delimiters to be put
+* `--openQuote 'x'` and `--closeQuote 'y'` -- set delimiters to be put
 before and after each name (typically both would be set to '"' or "'").
+`--quote` may be used as shorthand to set both to "'". These options
+are overridden by `--oformat` settings that demand certain quoting,
+such as json, html, and sexp.
 
 * `--anonymousClose` -- if set, do not print the name of directories or
 other containers as they close.
@@ -135,7 +140,8 @@ other containers as they close.
 the contents of directories and other containers (after their name').
 
 * `--copyTo [path]` -- Copy the chosen files to this directory (see also
-`--serialize`).
+`--serialize`, which lets you copy many files with the same name to a
+single target directing, by appending numbers).
 
 * `--exec` '[...{}...]\\;' -- Run a given command on each selected item,
 much like `find --exec`.
@@ -164,12 +170,16 @@ like grep (and also available as `--includeDirs` and `--excludeDirs`),
 but take full regexes to match against.
   ** `--includeExtensions` and `--excludeExtensions` match file extensions (without the ".") against full regexes. In particular, the "|" operator
   is supported for "or". For example: `--ie '(py|pl|pm|cc)' works.
-  ** `--includeInfos` and `--excludeInfos` match
+  ** `--includeFileInfos` and `--excludeFileInfos` match
   characteristics reported by the *nix `file` command.
 For example, this makes it easy to get Python files whether they have a `.py`
 extension of not.
+
   ** `--backups` includes backup files, hidden files, etc.
-  ** `--recursive` or `-r` (which you'll often want) makes PowerWalk descend
+  ** There is no `--dirOnly` option, but to get only directories, just use
+'--type d'.
+  **`--followLinks` makes PowerWalk follow *nix links.
+  ** `--recursive` or `-r` (which you'll often want) makes `PowerWalk` descend
   into sub-directories (but not tar or other container files -- for which
   there are separate options). If directories are specified directly, rathern
   than just being reached, the wil be recursed into in any case. Not sure
@@ -177,7 +187,10 @@ extension of not.
   See 'Known bugs and limitations' for more information.
   ** `--minDepth` and `maxDepth` constrain what
   directory or container depth limits to return files from.
-  **`--followLinks` make PowerWalk follow *nix links.
+  ** `--type [y]` is like the same-name option in `find`. It lets you choose
+one of: "b" (block special), "c" (character special), "d" (directory),
+"f" (regular file), "l" (symbolic link), "p" (FIFO), "s" (socket).
+
 
 * Our two options, for '''selection''' and '''container''' files:
   ** `--containers` can be set in order to return events not just for
@@ -282,11 +295,11 @@ alphabetical list below)
 
 ==addOptionsToArgparse(parser, prefix='', singletons=True)==
 
-Add PowerWalk's options to a Python `argparse` instance (static method).
-If `singletons` is True, this will include single-character names such
-as `-r` as a synonym for `--recursive`. If `prefix` is specified, it
-will be prefixed to each name (after the hyphens, of course), to avoid
-name conflicts.
+Add PowerWalk's options to a Python `argparse` instance.
+If `prefix` is specified, it
+is prefixed to each name (after the hyphens) to avoid name conflicts.
+If `singletons` is True, this will include single-character synonyms.
+Currently that's just `-r` for `--recursive`.
 
 ==__init__(self, topLevelItems=None, options=None)==
 
@@ -440,15 +453,19 @@ See also I<excludeNames>.
 * "excludePaths": Regex for paths not to allow. Default: ''.
 See also I<includePaths>.
 
-* "includeInfos": Regex to match what the *nix `file` command (q.v.) says
+* "includeFileInfos": Regex to match what the *nix `file` command (q.v.) says
 about the file. For example, some versions of `file` return descriptions like:
 
     ** POSIX shell script text executable, ASCII text
+    ** directory
+    ** MacOS Alias file
     ** ASCII text, with very long lines, with no line terminators
+    ** XML 1.0 document text, ASCII text
     ** Python script text executable, UTF-8 Unicode text, with very long lines, with CRLF, CR, LF line terminators, with escape sequences, with overstriking
+    ** Debian binary package (format 2.0), with control.tar.gz, data compression xz
 
-* "excludeInfo": Regex for `file` command results not to allow. Default: ''.
-See also I<includeInfos>.
+* "excludeFileInfos": Regex for `file` command results not to allow. Default: ''.
+See also I<includeFileInfos>.
 
 ===Container and similar options===
 
@@ -520,6 +537,8 @@ been returned, has only this % change of actually being returned.
 Others are reclassified as ignorable. The result will only
 amount to approximately the requested percentage.
 
+* `absolute`:  Always map returned paths to absolute form.
+
 * `sort`: Sort the items in each directory in the specified way.
 Default: 'none' (just use whatever `os.listdir` returns). Other choices:
 
@@ -577,6 +596,11 @@ are not there at all.
 installed (for tar, gzip, etc.),
 but it will work fine as long as you don't specifically need the missing ones.
 
+* For command-line use, there are options for whether/how to quote filenames.
+But the escaping when the specified quote character(s) occur in filenames,
+is rudimentary. Specifically, it will mess up multi-character quotation marks,
+and it can only backslash.
+
 * I've used this almost exclusively for reading (for example, picking
 out just the desired files from an NLP corpus like OANC or MASC). So writing
 is not yet thoroughly tested. I imagine writing doesn't work well for container
@@ -601,48 +625,52 @@ should be separately settable for directories and files (and maybe other contain
 * There is no protection against circular links.
 
 
-=Related commands=
-
-`find` + `-exec` does a really nice job of finding things.
-PowerWalk is mainly intended to be even easier to use
-from Python code, especially for people (like corpus linguists) who work with
-tons of sample files in complicated directory and container structures.
-
-[https://github.com/sderose/FileManagement/lss],
-[https://github.com/sderose/FileManagement/findIdenticalFiles].
-
-[https://github.com/sderose/FileManagement/lsoutline] produces a file listing
-similar to what PowerWalk produces
-when run from the command line. But you can do fancier selection here (that
-script may be upgraded to just use PowerWalk underneath).
-
-
-=References=
-
-See [../FileSelectionOptionsOfNixCommands.md] for a survey of what different
-*nix command provide for file-selection, sorting, format support, etc.
-
-
 =To do=
 
 ==Most wanted==
+
+* Add `ls`-like and `stat`-like (cf PowerStat.py) displays?
+
+* Add `--files-without-match` and `--files-with-matches` like `grep`.
+
+* Add option to return *only* dirs (or containers?)
+
+* Replace `--absolute` with a choice of normalized, real, rel, or abs?
+
+* Displayed lines for open/close can't be entirely omitted via `--oformat`.
+
+* Option to write directory outline in some HTML form. Used to be `<dir>`
+for this, but now just lists?
 
 * Support additional compression methods.
 
 * Protect against circular links.
 
+* Option to block traversal into .apps, .dmg, etc.
+
 * add move/link/cat similar to `--copyTo`, and support setting
 xattr to say where copied from.
 
-* include/exclude for dirs (and containers?), not just files.
-
 * Option to specify a file like .gitignore or .dockerignore, specifying
-files to exclude.
+file patterns to exclude (or maybe just to specify options?
+
+* Perhaps add --name, --iname, --path, --ipath that match globs instead of
+regexes, for `find` compatibility?
+See discussion of Python `fnmatch` in
+[https://stackoverflow.com/questions/27726545/python-glob-but-against-a-list-of-strings-rather-than-the-filesystem],
+or pathlib, or PurePAth.match().
+
+* Enhance `--serialize` to support pulling in ancestor dir names,
+like my `renameFiles`. Perhaps, port and package `renameFiles`, then integrate
+it to do everything it can do for renaming, on a per-file call from here.
+But what's the best i/f? Like `--exec`, or like piping, or...?
+
 
 ==Additional filters  (cf 'find')==
 
-* permissions, owner and group ids (and none), inum
-* date, age, and file size (chars, bytes, blocks, kmgtp), file count
+* permissions -- see `passesPerm()` below.
+* owner and group ids (and none), inum -- cf `PowerStat.py`
+* file-flags like for `find -flags` and `chflags`
 * Mac fs metadata (kmdItem... and all that). See my `macFinderInfo`.
 * Option to not cross device or filesystem bounds (see `find -x`)
 * distinguish maxfiles tried vs. succeeded
@@ -654,20 +682,35 @@ files to exclude.
     -newer [file]: if newer mod than [file
     -newerXY [file]]: if newer [aBcm] than [file]'s [aBcM].
 * depth
+* Ones that require a comparison type:
+    ** atime, ctime, mtime, mindepth, cf Bmin [aBcm]?(newer|time|min)
+    ** depth
+    ** newer/old cre/mod/acc time vs. specified file
+    ** date, age, and file size (chars, bytes, blocks, kmgtp), file count.
+    *** including MIME "Date:" for email files
+* Is under git or other version-control (and maybe, is committed/pushed?)
+See getGitStatus().
+
+What do various *nix utilities do for <=> tests in options?
 * empty
 * exec(dir)
 * group/nogroup, user/nouser/uname/uid/
-* newer/old cre/mod/acc time vs. specified file
 * -print0
 * 'i' prefix for specific tests
 * -xattr, -xattrname (and xattr k op v)
 * negation and maybe booleans?
+* --files-with-match, --files-without-match (repeatable?)
+* Review `rsync` for useful selection options (say, git-exclude, cvs-exclude?)
 
 ==Other options==
 
+* Make --include* --exclude* repeatable. Should they mean union or intersection?
+
+* Option to sniff encoding rather than set globally?
+
 * Do files then dirs, sorted separately like ls.
 
-* Option to show invisibles in filenames (ls -B does octal, but ick).
+* Option to show invisibles in filenames (`ls -B` does octal, but ick).
 * Limit max/min/total size of files
 
 * `--sort` should provide a `reverse` option, and an option to put
@@ -705,6 +748,28 @@ Maybe just pass back the container handle? Or they can poke at the path.
 * Possibly a stat-like "%" option for output? See `FileInfo` class.
 
 
+=Related commands=
+
+`find` + `-exec` does a really nice job of finding things.
+PowerWalk is mainly intended to be even easier to use
+from Python code, especially for people (like corpus linguists) who work with
+tons of sample files in complicated directory and container structures.
+
+[https://github.com/sderose/FileManagement/lss],
+[https://github.com/sderose/FileManagement/findIdenticalFiles].
+
+[https://github.com/sderose/FileManagement/lsoutline] produces a file listing
+similar to what PowerWalk produces
+when run from the command line. But you can do fancier selection here (that
+script may be upgraded to just use PowerWalk underneath).
+
+
+=References=
+
+See [../FileSelectionOptionsOfNixCommands.md] for a survey of what different
+*nix command provide for file-selection, sorting, format support, etc.
+
+
 =History=
 
 * 2006-06-07: `countTags.py` written by Steven J. DeRose.
@@ -717,7 +782,7 @@ into categories in help and where listed in code. Add `--exceptions`
 and several new filtering options, type-check them.
 Refactor event generation, item stack, and statistics into TraversalState class.
 * 2020-09-15: Fix several bugs in filtering, improve reporting and
-option-setting. Add `--includeInfos` and `--excludeInfos`.
+option-setting. Add `--includeFileInfos` and `--excludeFileInfos`.
 * 2020-10-06: Fix `--includeNames`, make it and `--excludeName` use extension.
 Add `--copyTo` and `--serialize`.
 * 2020-10-09: Add `--exex`.
@@ -726,8 +791,10 @@ Clean up `errorEvents` options vs. `errors` statistic.
 * 2020-10-20f: Add `--type` similar to *nix `find`. Fix depth counting.
 * 2020-11-24: Add `--no-recursive`. Make exceptions subclass of a cover type.
 Add `--reverseSort` and clean up sorting. Make top-level dirs always recurse.
+* 2021-01-11: Fix quote escaping bug.
 * 2021-03-09: Add `--serializeFormat`, and file-time options (latter are not
 operational yet).
+* 2021-04-09: Sync competing changes.
 
 
 =Rights=
@@ -878,11 +945,11 @@ class TraversalState(list):
             "ignoredByExcludeExtensions" : 0,
             "ignoredByExcludeNames"      : 0,
             "ignoredByExcludePaths"      : 0,
-            "ignoredByExcludeInfos"      : 0,
+            "ignoredByExcludeFileInfos"  : 0,
             "ignoredByIncludeExtensions" : 0,
             "ignoredByIncludeNames"      : 0,
             "ignoredByIncludePaths"      : 0,
-            "ignoredByIncludeInfos"      : 0,
+            "ignoredByIncludeFileInfos"  : 0,
             "ignoredByExcludeDir"        : 0,
             "ignoredByIncludeDir"        : 0,
 
@@ -1023,15 +1090,16 @@ class PowerWalk:
         "excludeExtensions"   : "REGEX",
         "excludeNames"        : "REGEX",
         "excludePaths"        : "REGEX",
-        "excludeInfos"        : "REGEX",
+        "excludeFileInfos"    : "REGEX",
         "includeExtensions"   : "REGEX",
         "includeNames"        : "REGEX",
         "includePaths"        : "REGEX",
-        "includeInfos"        : "REGEX",
+        "includeFileInfos"    : "REGEX",
 
         "includeDir"          : "REGEX",
         "excludeDir"          : "REGEX",
 
+        "absolute"            : bool,
         "backups"             : bool,
         "close"               : bool,
         "containers"          : bool,
@@ -1077,15 +1145,16 @@ class PowerWalk:
             "excludeExtensions"   : "",
             "excludeNames"        : "",
             "excludePaths"        : "",
-            "excludeInfos"        : "",
+            "excludeFileInfos"    : "",
             "includeExtensions"   : "",
             "includeNames"        : "",
             "includePaths"        : "",
-            "includeInfos"        : "",
+            "includeFileInfos"    : "",
 
             "includeDir"          : "",
             "excludeDir"          : "",
 
+            "absolute"            : False,
             "backups"             : False,
             "close"               : False,    # Do fh.close() on leafs for user.
             "containers"          : True,     # Events for container start/end?
@@ -1168,11 +1237,16 @@ class PowerWalk:
         """Provide an easy way to add all our options to a main program
         (without getting all the others). Use setOptionsFromArgparse() to
         copy them in from the argparse result, ignoring any others.
+        @param prefix: Put this before all names, to avoid name conflicts
+            with the caller. You can include leading '--', but if not,
+            it will be added.
+        @param singletons: If set, include single-char synonyms (which, btw,
+            do *not* get prefixed).
         """
         if (not prefix.startswith('-')):
             prefix = "--" + prefix
 
-        for thing in [ "Extensions", "Names", "Paths", "Infos" ]:
+        for thing in [ "Extensions", "Names", "Paths", "FileInfos" ]:
             for sign, abbr in [ ("Include", "i"), ("Exclude", "x") ]:
                 n1 = prefix + sign.lower() + thing
                 n2 = prefix + sign.lower() + "-" + thing
@@ -1198,6 +1272,9 @@ class PowerWalk:
             help='Like grep. Still experimental.')
 
         parser.add_argument(
+            prefix + "absolute", action='store_true',
+            help='Return paths in absolute form.')
+        parser.add_argument(
             prefix + "backups", action='store_true',
             help='Include (seeming) backup items,like .bak, ~x, #x#,....')
         parser.add_argument(
@@ -1222,6 +1299,10 @@ class PowerWalk:
         parser.add_argument(
             prefix + "followLinks", action='store_true',
             help='Follow *nix links to the destination.')
+        parser.add_argument(
+            "--git-status", type=str, default='',
+            help='Git status must be one of those listed. See git -s [ MADRCU?!].' +
+            ' UNFINISHED.')
         parser.add_argument(
             prefix + "hidden", action='store_true',
             help='Include file and directories whose names begin with dot.')
@@ -1363,6 +1444,8 @@ class PowerWalk:
             tops = self.topLevelItems
 
         for tl in (tops):
+            if (self.options['absolute']):
+                tl = os.path.abspath(tl)
             warn(1, "\n******* Starting top-level item '%s'." % (tl))
             for tsf in self.ttraverse(tl, trav):
                 trav.bump("nodesTried")
@@ -1377,6 +1460,7 @@ class PowerWalk:
 
     def ttraverse(self, path:str, trav:TraversalState) -> None:
         """Recurse as needed.
+        @param path: The path as accumulated down any recursion.
         """
         warn(2, "%sttraverse at '%s'" % ("  "*len(trav), path))
 
@@ -1558,12 +1642,12 @@ class PowerWalk:
             not re.search(self.options['includePaths'], path)):
             self.recordEvent(trav, 'ignoredByIncludePaths')
 
-        elif (self.options['excludeInfos'] and
-            re.search(self.options['excludeInfos'], getFileInfo(path))):
-            self.recordEvent(trav, 'ignoredByExcludeInfos')
-        elif (self.options['includeInfos'] and
-            not re.search(self.options['includeInfos'], getFileInfo(path))):
-            self.recordEvent(trav, 'ignoredByIncludeInfos')
+        elif (self.options['excludeFileInfos'] and
+            re.search(self.options['excludeFileInfos'], getFileInfo(path))):
+            self.recordEvent(trav, 'ignoredByExcludeFileInfos')
+        elif (self.options['includeFileInfos'] and
+            not re.search(self.options['includeFileInfos'], getFileInfo(path))):
+            self.recordEvent(trav, 'ignoredByIncludeFileInfos')
 
         elif (not self.options['backups'] and isBackup(path)):
             self.recordEvent(trav, "backup")
@@ -1609,6 +1693,109 @@ class PowerWalk:
         else:
             warn(0, "Unknown -type value '%s'." % (ty))
         return True
+
+    def passesPerm(self, path, permActions):
+        """Check the file's permission and related bits, against the
+        specs provided in the option, as parsed earlier by makeActions.
+        """
+        #theActions = self.makeActions(perm)
+        s = os.stat(path)
+        for direction, mask in permActions:
+            if (direction == '-'):
+                if (s & mask): return False
+            elif (direction == '-'):
+                if (s | mask): return False
+            else:
+                raise ValueError("Huh?")
+        return True
+
+    maskValues = {
+       'us': int('04000', 8),  # (the setuid bit).
+       'gs': int('02000', 8),  # (the setgid bit).
+       't':  int('01000', 8),  # (the sticky bit).
+       'ur': int('00400', 8),  # read by owner.
+       'uw': int('00200', 8),  # write by owner.
+       'ux': int('00100', 8),  # execution (for dirs, search) by owner.
+       'gr': int('00040', 8),  # read by group members.
+       'gw': int('00020', 8),  # write by group members.
+       'gx': int('00010', 8),  # execution (for dirs, search) by group members.
+       'or': int('00004', 8),  # read by others.
+       'ow': int('00002', 8),  # write by others.
+       'ox': int('00001', 8),  # execution (for dirs, search) by others.
+    }
+
+    @staticmethod
+    def makeActions(perm):
+        """Parse a -perm argument to a list of atomic (single-bit) changes,
+        each a 3-tuple of (who, op, perm).
+
+                'find' take: -perm [-|+]mode
+        where mode can be octal or like chmod.
+
+        If the mode is octal, only bits 07777
+        For -mode, it's true if at least all of the
+            bits in the mode are set in the file's mode bits.
+        For +mode, it's true if any of the bits are set.
+        Otherwise, it's true if the bits exactly match the file's mode bits.
+
+        The symbolic mode is described by the following grammar:
+           mode         ::= clause [, clause ...]
+           clause       ::= [who ...] [action ...] action
+           action       ::= op [perm ...]
+           who          ::= a | u | g | o
+           op           ::= + | - | =
+           perm         ::= r | s | t | w | x | X | u | g | o
+
+        X is x if the item is a directory or had any x to start with (+ only).
+
+        Thus:  ugo+rwx,o-x set all 9 main bits on, then turns off other write.
+        Here, though, we're just testing, not changing, so we need to know
+        which direction to test (op), and what mask to use.
+
+        For example, "ug+rw a-x" becomes this, but with the actual mask
+        value for the right bit in the second slot (see dict above).
+        [
+            ( '+', 'ur' ),
+            ( '+', 'uw' ),
+            ( '+', 'gr' ),
+            ( '+', 'gw' ),
+            ( '-', 'ux' ),
+            ( '-', 'gx' ),
+            ( '-', 'ox' ),
+        ]
+
+        Order matters, because later settings can override earlier ones.
+
+        chmod also has settings for ACLs (access control lists).
+        """
+        try:
+            return int(perm, 8)
+        except ValueError:
+            pass
+
+        whoCodes = "augo"
+        opCodes = "-+="
+        permCodes = "rstwxXugo"
+        clauseExpr = r'([%s]+)([%s][%s]+])' % (whoCodes, opCodes, permCodes)
+
+        actions = []
+        for clause in (re.split(r',\s*', perm)):
+            mat = re.match(clauseExpr, clause)
+            if (not mat): raise ValueError(
+                "Unknown 'who' code in '%s' of '%s'." % (who, clause))
+            who = mat.group(1)
+            curAct = "+"
+            for tok in re.split(r'([-+=])', mat.group(2)):
+                if (tok in opCodes):
+                    curAct = tok
+                else:
+                    for pcode in tok:
+                        whoExpanded = re.sub(r'a', 'ugo', who)
+                        for w in whoExpanded:
+                            actions.append(
+                                (curAct, PowerWalk.maskValues[w+pcode]))
+        return actions
+
 
     def chSort(self, curPath:str, chList, reverse=False) -> list:
         """Sort a file-list returned from os.listdir somehow.
@@ -1714,6 +1901,30 @@ def isGenerated(name:str) -> bool:
         if (re.search(ge, b)): return(True)
     return(False)
 
+def getGitStatus(path):
+    """See what sort of git state we're in (see `git status --help` for -s)
+        ' ' = unmodified
+        M = modified
+        A = added
+        D = deleted
+        R = renamed
+        C = copied
+        U = updated but unmerged
+        ? = untracked
+        ! = ignored
+
+    TODO: Add a code to mean "not in a git repo at all", so user can
+    treat files outside git distinctly from untracked files in git areas.
+    """
+    try:
+        tokens = [ "git", "status", "-s", path ]
+        buf = check_output(tokens)
+    except CalledProcessError:
+        return "0"
+    if buf[0] in " MADRCU?!": return buf[1]
+    warn(0, "Unknown code '%s' from git status -s '%s'." % (path))
+    return None
+
 def getFileInfo(path:str) -> str:
     """See what the "file" command has to say about something...
     """
@@ -1739,7 +1950,7 @@ if __name__ == "__main__":
 
         parser.add_argument(
             "--anonymousClose", action='store_true',
-            help='Suppress container name at close.')
+            help='Suppress display of container-close.')
         parser.add_argument(
             "--closeDelim",  metavar='S', type=str, default="    <==",
             help='Display before directory name on close.')
@@ -1748,7 +1959,7 @@ if __name__ == "__main__":
             help='Put this after the reported paths.')
         parser.add_argument(
             "--copyTo",  metavar='P', type=str,
-            help='Copy chosen files to this directory (see --serialize).')
+            help='Copy chosen files to this directory (see also --serialize).')
         parser.add_argument(
             "--count", action='store_true',
             help='Just report number of dirs and files found (probably want -r, too).')
@@ -1762,8 +1973,8 @@ if __name__ == "__main__":
             "--itemSep", metavar='S', type=str, default='',
             help='Put this in to separate items (e.g., a comma).')
         parser.add_argument(
-            "--oformat", type=str, default='plain',
-            choices = [ 'plain', 'json', 'html', 'sexp' ],
+            "--oformat", "--outputformat", type=str, default='outline',
+            choices = [ 'plain', 'outline', 'json', 'html', 'sexp' ],
             help='format the output in this way.')
         parser.add_argument(
             "--openDelim",  metavar='S', type=str, default="==>",
@@ -1775,14 +1986,21 @@ if __name__ == "__main__":
             "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
+            "--quote", action='store_true',
+            help='Sets both openQuote and closeQuote to "\'".')
+        parser.add_argument(
+            "--serialize", action='store_true',
+            help='With --copy, add a serial number to each file.')
+        parser.add_argument(
             "--serializeFormat", "--sformat", type=str, default="_%04d",
             help="How to format numbers for --serialize. Default: '_%%04d'.")
         parser.add_argument(
             "--short", action='store_true',
             help='Only show the bottom-level name in the outline view.')
         parser.add_argument(
-            "--serialize", action='store_true',
-            help='With --copy, add a serial number to each file.')
+            "--showInvisibles", type=str, default='literal',
+            choices=[ 'literal', 'octal', 'hex', 'pix', 'url' ],
+            help='How to display unusual characters.')
         parser.add_argument(
             "--statFormat", action='store_true',
             help='Display output like "stat -f" for each file.')
@@ -1808,12 +2026,23 @@ if __name__ == "__main__":
 
         args0 = parser.parse_args()
 
-        if (args0.copyTo):
-            if (not os.path.isdir(args0.copyTo)):
-                warn(0, "No directory available at '%s'." % (args0.copyTo))
-                sys.exit()
+        if (args0.quote):  # Overridden by  some following oformat values.
+            args0.openQuote = args0.closeQuote = "'"
 
-        if (args0.oformat == 'json'):
+        if (args0.oformat == 'plain'):
+            args0.openDelim = ''
+            args0.closeDelim = ''
+            args0.itemSep = ''
+            #args0.openQuote = ''
+            #args0.closeQuote = ''
+            args0.anonymousClose = True
+        elif (args0.oformat == 'outline'):
+            args0.openDelim = ''
+            args0.closeDelim = ''
+            args0.itemSep = ''
+            #args0.openQuote = ''
+            #args0.closeQuote = ''
+        elif (args0.oformat == 'json'):
             args0.openDelim = '['
             args0.closeDelim = ']'
             args0.itemSep = ','
@@ -1834,8 +2063,37 @@ if __name__ == "__main__":
             args0.openQuote = '"'
             args0.closeQuote = '"'
             args0.anonymousClose = True
-
         return(args0)
+
+    def makeDisplayableName(s):  # TODO: Finish showInvisibles support
+        if (s.isalnum):
+            return s
+        if (args.showInvisibles == 'literal'):
+            return s
+        elif (args.showInvisibles == 'hex'):
+            return re.sub(r'([\x01-\x20\s]',
+                lambda m: "\\u{%x}" % (ord(m.group(1))), s)
+        elif (args.showInvisibles == 'url'):
+            return urllib.parse.quote(s)
+        elif (args.showInvisibles == 'visible'):
+            return re.sub(r'([\x01-\x20\s]',
+                lambda m:chr(0x2400 + ord(m.group(1))), s)
+        else:
+            raise KeyError("Unknown --showInvisibles value.")
+
+    def quoteFilename(f, op, cl):
+        """This is not as smart as it should be. For example, it will
+        do weird things for multi-char quotes, and it only knows how to
+        backslash.
+        """
+        if (not op or not cl): op = cl = '"'
+        try:
+            return op + re.sub(r'([%s%s])' % (op, cl), slashFunc, f) + cl
+        except re.error as e:
+            sys.stderr.write("Failed quoting '%s' with '%s'...'%s'.\n    %s" %
+                (f, op, cl, e))
+    def slashFunc(mat):
+        return "\\" + mat.group(1)
 
 
     ###########################################################################
@@ -1863,11 +2121,6 @@ if __name__ == "__main__":
         import PowerStat
         powerstat = PowerStat.PowerStat(args.statFormat)
 
-
-#     pw = PowerWalk(args.files,
-#         recursive=args.recursive,
-#         notify=args.verbose)
-
     leafNum = 0
     whatCounts = defaultdict(int)
     for path0, fh0, what0 in pw.traverse():
@@ -1879,7 +2132,8 @@ if __name__ == "__main__":
         if (args.short and pw.travState.depth > 1):
             path0 = os.path.basename(path0)
 
-        ppath = args.openQuote + re.sub(r'"', "\\\"", path0) + args.closeQuote
+        epath = makeDisplayableName(path0)
+        ppath = quoteFilename(epath, args.openQuote, args.closeQuote)
 
         indent = args.iString*pw.travState.depth
 
@@ -1893,6 +2147,10 @@ if __name__ == "__main__":
                 print("%s%s%s" % (indent, ppath, args.itemSep))
 
             if (args.copyTo):
+                if (not os.path.isdir(args.copyTo)):
+                    warn(0, "No directory available at '%s'." % (args.copyTo))
+                    sys.exit()
+
                 _, baseName = os.path.split(path0)
                 if (args.serialize):
                     baseName = args.serializeFormat % (leafNum, baseName)

@@ -372,7 +372,7 @@ Written by Steven J. DeRose, 2020-02-28.
 
 * 2020-08-07: Add classes and API to look essentially like Python `csv`,
 including `DictReader` and `DictWriter`.
-Separate options into a "Dialect" class, add `add_my_options`.
+Separate options into a "Dialect" class, add `add_my_arguments`.
 Start `multidelimiter`. Add `comment`. Rewrite doc.
 
 * 2020-09-06: Better error messages. Renamed 'types' to 'typeList'.

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
-# CharDisplay.py
+# CharDisplay.py: Show tons of info about a character(s).
+# 2018-04-21: Written by Steven J. DeRose
 #
 from __future__ import print_function
 #from __future__ import absolute_import, unicode_literals
@@ -11,42 +12,43 @@ import re
 import string
 
 PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-if PY2:
-    from urllib import quote as urlquote
-    from htmlentitydefs import codepoint2name
-    string_types = basestring
+if (PY2):
+    sys.stderr.write("Not thoroughly tested in Python 2.")
+    # from urllib import quote as urlquote
+    # from htmlentitydefs import codepoint2name
+    # def chr(n): return unichr(n)
 else:
     from urllib.parse import quote as urlquote
+    from urllib.request import urlopen
     from html.entities import codepoint2name
-    string_types = str
     def unichr(n): return chr(n)
 
-from MarkupHelpFormatter import MarkupHelpFormatter
-
 __metadata__ = {
-    'title'        : "CharDisplay.py",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 2.7.6, 3.6",
-    'created'      : "2018-04-21",
-    'modified'     : "2020-02-12",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "CharDisplay.py",
+    "description"  : "Show tons of info about a character(s).",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 2.7.6, 3.6",
+    "created"      : "2018-04-21",
+    "modified"     : "2020-02-12",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['modified']
+__version__ = __metadata__["modified"]
 
 descr="""
-
 =Description=
 
 Display detailed information about a single Unicode character.
 
 Can be used as a library, or from the command line to identify characters
-by their code points:
+by their code points, or the literal character:
 
-    CharDisplay 65 0x2400 012
+    CharDisplay 65 0x2400 012 x
+
+This does not support specifying characters by their HTML entity name,
+Unicode full name, Unix jargon name, etc. (for which see my `ord`).
 
 ==Legend==
 
@@ -54,10 +56,10 @@ An example display, for U+FB00 when using this as a command, is:
 
     Unicode Name     LATIN SMALL LIGATURE FF
     Script           Latin
-    Category         'Ll' (Letter, Lowercase)
+    Category         "Ll" (Letter, Lowercase)
     Block            Alphabetic Presentation Forms
     Plane            0: Basic Multilingual
-    Literal          ',,xEF,,xAC,,x80'
+    Literal          ",,xEF,,xAC,,x80"
     Bases            o001754000 d064256 0xfb00
     Unicode          U+fb00, utf8 \\xefac80, URI %EF%AC%80 (allowed? False)
     Entities         &#xfb00;  &#64256;  None
@@ -68,7 +70,10 @@ An example display, for U+FB00 when using this as a command, is:
     ea width         N
     Mirror
     Decompose        <compat> 0066 0066
-    Normalizations   NFC '\\xEF\\xAC\\x80', NFKC 'ff', NFD '\\xEF\\xAC\\x80', NFD 'ff'
+    Normalizations   NFC "\\xEF\\xAC\\x80", NFKC "ff", NFD "\\xEF\\xAC\\x80", NFD "ff"
+
+There is a `--python` option to write some info as Python literal inits, but
+for such uses, see `strfchr.py` instead.
 
 ==Notes on some parts:==
 
@@ -76,49 +81,49 @@ An example display, for U+FB00 when using this as a command, is:
 saying what "kind" of character it is. The first character is one of:
 
 ** C: Other
-    'Cc':  "Other, Control",
-    'Cf':  "Other, Format",
-    'Cn':  "Other, Not Assigned",
-    'Co':  "Other, Private Use",
-    'Cs':  "Other, Surrogate",
+    "Cc":  "Other, Control",
+    "Cf":  "Other, Format",
+    "Cn":  "Other, Not Assigned",
+    "Co":  "Other, Private Use",
+    "Cs":  "Other, Surrogate",
 
 ** L: Letter (includes syllabary and ideographic characters)
-    'LC':  "Letter, Cased (includes Ll Lt Lu)",
-    'Ll':  "Letter, Lowercase",
-    'Lm':  "Letter, Modifier",
-    'Lo':  "Letter, Other",
-    'Lt':  "Letter, Titlecase",
-    'Lu':  "Letter, Uppercase",
+    "LC":  "Letter, Cased (includes Ll Lt Lu)",
+    "Ll":  "Letter, Lowercase",
+    "Lm":  "Letter, Modifier",
+    "Lo":  "Letter, Other",
+    "Lt":  "Letter, Titlecase",
+    "Lu":  "Letter, Uppercase",
 
 ** M: Mark
-    'Mc':  "Mark, Spacing Combining",
-    'Me':  "Mark, Enclosing",
-    'Mn':  "Mark, Nonspacing",
+    "Mc":  "Mark, Spacing Combining",
+    "Me":  "Mark, Enclosing",
+    "Mn":  "Mark, Nonspacing",
 
 ** N: Number
-    'Nd':  "Number, Decimal Digit",
-    'Nl':  "Number, Letter",
-    'No':  "Number, Other",
+    "Nd":  "Number, Decimal Digit",
+    "Nl":  "Number, Letter",
+    "No":  "Number, Other",
 
 ** P: Punctuation
-    'Pc':  "Punctuation, Connector",
-    'Pd':  "Punctuation, Dash",
-    'Pe':  "Punctuation, Close",
-    'Pf':  "Punctuation, Final quote",
-    'Pi':  "Punctuation, Initial quote",
-    'Po':  "Punctuation, Other",
-    'Ps':  "Punctuation, Open",
+    "Pc":  "Punctuation, Connector",
+    "Pd":  "Punctuation, Dash",
+    "Pe":  "Punctuation, Close",
+    "Pf":  "Punctuation, Final quote",
+    "Pi":  "Punctuation, Initial quote",
+    "Po":  "Punctuation, Other",
+    "Ps":  "Punctuation, Open",
 
 ** S: Symbol
-    'Sc':  "Symbol, Currency",
-    'Sk':  "Symbol, Modifier",
-    'Sm':  "Symbol, Math",
-    'So':  "Symbol, Other",
+    "Sc":  "Symbol, Currency",
+    "Sk":  "Symbol, Modifier",
+    "Sm":  "Symbol, Math",
+    "So":  "Symbol, Other",
 
 ** Z: Separator
-    'Zl':  "Separator, Line",
-    'Zp':  "Separator, Paragraph",
-    'Zs':  "Separator, Space",
+    "Zl":  "Separator, Line",
+    "Zp":  "Separator, Paragraph",
+    "Zs":  "Separator, Space",
 
 * '''Literal''': The character itself. How this shows up depends on your
 terminal program and settings, shell capabilities, etc.
@@ -170,28 +175,16 @@ In addition to these two forms, there are two additional normal forms based on c
 
 The normal form KD (NFKD) will apply the compatibility decomposition, i.e. replace all compatibility characters with their equivalents. The normal form KC (NFKC) first applies the compatibility decomposition, followed by the canonical composition.
 
-
 Compatibility composition does I<not> merge characters such as uupercase
 English A and Greek alpha, or even soft hyphen. However, forms NKFC and
 NFKD do normalize non-breaking space to regular space.
-
 =Known bugs and limitations=
+
 
 =Related Commands=
 
-`ord`, `chr`, `countChars`.
+My `ord`, `chr`, `countChars`, `strfchr.py`.
 
-=Known bugs and Limitations=
-
-=History=
-
-* 2018-04-21: Written. Copyright by Steven J. DeRose.
-
-* 2018-10-02: Make Py 2/3 compatible. Support --cat for single letters.
-Make it avoid non-Unicode (hence nameless) code points. Add --python.
-
-* 2018-11-16: Fix hex display of Unicode normalized forms. Fix html and urllib
-includes.
 
 =Rights=
 
@@ -202,21 +195,21 @@ this license, see [http://creativecommons.org/licenses/by-sa/3.0].
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github.com/sderose].
 
+
 =History=
 
 * 2018-04-21: Written. Copyright by Steven J. DeRose.
-
 * 2018-10-02: Make Py 2/3 compatible. Support --cat for single letters.
-
-* Make it avoid non-Unicode (hence nameless) code points. Add --python.
-
+Make it avoid non-Unicode (hence nameless) code points. Add --python.
 * 2018-11-16: Fix hex display of Unicode normalized forms. Fix html and urllib
 includes.
-
 * 2020-02-12: New layout conventions.
+* 2021-04-09: Enumerate prop names. Accept string arguments, not just codepoints.
+
 
 =Options=
 """
+
 
 ###############################################################################
 # Unicode "general categories", available via unicodedata.category(c)
@@ -224,50 +217,50 @@ includes.
 # regex also supports single-char cover categories, I think.
 #
 unicodeCategories = {
-    'C':   "Other (all subtypes)",
-    'L':   "Letter (all subtypes)",
-    'M':   "Mark (all subtypes)",
-    'N':   "Number (all subtypes)",
-    'P':   "Punctuation (all subtypes)",
-    'S':   "Symbol (all subtypes)",
-    'Z':   "Separator (all subtypes)",
+    "C":   "Other (all subtypes)",
+    "L":   "Letter (all subtypes)",
+    "M":   "Mark (all subtypes)",
+    "N":   "Number (all subtypes)",
+    "P":   "Punctuation (all subtypes)",
+    "S":   "Symbol (all subtypes)",
+    "Z":   "Separator (all subtypes)",
 
-    'Cc':  "Other, Control",
-    'Cf':  "Other, Format",
-    'Cn':  "Other, Not Assigned",
-    'Co':  "Other, Private Use",
-    'Cs':  "Other, Surrogate",
-    'LC':  "Letter, Cased",
-    'Ll':  "Letter, Lowercase",
-    'Lm':  "Letter, Modifier",
-    'Lo':  "Letter, Other",
-    'Lt':  "Letter, Titlecase",
-    'Lu':  "Letter, Uppercase",
-    'Mc':  "Mark, Spacing Combining",
-    'Me':  "Mark, Enclosing",
-    'Mn':  "Mark, Nonspacing",
-    'Nd':  "Number, Decimal Digit",
-    'Nl':  "Number, Letter",
-    'No':  "Number, Other",
-    'Pc':  "Punctuation, Connector",
-    'Pd':  "Punctuation, Dash",
-    'Pe':  "Punctuation, Close",
-    'Pf':  "Punctuation, Final quote",
-    'Pi':  "Punctuation, Initial quote",
-    'Po':  "Punctuation, Other",
-    'Ps':  "Punctuation, Open",
-    'Sc':  "Symbol, Currency",
-    'Sk':  "Symbol, Modifier",
-    'Sm':  "Symbol, Math",
-    'So':  "Symbol, Other",
-    'Zl':  "Separator, Line",
-    'Zp':  "Separator, Paragraph",
-    'Zs':  "Separator, Space",
+    "Cc":  "Other, Control",
+    "Cf":  "Other, Format",
+    "Cn":  "Other, Not Assigned",
+    "Co":  "Other, Private Use",
+    "Cs":  "Other, Surrogate",
+    "LC":  "Letter, Cased",
+    "Ll":  "Letter, Lowercase",
+    "Lm":  "Letter, Modifier",
+    "Lo":  "Letter, Other",
+    "Lt":  "Letter, Titlecase",
+    "Lu":  "Letter, Uppercase",
+    "Mc":  "Mark, Spacing Combining",
+    "Me":  "Mark, Enclosing",
+    "Mn":  "Mark, Nonspacing",
+    "Nd":  "Number, Decimal Digit",
+    "Nl":  "Number, Letter",
+    "No":  "Number, Other",
+    "Pc":  "Punctuation, Connector",
+    "Pd":  "Punctuation, Dash",
+    "Pe":  "Punctuation, Close",
+    "Pf":  "Punctuation, Final quote",
+    "Pi":  "Punctuation, Initial quote",
+    "Po":  "Punctuation, Other",
+    "Ps":  "Punctuation, Open",
+    "Sc":  "Symbol, Currency",
+    "Sk":  "Symbol, Modifier",
+    "Sm":  "Symbol, Math",
+    "So":  "Symbol, Other",
+    "Zl":  "Separator, Line",
+    "Zp":  "Separator, Paragraph",
+    "Zs":  "Separator, Space",
 }
 
 
 ###############################################################################
-# (Data also available in tupleSets/cp1252.xsv, and in 'chr')
+# (Data also available in tupleSets/cp1252.xsv, and in "chr")
 #
 cp1252ToUnicode = {
     0x80 : 0x20AC,   # EURO SIGN
@@ -316,12 +309,12 @@ ASCII = [
     [  6, "ACK", "Acknowledge" ],
     [  7, "BEL", "Bell" ],
 
-    [  8, 'BS', 'Backspace',             '0x08',    '-', '-' ],
-    [  9, 'TAB','Horizontal tabulation', '0x09',    '-', '-' ],
-    [ 10, 'LF', 'Line feed',             '0x0A',    '+', '-' ],
+    [  8, "BS", "Backspace",             "0x08",    "-", "-" ],
+    [  9, "TAB","Horizontal tabulation", "0x09",    "-", "-" ],
+    [ 10, "LF", "Line feed",             "0x0A",    "+", "-" ],
     [ 11, "VT", "Vertical tabulation", ],
     [ 12, "FF", "Form feed" ],
-    [ 13, 'CR', 'Carriage return',       '0x0D',    '+', '-' ],
+    [ 13, "CR", "Carriage return",       "0x0D",    "+", "-" ],
     [ 14, "SO", "Shift out" ],
     [ 15, "SI", "Shift in" ],
 
@@ -337,24 +330,24 @@ ASCII = [
     [ 24, "CAN", "Cancel" ],
     [ 25, "EM",  "End message" ],
     [ 26, "SUB", "Substitute character" ],
-    [ 27, 'ESC', 'Escape',               '0x1B',    '-', '-' ],
+    [ 27, "ESC", "Escape",               "0x1B",    "-", "-" ],
     [ 28, "FS",  "Field Separator" ],
     [ 29, "GS",  "Group Separator" ],
     [ 30, "RS",  "Record Separator" ],
     [ 31, "US",  "Unit Separator" ],
 
-    [ 32, 'SPACE','SPACE',               '0x20',    '+', '-' ],
-    [ 33, '!',  'exclamation mark',      '0x21',    '-', '+' ],
-    [ 34, '"',  'quotation mark',        '0x22',    '-', '*' ],
-    [ 35, '#',  'number sign',           '0x23',    '-', '-' ],
-    [ 36, '$',  'dollar sign',           '0x24',    '-', '+' ],
-    [ 37, '%',  'percent sign',          '0x25',    '-', '(escape)' ],
-    [ 38, '&',  'ampersand',             '0x26',    '-', '*' ],
-    [ 39, "'",  'apostrophe',            '0x27',    '+', '+' ],
+    [ 32, "SPACE","SPACE",               "0x20",    "+", "-" ],
+    [ 33, "!",  "exclamation mark",      "0x21",    "-", "+" ],
+    [ 34, '"",  "quotation mark",        "0x22",    "-", "*' ],
+    [ 35, "#",  "number sign",           "0x23",    "-", "-" ],
+    [ 36, "$",  "dollar sign",           "0x24",    "-", "+" ],
+    [ 37, "%",  "percent sign",          "0x25",    "-", "(escape)" ],
+    [ 38, "&",  "ampersand",             "0x26",    "-", "*" ],
+    [ 39, "'",  "apostrophe",            "0x27",    "+", "+" ],
 
-    [ 40, '(',  'left parenthesis',      '0x28',    '+', '+' ],
-    [ 41, ')',  'right parenthesis',     '0x29',    '+', '+' ],
-    [ 42, '*',  'asterisk',              '0x2A',    '-', '+' ],
+    [ 40, "(",  "left parenthesis",      "0x28",    "+", "+" ],
+    [ 41, ")",  "right parenthesis",     "0x29",    "+", "+" ],
+    [ 42, "*",  'asterisk',              '0x2A',    '-', '+' ],
     [ 43, '+',  'plus sign',             '0x2B',    '+', '+' ],
     [ 44, ',',  'comma',                 '0x2C',    '+', '-' ],
     [ 45, '-',  'hyphen, minus sign',    '0x2D',    '+', '+' ],
@@ -526,7 +519,7 @@ if (len(categoryAbbr2Name) != 32):
 
 _blocks = []
 def _initBlocks(text):
-    pattern = re.compile(r'([0-9A-F]+)\.\.([0-9A-F]+);\ (\S.*\S)')
+    pattern = re.compile(r"([0-9A-F]+)\.\.([0-9A-F]+);\ (\S.*\S)")
     for line in text.splitlines():
         m = pattern.match(line)
         if m:
@@ -738,7 +731,8 @@ F0000..FFFFF; Supplementary Private Use Area-A
 ''')
 
 
-# =============================================================================
+###############################################################################
+
 # See https://gist.github.com/anonymous/2204527 and
 # https://stackoverflow.com/questions/9868792/
 #
@@ -1337,18 +1331,18 @@ def script_cat(codepoint):
     """
     l = 0
     #cat = unicodedata.category(unichr(codepoint))
-    r = len(script_data['idx']) - 1
+    r = len(script_data["idx"]) - 1
     while r >= l:
         m = (l + r) >> 1
-        if codepoint < script_data['idx'][m][0]:
+        if codepoint < script_data["idx"][m][0]:
             r = m - 1
-        elif codepoint > script_data['idx'][m][1]:
+        elif codepoint > script_data["idx"][m][1]:
             l = m + 1
         else:
             return (
-                script_data['scriptNames'][script_data['idx'][m][2]],
-                script_data['categoryAbbrs'][script_data['idx'][m][3]])
-    return 'Unknown', '??'
+                script_data["scriptNames"][script_data["idx"][m][2]],
+                script_data["categoryAbbrs"][script_data["idx"][m][3]])
+    return "Unknown", "??"
 
 def myCodepoint2name(n):
     if (not isinstance(n, int)): n = ord(n)
@@ -1365,18 +1359,18 @@ def myCodepoint2category(n):
     return a
 
 def _compile_scripts_txt():
-    # build indexes above, from 'scripts.txt'
+    # build indexes above, from "scripts.txt"
 
     idx = []
     names = []
     cats = []
 
-    import urllib2, textwrap
+    import textwrap
 
-    url = 'http://www.unicode.org/Public/UNIDATA/Scripts.txt'
-    f = urllib2.urlopen(url)
+    url = "http://www.unicode.org/Public/UNIDATA/Scripts.txt"
+    f = urlopen(url)
     for ln in f:
-        p = re.findall(r'([0-9A-F]+)(?:\.\.([0-9A-F]+))?\W+(\w+)\s*#\s*(\w+)', ln)
+        p = re.findall(r"([0-9A-F]+)(?:\.\.([0-9A-F]+))?\W+(\w+)\s*#\s*(\w+)", ln)
         if p:
             a, b, name, cat = p[0]
             if name not in names:
@@ -1387,13 +1381,13 @@ def _compile_scripts_txt():
     idx.sort()
 
     print('script_data = {\n"names":%s,\n"cats":%s,\n"idx":[\n%s\n]}' % (
-        '\n'.join(textwrap.wrap(repr(names), 80)),
-        '\n'.join(textwrap.wrap(repr(cats), 80)),
-        '\n'.join(textwrap.wrap(
-            ', '.join('(0x0%x,0x0%x,%d,%d)' % c for c in idx), 80))))
+        "\n".join(textwrap.wrap(repr(names), 80)),
+        "\n".join(textwrap.wrap(repr(cats), 80)),
+        "\n".join(textwrap.wrap(
+            ", ".join("(0x0%x,0x0%x,%d,%d)" % c for c in idx), 80))))
 
 
-# =============================================================================
+###############################################################################
 #
 unixJargon = {
     "!" : "Common: bang; pling; excl; not; shriek; ball-bat. " +
@@ -1484,116 +1478,171 @@ unixJargon = {
 }
 
 
-# =============================================================================
+###############################################################################
+# TODO: Finish sync with ord and strfchr
 #
+charProperties = {
+    #propname         ( typ, cat, description, ),
+    "error":          ( str, 'E', "error", ),
+    "codepoint":      ( int, 'U', "code point", ),
+    "literal":        ( str, 'U', "literal character", ),
+    "name":           ( str, 'U', "Unicode name", ),
+
+    # Unicode info
+    "planeNumber":    ( int, 'U', "plane Number", ),
+    "planeName":      ( str, 'U', "plane Name", ),
+    "blockName":      ( str, 'U', "block Name", ),
+    "scriptName":     ( str, 'U', "script Name", ),
+    "categoryAbbr":   ( str, 'U', "category Abbreviation", ),
+    "categoryName":   ( str, 'U', "category Name", ),
+
+    # Alternate representations
+    "uri":            ( str, 'F', "uri", ),
+    "ent10":          ( str, 'F', "ent10", ),
+    "ent16":          ( str, 'F', "ent16", ),
+    "entNamed":    	  ( str, 'F', "HTML named entity reference", ),
+
+    # Properties
+    "uriOK":          ( '?', 'P', "uriOK", ),
+    "numval":         ( int, 'P', "numval", ),
+    "jargon":      	  ( str, 'P', "jargon", ),
+    "bidi":        	  ( '?', 'P', "bidi", ),
+    "combining":   	  ( '?', 'P', "combining", ),
+    "eawidth":     	  ( '?', 'P', "eawidth", ),
+    "mirror":      	  ( '?', 'P', "mirror", ),
+    "decomp":      	  ( str, 'P', "decomp", ),
+    "NFC":         	  ( str, 'P', "NFC", ),
+    "NFKC":        	  ( str, 'P', "NFKC", ),
+    "NFD":         	  ( str, 'P', "NFD", ),
+    "NFKD":        	  ( str, 'P', "NFKD", ),
+}
+
+
+###############################################################################
+#
+# TODO: Move everything into this object instead.
+#
+class CharInfo:
+    def __init__(self, n):
+        if (isinstance(n, str)): n = ord(n[0])
+        ci = getCharInfo(n)
+        if (ci["error"] is not None):
+            raise ValueError("For code point %d: %s" % (ci["error"]))
+        for k, v in ci.items():
+            setattr(self, k, v)
+
+    def toString(self) -> str:
+        props = [p for p in dir(self)
+            if (not p.startswith('__') and not callable(getattr(self, p)))]
+        buf = ""
+        for prop in sorted(props):
+            buf += "    %-12s  '%s'\n" % (prop, getattr(self, prop))
+        return buf
+
 def getCharInfo(n):
-    """See https://docs.python.org/2/library/unicodedata.html
+    """Make a dictionary with a lot of info about the given code point.
+    See https://docs.python.org/2/library/unicodedata.html
     """
-    charInfo = { 'n': n, 'error': None }
+    charInfo = { "n": n, "error": None }
 
     if (n > 0xFFFF):
-        charInfo['error'] = "[Out of range]"
+        charInfo["error"] = "[Out of range]"
         return charInfo
 
     if (n == 0xEFBFBD):
-        charInfo['error'] = "UTF-8 of U+FFFD (Replacement Character)"
+        charInfo["error"] = "UTF-8 of U+FFFD (Replacement Character)"
         return charInfo
 
-    literal = charInfo['literal']  = unichr(n)
+    literal = charInfo["literal"]  = unichr(n)
 
-    if (n < 32): charInfo['name'] = C0names[n]
-    else: charInfo['name'] = unicodedata.name(literal, None)
-    if (not charInfo['name']):
-        charInfo['error'] = "Cannot find name for U+%05x." % (n)
-        charInfo['name'] = '[???]'
+    if (n < 32): charInfo["name"] = C0names[n]
+    else: charInfo["name"] = unicodedata.name(literal, None)
+    if (not charInfo["name"]):  # Includes private use chars.
+        charInfo["error"] = "Cannot find name for U+%05x." % (n)
+        charInfo["name"] = "[???]"
 
-    charInfo['scriptName']   = myCodepoint2script(n)
-    charInfo['blockName']    = myCodepoint2block(n)
-    charInfo['planeNumber']  = n >> 16
-    charInfo['planeName']    = getPlaneName(charInfo['planeNumber'])
+    # Unicode info
+    charInfo["scriptName"]   = myCodepoint2script(n)
+    charInfo["blockName"]    = myCodepoint2block(n)
+    charInfo["planeNumber"]  = n >> 16
+    charInfo["planeName"]    = getPlaneName(charInfo["planeNumber"])
 
-    charInfo['numval']       = unicodedata.numeric(literal, None)
-    charInfo['categoryAbbr'] = unicodedata.category(literal)
-    charInfo['categoryName'] = None
-    if (charInfo['categoryAbbr'] in categoryAbbr2Name):
-        charInfo['categoryName'] = categoryAbbr2Name[charInfo['categoryAbbr']][1]
+    charInfo["numval"]       = unicodedata.numeric(literal, None)
+    charInfo["categoryAbbr"] = unicodedata.category(literal)
+    charInfo["categoryName"] = None
+    if (charInfo["categoryAbbr"] in categoryAbbr2Name):
+        charInfo["categoryName"] = categoryAbbr2Name[charInfo["categoryAbbr"]][1]
 
+    # Alternate forms
     if (PY2):
-        charInfo['utf']        = "\\x" + literal.encode('utf-8').encode('hex')
+        charInfo["utf"]        = "\\x" + literal.encode("utf-8").encode("hex")
     else:
         buf = "\\x"
-        myBytes = literal.encode('utf-8')
+        myBytes = literal.encode("utf-8")
         for b in myBytes: buf += "%02x" % (b)
-        charInfo['utf'] = buf
-
-    charInfo['uri']        = urlquote(literal.encode('utf-8'))
-    charInfo['uriOK']      = False
-    if (n<128 and len(ASCII[n]) >= 6 and ASCII[n][5] == '+'):
-        charInfo['uriOK']  = True
-
-    charInfo['ent16']      = "&#x%05x;" % (n)
-    charInfo['ent10']      = "&#%d;" % (n)
+        charInfo["utf"] = buf
+    charInfo["uri"]        = urlquote(literal.encode("utf-8"))
+    charInfo["ent16"]      = "&#x%05x;" % (n)
+    charInfo["ent10"]      = "&#%d;" % (n)
     #print("type: %s" % (type(codepoint2name)))
     if (n in codepoint2name):
-        charInfo['entNamed'] = "  &%s;" % (codepoint2name[n])
+        charInfo["entNamed"] = "  &%s;" % (codepoint2name[n])
     else:
-        charInfo['entNamed'] = None
+        charInfo["entNamed"] = None
 
-    charInfo['jargon'] = None
-    if (literal in unixJargon): charInfo['jargon'] = unixJargon[literal]
+    charInfo["jargon"] = None
+    if (literal in unixJargon): charInfo["jargon"] = unixJargon[literal]
 
-    charInfo['bidi']      = unicodedata.bidirectional(literal)
-    charInfo['combining'] = unicodedata.combining(literal)
-    charInfo['eawidth']   = unicodedata.east_asian_width(literal)
-    charInfo['mirror']    = unicodedata.mirrored(literal)
-    charInfo['decomp']    = unicodedata.decomposition(literal)
-    charInfo['NFC']       = unicodedata.normalize('NFC',  literal)
-    charInfo['NFKC']      = unicodedata.normalize('NFKC', literal)
-    charInfo['NFD']       = unicodedata.normalize('NFD',  literal)
-    charInfo['NFKD']      = unicodedata.normalize('NFKD', literal)
-
-    if (0):
-        fmt = "    %-12s  '%s'"
-        for prop in sorted(charInfo.keys):
-            print(fmt % (prop, charInfo[prop]))
-        print("--------")
+    # Properties
+    #
+    charInfo["uriOK"]      = False
+    if (n<128 and len(ASCII[n]) >= 6 and ASCII[n][5] == "+"):
+        charInfo["uriOK"]  = True
+    charInfo["bidi"]      = unicodedata.bidirectional(literal)
+    charInfo["combining"] = unicodedata.combining(literal)
+    charInfo["eawidth"]   = unicodedata.east_asian_width(literal)
+    charInfo["mirror"]    = unicodedata.mirrored(literal)
+    charInfo["decomp"]    = unicodedata.decomposition(literal)
+    charInfo["NFC"]       = unicodedata.normalize("NFC",  literal)
+    charInfo["NFKC"]      = unicodedata.normalize("NFKC", literal)
+    charInfo["NFD"]       = unicodedata.normalize("NFD",  literal)
+    charInfo["NFKD"]      = unicodedata.normalize("NFKD", literal)
 
     return charInfo
 
-
-def makeDisplay(n, full=True):
+def makeDisplay(n, full=True) -> str:
     charInfo = getCharInfo(n)
 
     try:
         msg = "\n".join([
-            fmtline("Unicode Name",     charInfo['name']),
-            fmtline("Script",           charInfo['scriptName']),
-            fmtline('Category',         "'%s' (%s)" % (
-                charInfo['categoryAbbr'], charInfo['categoryName'])),
-            fmtline("Block",            charInfo['blockName']),
+            fmtline("Unicode Name",     charInfo["name"]),
+            fmtline("Script",           charInfo["scriptName"]),
+            fmtline("Category",         "'%s' (%s)" % (
+                charInfo["categoryAbbr"], charInfo["categoryName"])),
+            fmtline("Block",            charInfo["blockName"]),
             fmtline("Plane",            "%d: %s" % (
-                charInfo['planeNumber'], charInfo['planeName'])),
-            fmtline("Literal",          "'" + charInfo['literal'] + "'"),
+                charInfo["planeNumber"], charInfo["planeName"])),
+            fmtline("Literal",          "'" + charInfo["literal"] + "'"),
             fmtline("Bases",            "o%08o0 d%06d 0x%05x" % (n, n, n)),
             fmtline("Unicode",          "U+%05x, utf8 %s, URI %s (allowed? %s)" % (
-                n, charInfo['utf'], charInfo['uri'], charInfo['uriOK'])),
+                n, charInfo["utf"], charInfo["uri"], charInfo["uriOK"])),
             fmtline("Entities",         "%s  %s  %s" % (
-                charInfo['ent16'], charInfo['ent10'], charInfo['entNamed'])),
-            fmtline("Unix jargon",      charInfo['jargon'] or '')
+                charInfo["ent16"], charInfo["ent10"], charInfo["entNamed"])),
+            fmtline("Unix jargon",      charInfo["jargon"] or "")
         ]) + "\n"
         if (full): msg += "\n".join([
-                fmtline('Numeric value', charInfo['numval']),
-                fmtline('Is Bidi',       charInfo['bidi']),
-                fmtline('Is Combining',  charInfo['combining']),
-                fmtline('ea width',      charInfo['eawidth']),
-                fmtline('Mirror',        charInfo['mirror']),
-                fmtline('Decompose',     charInfo['decomp']),
-                fmtline('Normalizations',
+                fmtline("Numeric value", charInfo["numval"]),
+                fmtline("Is Bidi",       charInfo["bidi"]),
+                fmtline("Is Combining",  charInfo["combining"]),
+                fmtline("ea width",      charInfo["eawidth"]),
+                fmtline("Mirror",        charInfo["mirror"]),
+                fmtline("Decompose",     charInfo["decomp"]),
+                fmtline("Normalizations",
                     "NFC '%s' %s, NFKC '%s' %s, NFD '%s' %s, NFKD '%s' %s" %
-                    (charInfo['NFC'],  stringToHex(charInfo['NFC']),
-                     charInfo['NFKC'], stringToHex(charInfo['NFKC']),
-                     charInfo['NFD'],  stringToHex(charInfo['NFD']),
-                     charInfo['NFKD'], stringToHex(charInfo['NFKD'])
+                    (charInfo["NFC"],  stringToHex(charInfo["NFC"]),
+                     charInfo["NFKC"], stringToHex(charInfo["NFKC"]),
+                     charInfo["NFD"],  stringToHex(charInfo["NFD"]),
+                     charInfo["NFKD"], stringToHex(charInfo["NFKD"])
                     ))
         ])
     except KeyError as e:
@@ -1610,18 +1659,18 @@ def makeDisplay(n, full=True):
         lit += ")\n"
         msg += lit
     elif (n>127 and n<160):
-        lit = "(C1 control: " + C1names[n] + ")\n"
+        lit = "(C1 control: " + C1names[n-128] + ")\n"
         msg += lit
 
     return msg
 
-def stringToHex(x):
+def stringToHex(x) -> str:
     buf = "0x"
     for ch in x:
         buf += "%02x" % (ord(ch))
     return buf
 
-def fmtline(label, data):
+def fmtline(label, data) -> str:
     return "    %-16s %s" % (label, data or "")
 
 def getPlaneName(pnum):
@@ -1637,7 +1686,7 @@ def getPlaneName(pnum):
 
 # See https://stackoverflow.com/questions/243831/
 #
-def myCodepoint2block(n):
+def myCodepoint2block(n) -> str:
     for start, end, block_name in _blocks:
         if start <= n <= end:
             return block_name
@@ -1648,40 +1697,47 @@ def myCodepoint2block(n):
 #
 if __name__ == "__main__":
     def anyInt(x):
-        return int(x, 0)
+        try:
+            return int(x, 0)
+        except ValueError:
+            return ord(x[0])
 
     def processOptions():
-        parser = argparse.ArgumentParser(
-            description=descr,
-            formatter_class=MarkupHelpFormatter
-        )
+        try:
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
+        except ImportError:
+            parser = argparse.ArgumentParser(description=descr)
+
         parser.add_argument(
-            "--category",          type=str, default=None,
+            "--category", type=str, default=None,
             choices=sorted(unicodeCategories.keys()),
             help="""List characters in the specified 2-letter category.
             See also showUnicodeCharsInClass.py.""")
         parser.add_argument(
-            "--python",            action='store_true',
-            help='Make --cat write Python tuples, not just messages.')
+            "--python", action="store_true",
+            help="Make --cat write Python tuples, not just messages.")
         parser.add_argument(
-            "--quiet", "-q",       action='store_true',
-            help='Suppress most messages.')
+            "--quiet", "-q", action="store_true",
+            help="Suppress most messages.")
         parser.add_argument(
-            "--verbose", "-v",     action='count', default=0,
-            help='Add more messages (repeatable).')
+            "--verbose", "-v", action="count", default=0,
+            help="Add more messages (repeatable).")
         parser.add_argument(
-            "--version",           action='version',
+            "--version", action="version",
             version="%s (Python %s)" % (__version__, sys.version_info[0]),
-            help='Display version information, then exit.')
+            help="Display version information, then exit.")
 
         parser.add_argument(
-            'charSpecs',           type=anyInt,
+            "charSpecs", type=anyInt,
             nargs=argparse.REMAINDER,
-            help='Unicode code point numbers (base 8, 10, or 16).')
+            help="Unicode code point numbers (base 8, 10, or 16).")
 
         args0 = parser.parse_args()
 
         return(args0)
+
 
     ###########################################################################
     # Main

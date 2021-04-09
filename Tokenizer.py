@@ -1,63 +1,33 @@
 #!/usr/bin/env python
 #
-# Tokenizer.pm
-#
-# Ported from Tokenizer.pm (also) by Steven J. DeRose.
-#
-# To do:
-#     More testing
-#     Incorporate abbrev list.
-#     Add any options Stanford one has that this doesn't
-#         https://nlp.stanford.edu/software/tokenizer.shtml
-#         -encoding charset The character set encoding. By default, it assumues utf-8, but you can tell it to use another character encoding.
-#        -preserveLines Keep the input line breaks vs. one token per line.
-#        -oneLinePerElement Print the tokens of an element space-separated on one line.
-#        -parseInside regex Only tokenize inside XML elements which match the regex.
-#        -filter regex Delete any token that matches() (in its entirety).
-#        -lowerCase Force lowercase.
-#        -dump Print out everything about each token.
-#        -options optionString (bunch more)
-#        -ioFileList file+ Treat files as lists of in\tout files.
-#        -fileList file+ Treat files as lists of input filenames, one per line.
-#        -untok Makes a best effort attempt at undoing PTB tokenization.
-#
-#     Split each stage (expand, filter, etc.) into a separate class?
-#     Consider switching this to Antlr 4?
-#     "''" as double quote
-#     Emoticons
-#     Should ellipsis plus [.,;?!] count as one punc unit or two?
-#
+# Tokenizer.pm: Port of my Perl tokenizer.
+# Written by Steven J. DeRose.
 from __future__ import print_function
 import sys
 import regex as re  # Adds support for \p{}
 import codecs
 import unicodedata
+import urllib
+from html.parser import HTMLParser
 
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-if PY2:
-    import HTMLParser
-    string_types = basestring
-else:
-    from html.parser import HTMLParser
-    string_types = str
-    def unichr(n): return chr(n)
-    def unicode(s, encoding='utf-8', errors='strict'):
-        if (not isinstance(s, str)): return str(s, encoding, errors)
-        return s
+def unicode(s, encoding="utf-8", errors="strict"):
+    if (not isinstance(s, str)): return str(s, encoding, errors)
+    return s
 
 __metadata__ = {
-    'title'        : "Tokenizer.py",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2012-08-22",
-    'modified'     : "2020-03-04",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "Tokenizer.py",
+    "description"  : "An NLP tokenizer that knows about Unicode.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2012-08-22",
+    "modified"     : "2021-04-09",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['modified']
+__version__ = __metadata__["modified"]
+
 
 descr = """
 =Usage=
@@ -92,7 +62,7 @@ This is the easiest to use, for example:
 It provides a few keyword options on the constructor:
 
 **B<normalize> -- What Unicode normalization to apply.
-Default: 'NKFD'.
+Default: "NFKD" (others are "NFC", "NFD", and "NFKC").
 
 **B<breakHyphens> -- Whether to split hyphenated words. Default: False.
 
@@ -441,7 +411,7 @@ can be either genitives or contractions of "is".
 B<(not yet supported)>
 
 
-==6: Filter out unwanted tokens ('words' mode only)==
+==6: Filter out unwanted tokens ("words" mode only)==
 
 These options are all (boolean) except for B<F_MINLENGTH> and B<F_MAXLENGTH>.
 For Boolean filter options, the default is off, which means the tokens
@@ -620,7 +590,7 @@ probability for POS tagging from those tokens, you're worse off.
 text, so everyone already accepts that you can't easily map back to the user's
 "ur" input (say, to highlight something). This is bad enough in the case of
 whitespace runs, line-breaks, tabs, etc; many tokenizers also normalize
-(some, but rarely all) Unicode Zs (white-space-ish) characters to ASCII ' '.
+(some, but rarely all) Unicode Zs (white-space-ish) characters to ASCII " ".
 This is appropriate for some characters, but the notion that tab, LF,
 non-breaking space, and hair space are all the same is wrong; they mean
 very different things to actual readers.
@@ -672,15 +642,15 @@ Option names are case-sensitive.
 Break I<string> into tokens according to the settings in effect, and return
 a reference to an array of them. B<Note>: This method uses several other
 internal methods; they can be invoked separately is desired, but are not
-documented fully here; the methods are as shown below ($s is a string to
+documented fully here; the methods are as shown below (`s` is a string to
 handle):
 
-    $s = $tkz->expand($s)
-    $s = $tkz->normalize($s)
-    $s = $tkz->shorten($s)
-    $s = $tkz->nonWordTokens($s)
-    @tokens = @{$tkz->splitTokens($s)}
-    @tokens = @{$tkz->filter(\\@tokens)}
+    s = tkz.expand(s)
+    s = tkz.normalize(s)
+    s = tkz.shorten(s)
+    s = tkz.nonWordTokens(s)
+    tokens = tkz.splitTokens(s)
+    tokens = tkz.filter(tokens)
 
 
 =Known Bugs and Limitations=
@@ -720,8 +690,6 @@ apart from their constructs. Use C<dropXMLtags> is necessary first.
 
 =Related commands and data=
 
-Fairly thorough tokenizer test cases are available in
-
 This Python program is mostly a port of a much earlier Perl one, which is also
 available.
 
@@ -732,15 +700,11 @@ week and month names
 C<vocab>, C<ngrams>, C<normalizeSpace>, C<SimplifyUnicode>,
 C<volsunga>, C<findNERcandidates>,....
 
+There is some test data inline, and more extensive data at
+[https://github.com/sderose/Data/NLPFormatSamples/blob/master/TokenizerTestData.txt].
 
-=Ownership=
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
+See [https://github.com/sderose/Lexicon.git/blob/master/xsv/contractions.xsv],
+[https://github.com/sderose/Lexicon.git/blob/master/python/abbreviations.py]
 
 =Description=
 
@@ -751,7 +715,48 @@ complicated numbers, dates and times, DNA, URLs, emails, contractions, etc.
 
 Tokenize.py, Tokenizer.pm, Volsunga tokenizer (qv).
 
+The "smoke test" data included in the code, has a lot of nice cases.
+
+
 =Known bugs and Limitations=
+
+Ported from Tokenizer.pm (also) by Steven J. DeRose.
+
+
+=To do=
+
+    More testing.
+    Add timer.
+    Incorporate abbrev list.
+    Add any options Stanford or others have that this doesn't, such as:
+        [https://nlp.stanford.edu/software/tokenizer.shtml]
+        -encoding charset The character set encoding. By default, it assumues utf-8, but you can tell it to use another character encoding.
+        -preserveLines Keep the input line breaks vs. one token per line.
+        -oneLinePerElement Print the tokens of an element space-separated on one line.
+        -parseInside regex Only tokenize inside XML elements which match the regex.
+        -filter regex Delete any token that matches() (in its entirety).
+        -lowerCase Force lowercase.
+        -dump Print out everything about each token.
+        -options optionString (bunch more)
+        -ioFileList file+ Treat files as lists of in\tout files.
+        -fileList file+ Treat files as lists of input filenames, one per line.
+        -untok Makes a best effort attempt at undoing PTB tokenization.
+
+    Split each stage (expand, filter, etc.) into a separate class?
+    Consider switching this to Antlr 4?
+    "''" as double quote
+    Emoticons
+    Should ellipsis plus [.,;?!] count as one punc unit or two?
+
+
+=History=
+
+* 2012: Written by Steven J. DeRose, in Perl.
+* ????: Ported to Python.
+* 2020-03-04: Fixes.
+* 2021-04-09: Clean up. Spell NKFD right. Re-sync versions.
+Clean up handling of `dispTypes`, quotes and general lint.
+
 
 =Rights=
 
@@ -770,37 +775,37 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 # regex also supports single-char cover categories, I think.
 #
 unicodeCategories = {
-    'Cc':  "Other, Control",
-    'Cf':  "Other, Format",
-    'Cn':  "Other, Not Assigned",
-    'Co':  "Other, Private Use",
-    'Cs':  "Other, Surrogate",
-    'LC':  "Letter, Cased",
-    'Ll':  "Letter, Lowercase",
-    'Lm':  "Letter, Modifier",
-    'Lo':  "Letter, Other",
-    'Lt':  "Letter, Titlecase",
-    'Lu':  "Letter, Uppercase",
-    'Mc':  "Mark, Spacing Combining",
-    'Me':  "Mark, Enclosing",
-    'Mn':  "Mark, Nonspacing",
-    'Nd':  "Number, Decimal Digit",
-    'Nl':  "Number, Letter",
-    'No':  "Number, Other",
-    'Pc':  "Punctuation, Connector",
-    'Pd':  "Punctuation, Dash",
-    'Pe':  "Punctuation, Close",
-    'Pf':  "Punctuation, Final quote",
-    'Pi':  "Punctuation, Initial quote",
-    'Po':  "Punctuation, Other",
-    'Ps':  "Punctuation, Open",
-    'Sc':  "Symbol, Currency",
-    'Sk':  "Symbol, Modifier",
-    'Sm':  "Symbol, Math",
-    'So':  "Symbol, Other",
-    'Zl':  "Separator, Line",
-    'Zp':  "Separator, Paragraph",
-    'Zs':  "Separator, Space",
+    "Cc":  "Other, Control",
+    "Cf":  "Other, Format",
+    "Cn":  "Other, Not Assigned",
+    "Co":  "Other, Private Use",
+    "Cs":  "Other, Surrogate",
+    "LC":  "Letter, Cased",
+    "Ll":  "Letter, Lowercase",
+    "Lm":  "Letter, Modifier",
+    "Lo":  "Letter, Other",
+    "Lt":  "Letter, Titlecase",
+    "Lu":  "Letter, Uppercase",
+    "Mc":  "Mark, Spacing Combining",
+    "Me":  "Mark, Enclosing",
+    "Mn":  "Mark, Nonspacing",
+    "Nd":  "Number, Decimal Digit",
+    "Nl":  "Number, Letter",
+    "No":  "Number, Other",
+    "Pc":  "Punctuation, Connector",
+    "Pd":  "Punctuation, Dash",
+    "Pe":  "Punctuation, Close",
+    "Pf":  "Punctuation, Final quote",
+    "Pi":  "Punctuation, Initial quote",
+    "Po":  "Punctuation, Other",
+    "Ps":  "Punctuation, Open",
+    "Sc":  "Symbol, Currency",
+    "Sk":  "Symbol, Modifier",
+    "Sm":  "Symbol, Math",
+    "So":  "Symbol, Other",
+    "Zl":  "Separator, Line",
+    "Zp":  "Separator, Paragraph",
+    "Zs":  "Separator, Space",
 }
 
 unicodeSpaces = [
@@ -900,88 +905,95 @@ unicodeDoubles = [
 ]
 
 # (Cyrillic, Armenian, Hebrew, and many, many Arabic ligatures omitted)
-# Could do this instead with unicodedb 'Decompose' feature.
+# Could do this instead with unicodedb "Decompose" feature.
 unicodeLigatures = [
-    0x0132,  #  'IJ',   #'LATIN CAPITAL LIGATURE IJ',
-    0x0133,  #  'ij',   #'LATIN SMALL LIGATURE IJ',
-    0x0152,  #  'OE',   #'LATIN CAPITAL LIGATURE OE',
-    0x0153,  #  'oe',   #'LATIN SMALL LIGATURE OE',
-    0xa7f9,  #  'oe',   #'MODIFIER LETTER SMALL LIGATURE OE',
-    0xfb00,  #  'ff',   #'LATIN SMALL LIGATURE FF',
-    0xfb01,  #  'fi',   #'LATIN SMALL LIGATURE FI',
-    0xfb02,  #  'fl',   #'LATIN SMALL LIGATURE FL',
-    0xfb03,  #  'ffi',  #'LATIN SMALL LIGATURE FFI',
-    0xfb04,  #  'ffl',  #'LATIN SMALL LIGATURE FFL',
-    0xfb05,  #  'st',   #'LATIN SMALL LIGATURE LONG S T',
-    0xfb06,  #  'st',   #'LATIN SMALL LIGATURE ST',
+    0x0132,  #  "IJ",   #"LATIN CAPITAL LIGATURE IJ",
+    0x0133,  #  "ij",   #"LATIN SMALL LIGATURE IJ",
+    0x0152,  #  "OE",   #"LATIN CAPITAL LIGATURE OE",
+    0x0153,  #  "oe",   #"LATIN SMALL LIGATURE OE",
+    0xa7f9,  #  "oe",   #"MODIFIER LETTER SMALL LIGATURE OE",
+    0xfb00,  #  "ff",   #"LATIN SMALL LIGATURE FF",
+    0xfb01,  #  "fi",   #"LATIN SMALL LIGATURE FI",
+    0xfb02,  #  "fl",   #"LATIN SMALL LIGATURE FL",
+    0xfb03,  #  "ffi",  #"LATIN SMALL LIGATURE FFI",
+    0xfb04,  #  "ffl",  #"LATIN SMALL LIGATURE FFL",
+    0xfb05,  #  "st",   #"LATIN SMALL LIGATURE LONG S T",
+    0xfb06,  #  "st",   #"LATIN SMALL LIGATURE ST",
 ]
 
 if (False):
-    elRegex  = '[' + "".join([ unichr(x) for x in unicodeEllipses]) + ']'  # --
-    spRegex  = '[' + "".join([ unichr(x) for x in unicodeSpaces  ]) + ']'  # Zs
-    hyRegex  = '[' + "".join([ unichr(x) for x in unicodeDashes  ]) + ']'  # Pd
-    lqRegex  = '[' + "".join([ unichr(x) for x in unicodeLQuotes ]) + ']'  # Pi
-    rqRegex  = '[' + "".join([ unichr(x) for x in unicodeRQuotes ]) + ']'  # Pf
-    delRegex = '[' + "".join([ unichr(x) for x in unicodeToDelete]) + ']'  # --
-    dblRegex = '[' + "".join([ unichr(x) for x in unicodeDoubles ]) + ']'  # --
-    ligRegex = '[' + "".join([ unichr(x) for x in unicodeLigatures]) + ']'
+    elRegex  = "[" + "".join([ chr(x) for x in unicodeEllipses]) + "]"  # --
+    spRegex  = "[" + "".join([ chr(x) for x in unicodeSpaces  ]) + "]"  # Zs
+    hyRegex  = "[" + "".join([ chr(x) for x in unicodeDashes  ]) + "]"  # Pd
+    lqRegex  = "[" + "".join([ chr(x) for x in unicodeLQuotes ]) + "]"  # Pi
+    rqRegex  = "[" + "".join([ chr(x) for x in unicodeRQuotes ]) + "]"  # Pf
+    delRegex = "[" + "".join([ chr(x) for x in unicodeToDelete]) + "]"  # --
+    dblRegex = "[" + "".join([ chr(x) for x in unicodeDoubles ]) + "]"  # --
+    ligRegex = "[" + "".join([ chr(x) for x in unicodeLigatures]) + "]"
     #print("ligRegex: '%s'." % (ligRegex))
 else:
-    elRegex  = '[' + "".join([ unichr(x) for x in unicodeEllipses]) + ']'  # --
-    spRegex  = r'\p{Zs}'
-    hyRegex  = r'\p{Pd}'
-    lqRegex  = r'\p{Pi}'
-    rqRegex  = r'\p{Pf}'
-    delRegex = '[' + "".join([ unichr(x) for x in unicodeToDelete]) + ']'  # --
-    dblRegex = '[' + "".join([ unichr(x) for x in unicodeDoubles ]) + ']'  # --
-    ligRegex = '[' + "".join([ unichr(x) for x in unicodeLigatures]) + ']'
+    elRegex  = "[" + "".join([ chr(x) for x in unicodeEllipses]) + "]"  # --
+    spRegex  = r"\p{Zs}"
+    hyRegex  = r"\p{Pd}"
+    lqRegex  = r"\p{Pi}"
+    rqRegex  = r"\p{Pf}"
+    delRegex = "[" + "".join([ chr(x) for x in unicodeToDelete]) + "]"  # --
+    dblRegex = "[" + "".join([ chr(x) for x in unicodeDoubles ]) + "]"  # --
+    ligRegex = "[" + "".join([ chr(x) for x in unicodeLigatures]) + "]"
     #print("ligRegex: '%s'." % (ligRegex))
 
 
 lexemeTypes = {
-    'lower':	[ 'lower', r'[a-z]+' ],
-    'upper':	[ 'upper', r'[A-Z]+' ],
-    'title':	[ 'title', r'[A-Z][a-z]+' ],
-    'mixed':	[ 'mixed', r'\w+' ],
+    "lower":	[ "lower", r"[a-z]+" ],
+    "upper":	[ "upper", r"[A-Z]+" ],
+    "title":	[ "title", r"[A-Z][a-z]+" ],
+    "mixed":	[ "mixed", r"\w+" ],
 }
 
 
 # Reserved set of option values, to specify for how to map char classes.
 # Use numbers for faster tests in map().
 #
+DT_KEEP		      = "KEEP"
+DT_UNIFY		    = "UNIFY"
+DT_DELETE		    = "DELETE"
+DT_SPACE		    = "SPACE"
+DT_STRIP		    = "STRIP"
+DT_VALUE		    = "VALUE"
+DT_UPPER		    = "UPPER"
+DT_LOWER		    = "LOWER"
+DT_DECOMPOSE		= "DECOMPOSE"
+
 dispTypes = {
-    # Keyword     Value    Classes that can use it
-    # No change needed:
-    "keep"      :  1,     # "*"
-    # Done via map():
-    "unify"     : 11,     # "*"
-    "delete"    : 12,     # "*"
-    "space"     : 13,     # "*"
-    "strip"     : 14,     # "Letter"
-    "value"     : 15,     # "Number"
-    # Not done via map()... probably should be....
-    "upper"     :  6,     # "Letter"
-    "lower"     :  7,     # "Letter"
-    "decompose" :  8,     # "Letter"
+    # Keyword:       ( DT_NAME,      map?, whichClasses),
+    DT_KEEP:         ( DT_KEEP, 		 False, "*" ),
+    DT_UNIFY:        ( DT_UNIFY,		 True,  "*" ),
+    DT_DELETE:       ( DT_DELETE,		 True,  "*" ),
+    DT_SPACE:        ( DT_SPACE,		 True,  "*" ),
+    DT_STRIP:        ( DT_STRIP,		 True,  "Letter" ),
+    DT_VALUE:        ( DT_VALUE,		 True,  "Number" ),
+    DT_UPPER:        ( DT_UPPER,		 False, "Letter" ),
+    DT_LOWER:        ( DT_LOWER,		 False, "Letter" ),
+    DT_DECOMPOSE:    ( DT_DECOMPOSE, False, "Letter" ),
 }
 
-# Enumeration of token 'types' and 'subtypes'.
+# Enumeration of token "types" and "subtypes".
 #
 # Not used yet, but a finer-grained set of possibilities is provided below,
 # mostly based on my "Tokenizer" package.... Most can never contain spaces,
 # except for DATIME and MATH.
 #
 tokenSubtypes = {
-    'W': {
+    "W": {
         "NUM":       "W: 1, 1.2E+08, 0xFF, 1/3, 12%, per-mil, 6'1\", phone, ip",
         "DATIME":    "W: Date and/or time string",
         "MATH":      "W: Math beyond just numbers",
         "CONTR":     "W: Separated contraction part, such as n't or na",
     },
-    'S': {
+    "S": {
         "LINE":      "S: Line boundary (put with prev or next, or separate?",
     },
-    'P': {
+    "P": {
         "CURRENCY":  "P: Currency indicator (if with it's number, -> NUM)",
         "EM":        "P: Clausal/em dash",
         "ELLIPSIS":  "P: Ellipsis, 3 or 4 dots, etc.",
@@ -994,7 +1006,7 @@ tokenSubtypes = {
         "DASH":      "P: Hyphens and dashes other than EM (soft get normalized away)",
         "DINGBAT":   "P: Any kind of typographic ornament",
     },
-    'I': {
+    "I": {
         "URL":       "I: A URL",
         "EMAIL":     "I: An email address",
         "HASHTAG":   "I: A Twitter-style hash-tag keyword",
@@ -1041,17 +1053,17 @@ class SimpleTokenizer:
 
     # Hyphenated words?
     hyphens        = re.compile(
-        r'(\w)-(\w)',
+        r"(\w)-(\w)",
         re.UNICODE)
 
     # Insert spaces between all characters, except inside emdash, ellipsis.
     #
     def spaceAll(self, mat):
         #print("spaceAll got: '%s'." % (mat.group(1)))
-        return re.sub(r'([^.-]|\.+|-+)', ' \\1', mat.group(1)) + ' '
+        return re.sub(r"([^.-]|\.+|-+)", " \\1", mat.group(1)) + " "
 
     def __init__(self,
-        normalize = 'NKFD',            # Unicode normalization (of '')
+        normalize = "NFKD",            # Unicode normalization (of "")
         breakHyphens = False,          # Split hyphenated words?
         fancyContractions = False,     # Use lg-specific token list
         verbose = False
@@ -1066,22 +1078,22 @@ class SimpleTokenizer:
         return
 
     def tokenize(self, s1):
-        # Normalize Unicode. NKFD default gets to decomposed form.
+        # Normalize Unicode. NFKD default gets to decomposed form.
         # Punctuation may land next to diacritics (which are not \w).
         #
         if (self.normalize):
-            s2 = unicodedata.normalize('NFKD', unicode(s1))
+            s2 = unicodedata.normalize("NFKD", unicode(s1))
         else:
             s2 = s1
 
         # Soft (optional) hyphens just get in the way.
         #
-        s2 = re.sub(u"\u00AD", '', s2)             # soft hyphen
+        s2 = re.sub(u"\u00AD", "", s2)             # soft hyphen
 
         # Insert spaces to separate various punctuation from words.
         #
         if (self.verbose):
-            s2 = re.sub(SimpleTokenizer.splitDashes,    r' \1 ',    s2)
+            s2 = re.sub(SimpleTokenizer.splitDashes,    r" \1 ",    s2)
             print("dashes: %s" % (s2))
 
             s2 = re.sub(SimpleTokenizer.splitFromStart, self.spaceAll, s2)
@@ -1091,20 +1103,20 @@ class SimpleTokenizer:
             print("finals: %s" % (s2))
 
             if (self.contractor is None):
-                s2 = re.sub(SimpleTokenizer.contracted, r' \1',     s2)
+                s2 = re.sub(SimpleTokenizer.contracted, r" \1",     s2)
             else:
                 s2 = self.contractor.doContractions(s2)
             print("contrs: %s" % (s2))
 
             if (self.breakHyphens):
-                s2 = re.sub(SimpleTokenizer.hyphens,    r'\1 - \2', s2)
+                s2 = re.sub(SimpleTokenizer.hyphens,    r"\1 - \2", s2)
                 print("hyphens: %s" % (s2))
 
             tokens = re.split(r"\p{Z}+", s2.strip())
             #print("tokens:\n    #%s#" % ("#\n    #".join(tokens)))
 
         else:
-            s2 = re.sub(SimpleTokenizer.splitDashes,    r' \1 ',    s2)
+            s2 = re.sub(SimpleTokenizer.splitDashes,    r" \1 ",    s2)
 
             s2 = re.sub(SimpleTokenizer.splitFromStart, self.spaceAll, s2)
 
@@ -1113,10 +1125,10 @@ class SimpleTokenizer:
             if (self.contractor):
                 s2 = self.contractor.doContractions(s2)
             else:
-                s2 = re.sub(SimpleTokenizer.contracted, r' \1',     s2)
+                s2 = re.sub(SimpleTokenizer.contracted, r" \1",     s2)
 
             if (self.breakHyphens):
-                s2 = re.sub(SimpleTokenizer.hyphens,    r'\1 - \2', s2)
+                s2 = re.sub(SimpleTokenizer.hyphens,    r"\1 - \2", s2)
 
             tokens = re.split(r"\p{Z}+", s2.strip())
 
@@ -1130,9 +1142,9 @@ class NLTKTokenizerPlus:
     See also https://keras.io/preprocessing/text/
         keras.preprocessing.text.Tokenizer(
             num_words=None,          # drop low-freq words
-            filters='...',           # drop these chars (default: v. all punc)
+            filters="...",           # drop these chars (default: v. all punc)
             lower=True,              # toLower
-            split=' ',               # word-split on this
+            split=" ",               # word-split on this
             char_level=False,        # true to split to individual chars
             oov_token=None)          # use for out-of-vocab words
         Which looks even lamer....
@@ -1156,23 +1168,24 @@ class NLTKTokenizerPlus:
         except ImportError:
             print("\n******* Cannot import nltk *******")
 
+        self.nltk = nltk
         self.options = {}
         self.srcData = ""
         self.tokens = []
 
     def tokenize(self, txt):
-        if (self.options['unicodePunct']):
+        if (self.options["unicodePunct"]):
             txt = self.regularizeUnicode(txt)
-        if (self.options['expandLigatures']):
+        if (self.options["expandLigatures"]):
             txt = self.expandLigatures(txt)
-        if (self.options['normalize']):
-            txt = unicodedata.normalize(self.options['normalize'], txt)
+        if (self.options["normalize"]):
+            txt = unicodedata.normalize(self.options["normalize"], txt)
 
-        tokens = nltk.nltk.word_tokenize(txt)
+        tokens = self.nltk.word_tokenize(txt)
         for i, token in enumerate(tokens):
             if (len(token) == 1): continue
-            if (token.endswith('.')):
-                if (token.find('.') != len(token)-1): continue
+            if (token.endswith(".")):
+                if (token.find(".") != len(token)-1): continue
                 tokens[i] = token[0:-1]
         return tokens
 
@@ -1187,15 +1200,15 @@ class NLTKTokenizerPlus:
             !! !? ?? ?! iquest interrobang
             emoji and dingbats
         """
-        if (re.search(r'&[#\w]\w+;', txt)):
+        if (re.search(r"&[#\w]\w+;", txt)):
             die("Unexpected XML/HTML entity syntax in '%s'.")
-        txt = re.sub(elRegex, ',', txt)    # -- Ellipses
-        txt = re.sub(spRegex, ' ', txt)    # Zs Spaces
-        txt = re.sub(hyRegex, '-', txt)    # Pd dashes
+        txt = re.sub(elRegex, ",", txt)    # -- Ellipses
+        txt = re.sub(spRegex, " ", txt)    # Zs Spaces
+        txt = re.sub(hyRegex, "-", txt)    # Pd dashes
         txt = re.sub(lqRegex, '"', txt)    # Pi Left Quotes
         txt = re.sub(rqRegex, '"', txt)    # Pf Right quotes
-        txt = re.sub(delRegex, '', txt)    # -- Chars to delete
-        txt = re.sub(dblRegex, '--', txt)  # -- em dashes
+        txt = re.sub(delRegex, "", txt)    # -- Chars to delete
+        txt = re.sub(dblRegex, "--", txt)  # -- em dashes
         return txt
 
     def expandLigatures(self,txt):
@@ -1213,10 +1226,10 @@ def ligRegexFunction(mat):
 
 def strip_diacritics(mat):
     c = mat.group(1)
-    de = unicodedata.normalize('NFKD', c)
+    de = unicodedata.normalize("NFKD", c)
     if (de is None or de == ""): return(c)
     # Ditch accents, but not ligature parts...
-    de = re.sub(r'\p{Mn}', '', de)
+    de = re.sub(r"\p{Mn}", "", de)
     return de
 
 
@@ -1232,7 +1245,7 @@ def get_value(mat):
 ###############################################################################
 #
 class HeavyTokenizer:
-    """Based on my Perl Tokenizer.pm
+    """Based on my Perl Tokenizer.pm.
     """
     dispValues = {
         # Keyword     Value    Classes that can use it
@@ -1271,70 +1284,70 @@ class HeavyTokenizer:
         sdo = self.defineOption
 
         #   Name             Datatype   Default
-        sdo('unicodePunct',      'boolean', True)    # Simplify Unicode punc
-        sdo('expandLigatures',   'boolean', True)    # Simplify fi/fl etc.
-        sdo('normalize',         ''       , True)    # NFC/NFKC/NFD/NFKD
-        sdo('dropFinalDot',      'boolean', True)    # final-period handling
-        sdo('splitContractions', 'boolean', True)
-        sdo('splitPossessives',  'boolean', True)
-        sdo('caseHandling',      'keep'   , True)    # /keep/lower/upper
-        sdo('assignTypes',       'boolean', False)   # TokenTypes
+        sdo("unicodePunct",      "boolean", True)    # Simplify Unicode punc
+        sdo("expandLigatures",   "boolean", True)    # Simplify fi/fl etc.
+        sdo("normalize",         ""       , True)    # NFC/NFKC/NFD/NFKD
+        sdo("dropFinalDot",      "boolean", True)    # final-period handling
+        sdo("splitContractions", "boolean", True)
+        sdo("splitPossessives",  "boolean", True)
+        sdo("caseHandling",      "keep"   , True)    # /keep/lower/upper
+        sdo("assignTypes",       "boolean", False)   # TokenTypes
 
-        sdo('TVERBOSE',      'boolean', 0)
-        sdo('TOKENTYPE',     'string',  'words')
+        sdo("TVERBOSE",      "boolean", 0)
+        sdo("TOKENTYPE",     "string",  "words")
 
         # 1: Expand
-        sdo('X_BACKSLASH',   'boolean', 0)
-        sdo('X_URI',         'boolean', 0)
-        sdo('X_ENTITY',      'boolean', 0)
+        sdo("X_BACKSLASH",   "boolean", 0)
+        sdo("X_URI",         "boolean", 0)
+        sdo("X_ENTITY",      "boolean", 0)
 
         # 2: Normalize
-        sdo('Ascii_Only',    'boolean', 0)
-        sdo('Accent',        'disp',    'keep')
-        sdo('Control_0',     'disp',    'keep')
-        sdo('Control_1',     'disp',    'keep')
-        sdo('Digit',         'disp',    'keep')
-        sdo('Fullwidth',     'disp',    'keep')
-        sdo('Ligature',      'disp',    'keep')
-        sdo('Math',          'disp',    'keep')
-        sdo('Nbsp',          'disp',    'space')
-        sdo('Soft_Hyphen',   'disp',    'delete')
+        sdo("Ascii_Only",    "boolean", 0)
+        sdo("Accent",        "disp",    "keep")
+        sdo("Control_0",     "disp",    "keep")
+        sdo("Control_1",     "disp",    "keep")
+        sdo("Digit",         "disp",    "keep")
+        sdo("Fullwidth",     "disp",    "keep")
+        sdo("Ligature",      "disp",    "keep")
+        sdo("Math",          "disp",    "keep")
+        sdo("Nbsp",          "disp",    "space")
+        sdo("Soft_Hyphen",   "disp",    "delete")
         for u in (unicodeCategories.keys()):  # The Unicode categories
-            sdo(u,           'disp',    'keep')
+            sdo(u,           "disp",    "keep")
 
         # 3: Shorten
-        sdo('N_CHAR',        'int',     0)
-        sdo('N_SPACE',       'int',     0)
+        sdo("N_CHAR",        "int",     0)
+        sdo("N_SPACE",       "int",     0)
 
         # 4: Non-word tokens
-        sdo('T_TIME',        'disp',    'keep')
-        sdo('T_DATE',        'disp',    'keep')
-        sdo('T_FRACTION',    'disp',    'keep')
-        sdo('T_NUMBER',      'disp',    'keep')
-        sdo('T_CURRENCY',    'disp',    'keep')
-        sdo('T_PERCENT',     'disp',    'keep')
-        sdo('T_EMOTICON',    'disp',    'keep')
-        sdo('T_HASHTAG',     'disp',    'keep')
-        sdo('T_USER',        'disp',    'keep')
-        sdo('T_EMAIL',       'disp',    'keep')
-        sdo('T_URI',         'disp',    'keep')
+        sdo("T_TIME",        "disp",    "keep")
+        sdo("T_DATE",        "disp",    "keep")
+        sdo("T_FRACTION",    "disp",    "keep")
+        sdo("T_NUMBER",      "disp",    "keep")
+        sdo("T_CURRENCY",    "disp",    "keep")
+        sdo("T_PERCENT",     "disp",    "keep")
+        sdo("T_EMOTICON",    "disp",    "keep")
+        sdo("T_HASHTAG",     "disp",    "keep")
+        sdo("T_USER",        "disp",    "keep")
+        sdo("T_EMAIL",       "disp",    "keep")
+        sdo("T_URI",         "disp",    "keep")
 
         # 5: Special issues
-        sdo('S_CONTRACTION', 'disp',    'keep')
-        sdo('S_HYPHENATED',  'disp',    'keep')
-        sdo('S_GENITIVE',    'disp',    'keep')
+        sdo("S_CONTRACTION", "disp",    "keep")
+        sdo("S_HYPHENATED",  "disp",    "keep")
+        sdo("S_GENITIVE",    "disp",    "keep")
 
         # 6: Filter (0 means keep, 1 means filter out)
-        sdo('F_MINLENGTH',   'int',     0)
-        sdo('F_MAXLENGTH',   'int',     0)
-        sdo('F_DICT',        'string',  '')
-        sdo('F_SPACE',       'boolean', 0) # OBS?
-        sdo('F_UPPER',       'boolean', 0)
-        sdo('F_LOWER',       'boolean', 0)
-        sdo('F_TITLE',       'boolean', 0)
-        sdo('F_MIXED',       'boolean', 0)
-        sdo('F_ALNUM',       'boolean', 0)
-        sdo('F_PUNCT',       'boolean', 0)
+        sdo("F_MINLENGTH",   "int",     0)
+        sdo("F_MAXLENGTH",   "int",     0)
+        sdo("F_DICT",        "string",  "")
+        sdo("F_SPACE",       "boolean", 0) # OBS?
+        sdo("F_UPPER",       "boolean", 0)
+        sdo("F_LOWER",       "boolean", 0)
+        sdo("F_TITLE",       "boolean", 0)
+        sdo("F_MIXED",       "boolean", 0)
+        sdo("F_ALNUM",       "boolean", 0)
+        sdo("F_PUNCT",       "boolean", 0)
 
         return
 
@@ -1361,33 +1374,33 @@ class HeavyTokenizer:
     #
     def preCompileRegexes(self):
 
-        self.regexes["Ascii_Only"]  = r'[^[:ascii:]]'
+        self.regexes["Ascii_Only"]  = r"[^[:ascii:]]"
 
         for ugcName in (unicodeCategories.keys()):
             self.regexes[ugcName]  = r'\p{'+ugcName+'}'
 
-        self.regexes["Accent"]      = r'' ### FIX ###
-        self.regexes["Control_0"]   = r'[\x00-\x1F]'
-        self.regexes["Control_1"]   = r'[\x80-\x9F]'
-        self.regexes["Digit"]       = r'[0-9]'
-        #self.regexes["Fullwidth"]  = r'' ### FIX ###
-        #self.regexes["Ligature"]   = r'' ### FIX ###
-        #self.regexes["Math"]       = r'' ### FIX ###
+        self.regexes["Accent"]      = r"" ### FIX ###
+        self.regexes["Control_0"]   = r"[\x00-\x1F]"
+        self.regexes["Control_1"]   = r"[\x80-\x9F]"
+        self.regexes["Digit"]       = r"[0-9]"
+        #self.regexes["Fullwidth"]  = r"" ### FIX ###
+        #self.regexes["Ligature"]   = r"" ### FIX ###
+        #self.regexes["Math"]       = r"" ### FIX ###
 
         ###################################################### VERY SPECIAL CHARS
-        self.regexes["Nbsp"]        = r'\xA0'
-        self.regexes["Soft_Hyphen"] = r'\xAD\u1806'
+        self.regexes["Nbsp"]        = r"\xA0"
+        self.regexes["Soft_Hyphen"] = r"\xAD\u1806"
 
         ###################################################### DATE/TIME
         # Doesn't deal with alphabetic times
         #
-        yr       = r'\b[12]\d\d\d'                         # Year
-        tim      = r'[012]?\d:[0-5]\d(:[0-5]\d)?'
+        yr       = r"\b[12]\d\d\d"                         # Year
+        tim      = r"[012]?\d:[0-5]\d(:[0-5]\d)?"
         # Move following few to TokensEN?
-        ampm     = r'(a\.?m\.?|p\.?m\.?)?'
-        era      = r'(AD|BC|CE|BCE)'                       # Which half of hx
-        zone     = r'\s?[ECMP][SD]T'                       # Time zone
-        self.regexes["T_TIME"]      = r'\b'+tim+r'\s*'+ampm+r'('+zone+r')?\b'
+        ampm     = r"(a\.?m\.?|p\.?m\.?)?"
+        era      = r"(AD|BC|CE|BCE)"                       # Which half of hx
+        zone     = r"\s?[ECMP][SD]T"                       # Time zone
+        self.regexes["T_TIME"]      = r"\b%s\s*%s(%s)?\b" % (tim, ampm, zone)
         # Also '60s 60's 60s
         self.regexes["T_DATE"]      = r'\b('+yr+r'".\'[-\/][0-3]?\d[-\/][0-3]?\d)|('+yr+' ?'+era+r')\b'
 
@@ -1451,10 +1464,10 @@ class HeavyTokenizer:
             u"\u10E7E",   # RUMI FRACTION TWO THIRDS
         ])
 
-        self.regexes["T_FRACTION"]  = r'\b((\d+-)?\d+\/\d+|['+fractionChars+r'])\b'
+        self.regexes["T_FRACTION"]  = r"\b((\d+-)?\d+\/\d+|[%s])\b" % (fractionChars)
 
         ###################################################### CURRENCY
-        currency = "".join([r'$',
+        currency = "".join([r"$",
             u"\u00A3",   # pound sign
             u"\u00A4",   # currency sign
             #"\u09F4",   # to U+09F9: Bengali currency numerators/denominator
@@ -1466,7 +1479,7 @@ class HeavyTokenizer:
             u"\uFF04",   # FULLWIDTH DOLLAR SIGN
             #"\u1F4B2",  # HEAVY DOLLAR SIGN
         ])
-        self.regexes["T_CURRENCY"]  = r'\b['+currency+r']\d+(\.\d+)?[KMB]?\b'
+        self.regexes["T_CURRENCY"]  = r"\b[%s]\d+(\.\d+)?[KMB]?\b" % (currency)
 
         ###################################################### PERCENT, etc.
         pct = "".join(["%",
@@ -1478,31 +1491,29 @@ class HeavyTokenizer:
             u"\uFE6A",   # Small Percent Sign
             u"\uFF05",   # Fullwidth Percent Sign
         ])
-        self.regexes["T_PERCENT"]   = r'\b\d+(\.\d+)['+pct+r']\b'
+        self.regexes["T_PERCENT"]   = r"\b\d+(\.\d+)[%s]\b" % (pct)
 
-        uriChars = r'[-~?\\[\\]\\(\\)&@+\w.:\\/\\$\\#]'    # Chars ok in URIs
+        uriChars = r"[-~?\\[\\]\\(\\)&@+\w.:\\/\\$\\#]"    # Chars ok in URIs
         schemes  = "(shttp|http|https|ftp|mailto)"        # URI scheme prefixes
         #tld      = "(com|org|edu|net|uk|ca)"              # top-level domains
-        self.regexes["T_EMOTICON"]  = r'[-:;]+[(){}<>]\b'
-        self.regexes["T_HASHTAG"]   = r'\b#\p{L}+\b'
-        self.regexes["T_EMAIL"]     = r'\b\w+@\w+(\.\w+)+\b'
-        self.regexes["T_USER"]      = r'\s@[.\w+]\b'
-        self.regexes["T_URI"]       = r'\b'+schemes+r':\/\/'+uriChars+r'+\w\b'
+        self.regexes["T_EMOTICON"]  = r"[-:;]+[(){}<>]\b"
+        self.regexes["T_HASHTAG"]   = r"\b#\p{L}+\b"
+        self.regexes["T_EMAIL"]     = r"\b\w+@\w+(\.\w+)+\b"
+        self.regexes["T_USER"]      = r"\s@[.\w+]\b"
+        self.regexes["T_URI"]       = r"\b%s:\/\/%s+\w\b" % (schemes, uriChars)
 
         ###################################################### Hyphenation
-        self.regexes["S_HYPHENATED"]= r'(\w)-(\w)'
+        self.regexes["S_HYPHENATED"]= r"(\w)-(\w)"
 
-        n = self.options["N_CHAR"]
-        self.regexes["N_CHAR"]       = r'(\w)\1{'+("%s"%n)+r',}'
-        s = self.options["N_SPACE"]
-        self.regexes["N_SPACE"]      = r'\s{'+("%s"%s)+r',}'
+        self.regexes["N_CHAR"]      = r"(\w)\1{%s,}" % (self.options["N_CHAR"])
+        self.regexes["N_SPACE"]     = r"\s{%s,}" % (self.options["N_SPACE"])
 
 
     ###########################################################################
     # MAIN TOKENIZER
     #
     def tokenize(self, s):
-        if (self.options['TVERBOSE']):
+        if (self.options["TVERBOSE"]):
             s = self.expand(s)
             print("Expanded: %s" % (s))
             s = self.normalize(s)
@@ -1526,24 +1537,22 @@ class HeavyTokenizer:
         self.tokens = tokens
         return(tokens)
 
-
     def expand(self, s):
         """Decode various special-character representations for various
         file formats. These often get left around in NLP lexica....
         """
         if (self.options["X_BACKSLASH"]):        # \uFFFF, \xFF, \n, etc.
             if (sys.version_info[0] < 3):
-                s = s.decode('string_escape')
+                s = s.decode("string_escape")
             else:
-                s = s.decode('unicode_escape')
+                s = s.decode("unicode_escape")
 
         if (self.options["X_URI"]):              # %FF
-            import urllib
-            s = urllib.unquote(s)
+            s = urllib.parse.unquote(s)
 
         if (self.options["X_ENTITY"]):           # &#xFF; &#255; &lt;
             if (sys.version_info[0] < 3):
-                s = HTMLParser.HTMLParser().unescape(s)
+                s = HTMLParser().unescape(s)
             else:
                 import html
                 s = html.unescape(s)
@@ -1552,34 +1561,34 @@ class HeavyTokenizer:
 
     def normalize(self, s):
         if (self.options["Ascii_Only"] ): # boolean
-            s = re.sub(r'[^[:ascii:]]', '', s)
+            s = re.sub(r"[^[:ascii:]]", "", s)
 
         else:
             for ugcName in (unicodeCategories.keys()):
                 optValue = self.options[ugcName]
-                if (dispTypes[optValue] == 1): continue # keep
+                if (dispTypes[optValue] == DT_KEEP): continue
                 s = self.map(s, ugcName, unicodeCategories[ugcName])
 
-            s = self.map(s, "Accent",            '???')
-            s = self.map(s, "Control_0",         ' ')
-            s = self.map(s, "Control_1",         ' ')
+            s = self.map(s, "Accent",            "???")
+            s = self.map(s, "Control_0",         " ")
+            s = self.map(s, "Control_1",         " ")
             # The digit normalization should be optional:
-            #s = self.map(s, "Digit",             '9')
+            #s = self.map(s, "Digit",             "9")
             #s = self.map(s, "Fullwidth"
             #s = self.map(s, "Ligature"
             #s = self.map(s, "Math"
-            s = self.map(s, "Nbsp",              ' ')
-            s = self.map(s, "Soft_Hyphen",       '')
+            s = self.map(s, "Nbsp",              " ")
+            s = self.map(s, "Soft_Hyphen",       "")
         return s
 
     def shorten(self, s):
         """Nuke tokens where char is heavily repeated, like argggggggg.
         """
         if (self.options["N_CHAR"] > 1):
-            s = re.sub(self.regexes["N_CHAR"],'11',s)
+            s = re.sub(self.regexes["N_CHAR"],"11",s)
 
         if (self.options["N_SPACE"] > 1):
-            s = re.sub(self.regexes["N_SPACE"], ' ', s)
+            s = re.sub(self.regexes["N_SPACE"], " ", s)
         return s
 
 
@@ -1605,13 +1614,13 @@ class HeavyTokenizer:
 
     def splitTokens(self, s):
         # A few specials
-        s = re.sub(r'--+', ' -- ', s)  # em dash
+        s = re.sub(r"--+", " -- ", s)  # em dash
         for c in ([ "\\.", "\\/", "\\*", "\\\\", "#", "=", "\\?", "\\!" ]):
-            s = re.sub('('+c+r'\s*){3,}', ' %s ' % (c*3), s)
+            s = re.sub(r"(%s\s*){3,}" % (c), " %s " % (c*3), s)
 
-        s = self.map(s, "S_HYPHENATED",          "\\1 - \\2")
+        s = self.map(s, "S_HYPHENATED", "\\1 - \\2")
 
-        #s = self.map(s, "S_GENITIVE",...)
+        #s = self.map(s, "S_GENITIVE", ...)
 
         if (self.options["S_CONTRACTION"] != "keep"):
             die("Contraction support is not included now")
@@ -1624,25 +1633,25 @@ class HeavyTokenizer:
         if (bt == "words"):                             # WORD/TOKEN SPLITTING
             # Break periods *not* for abbreviations
             try:
-                #s = re.sub(r'(\w)\. (\p{PosixUpper})', '\\1 . \\2', s)
+                #s = re.sub(r"(\w)\. (\p{PosixUpper})", "\\1 . \\2", s)
                 #s = re.sub(
-                #    r'(' + HeavyTokenizer.langSpec.titles +
-                #    r') \.', '\\1.', s)
+                #    r"(" + HeavyTokenizer.langSpec.titles +
+                #    r") \.", "\\1.", s)
                 s = re.sub(
-                    r'\b(\w) \. (\w) \.\b', '\\1.\\2.', s)
+                    r"\b(\w) \. (\w) \.\b", "\\1.\\2.", s)
 
                 # Separate punct at start/end of words
                 s = re.sub(
-                    r'(\s+)([^\w\s#@]+)(\w)', ' \\2 \\3', s)
+                    r"(\s+)([^\w\s#@]+)(\w)", " \\2 \\3", s)
                 s = re.sub(
-                    r'(\w)([^\w\s.]+)(\s|$)', '\\1 \\2 ', s) # Not periods!
-            except re._regex_core.error as e:
+                    r"(\w)([^\w\s.]+)(\s|$)", "\\1 \\2 ", s) # Not periods!
+            except re.error as e:
                 die("regex core error: %s" % (e))
             # Finally, split on all spaces (maybe switch to do this first?
-            tokens = re.split(r'\s+', s)
+            tokens = re.split(r"\s+", s)
 
         elif (bt == "chars"):                          # CHARACTER SPLITTING
-            tokens = re.split(r'', s)
+            tokens = re.split(r"", s)
             #warn "Split into: {" . join(" ",    tokens) . "}\n"
 
         elif (bt == "none"):                           # NO SPLITTING AT ALL
@@ -1653,14 +1662,14 @@ class HeavyTokenizer:
 
         return(tokens)
 
-    # Check the setting for a given option, for options that take a dispType
-    # as their value. Apply a regex change (that was already compiled!),
-    # to do the right thing to matching data.
-    #
-    def map(self, s, optName, norm):
+    def map(self, s, optName:str, norm:str=None) -> str:
+        """Check a given option (for ones that take a `dispType`
+        as their value). Apply a regex change (that was already compiled!),
+        to do the right thing to matching data.
+        """
         optValue = self.options[optName]
         if (optValue is None):
-            die("No option value found for '$optName'.")
+            die("No option value found for '%s'." % (optName))
             optValue = self.options[optName] = "keep"
 
         cregex = self.regexes[optName]
@@ -1670,44 +1679,31 @@ class HeavyTokenizer:
 
         #warn "Firing %s\t'%s': \t/%s/ on\n    %s\n" %
         # (optName, optValue, regex, s))
-        dispCode = dispTypes[optValue]
+        dl = dispTypes[optValue]
 
         try:
-            if    (dispCode == 1):             # keep
+            if (dl[0] == DT_KEEP):                  # keep
                 return
-
-            elif (dispCode > 10): # regex cases
-                if (dispCode == 11):	            # unify
-                    s = re.sub(cregex, '$norm', s)
-
-                elif (dispCode == 12):	        # delete
-                    s = re.sub(cregex, '', s)
-
-                elif (dispCode == 13):	        # space
-                    s = re.sub(cregex, ' ', s)
-
-                elif (dispCode == 14):	        # strip
-                    s = re.sub(r'(%s)' % (cregex), strip_diacritics, s)
-
-                elif (dispCode == 15):	        # value
-                    s = re.sub(r'(%s)' % (cregex), get_value, s)
-
-                else:
-                    die("map: bad (disp) value '$optValue' (=$dispCode)\n")
-
-            elif (dispCode == 6):	            # upper
+            if (dl[0] == DT_UNIFY):	                # unify
+                s = re.sub(cregex, norm, s)
+            elif (dl[0] == DT_DELETE):	            # delete
+                s = re.sub(cregex, "", s)
+            elif (dl[0] == DT_SPACE):	              # space
+                s = re.sub(cregex, " ", s)
+            elif (dl[0] == DT_STRIP):	              # strip
+                s = re.sub(r"(%s)" % (cregex), strip_diacritics, s)
+            elif (dl[0] == DT_VALUE):	              # value
+                s = re.sub(r"(%s)" % (cregex), get_value, s)
+            elif (dl[0] == DT_UPPER):	              # upper
                 s = s.upper()
-                # OR: s = re.sub(r'(%s)' % (cregex), '\U\\1\E', s)
-
-            elif (dispCode == 7):	            # lower
+                # OR: s = re.sub(r"(%s)" % (cregex), "\U\\1\E", s)
+            elif (dl[0] == DT_LOWER):	              # lower
                 s = s.lower()
-                # OR: s = re.sub(r'(%s)' % (cregex), '\L\\1\E', s)
-
-            elif (dispCode == 8):	            # decompose
-                s = unicodedata.normalize('NFKD', s)
-
+                # OR: s = re.sub(r"(%s)" % (cregex), "\L\\1\E", s)
+            elif (dl[0] == DT_DECOMPOSE):	          # decompose
+                s = unicodedata.normalize("NFKD", s)
             else:
-                die("map: bad (disp) value '%d' (=%s)\n" % (optValue, dispCode))
+                die("map: bad (disp) value '%d' (=%s)\n" % (optValue, dl))
         except TypeError as e:
             print("TypeError (cregex is %s):\n    %s" % (cregex, e))
 
@@ -1729,29 +1725,67 @@ class HeavyTokenizer:
             #elif (self.options["F_DICT"]  and      # dictionaries
             #        self.dict[t]): nillable = 1
             elif (self.options["F_SPACE"] and      # boolean
-                     re.search(r'^\s*$', t)): nillable = 1
+                     re.search(r"^\s*$", t)): nillable = 1
             elif (self.options["F_UPPER"] and      # UPPER
-                     re.search(r'^[[:upper:]]+$', t)): nillable = 1
+                     re.search(r"^[[:upper:]]+$", t)): nillable = 1
             elif (self.options["F_LOWER"] and      # lower
-                     re.search(r'^[[:lower:]]+$', t)): nillable = 1
+                     re.search(r"^[[:lower:]]+$", t)): nillable = 1
             elif (self.options["F_TITLE"] and      # Title
-                     re.search(r'^[[:upper:]][[:lower:]]*$', t)): nillable = 1
+                     re.search(r"^[[:upper:]][[:lower:]]*$", t)): nillable = 1
             elif (self.options["F_MIXED"] and      # mIxED
-                     re.search(r'^[[:alpha:]]+$', t)): nillable = 1
+                     re.search(r"^[[:alpha:]]+$", t)): nillable = 1
             elif (self.options["F_ALNUM"] and      # 4x4
-                     re.search(r'\d', t) and re.search(r'\w', t)): nillable = 1
+                     re.search(r"\d", t) and re.search(r"\w", t)): nillable = 1
             elif (self.options["F_PUNCT"] and      # AT&T /^[#@]/ ?
-                     re.search(r'[^-\'.\w]', t)): nillable = 1
+                     re.search(r"[^-'.\w]", t)): nillable = 1
             if (nillable): tokens[i] = ""
 
         return(tokens)
 
 
 ###############################################################################
-###############################################################################
 # Main
 #
 if __name__ == "__main__":
+    def doOneFile(path0, fhandle, tok0):
+        if (not args.quiet): print("Starting %s" % (path0))
+        for rec in (fhandle.readlines()):
+            tokens = tok0.tokenize(rec)
+            print(rec)
+            print(" | ".join(tokens))
+        return
+
+    def doSmokeTest(tok0):
+        print("Using smoke-test data... (mostly just ASCII, though!)")
+        testData = """
+A line of words, to help test 1-horse natural-language systems.
+Contractions it's good-luck in 2021 CE, 'til we're gonna add 'em.
+Foreign languages' words--like d'jour; c'est la vie -- they matter.
+Possessives, OTOH (are Dr. Alice's dog's thing (it can't think)).
+People do weird things... with punctuation, like [bracket] and {brace}.
+And weirder (like "this")!? -- see John Q. Smith & JRR Tolkien in a 4x4 on B&O.
+Back in the 1920s (aka '20s) there were "only 2 numbers", then we invented 3.14,
+[(which cost DARPA $200), and/or maybe $200M +/-1M]. We got 12% back
+on April 2nd, 2005 at 2:31am. Some would say 2005/04/02 instead, that's A#1!
+There are 25.4mm per inch, even for 6'5" people dense enough to
+weigh 0.2E-12 solar masses, +/- 1, or ~1Tg or 3 -1/2 tonne (see #twitter).
+See http://bit.ly/840284028#xyz or email me at foo@example.com.
+Emoticons like :) and :( and :P are a pain, especially at sen-
+tence end :). You get an A+ if on M*A*S*H c/o J.R.R. Tolkien (see section 1(a).12).
+DNA sequences look like CCAGTTGTGTATGTCCACCC-3', while at 2 o'clock, ma'am, I'd've
+seen substance(s) 8-hydroxydeoxyguanosine and 2,3,4-dihydrogen-monoxide.
+Visit Lake Chargoggagoggmanchauggagoggchaubunagungamaugg.
+"""
+        for rec in (testData.split()):
+            tokens = tok0.tokenize(rec)
+            print("\n======= %s" % (rec))
+            print(" | ".join(tokens))
+
+        return
+
+
+    ###########################################################################
+    #
     import argparse
     def processOptions():
         try:
@@ -1762,69 +1796,37 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--heavy",            action='store_true',
-            help='Use HeavyTokenizer instead of SimpleTokenizer.')
+            "--heavy",            action="store_true",
+            help="Use HeavyTokenizer instead of SimpleTokenizer.")
         parser.add_argument(
-            "--iencoding",        type=str, metavar='E', default="utf-8",
-            help='Assume this character set for input files. Default: utf-8.')
+            "--iencoding",        type=str, metavar="E", default="utf-8",
+            help="Assume this character set for input files. Default: utf-8.")
         parser.add_argument(
-            "--nltk",             action='store_true',
-            help='Use NLTKTokenizerPlus instead of SimpleTokenizer.')
+            "--nltk",             action="store_true",
+            help="Use NLTKTokenizerPlus instead of SimpleTokenizer.")
         parser.add_argument(
-            "--oencoding",        type=str, metavar='E',
-            help='Use this character set for output files.')
+            "--oencoding",        type=str, metavar="E",
+            help="Use this character set for output files.")
         parser.add_argument(
-            "--quiet", "-q",      action='store_true',
-            help='Suppress most messages.')
+            "--quiet", "-q",      action="store_true",
+            help="Suppress most messages.")
         parser.add_argument(
-            "--unicode",          action='store_const',  dest='iencoding',
-            const='utf8', help='Assume utf-8 for input files.')
+            "--unicode",          action="store_const",  dest="iencoding",
+            const="utf8", help="Assume utf-8 for input files.")
         parser.add_argument(
-            "--verbose", "-v",    action='count',       default=0,
-            help='Add more messages (repeatable).')
+            "--verbose", "-v",    action="count",       default=0,
+            help="Add more messages (repeatable).")
         parser.add_argument(
-            "--version", action='version', version=__version__,
-            help='Display version information, then exit.')
+            "--version", action="version", version=__version__,
+            help="Display version information, then exit.")
 
         parser.add_argument(
-            'files',             type=str,
+            "files",             type=str,
             nargs=argparse.REMAINDER,
-            help='Path(s) to input file(s)')
+            help="Path(s) to input file(s)")
 
         args0 = parser.parse_args()
         return(args0)
-
-    def doOneFile(path0, fhandle, tok0):
-        #print("Starting %s" % (path0))
-        for rec in (fhandle.readlines()):
-            tokens = tok0.tokenize(rec)
-            print(rec)
-            print(" | ".join(tokens))
-        return
-
-    def doSmokeTest(tok0):
-        print("Using smoke-test data... (mostly just ASCII, though!)")
-        testData = """
-A line of words, to help test natural-language systems.
-Contractions it's good-luck to have but we cannot, 'til we're gonna add 'em.
-Foreign languages' words--like d'jour; c'est la vie -- they matter.
-Possessives, OTOH (are Alice's dog's thing (I think)).
-People do weird things... with punctuation, like [bracket] and {brace}.
-And weirder (like "this")!? -- see John Q. Smith & JRR Tolkien in a 4x4.
-Back in the 1920s there were "only 2 numbers", then we invented 3.14,
-[(which cost DARPA $200), or maybe $200M +/-1M]. We got the money back
-on April 2, 2005 at 2:31am. Some would say 2005/04/02 instead, that's A#1!
-See http://bit.ly/840284028#xyz or email me at foo@att.com.
-Emoticons like :) and :( and :P are a pain, even at sentence end :).
-DNA sequences look like CCAGTTGTGTATGTCCACCC-3', while
-substances include 8-hydroxydeoxyguanosine and 2,3,4-dihydrogen-monoxide.
-"""
-        for rec in (testData.split("\n")):
-            tokens = tok0.tokenize(rec)
-            print("\n======= %s" % (rec))
-            print(" | ".join(tokens))
-
-        return
 
 
     ###########################################################################
@@ -1835,7 +1837,7 @@ substances include 8-hydroxydeoxyguanosine and 2,3,4-dihydrogen-monoxide.
     if (args.heavy):
         print("Running HeavyTokenizer")
         tok = HeavyTokenizer()
-        if (args.verbose): tok.setOption('TVERBOSE', 1)
+        if (args.verbose): tok.setOption("TVERBOSE", 1)
     elif (args.nltk):
         print("Running NLTKTokenizerPlus")
         tok = NLTKTokenizerPlus()
@@ -1843,13 +1845,7 @@ substances include 8-hydroxydeoxyguanosine and 2,3,4-dihydrogen-monoxide.
         print("Running SimpleTokenizer")
         tok = SimpleTokenizer(verbose=args.verbose)
 
-    if (len(args.files) == 0):
-        die("No files specified (see %s)." %
-            ("~/bingit/DATA/SAMPLE_DATA/TokenizerTestData.txt"))
-        UTF8Reader = codecs.getreader('utf8')
-        sys.stdin = UTF8Reader(sys.stdin)
-        doOneFile("[STDIN]", sys.stdin, tok)
-    elif (args.files[0] == "*"):
+    if (len(args.files) == 0 or args.files[0] == "*"):
         doSmokeTest(tok)
     else:
         for path in args.files:

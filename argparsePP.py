@@ -41,7 +41,7 @@ An improved ArgumentParser and argparse:
 Unicode, XSD, and other widely-used standards.
 * Can automatically expand "choices" values to one-hot separate attributes
 (`add_enum()`)
-* Can ignore case for option names.
+* Can ignore case for option names
 
 
 =Related Commands=
@@ -56,6 +56,9 @@ Unfinished.
 
 =To do=
 
+Make a way to suppress an argument(s) from -h.
+Esp. useful for imported args, like PowerWalk.py's.
+
 ==More types==
 
 * dict? works like append but add to a dict, with const value or serial num.
@@ -69,8 +72,31 @@ Unfinished.
 * token accumulator: repeatable option, but you can either do `-x foo -x bar`,
 or `-x "foo bar"`, or mix the two.
 
+==Expressions?==
+
+Some (hopefully cleaner?) way to do logic, a bit like `find`. say,
+parentheses, boolean ops, and comparisons, where identifiers get resolved
+by a callback. But this really needs lazy evaluation -- you can only evaluate
+`find`-like conditions on a file-by-file basis.
+
+Issues:
+    * case and regex comparison
+    * case for `choices` values
+    * set operations
+    * date/time facilities
+    * check identifiers at parsetime, but eval later?
+    * indicate which are per-file evals?
+    * date differences like recency
+
+    --include = "(type='d' and size>12E+6 and (ext in [ 'foo', 'bar' ]))"
+
+    do this with just eval, after subbing in all the vars.
+    usual question of how to signal interpolation.
+
 ==Other options==
 
+* Way to make one shorthand option set 2 others, e.g. PowerWalk's --quote
+to set --openQuote and --closeQuote.
 * Option to group options into categories (so doc shows them in groups;
 esp. useful for added groups like with PowerWalk.py).
 * Ignore case
@@ -83,6 +109,7 @@ esp. useful for added groups like with PowerWalk.py).
 * entailment? setting x also changes y and z
 * exclusion: can't set both x and y
 * support minimum unique truncations for 'choices'.
+* repeatable option, where instance can also be split, like -x "1 2 3" -x 4.
 
 * method to add synonym to previously-defined option
 * option for output to $PAGER (incl. links when possible? or should all
@@ -352,6 +379,13 @@ dt.checkValueForType("int", "12")
 def condition(s):
     pass
 
+### File-system stuff
+#
+# Nonextant but writable
+# extant file (poss. with various properties or test callback)
+# extant dir
+# basename
+# extension (no .)
 
 ###############################################################################
 #

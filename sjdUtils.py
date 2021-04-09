@@ -52,8 +52,8 @@ timing, and handling error messages.
     su.setColors(useColor)
     ...
 
-Messaging support is now in C<alogging>, which works a lot like Python's
-C<logging.Logger>, but has nicer layout (I think), support for -v levels,
+Messaging support is now in `alogging`, which works a lot like Python's
+`logging.Logger`, but has nicer layout (I think), support for -v levels,
 statistics, color, and a simpler (although much less flexible) structure:
 
     from alogging import ALogger   # For messaging/logging features
@@ -78,7 +78,7 @@ Constructor.
 
 * '''getOption''' ''(name)''
 Get the value of option ''name'', from the list below.
-Returns C<None> if you try to get an unknown option.
+Returns `None` if you try to get an unknown option.
 
 * '''setOption''' ''(name, value)''
 Set option ''name'', from the list below, to ''value''.
@@ -101,11 +101,8 @@ Set the name of the character encoding to be used when not otherwise specified.
 
 ** Option: ''loremText'' (string)
 The text to be returned by ''lorem(type='a')''.
-This should be a Python 2.x "str" (single-byte only).
 Default: the usual ''lorem ipsum...''.
 
-
-=for nobody ===================================================================
 
 ==XML-related methods==
 
@@ -116,7 +113,7 @@ to create indentation (up to a maximum of ''maxIndent'' levels.
 If ''breakAttrs'' is true, put each attribute on a separate line, too.
 
 ''elems'' is a dictionary that maps each element type name to either
-C<block> or C<indent>, and affects line-breaking accordingly.
+`block` or `indent`, and affects line-breaking accordingly.
 
 * '''indentXML''' -- synonym for '''indentXml'''.
 
@@ -224,7 +221,7 @@ escaped by ''escape''.
 
 ==Unicode stuff==
 
-If running in Python 3, it defines C<unichr> to just be C<chr> so it
+If running in Python 3, it defines `unichr` to just be `chr` so it
 still works.
 
 * '''isUnicodeCodePoint'''(c)
@@ -311,7 +308,7 @@ Normalize whitespace per XML definition. This affects Python (non-Unicode) \\s.
 * '''expandXml(s)'''
 
 Expand any special-character references in ''s''.
-This uses the Python C<HTMLParser> package's "unescape()" method.
+This uses the Python `HTMLParser` package's "unescape()" method.
 
 * '''backslash(s)'''
 
@@ -354,7 +351,7 @@ Returns the time portion of isoDateTime. Example: 23:22:05.
 
 Returns the difference between ''start'' and ''end'', which should be values
 directly from ''time()'' (not returned values from ''isoTime'', for example).
-The elapsed time is in the form C<hh:mm:ss> unless
+The elapsed time is in the form `hh:mm:ss` unless
  ''seconds'' is True, in which case you just get the raw number of seconds.
 
 * '''lorem(length=79, loremType="a", mode='frequency', xtab=None)'''
@@ -387,12 +384,12 @@ All code points seem to be assigned in at least these ranges:
 
 Generates a single random character (used by ''lorem(type='r')'')
 
-If ''mode'' is C<frequency>, ASCII lowercase letters and space are generated,
+If ''mode'' is `frequency`, ASCII lowercase letters and space are generated,
 in accordance with approximate probabilities in English text.
-Option C<letterFreqs> holds a dictionary of char->frequencies.
+Option `letterFreqs` holds a dictionary of char->frequencies.
 The keys include 26 lower-case letters, plus space.
 
-If ''mode'' is C<uniform>, ASCII printable characters are generated,
+If ''mode'' is `uniform`, ASCII printable characters are generated,
 with uniform probabilities.
 
 * '''availableFileNum'''(base, width=4, min=1, max=1000, sep='', which='free')
@@ -422,21 +419,21 @@ it is appendable, otherwise the first such file that does not exist.
 
 * '''Note''': On many file systems, directories with more than about 1000 files
 in them get really slow. This method is still experimental.
-See also the C<incrementFilename.py> command.
+See also the `incrementFilename.py` command.
 
 
 =The ColorManager class=
 
-This is a separate class defined in C<ColorManager.py>,
+This is a separate class defined in `ColorManager.py`,
 to make it easy to manage ANSI terminal color escape sequences.
 Its methods
-are also patched in to C<sjdUtils.py>, so when color is enabled you can just
-call them as if they were methods of C<sjdUtils.py> itself.
+are also patched in to `sjdUtils.py`, so when color is enabled you can just
+call them as if they were methods of `sjdUtils.py` itself.
 
 The color names available are defined in F<bingit/SHELL/colorNames.pod>,
 which supercedes anything in specific scripts (although they ''should'' match).
 
-A dictionary of the usable names is in C<colorStrings>; a printable
+A dictionary of the usable names is in `colorStrings`; a printable
 form can be retrieve via ''getColorStrings()'', or a printable list
 via ''tostring()''.
 
@@ -487,7 +484,7 @@ Also available as standalone Python script `uncolorize`.
 * '''uncoloredLen''' ''(s)''
 
 Return the length of ''s'', but ignoring any ANSI terminal color strings.
-This is just shorthand for C<len(uncolorize(s))>.
+This is just shorthand for `len(uncolorize(s))`.
 
 
 =Known bugs and limitations=
@@ -841,24 +838,23 @@ class sjdUtils:
     def setUtilsOption(self, name, value=1):
         return(self.setOption(name, value))
     def setOption(self, name, value=1):
-        """Set option I<name>, from the list below, to I<value>.
+        """Set option `name`, from the list below, to `value`.
 
-        * Option: I<colorEnabled>
+        * Option: `colorEnabled`
 
         Globally enables/disables use of color.
-        Script may wish to set this to True if environment variable I<USE_COLOR> is
+        Script may wish to set this to True if environment variable `USE_COLOR` is
         set and the relevant output is going to a terminal.
-        See also the I<setColors>() method, below.
+        See also the `setColors()` method, below.
 
-        * Option: I<defaultEncoding>
+        * Option: defaultEncoding
 
         Set the name of the character encoding to be used when not otherwise specified.
 
-        * Option: I<loremText> (string)
+        * Option: loremText (string)
 
-        The text to be returned by I<lorem(type='a')>.
-        This should be a Python 2.x "str" (single-byte only).
-        Default: the usual I<lorem ipsum...>.
+        The text to be returned by lorem(type='a').
+        Default: the usual lorem ipsum....
         """
         self.options[name] = value
         if (name=="letterFreqs"):
@@ -1001,7 +997,7 @@ class sjdUtils:
     ###########################################################################
     #
     def getJsonIndent(self, level, maxIndent, iString=None):
-        """Internal. Return a newline plus indentation for I<indentJson>().
+        """Internal. Return a newline plus indentation for indentJson>().
         """
         if (iString is None): iString = self.options["iString"]
         effLevel = level
@@ -1068,8 +1064,8 @@ class sjdUtils:
         return(s.rjust(width, padChar))
 
     def lpadc(self, s, width=0, padChar="0", quoteChar="", sepChar=","):
-        """Like lpad(), but inserting I<sepChar>s every three digits.
-        (Python 3 has that feature in I<format>).
+        """Like lpad(), but inserting `sepChar` every three digits.
+        (Python 3 has that feature in `format`).
         Can also quote before padding.
         """
         buf = ""
@@ -1102,7 +1098,7 @@ class sjdUtils:
         allNumeric = []
         for s in mylist:
             if (isinstance(s, string_types)):
-                tokens = s.split(delim)
+                tokens = s.split(sep=delim)
             else:
                 tokens = list(s)
             tokenized.append(tokens)
@@ -1147,7 +1143,7 @@ class sjdUtils:
         return(rc)
 
     def fromHNumber(self, n, base=1000):
-        """Undo I<toHNumber>() notation. For example, "123M" would become
+        """Undo toHNumber() notation. For example, "123M" would become
         "123000000". Round-trip conversions lose precision.
         """
         if (base==1000): col = 1
@@ -1190,7 +1186,7 @@ class sjdUtils:
     # Return 1 iff the argument is interpretable as a number.
     #
     def isNumeric(self, n):
-        """Return True if I<n> passes safely through I<float>().
+        """Return True if n castable to float().
         """
         try:
             float(n)
@@ -1199,7 +1195,7 @@ class sjdUtils:
             return(False)
 
     def isInteger(self, n):
-        """Return True if I<n> passes safely through I<int>() and float>(),
+        """Return True if n castable to int and float,
         and the resulting values are equal.
         """
         try:
@@ -1271,15 +1267,15 @@ class sjdUtils:
         return(self.showInvisibles(s))
 
     def showInvisibles(self, s):
-        """Return I<s> with non-ASCII and control characters replaced by
-        hexadecimal escapes such as C<\\uFFFF>.
+        """Return s with non-ASCII and control characters replaced by
+        hexadecimal escapes such as `\\uFFFF`.
         """
         if (s is None): return("")
         s = re.sub(r'([^[:ascii:]]|[[:cntrl:]])', UEscapeFunction, s)
         return(s)
 
     def escapeRegex(self, s):
-        """Put backslashes in front of potential regex meta-characters in I<s>.
+        """Put backslashes in front of potential regex meta-characters in s.
         """
         if (s is None): return("")
         s = re.sub(r'([().?*+\[\]{}^\\\\])', "\\\\\\1", s)
@@ -1300,19 +1296,19 @@ class sjdUtils:
         return(s)
 
     def escapeXml(self, s):
-        """Synonym for I<escapeXmlContent>().
+        """Synonym for escapeXmlContent().
         """
         return(self.escapeXmlContent(s))
 
     def escapeXmlText(self, s):
-        """Synonym for I<escapeXmlContent>().
+        """Synonym for escapeXmlContent().
         """
         return(self.escapeXmlContent(s))
 
     def escapeXmlAttribute(self, s, apostrophes=False):
         """Turn ampersands, less-than signs, and double-quotes
-        into XML entity references. If I<apos> is true, then leave
-        double-quotes unchanged, but turn single-quotes into C<&apos;> instead.
+        into XML entity references. If `apos` is true, then leave
+        double-quotes unchanged, but turn single-quotes into `&apos;` instead.
         Also delete any non-XML C0 control characters.
         This escaping is appropriate for XML attribute values.
         """
@@ -1337,7 +1333,7 @@ class sjdUtils:
         return(s)
 
     def escapeXmlComment(self, s, target=u"\u2014"):
-        """Turns "--" into em dash (U+2014) within I<s>. "--" is not allowed
+        """Turns "--" into em dash (U+2014) within s. "--" is not allowed
         inside XML comments. This is not a method defined by XML.
         """
         if (s is None): return("")

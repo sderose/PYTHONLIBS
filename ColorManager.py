@@ -28,7 +28,8 @@ descr = u"""
 
 Provide relatively easy access to ANSI terminal colors. For example,
 colorize a string using a color name such as "blue/white/bold", remove
-all color escapes, measure the character length of a string while
+all color escapes, change ANSI color to represent via HTML,
+measure the character length of a string while
 disregarding color escapes, etc.
 
 ==Color names==
@@ -145,6 +146,13 @@ Remove any ANSI terminal color escapes from ''s''.
 Return the length of ''s'', but ignoring any ANSI terminal color strings.
 This is just shorthand for `len(uncolorize(s))`.
 
+* '''color2HTML(s)'''
+
+(experimental) Map color escapes to HTML. This should work fine for simple
+cases, but it might come out odd if you have multiple color-changes in a row.
+That's because ANSI color just switches (possibly to 'default', but that's just
+another change), while HTML components push and pop the state.
+
 
 =Known bugs and limitations=
 
@@ -162,20 +170,23 @@ ColorManager has no support (yet) for 256-color terminals.
 There is a Perl version in `ColorManager.pm`,
 and wrappers in `uncolorize` and `colorstring`.
 
-My `hilite` uses the Perl version, and lets you specify any number of regexes,
-with a color to highlight their matches in.
+My `hilite` uses that Perl version, and lets you specify any number of regexes,
+with colors to highlight their matches in.
 
-My `sjdUtils.py` forwards several `ColorManager.py` methods,
+My [https://github.com/sderose/PYTHONLIBS/blob/master/sjdUtils.py] forwards several `ColorManager.py` methods,
 so when color is enabled you can just
 call them as if they were methods of `sjdUtils.py` itself.
+
+My [https://github.com/sderose/Color.git/blob/master/uncolorize] is a wrapper
+for some ColorManager.py functionality.
+
+Pypi has an `ansicolors` package (by Jonathan Eunice) at
+[https://pypi.org/project/ansicolors/] which is similar to this.
 
 See [https://stackoverflow.com/questions/287871] on "How to print colored text in terminal in python." It references Python modules ''termcolor'' (apparently
 no longer maintained?), ''chromalog'', ''Colorama'', and others.
 For information on these codes, see for example
 [https://en.wikipedia.org/wiki/ANSI_escape_code].
-
-Pypi has an `ansicolors` package (by Jonathan Eunice) at
-[https://pypi.org/project/ansicolors/] which is similar to this.
 
 
 =History=
@@ -189,6 +200,7 @@ Add test feature as main.
 Clean up doc. Move effects to end, not beginning per ColorNames.md.
 * 2020-11-24: Clean up and describe command-line usage. Add `--uncolorize` and
 `--testEffects`. Make `--text` and stdin work the same way.
+* 2020-12-14: Start support for HTML output.
 
 
 =To do=
@@ -227,6 +239,7 @@ For further information on this license, see
 =Options=
 """
 
+
 ###############################################################################
 #
 class ColorManager:
@@ -238,7 +251,9 @@ class ColorManager:
         Few terminals support all of the effects, and this doesn't check.
         There is no support for 256 color terminals.
     """
-    colorNumbers = {
+    numbers2Names = {}  # Set up only if needed
+
+    colorNumbers = {  # +30 for foreground, +40 for background
         u"black"   : 0,
         u"red"     : 1,
         u"green"   : 2,
@@ -397,6 +412,28 @@ class ColorManager:
         terminal color escapes or any trailing whitespace.
         """
         return(len(self.uncolorize(s)))
+
+    def color2HTML(self, s):  # TODO: Finish
+        """Convert colors escapes to HTML <spans>.
+        TODO: This is dumb about overlapping/nested/serial colors, because
+        ANSI terminal color does not use a stack discipline.
+        """
+        t = re.sub(self.colorRegex, self.htmlMapper, s)
+        return(t)
+
+    @staticmethod
+    def htmlMapper(_mat):
+        assert(False)
+
+    def esc2css(self, e):
+        parts = [ code for code in re.split(r"\D+", e) if code.isnum() ]
+        return ";".join(parts)
+
+    def toName(self, num):
+        if (ColorManager.numbers2Names is None):
+            for nam, num in self.colorStrings.items():
+                ColorManager.numbers2Names[num] = nam
+        return ColorManager.numbers2Names[num] or None
 
 
 ###############################################################################

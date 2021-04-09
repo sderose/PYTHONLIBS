@@ -314,6 +314,7 @@ Options can also be set directly from your Python code, for example:
 
     MarkupHelpFormatter.InputOptions["mediawiki"] = True
 
+
 =Using MarkupHelpFormatter in your Python programs=
 
     import MarkupHelpFormatter
@@ -349,6 +350,7 @@ There are 3 class variables of interest, all dicts:
     MarkupHelpFormatter.InputOptions -- options for the marked-up input.
     MarkupHelpFormatter.OutputOptions -- options for output formatting.
 
+
 =Related commands and libraries=
 
 A different Python Markdown formatter: [https://pypi.org/project/markdown-formatter/]
@@ -364,6 +366,7 @@ capabilities your terminal program supports. For example, a few
 support italics, blinking text, 256 colors, or even multiple fonts.
 The default formatting avoids uncommon capabilities. You can get at
 some others via "=set" and =style (see above).
+
 
 =History=
 
@@ -384,6 +387,9 @@ Slightly improved at the same time, such as to handle tabs and indented blocks.
 Start separating loader, renderer, and document representation, instead
 of transforming straight to escape-codes inline.
 
+2021-04: Clean up.
+
+
 =Rights=
 
 This program is Copyright 2013 by Steven J. DeRose.
@@ -393,6 +399,7 @@ For more information on this license, see L<here|"https://creativecommons.org">.
 
 For the most recent version, see L<http://www.derose.net/steve/utilities/> or
 L<http://github/com/sderose>.
+
 
 =To do=
 
@@ -409,6 +416,7 @@ Or may not be removing pre-existing LFs right.
 * Integrate mathAlphanumerics.py to get bold, italic, etc.
 * Possibly hook up to 'man -H'
 
+
 ==Low priority==
 
 * Support backslash+x etc. in =set ULmarkers.
@@ -419,7 +427,11 @@ Or may not be removing pre-existing LFs right.
 * How best to support links?
 * Support POD's Z<> (suppress POD) markup
 * Once HTML generation is done, add =set for css and js to include.
+
+
+=Options=
 """
+
 
 ##############################################################################
 #
@@ -837,7 +849,7 @@ class Loader:
                 line = rest
                 blClass = StyleValues.BLK_ROW
                 marker = leadPunct
-                columns = line.split('|')  # TODO FINISH
+                columns = line.split(sep='|')  # TODO FINISH
 
             elif (re.match(r'[-=*]{3,}\s*$', line)):       # Horizontal RULE
                 line = leadPunct
@@ -1016,7 +1028,7 @@ class Loader:
         return(StyleValues.colorize(matchobj.group(1), fg="red", bold=1))
     def mkLink(self, matchobj):
         if (':' in matchobj.group(1)):
-            anchor, ref = matchobj.group(1).split(':', maxsplit=1)
+            anchor, ref = matchobj.group(1).split(sep=':', maxsplit=1)
         else:
             anchor = ref = matchobj.group(1)
         ref = ref.strip("\"'")

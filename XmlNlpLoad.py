@@ -1,45 +1,39 @@
 #!/usr/bin/env python
 #
 # XmlNlpLoad.pm
-#
-# 2018-05-07: by Steven J. DeRose.
-#
-# To do:
-#     Test
+# 2018-05-07: Written by Steven J. DeRose.
 #
 from __future__ import print_function
-#import sys, os
-#import argparse
-#import re
-#import string
-#import math
-#import subprocess
-#import codecs
-#import gzip
-#from collections import defaultdict
-
-#import pudb
-#pudb.set_trace()
-
-#from sjdUtils import sjdUtils
-from alogging import ALogger
-#from MarkupHelpFormatter import MarkupHelpFormatter
 
 import xml.dom
 import xml.dom.minidom
 from DomExtensions import DomExtensions
 
-
-__version__ = "2018-08-16"
-__metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2018-05-07",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2018-08-16",
-}
-
-#su = sjdUtils()
+from alogging import ALogger
 lg = ALogger(1)
+
+__metadata__ = {
+    "title"        : "XmlNlpLoad.py",
+    "description"  : "Pull text from XML and arrange for NLP tools.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2018-05-07",
+    "modified"     : "2021-03-03",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__["modified"]
+
+
+descr = """
+=History=
+
+  2018-05-07, 2018-08-16: Written by Steven J. DeRose.
+  2021-03-03: New layout.
+
+"""
 
 
 ###############################################################################

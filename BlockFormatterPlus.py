@@ -3,6 +3,7 @@
 # BlockFormatterPlus: Like BlockFormatter, but also hooks in handling
 # of inline markup, and use of color and Unicode pseudo-fonts.
 # Upgrade for Python argparse, that don't forcibly wrap all text.
+# Written 2020-08-27 (forked from BlockFormatter.py) by Steven J. DeRose.
 #
 #pylint: disable=W0212
 #
@@ -24,19 +25,19 @@ if PY3:
     def unichr(n): return chr(n)
 
 __metadata__ = {
-    'title'        : "BlockFormatterPlus.py",
-    'description'  :
-        'Fairly simple formatter class for Python argparse (level 2).',
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2020-08-27 (forked from BlockFormatter.py)",
-    'modified'     : "2020-08-27",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/",
+    "title"        : "BlockFormatterPlus.py",
+    "description"  :
+        "Fairly simple formatter class for Python argparse (level 2).",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2020-08-27 (forked from BlockFormatter.py)",
+    "modified"     : "2020-08-27",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/",
 }
-__version__ = __metadata__['modified']
+__version__ = __metadata__["modified"]
 
 descr = """
 =Description=
@@ -123,52 +124,52 @@ There is a class variable `_options`, which is a dict that
 defaults to:
 
     _options = {
-        'verbose':     0,
-        'showInvis':   False,
-        'tabStops':    4,
-        'hangIndent':  2,
-        'xescapes':    False,
-        'uescapes':    False,
-        'entities':    False,
-        'breakLong':   False,
-        'altFill':     None,
-        'comment':     '#',
-        'quotes':      'STRAIGHT',
+        "verbose":     0,
+        "showInvis":   False,
+        "tabStops":    4,
+        "hangIndent":  2,
+        "xescapes":    False,
+        "uescapes":    False,
+        "entities":    False,
+        "breakLong":   False,
+        "altFill":     None,
+        "comment":     "#",
+        "quotes":      "STRAIGHT",
     }
 
 There is not yet an API to change or set these, but you can set them
 directly like:
-    BlockFormatterPlus._options['tabStops'] = 8
+    BlockFormatterPlus._options["tabStops"] = 8
 
-'verbose' can be increased to generate debugging messages.
+"verbose" can be increased to generate debugging messages.
 
-'tabStops' is the interval to assume for expanding tabs.
+"tabStops" is the interval to assume for expanding tabs.
 
-'showInvis' causes all C0 control characters (except the newlines
+"showInvis" causes all C0 control characters (except the newlines
 used to line-break the
 output) to appear instead as their Unicode "control pictures", near U+2400.
 
-'hangIndent' is the number of extra columns to indent non-first lines of
+"hangIndent" is the number of extra columns to indent non-first lines of
 indented blocks (for example, 2 to indent past a bullet and following space for
 list-items).
 
-'xescapes' expands \\xFF-style codes to actual characters (experimental). This
+"xescapes" expands \\xFF-style codes to actual characters (experimental). This
 happens after line-breaking, tab expansion, etc.
 
-'uescapes' expands \\uFFFF-style codes to actual characters (experimental).
-This happens after 'xescapes'.
+"uescapes" expands \\uFFFF-style codes to actual characters (experimental).
+This happens after "xescapes".
 
-'entities', once implemented, will expand XML/HTML character references.
+"entities", once implemented, will expand XML/HTML character references.
 
-'breakLong', once implemented, will enable smarter line-breaking when faced
+"breakLong", once implemented, will enable smarter line-breaking when faced
 with very long tokens such as URLs.
 
-'altFill' can be set to a callable replacement for _fill_text().
+"altFill" can be set to a callable replacement for _fill_text().
 One such is provided: `_alt_fill`.
 
-'comment' is a string that identifies comment lines (no space before).
+"comment" is a string that identifies comment lines (no space before).
 
-'quotes' determines what kind of quotation marks to use, from this list.
+"quotes" determines what kind of quotation marks to use, from this list.
 They may be passed as string literals, or as values of the Enum `QuoteType`.
 * NONE      = 0
 * S_PLAIN   = 1
@@ -194,7 +195,7 @@ My `argparsePP.py`:
 * Adds a showDefaults option
 * Adds a shortMetavars option
 * Supports alternative hyphen conventions
-* Supports adding 'toggle' attributes, with 'no-' prefix (changeable)
+* Supports adding "toggle" attributes, with "no-" prefix (changeable)
 
 =Known bugs and limitations=
 
@@ -206,7 +207,7 @@ could break any time. See [https://stackoverflow.com/questions/29484443]. But
 it also does not seem to change much. I have no idea why more attention
 has not been paid to this; it seems to me a very basic/common tool.
 
-* Option to page the output, or send directly to 'less'
+* Option to page the output, or send directly to "less"
 
 * Markdown in practice is extraordinarily inconsistent. If you pick the
 wrong variant (once I get variants working), or use an unsupported variant,
@@ -234,6 +235,13 @@ Refactor entity/escape/tab handling.
 
 =To Do=
 
+==Tasks remaining for initial functionality==
+
+* Get _fill_despite_color() working.
+* Test integration of ColorManager
+* Test integration of MathAlphanumerics
+
+==Other tasks==
 *Finish inline support.
 *Option for `[!url|anchorText]` for transclusion?
 *Option to skip to regex, element, or section xptr?
@@ -261,6 +269,15 @@ Thanks to Anthon van der Neut for help on integrating with `argparse`. Also:
 =Options=
 """
 
+def log(lvl, msg):
+    if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
+def warning0(msg): log(0, msg)
+def warning1(msg): log(1, msg)
+def warning2(msg): log(2, msg)
+def warning3(msg): log(3, msg)
+def fatal(msg): log(0, msg); sys.exit()
+
+
 ##############################################################################
 #
 theStyle = None  # Used by InlineMapper.formatBlock()  # TODO: unglobalize
@@ -283,40 +300,32 @@ specialChars = {
     "thinsp":  unichr(0x2009),    "hairsp":  unichr(0x200A),
     "zerosp":  unichr(0x200B),    "nbsp":    unichr(0x00A0),
 
-    "lt": '<', "gt": '>', "apos": "'", "quo": '"', "amp": '&',
+    "lt": "<", "gt": ">", "apos": "'", "quo": '"', "amp": "&",
 }
-
-def hMsg(level, msg):
-    if (BlockFormatterPlus._options['verbose']>=level):
-        sys.stderr.write("\n*******" + msg+'\n')
-
-def vMsg(level, msg):
-    if (BlockFormatterPlus._options['verbose']>=level):
-        sys.stderr.write(msg+'\n')
 
 def makeVis(s):
     """Turn control characters into Unicode Control Pictures.
     TODO: Make wrapping treat these as breakable?
     """
-    return re.sub(r'([\x01-\x0F\x11-\x1F])', toPix, s)  # NOT NEWLINE!
+    return re.sub(r"([\x01-\x0F\x11-\x1F])", toPix, s)  # NOT NEWLINE!
 
 def toPix(mat):
     """Make control chars and space visible.
     """
     cp = ord(mat.group(1))
-    if (cp > ord(' ')): return mat.group(1)
+    if (cp > ord(" ")): return mat.group(1)
     return unichr(0x2400 + cp)
 
 def xescapes(s):
     """Replace \\x escapes (but doesn't notice if the \\ is itself escaped).
     """
-    return re.sub(r'\\x([0-9a-f][0-9a-f])',
+    return re.sub(r"\\x([0-9a-f][0-9a-f])",
         lambda mat: unichr(int(mat.group(1), 16)), s, re.I)
 
 def uescapes(s):
     """Replace \\u escapes (but doesn't notice if the \\ is itself escaped).
     """
-    return re.sub(r'\\u([0-9a-f][0-9a-f][0-9a-f][0-9a-f])',
+    return re.sub(r"\\u([0-9a-f][0-9a-f][0-9a-f][0-9a-f])",
         lambda mat: unichr(int(mat.group(1), 16)), s, re.I)
 
 
@@ -335,15 +344,15 @@ class BlockFormatterPlus(argparse.HelpFormatter):
     cm = None  # A ColorManager instance, created by _fill_text()
 
     _options = {
-        'verbose':     0,         # Extra messages?
-        'showInvis':   False,     # Replace invisible chars
-        'tabStops':    4,         # Expand tabs per this interval
-        'hangIndent':  2,         # Add to non-first lines of list items etc.
-        'xescapes':    False,     # Recognize \xFF codes
-        'uescapes':    False,     # Recognize \uFFFF codes
-        'entities':    False,     # Recognize &#65; &#x41; &bull; etc.
-        'breakLong':   False,     # Can split inside long tokens (like URLs)
-        'comment':     '$',       # Comment indicator
+        "verbose":     0,         # Extra messages?
+        "showInvis":   False,     # Replace invisible chars
+        "tabStops":    4,         # Expand tabs per this interval
+        "hangIndent":  2,         # Add to non-first lines of list items etc.
+        "xescapes":    False,     # Recognize \xFF codes
+        "uescapes":    False,     # Recognize \uFFFF codes
+        "entities":    False,     # Recognize &#65; &#x41; &bull; etc.
+        "breakLong":   False,     # Can split inside long tokens (like URLs)
+        "comment":     "$",       # Comment indicator
     }
     _altFillMethod = None
 
@@ -360,35 +369,34 @@ class BlockFormatterPlus(argparse.HelpFormatter):
         NOTE: 'indent' expects a string, not a number of columns.
         """
 
-        vMsg(0, "_fill_text called for %d chars." % (len(text)))
+        warning0("_fill_text called for %d chars." % (len(text)))
         if (not BlockFormatterPlus.cm):
             BlockFormatterPlus.cm = ColorManager.ColorManager()
 
-        hang = BlockFormatterPlus._options['hangIndent']
+        hang = BlockFormatterPlus._options["hangIndent"]
 
         # Divide at blank lines
         blocks = BlockFormatterPlus.makeBlocks(text)
         for i in range(len(blocks)):
-            vMsg(2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
+            warning2("\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
             item, istring = BlockFormatterPlus.doSpecialChars(blocks[i])
 
-            #vMsg(0, "### width %s, indent '%s', ind %s:\n    |%s|%s|" %
+            #warning0("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
             #    (width, indent, ind, mat.group(1), mat.group(2)))
             # _fill_text return a string with newlines, not a list.
 
-            if (istring!=''): indParam = indent + istring + (' '*hang)
+            if (istring!=""): indParam = indent + istring + (" "*hang)
             else: indParam = indent
 
             if (callable(self._altFillMethod)):
-                #vMsg(0, "_fill_text: via altFill")
-                withNewlines = self._altFillMethod(
-                    item, width, indParam)
+                #warning0("_fill_text: via altFill")
+                withNewlines = self._altFillMethod(item, width, indParam)
             elif (callable(self._fill_despite_color)):
-                #vMsg(0, "_fill_text: via _fill_despite_color")
+                #warning0("_fill_text: via _fill_despite_color")
                 withNewlines = self._fill_despite_color(
                     item, width, indParam)
             else:
-                #vMsg(0, "_fill_text: via super")
+                #warning0("_fill_text: via super")
                 withNewlines = super(BlockFormatterPlus, self)._fill_text(
                     item, width, indParam)
 
@@ -396,15 +404,15 @@ class BlockFormatterPlus(argparse.HelpFormatter):
                 withNewlines = withNewlines[hang:]  # Un-hang first line
 
             blocks[i] = withNewlines
-            vMsg(2, "=======> WRAPPED TO:\n%s\n" % (blocks[i]))
-        vMsg(2, "\n******* FORMATTING DONE *******\n")
+            warning2("=======> WRAPPED TO:\n%s\n" % (blocks[i]))
+        warning2("\n******* FORMATTING DONE *******\n")
         blocks.append(self.getSignature())
         return "\n".join(blocks)
 
     @staticmethod
     def getSignature():
-        lDelim, rDelim = ("\u270D", "")      # WRITING HAND
-        lDelim, rDelim = ("\u27E6", "27E7")  # M WHITE SQUARE BRACKETS
+        #lDelim, rDelim = ("\u270D", "")      # WRITING HAND
+        #lDelim, rDelim = ("\u27E6", "27E7")  # M WHITE SQUARE BRACKETS
         lDelim, rDelim = ("\u27EA", "27EB")  # M WHITE DOUBLE ANGLE BRACKETS
 
         sig = "-- Formatting by BlockFormatterPlus.py --"
@@ -420,41 +428,41 @@ class BlockFormatterPlus(argparse.HelpFormatter):
         """
         blocks = [ "" ]
         breakAfter = False
-        for t in re.split(r'\n', text, flags=re.MULTILINE | re.UNICODE):
-            blockType = '???'
-            if (BlockFormatterPlus._options['comment']!='' and
-                t.startswith(BlockFormatterPlus._options['comment'])):
-                blockType = 'COMMENT'
-            elif (t.strip() == ''):                 # blank line
+        for t in re.split(r"\n", text, flags=re.MULTILINE | re.UNICODE):
+            blockType = "???"
+            if (BlockFormatterPlus._options["comment"]!="" and
+                t.startswith(BlockFormatterPlus._options["comment"])):
+                blockType = "COMMENT"
+            elif (t.strip() == ""):                 # blank line
                 blocks.append("")
                 breakAfter = True
-                blockType = 'BLANK'
-            elif (t[0] == '='):                     # heading
+                blockType = "BLANK"
+            elif (t[0] == "="):                     # heading
                 blocks.append(t)
                 breakAfter = True
-                blockType = 'HEADING'
-            elif (re.match(r'-{3,}|={3,}\s*$', t)): # rule
+                blockType = "HEADING"
+            elif (re.match(r"-{3,}|={3,}\s*$", t)): # rule
                 blocks.append("=" * 79)
                 breakAfter = True
-                blockType = 'RULE'
-            elif (t[0] == '|'):                     # table
+                blockType = "RULE"
+            elif (t[0] == "|"):                     # table
                 blocks.append(t)
                 breakAfter = True
-                blockType = 'TABLE'
+                blockType = "TABLE"
             elif (t[0] in "*#:0123456789 \t"):      # keep line break
                 blocks.append(t)
-                blockType = 'LIST, IND'
+                blockType = "LIST, IND"
             else:                                   # continued text
                 if (breakAfter):
                     blocks.append(t)
                     breakAfter = False
-                    blockType = 'TEXT POST BR'
+                    blockType = "TEXT POST BR"
                 else:
-                    if (blocks[-1] != ''): blocks[-1] += ' '
+                    if (blocks[-1] != ""): blocks[-1] += " "
                     blocks[-1] += t
-                    blockType = 'TEXT CONTINUE'
-            vMsg(3, "+%s: %s" % (blockType, blocks[-1]))
-        vMsg(1, "******* DONE makeBlocks |%d|\n\n" % (len(blocks)))
+                    blockType = "TEXT CONTINUE"
+            warning3("+%s: %s" % (blockType, blocks[-1]))
+        warning1("******* DONE makeBlocks |%d|\n\n" % (len(blocks)))
         return blocks
 
     @staticmethod
@@ -463,25 +471,25 @@ class BlockFormatterPlus(argparse.HelpFormatter):
         Return the expanded text, but with leading indent separate
         """
         indentString = ""
-        mat = re.match(r'^([ \t]+)', item)
+        mat = re.match(r"^([ \t]+)", item)
         if (mat):
             indentString = mat.group(1).expandtabs(
-                BlockFormatterPlus._options['tabStops'])
+                BlockFormatterPlus._options["tabStops"])
             item = item[len(mat.group(1)):]
-        if (BlockFormatterPlus._options['xescapes']):
+        if (BlockFormatterPlus._options["xescapes"]):
             item = xescapes(item)
-        if (BlockFormatterPlus._options['uescapes']):
+        if (BlockFormatterPlus._options["uescapes"]):
             item = uescapes(item)
-        if (BlockFormatterPlus._options['entities']):
+        if (BlockFormatterPlus._options["entities"]):
             assert False, "entities not yet implemented"
-        if (BlockFormatterPlus._options['showInvis']):
+        if (BlockFormatterPlus._options["showInvis"]):
             item = makeVis(item)
         return item, indentString
 
     @staticmethod
     def _alt_fill(item, width, indentString):
         """Wrap the text in 'item' to the given width, with all lines
-        indented (prefixed) by 'indentString'.
+        indented (prefixed) by "indentString".
         Be careful to count correctly around ANSI escapes, and potentially
         fullwidth characters (although we don't expect them, really).
 
@@ -490,18 +498,18 @@ class BlockFormatterPlus(argparse.HelpFormatter):
 
         _fill_text won't suffice at this level, because color escape....
         """
-        if (item): vMsg(2, "\n******* In _alt_fill")
+        if (item): warning2("\n******* In _alt_fill")
         lines = []
         for x in re.finditer(
-            r'\s*(\S.{,%d}(?=[-/\s]))' % (width-len(indentString)-2),
+            r"\s*(\S.{,%d}(?=[-/\s]))" % (width-len(indentString)-2),
             item, re.MULTILINE):
-            vMsg(0, "Wrap trial: '%s'" % (x.group(1)))
+            warning0("Wrap trial: '%s'" % (x.group(1)))
             lines.append(indentString + x.group(1))
         return "\n".join(lines)
 
     def _fill_despite_color(self, item, width, indentString):
-        """Wrap the text in 'item' to the given width, with all lines
-        indented (prefixed) by 'indentString'.
+        """Wrap the text in "item" to the given width, with all lines
+        indented (prefixed) by "indentString".
         Be careful to count correctly around ANSI escapes, and potentially
         fullwidth characters (although we don't expect them, really).
 
@@ -512,23 +520,23 @@ class BlockFormatterPlus(argparse.HelpFormatter):
         # OR: make fn to move the color escapes aside, then back.
         ncItem = self.cm.uncolorize(item)
         withBreaks = self._alt_fill(item, width, indentString)
-        vMsg(1, "color len %d, uncolored len %d, broke to %d lines." %
-            (len(item), len(withBreaks), len(re.split(r'\n', withBreaks))))
+        warning1("color len %d, uncolored len %d, broke to %d lines." %
+            (len(item), len(withBreaks), len(re.split(r"\n", withBreaks))))
         if (ncItem == item): return withBreaks
 
         # If needed, use the lengths of those lines to re-extract the
         # corresponding parts from the original (colorized) version.
-        lines = withBreaks.split("\n")
+        lines = withBreaks.split(sep="\n")
         startPos = 0
-        for i, lin in enumerate(lines):
+        for _, lin in enumerate(lines):
             endPos += len(lin)
             # TODO: Finish
         lines = []
-        raise UnimplementedError("Finish _fill_despite_color().")
+        raise UnimplementedError("Finish _fill_despite_color().")  # TODO Finish
         return "\n".join(lines)
 
-    ColorTag = namedtuple('ColorTag', ['startTextPos', 'escapeSequence'])
-    colorRegex = re.compile(r'\x1b\[\d+(;\d+)*m')
+    ColorTag = namedtuple("ColorTag", ["startTextPos", "escapeSequence"])
+    colorRegex = re.compile(r"\x1b\[\d+(;\d+)*m")
 
     def extractColor(self, item):
         """Remove all the ANSI color escapes, *but* save the offset into
@@ -570,40 +578,40 @@ class WrapText:
     change to callers.
     """
     fullWidthExpr = re.compile(
-        r'[\uFF01-\uFF60\uFFE0-\uFFE6]', flags=re.UNICODE)
+        r"[\uFF01-\uFF60\uFFE0-\uFFE6]", flags=re.UNICODE)
 
     thinDeletableExpr = re.compile("".join([
-        r'[',
+        r"[",
         u"\u2009",  # "THIN SPACE"
         u"\u200A",  # "HAIR SPACE"
         u"\u200B",  # "ZERO WIDTH SPACE"
         u"\u202F",  # "NARROW NO-BREAK SPACE"
-        r']'
+        r"]"
         ]),
         flags=re.UNICODE)
 
     emWidthsExpr = re.compile("".join([
-        r'[',
+        r"[",
         u"\u2001",  # "EM QUAD"
         u"\u2003",  # "EM SPACE"
         u"\u2014",  # "EM DASH"
         u"\u2e3a",  # "TWO-EM DASH"
         u"\u2e3b",  # "THREE-EM DASH"
         u"\ufe58",  # "SMALL EM DASH"
-        r']'
+        r"]"
         ]),
         flags=re.UNICODE)
 
     combiningExpr = re.compile(
-        r'[' +
-        r'\u0300-\u036f\u0483-\u0489\u07eb-\u07f3' +
-        r'\u135d-\u135f\u1a7f\u1b6b-\u1b73\u1dc0-\u1de6' +
-        r'\u1dfc-\u1dfF\u20d0-\u20f0\u2cef-\u2cf1' +
-        r'\u2de0-\u2dff\u3099-\u309a\ua66f-\ua69f' + # cyr, bamum
-        r'\ua6f0-\ua6f1\ua8e0-\ua8f1\ufe20-\ufe26' + # devanagri
-        #r'\x{101fd}\x{1d165}-\x{1d172}\x{1d17b}-\x{1d1ad}' +
-        #r'\x{1d242}-\x{1d244}' +
-        ']', flags=re.UNICODE)
+        r"[" +
+        r"\u0300-\u036f\u0483-\u0489\u07eb-\u07f3" +
+        r"\u135d-\u135f\u1a7f\u1b6b-\u1b73\u1dc0-\u1de6" +
+        r"\u1dfc-\u1dfF\u20d0-\u20f0\u2cef-\u2cf1" +
+        r"\u2de0-\u2dff\u3099-\u309a\ua66f-\ua69f" + # cyr, bamum
+        r"\ua6f0-\ua6f1\ua8e0-\ua8f1\ufe20-\ufe26" + # devanagri
+        #r"\x{101fd}\x{1d165}-\x{1d172}\x{1d17b}-\x{1d1ad}" +
+        #r"\x{1d242}-\x{1d244}" +
+        "]", flags=re.UNICODE)
 
     dashesExpr = re.compile("".join([
         u"\u002D",  # "HYPHEN-MINUS"
@@ -654,7 +662,7 @@ class WrapText:
     def wrap(self, s):
         """Break a string into fittable lines, at token boundaries.
         """
-        tokens = re.split(r'(\s+)', s)
+        tokens = re.split(r"(\s+)", s)
         lines = [ "" ]
         availWidth = self.width - self.indent
         curWidth = 0
@@ -706,11 +714,11 @@ class WrapText:
         effectiveWidth = 0
         for i in range(len(s)):
             c = s[i]
-            if (c == '\n'):                             # hard newline
-                raise ValueError("Found whitespace in measureWidth.")
+            if (c == "\n"):                             # hard newline
                 effectiveWidth += 1
+                raise ValueError("Found whitespace in measureWidth.")
             elif (c == "\x1B"):                         # color esc sequence
-                mat = re.match(r'(\x1B\[\d+(;\d+)*m)', s[i:])
+                mat = re.match(r"(\x1B\[\d+(;\d+)*m)", s[i:])
                 if (mat is None): raise ValueError(
                     "Unexpected escape sequence near %d in '%s'" % (i, s))
                 effectiveWidth += 0
@@ -737,32 +745,32 @@ class FancyText:
     """
     qPairs = {  # QUOTATION MARKs (see Charsets/Unicode/asPython/quotes.py)
         # menmonic: [ left,   right],
-        'splain':   [ ord("'"), ord("'") ], # Apostrophe / single quotation mark
-        'dplain':   [ ord('"'), ord('"') ], # Double quotation mark
-        'single':   [ 0x2018, 0x2019 ],  # "LEFT SINGLE QM"
-        'double':   [ 0x201C, 0x201D ],  # "LEFT DOUBLE QM"
-        'sangle':   [ 0x2039, 0x203A ],  # "SINGLE LEFT-POINTING ANGLE QM"
-        'dangle':   [ 0x00AB, 0x00BB ],  # "LEFT-POINTING DOUBLE ANGLE QM *"
-        'slow9':    [ 0x201A, 0x201B ],  # "SINGLE LOW-9 QM"
-        'dlow9':    [ 0x201E, 0x201F ],  # "DOUBLE LOW-9 QM"
-        'sprime':   [ 0x2032, 0x2035 ],  # "PRIME"
-        'dprime':   [ 0x301E, 0x301E ],  # "DOUBLE PRIME QM"
-        'tprime':   [ 0x2034, 0x2037 ],  # "TRIPLE PRIME"
+        "splain":   [ ord("'"), ord("'") ], # Apostrophe / single quotation mark
+        "dplain":   [ ord('"'), ord('"') ], # Double quotation mark
+        "single":   [ 0x2018, 0x2019 ],  # "LEFT SINGLE QM"
+        "double":   [ 0x201C, 0x201D ],  # "LEFT DOUBLE QM"
+        "sangle":   [ 0x2039, 0x203A ],  # "SINGLE LEFT-POINTING ANGLE QM"
+        "dangle":   [ 0x00AB, 0x00BB ],  # "LEFT-POINTING DOUBLE ANGLE QM *"
+        "slow9":    [ 0x201A, 0x201B ],  # "SINGLE LOW-9 QM"
+        "dlow9":    [ 0x201E, 0x201F ],  # "DOUBLE LOW-9 QM"
+        "sprime":   [ 0x2032, 0x2035 ],  # "PRIME"
+        "dprime":   [ 0x301E, 0x301E ],  # "DOUBLE PRIME QM"
+        "tprime":   [ 0x2034, 0x2037 ],  # "TRIPLE PRIME"
 
-        'subst':    [ 0x2E02, 0x2E03 ],  # "LEFT SUBSTITUTION BRACKET"
-        'dotsubst': [ 0x2E04, 0x2E05 ],  # "LEFT DOTTED SUBSTITUTION BRACKET"
-        'transp':   [ 0x2E09, 0x2E0A ],  # "LEFT TRANSPOSITION BRACKET"
-        'romission':[ 0x2E0C, 0x2E0D ],  # "LEFT RAISED OMISSION BRACKET"
-        'lpara':    [ 0x2E1C, 0x2E1D ],  # "LEFT LOW PARAPHRASE BRACKET"
-        'vbarq':    [ 0x2E20, 0x2E21 ],  # "LEFT VERTICAL BAR WITH QUILL"
-        #'rdprime':  [ 0x301D, 0x301F ],  # "REVERSED DOUBLE PRIME QM"
-        'rdprime':  [ 0x2057, 0x301D ],  # "REVERSED DOUBLE PRIME QM" "QUADRUPLE PRIME"
+        "subst":    [ 0x2E02, 0x2E03 ],  # "LEFT SUBSTITUTION BRACKET"
+        "dotsubst": [ 0x2E04, 0x2E05 ],  # "LEFT DOTTED SUBSTITUTION BRACKET"
+        "transp":   [ 0x2E09, 0x2E0A ],  # "LEFT TRANSPOSITION BRACKET"
+        "romission":[ 0x2E0C, 0x2E0D ],  # "LEFT RAISED OMISSION BRACKET"
+        "lpara":    [ 0x2E1C, 0x2E1D ],  # "LEFT LOW PARAPHRASE BRACKET"
+        "vbarq":    [ 0x2E20, 0x2E21 ],  # "LEFT VERTICAL BAR WITH QUILL"
+        #"rdprime":  [ 0x301D, 0x301F ],  # "REVERSED DOUBLE PRIME QM"
+        "rdprime":  [ 0x2057, 0x301D ],  # "REVERSED DOUBLE PRIME QM" "QUADRUPLE PRIME"
 
-        'fullwidth':[ 0xFF02, 0xFF02 ],  # Fullwidth Quotation Mark
-        'scommaO':  [ 0x275B, 0x275C ],  # Heavy Single Turned Comma QM Ornament
-        'dcommaO':  [ 0x275D, 0x275E ],  # Heavy Double Turned Comma QM Ornament
-        'hangleO':  [ 0x276E, 0x276F ],  # Heavy Left-pointing Angle QM Ornament
-        'sshdcommonO':[ 0x1F677, 0x1F678 ], # Sans-serif Heavy Double Comma QM Ornament
+        "fullwidth":[ 0xFF02, 0xFF02 ],  # Fullwidth Quotation Mark
+        "scommaO":  [ 0x275B, 0x275C ],  # Heavy Single Turned Comma QM Ornament
+        "dcommaO":  [ 0x275D, 0x275E ],  # Heavy Double Turned Comma QM Ornament
+        "hangleO":  [ 0x276E, 0x276F ],  # Heavy Left-pointing Angle QM Ornament
+        "sshdcommonO":[ 0x1F677, 0x1F678 ], # Sans-serif Heavy Double Comma QM Ornament
     }
 
     ligatureMap = {
@@ -811,27 +819,27 @@ class FancyText:
             # Treat as opener if there's space or newline or nothing before.
             # Else it's a closer. BUT don't mess with any of this in code!
             #
-            s = re.sub(r"(?<\s|^)'", chr(FancyText.qPairs['single'][0]), s)
-            s = re.sub(r"'",         chr(FancyText.qPairs['single'][1]), s)
-            s = re.sub(r'(?<\s|^)"', chr(FancyText.qPairs['double'][0]), s)
-            s = re.sub(r'"',         chr(FancyText.qPairs['double'][1]), s)
+            s = re.sub(r"(?<\s|^)'", chr(FancyText.qPairs["single"][0]), s)
+            s = re.sub(r"'",         chr(FancyText.qPairs["single"][1]), s)
+            s = re.sub(r'(?<\s|^)"', chr(FancyText.qPairs["double"][0]), s)
+            s = re.sub(r'"',         chr(FancyText.qPairs["double"][1]), s)
 
         if (ligatures):
-            s = re.sub(r'(f?f[il])', FancyText.ligatureFn, s)
+            s = re.sub(r"(f?f[il])", FancyText.ligatureFn, s)
 
         # Dashes
         if (dashes):
-            if (spacedEm): s = re.sub(r'--', " \u2014 ", s)
-            else: s = re.sub(r'--', "\u2014", s)
+            if (spacedEm): s = re.sub(r"--", " \u2014 ", s)
+            else: s = re.sub(r"--", "\u2014", s)
 
         if (fractions):
-            s = re.sub(r'\b([1-5]/[234568]|1/7|1/9|1/10|0/3)\b',
+            s = re.sub(r"\b([1-5]/[234568]|1/7|1/9|1/10|0/3)\b",
                 FancyText.fractionFn, s)
 
         if (sentenceSpace):
-            s = re.sub(r'([\.?!]) (?! )', "\\1  ", s)
+            s = re.sub(r"([\.?!]) (?! )", "\\1  ", s)
         else:
-            s = re.sub(r'([\.?!])  ', "\\1 ", s)
+            s = re.sub(r"([\.?!])  ", "\\1 ", s)
 
         if (texChars):
             raise UnimplementedError("Not yet, sorry.")
@@ -893,11 +901,16 @@ class InlineMapper:
             "Unknown Markup/down variant '%s'." % (variantName))
 
     @staticmethod
-    def HtmlExpr(x):
-        return r'<%s(attrs)\s*>(.*?)</%s\s*>' % (x, x)
+    def HtmlExpr(gi):
+        """Match an specific HTML element type, with no sub-elements, and
+        return the attrs and content).
+        TODO: Does not expand entity references in attribute values.
+        """
+        attrExpr = r"\s*[-:.\w]*\s*=\s*\"[^\"]\")"
+        return r'<%s(%s*)\s*>(.*?)</%s\s*>' % (gi, attrExpr, gi)
 
     def setup_OurMap(self):
-        im = InlineMapper
+        im = InlineMapper()
         chosenSyntax = [
             # Regex,    HTML,     Format spec
             ( im.POP3,  "I",      TextStyle(italic=1)),
@@ -912,6 +925,7 @@ class InlineMapper:
 
     # Maps for specific Markdown-ish variants. See:
     # [https://www.iana.org/assignments/markdown-variants/]
+    # TODO: MOVE THIS TO MarkdownSyntaxes.py.
     #
     def setup_MarkDown(self):      # Markdown                    [RFC7763]
         raise UnimplementedError("Not yet, sorry.")
@@ -971,6 +985,7 @@ class InlineMapper:
         global theStyle
         theStyle = self
         for matchTuple in self.theMap:
+            warning1("Matched inline '%s'." % (mat.group(0)))
             regex, _, theStyle = matchTuple
             b = re.sub(regex, theStyle.applyViaMatchObject, b)
         return b
@@ -994,15 +1009,15 @@ class ANSI_Color(Enum):
 
 class ANSI_Effect(Enum):
     PLAIN      = 0    #  no special effect
-    BOLD       = 1    #  aka 'bright'
+    BOLD       = 1    #  aka "bright"
     FAINT      = 2
     ITALIC     = 3    #  (rare)
-    UNDERLINE  = 4    #  aka 'ul'
+    UNDERLINE  = 4    #  aka "ul"
     BLINK      = 5
-    FBLINK     = 6    #  aka 'fastblink' (rare)
-    REVERSE    = 7    #  aka 'inverse'
-    CONCEALED  = 8    #  aka 'invisible' or 'hidden'
-    STRIKE     = 9    #  aka 'strikethru' or 'strikethrough'
+    FBLINK     = 6    #  aka "fastblink" (rare)
+    REVERSE    = 7    #  aka "inverse"
+    CONCEALED  = 8    #  aka "invisible" or "hidden"
+    STRIKE     = 9    #  aka "strikethru" or "strikethrough"
 
 
 # Bit flags to identify the features of Unicode alternates
@@ -1037,35 +1052,35 @@ class UBits(Flag):
 # What happens if you do ANSI bold *and* Mathematical Bold?
 #
 class UC_Alts(Enum):
-    PLAIN                   = (UBits.UNONE               , 'ULD'),
-    BOLD                    = (UBits.UBOLD               , 'ULD'),
-    ITALIC                  = (UBits.UITAL               , 'UL-'),
-    BOLD_ITALIC             = (UBits.UBOLD | UBits.UITAL , 'UL-'),
+    PLAIN                   = (UBits.UNONE               , "ULD"),
+    BOLD                    = (UBits.UBOLD               , "ULD"),
+    ITALIC                  = (UBits.UITAL               , "UL-"),
+    BOLD_ITALIC             = (UBits.UBOLD | UBits.UITAL , "UL-"),
 
-    SANS_SERIF              = (UBits.USANS               , 'ULD'),
-    SANS_SERIF_BOLD         = (UBits.USANS | UBits.UBOLD , 'ULD'),
-    SANS_SERIF_ITALIC       = (UBits.USANS | UBits.UITAL , 'UL-'),
-    SANS_SERIF_BOLD_ITALIC  = (UBits.USANS | UBits.UBOLD | UBits.UITAL, 'UL-'),
+    SANS_SERIF              = (UBits.USANS               , "ULD"),
+    SANS_SERIF_BOLD         = (UBits.USANS | UBits.UBOLD , "ULD"),
+    SANS_SERIF_ITALIC       = (UBits.USANS | UBits.UITAL , "UL-"),
+    SANS_SERIF_BOLD_ITALIC  = (UBits.USANS | UBits.UBOLD | UBits.UITAL, "UL-"),
 
-    FRAKTUR                 = (UBits.UFRAK               , 'UL-'),
-    BOLD_FRAKTUR            = (UBits.UFRAK | UBits.UBOLD , 'UL-'),
+    FRAKTUR                 = (UBits.UFRAK               , "UL-"),
+    BOLD_FRAKTUR            = (UBits.UFRAK | UBits.UBOLD , "UL-"),
 
-    SCRIPT                  = (UBits.USCRP               , 'UL-'),
-    BOLD_SCRIPT             = (UBits.USCRP | UBits.UBOLD , 'UL-'),
+    SCRIPT                  = (UBits.USCRP               , "UL-"),
+    BOLD_SCRIPT             = (UBits.USCRP | UBits.UBOLD , "UL-"),
 
-    MONOSPACE               = (UBits.UMONO               , 'ULD'),
+    MONOSPACE               = (UBits.UMONO               , "ULD"),
 
-    DOUBLE_STRUCK           = (UBits.UDOUB               , 'ULD'),
-    FULLWIDTH               = (UBits.UWIDE               , 'ULD'),
+    DOUBLE_STRUCK           = (UBits.UDOUB               , "ULD"),
+    FULLWIDTH               = (UBits.UWIDE               , "ULD"),
 
-    CIRCLED                 = (UBits.UCIRC               , 'ULD'),
-    NEGATIVE_CIRCLED        = (UBits.UCIRC | UBits.UNEGA , 'U--'),
-    SQUARED                 = (UBits.USQUA               , 'U--'),
-    NEGATIVE_SQUARED        = (UBits.USQUA | UBits.UNEGA , 'U--'),
-    PARENTHESIZED           = (UBits.UPARE               , 'ULD'),  # (no 0)
+    CIRCLED                 = (UBits.UCIRC               , "ULD"),
+    NEGATIVE_CIRCLED        = (UBits.UCIRC | UBits.UNEGA , "U--"),
+    SQUARED                 = (UBits.USQUA               , "U--"),
+    NEGATIVE_SQUARED        = (UBits.USQUA | UBits.UNEGA , "U--"),
+    PARENTHESIZED           = (UBits.UPARE               , "ULD"),  # (no 0)
 
-    SUBSCRIPT               = (UBits.USUB                , '--D'),
-    SUPERSCRIPT             = (UBits.USUP                , '--D'),
+    SUBSCRIPT               = (UBits.USUB                , "--D"),
+    SUPERSCRIPT             = (UBits.USUP                , "--D"),
 
 
 class TargetType:
@@ -1121,31 +1136,31 @@ class TextStyle(dict):
     textPropInfos = {
         # fonts etc.
         # propName    : (type,  default),
-        'bold'        : (bool,  False),
-        'italic'      : (bool,  False),
-        'sans'        : (bool,  False),
-        'mono'        : (bool,  False),
-        'underline'   : (bool,  False),
-        'strike'      : (bool,  False),
-        'overline'    : (bool,  False),
+        "bold"        : (bool,  False),
+        "italic"      : (bool,  False),
+        "sans"        : (bool,  False),
+        "mono"        : (bool,  False),
+        "underline"   : (bool,  False),
+        "strike"      : (bool,  False),
+        "overline"    : (bool,  False),
 
-        'smallCap'    : (bool,  False),
-        'allCap'      : (bool,  False),
+        "smallCap"    : (bool,  False),
+        "allCap"      : (bool,  False),
 
-        'super'       : (bool,  False),
-        'sub'         : (bool,  False),
+        "super"       : (bool,  False),
+        "sub"         : (bool,  False),
 
-        'ufont'       : (UC_Alts,    None),
+        "ufont"       : (UC_Alts,    None),
 
         # color etc.
-        'color'       : (ANSI_Color, None),
-        'bgcolor'     : (ANSI_Color, None),
-        'effect'      : (ANSI_Effect,None),
+        "color"       : (ANSI_Color, None),
+        "bgcolor"     : (ANSI_Color, None),
+        "effect"      : (ANSI_Effect,None),
 
         # hypertext  TODO: later
-        'before'      : (Transclusion, None),
-        'after'       : (Transclusion, None),
-        'hot'         : (bool, False),
+        "before"      : (Transclusion, None),
+        "after"       : (Transclusion, None),
+        "hot"         : (bool, False),
     }
     def __init__(self, **kwargs):
 
@@ -1207,7 +1222,7 @@ class TextStyle(dict):
                 (propName, typeNeeded, type(val)))
 
     def applyViaMatchObject(self, mat):
-        vMsg(1, "inline match on '%s', applying..." % (mat.group(0)))
+        warning1("inline match on '%s', applying..." % (mat.group(0)))
         txt = mat.group(1)
         return self.applyProperties(txt)
 
@@ -1284,29 +1299,29 @@ class Styler:  # All methods static
     ### Quotation-related effects
     #
     @staticmethod
-    def mk_quote(txt, quoteOption='D_CURLY'):
+    def mk_quote(txt, quoteOption="D_CURLY"):
         """Add quotes around the text.
         """
         qt = quoteOption
-        if (qt=='D_PLAIN'): # Double straight quotes, then single
-            pair = FancyText.qPairs['dplain']
-        elif (qt=='D_CURLY'):       # Double open/close quotes, then single
-            pair = FancyText.qPairs['double']
-        elif (qt=='D_ANGLE'):       # Double angle quotes, then single
-            pair = FancyText.qPairs['dangle']
-        elif (qt=='D_LOW9'):        # hi-9 on open, low-9 on close
-            pair = FancyText.qPairs['dlow9']
+        if (qt=="D_PLAIN"): # Double straight quotes, then single
+            pair = FancyText.qPairs["dplain"]
+        elif (qt=="D_CURLY"):       # Double open/close quotes, then single
+            pair = FancyText.qPairs["double"]
+        elif (qt=="D_ANGLE"):       # Double angle quotes, then single
+            pair = FancyText.qPairs["dangle"]
+        elif (qt=="D_LOW9"):        # hi-9 on open, low-9 on close
+            pair = FancyText.qPairs["dlow9"]
 
-        elif (qt=='S_PLAIN'):   # Single straight quotes, then double
-            pair = FancyText.qPairs['splain']
-        elif (qt=='S_CURLY'):   # Single open/close quotes, then double
-            pair = FancyText.qPairs['single']
-        elif (qt=='S_ANGLE'):   # Single angle quotes, then double
-            pair = FancyText.qPairs['sangle']
-        elif (qt=='LOW9'):      # hi-9 on open, low-9 on close
-            pair = FancyText.qPairs['slow9']
+        elif (qt=="S_PLAIN"):   # Single straight quotes, then double
+            pair = FancyText.qPairs["splain"]
+        elif (qt=="S_CURLY"):   # Single open/close quotes, then double
+            pair = FancyText.qPairs["single"]
+        elif (qt=="S_ANGLE"):   # Single angle quotes, then double
+            pair = FancyText.qPairs["sangle"]
+        elif (qt=="LOW9"):      # hi-9 on open, low-9 on close
+            pair = FancyText.qPairs["slow9"]
 
-        elif (qt=='BACKP'):     # "`" on both ends.
+        elif (qt=="BACKP"):     # "`" on both ends.
             pair = ( ord("`"), ord("`") )
         else:
             raise ValueError("Unknown quote type '%s'." % (qt))
@@ -1317,11 +1332,11 @@ class Styler:  # All methods static
     #
     @staticmethod
     def mk_bolditalic(txt):  # Or use math bold italic
-        return(Styler.cm.colorize(txt.group(1), fg="red", effect='bold'))
+        return(Styler.cm.colorize(txt.group(1), fg="red", effect="bold"))
 
     @staticmethod
     def mk_bold(txt):  # Or use math bold
-        return(Styler.cm.colorize(txt.group(1), effect='bold'))
+        return(Styler.cm.colorize(txt.group(1), effect="bold"))
 
     @staticmethod
     def mk_italic(txt):  # Or use math italic
@@ -1331,7 +1346,7 @@ class Styler:  # All methods static
     #
     @staticmethod
     def mk_sans(txt):
-        mathKey = ('Latin', 'SANS-SERIF')
+        mathKey = ("Latin", "SANS-SERIF")
         if (mathKey not in Styler.loadedXTabs):  # First time
             Styler.loadedXTabs[mathKey] = mathAlphanumerics.getTranslateTable(
                 mathKey[0], mathKey[1])
@@ -1339,7 +1354,7 @@ class Styler:  # All methods static
 
     @staticmethod
     def mk_mono(txt):
-        mathKey = ('Latin', 'MONOSPACE')
+        mathKey = ("Latin", "MONOSPACE")
         if (mathKey not in Styler.loadedXTabs):  # First time
             Styler.loadedXTabs[mathKey] = mathAlphanumerics.getTranslateTable(
                 mathKey[0], mathKey[1])
@@ -1347,7 +1362,7 @@ class Styler:  # All methods static
 
     @staticmethod
     def mk_super(txt):
-        mathKey = ('Latin', 'SUPERSCRIPT')
+        mathKey = ("Latin", "SUPERSCRIPT")
         if (mathKey not in Styler.loadedXTabs):  # First time
             Styler.loadedXTabs[mathKey] = mathAlphanumerics.getTranslateTable(
                 mathKey[0], mathKey[1])
@@ -1355,7 +1370,7 @@ class Styler:  # All methods static
 
     @staticmethod
     def mk_sub(txt):
-        mathKey = ('Latin', 'SUBSCRIPT')
+        mathKey = ("Latin", "SUBSCRIPT")
         if (mathKey not in Styler.loadedXTabs):  # First time
             Styler.loadedXTabs[mathKey] = mathAlphanumerics.getTranslateTable(
                 mathKey[0], mathKey[1])
@@ -1367,68 +1382,70 @@ class Styler:  # All methods static
     @staticmethod
     def mk_underline(txt):
         COMBINER = chr(0x00332)  # COMBINING LOW LINE
-        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+        return re.sub(r"(.)", "\\1" + COMBINER, txt)
 
     @staticmethod
     def mk_underline2(txt):
         COMBINER = chr(0x00333)  # COMBINING DOUBLE LOW LINE
-        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+        return re.sub(r"(.)", "\\1" + COMBINER, txt)
 
     @staticmethod
     def mk_strike(txt):
         COMBINER = chr(0x00305)  # COMBINING OVERLINE
-        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+        return re.sub(r"(.)", "\\1" + COMBINER, txt)
 
     @staticmethod
     def mk_overline(txt):
         COMBINER = chr(0x00305)  # COMBINING OVERLINE
-        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+        return re.sub(r"(.)", "\\1" + COMBINER, txt)
 
     @staticmethod
     def mk_overline2(txt):
         COMBINER = chr(0x0033f)  # COMBINING DOUBLE OVERLINE
-        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+        return re.sub(r"(.)", "\\1" + COMBINER, txt)
 
     @staticmethod
     def mk_slashed(txt):
         COMBINER = chr(0x00338)  # COMBINING LONG SOLIDUS OVERLAY
-        return re.sub(r'(.)', "\\1" + COMBINER, txt)
+        return re.sub(r"(.)", "\\1" + COMBINER, txt)
 
     ### Hypertext-related effects
     #
     @staticmethod
     def mk_link(txt):
-        if (':' in txt.group(1)):
-            anchor, ref = txt.group(1).split(':', maxsplit=1)
+        if (":" in txt.group(1)):
+            anchor, ref = txt.group(1).split(sep=":", maxsplit=1)
         else:
             anchor = ref = txt.group(1)
         ref = ref.strip("\"'")
-        mat = re.match(r'(IETF\s*)?RFC\s*(\d+)', ref)
-        msg = Styler.cm.colorize(anchor, fg="blue", effect='bold')
+        mat = re.match(r"(IETF\s*)?RFC\s*(\d+)", ref)
+        if (mat):
+            anchor = mat.group(1)
+        msg = Styler.cm.colorize(anchor, fg="blue", effect="bold")
         return(msg)
 
     ### Other effects
     #
     @staticmethod
     def mk_nBrk(txt):  # Prevent line-breaks inside
-        return(re.sub(r'\s', unichr(160), txt.group(1)))
+        return(re.sub(r"\s", unichr(160), txt.group(1)))
 
 
 ###############################################################################
 #
 class BlockStyle(TextStyle):  # TODO: Later
     blockPropInfos = {
-        'marginTop'     : None,
-        'marginBottom'  : None,
-        'marginLeft'    : None,
-        'marginRight'   : None,
-        'marginFirst'   : None,
+        "marginTop"     : None,
+        "marginBottom"  : None,
+        "marginLeft"    : None,
+        "marginRight"   : None,
+        "marginFirst"   : None,
 
-        'textAlignment' : None,
-        'whitespace'    : None,    # wrap, trunc, hang
-        'marker'        : None,
-        'markerPos'     : None,
-        #'border'        : (BorderType, None),
+        "textAlignment" : None,
+        "whitespace"    : None,    # wrap, trunc, hang
+        "marker"        : None,
+        "markerPos"     : None,
+        #"border"        : (BorderType, None),
         "border-collapse": None,
         "padding"       : None,
         "listType"      : None,
@@ -1437,6 +1454,7 @@ class BlockStyle(TextStyle):  # TODO: Later
         #for k, v in StyleType.styleProps:
         #    self[k] = v
         super(BlockStyle, self).__init__()
+        self.blockProps = BlockStyle.blockPropInfos.copy()
 
 
 ###############################################################################
@@ -1448,34 +1466,34 @@ if __name__ == "__main__":
             description=descr, formatter_class=BlockFormatterPlus)
 
         parser.add_argument(
-            "--altFill",        action='store_true',
-            help='Use an alternate method to fill lines.')
+            "--altFill",        action="store_true",
+            help="Use an alternate method to fill lines.")
         parser.add_argument(
-            "--iencoding",        type=str, metavar='E', default="utf-8",
-            help='Assume this character set for input files. Default: utf-8.')
+            "--iencoding",        type=str, metavar="E", default="utf-8",
+            help="Assume this character set for input files. Default: utf-8.")
         parser.add_argument(
-            "--oencoding",        type=str, metavar='E',
-            help='Use this character set for output files.')
+            "--oencoding",        type=str, metavar="E",
+            help="Use this character set for output files.")
         parser.add_argument(
-            "--quiet", "-q",      action='store_true',
-            help='Suppress most messages.')
+            "--quiet", "-q",      action="store_true",
+            help="Suppress most messages.")
         parser.add_argument(
-            "--split",            action='store_true',
-            help='Just split lines.')
+            "--split",            action="store_true",
+            help="Just split lines.")
         parser.add_argument(
-            "--unicode",          action='store_const',  dest='iencoding',
-            const='utf8', help='Assume utf-8 for input files.')
+            "--unicode",          action="store_const",  dest="iencoding",
+            const="utf8", help="Assume utf-8 for input files.")
         parser.add_argument(
-            "--verbose", "-v",    action='count',       default=0,
-            help='Add more messages (repeatable).')
+            "--verbose", "-v",    action="count",       default=0,
+            help="Add more messages (repeatable).")
         parser.add_argument(
-            "--version", action='version', version=__version__,
-            help='Display version information, then exit.')
+            "--version", action="version", version=__version__,
+            help="Display version information, then exit.")
 
         parser.add_argument(
-            'files',             type=str,
+            "files",             type=str,
             nargs=argparse.REMAINDER,
-            help='Path(s) to input file(s)')
+            help="Path(s) to input file(s)")
 
         args0 = parser.parse_args()
         return(args0)
@@ -1483,36 +1501,36 @@ if __name__ == "__main__":
     ###########################################################################
     #
     args = processOptions()
-    BlockFormatterPlus._options['verbose'] = args.verbose
+    BlockFormatterPlus._options["verbose"] = args.verbose
     if (args.altFill):
         BlockFormatterPlus.setAltFill(BlockFormatterPlus._alt_fill)
 
-    vMsg(0, "*** Testing BlockFormatterPlus.py (level 2) ***\n")
+    warning0("*** Testing BlockFormatterPlus.py (level 2) ***\n")
 
     if (len(args.files) == 0):
         tfile = "/tmp/BlockFormatterPlus.md"
-        vMsg(0, "No files specified, copying own help text to %s" % (tfile))
+        warning0("No files specified, copying own help text to %s" % (tfile))
         fh = codecs.open(tfile, "wb", encoding=args.iencoding)
         fh.write(descr)
         fh.close()
         args.files.append(tfile)
 
     for path0 in args.files:
-        vMsg(0, "\n******* Starting test file '%s'" % (path0))
+        warning0("\n******* Starting test file '%s'" % (path0))
         fh0 = codecs.open(path0, "rb", encoding=args.iencoding)
         testText = fh0.read()
         if (args.split):
-            vMsg(0, "*** Just splitting")
+            warning0("*** Just splitting")
             lenSoFar = 0
             for i0, t0 in enumerate(
-                re.split(r'\n', testText, flags=re.MULTILINE | re.UNICODE)):
+                re.split(r"\n", testText, flags=re.MULTILINE | re.UNICODE)):
 
-                vMsg(0, "%04d (%6d)==>%s<==\n" % (i0, lenSoFar, t0))
+                warning0("%04d (%6d)==>%s<==\n" % (i0, lenSoFar, t0))
                 lenSoFar += len(t0)
             sys.exit()
 
         hf = BlockFormatterPlus(None)
         print(hf._format_text(testText))
 
-    vMsg(0, "*** DONE ***")
+    warning0("*** DONE ***")
     sys.exit()

@@ -74,33 +74,55 @@ a list of the specific
 fields that can or must be stored in it. This is much like ''namedtuple''
 except that each field may specify more than just
 a name, and the result is an instance of RecordDef, not a new class.
+
+For the list of specific fields, you can pass a `list` or a `dict`:
+
+* For a list, each item can be:
+** a string field name (all constraints default); or
+** a (sub)list with constraints in order (see the `FieldInfo` namedtuple).
+
+* If it's a dict, the keys are fieldNames, which will be added in
+alphabetical order. Each value can be either:
+** None
+** a list as just described, or
+** a dict mapping fieldnames to constraints named as follow
+(see also the `FieldInfo` namedtuple):
+
 Each field can have the following features (all but the first can be defaulted):
 
-* name: a string that is the key used to identify this field
+* `name`: a string that is the key used to identify this field
 in instances of the Record. Required, and must be unique.
 
-* type: an actual type to constrain the values that may be set for the
+* `type`: an actual type to constrain the values that may be set for the
 field of the given 'name'. if 'type' is omitted or 'None', any type is allowed.
 
-* subs: one of three values (only meaningful is a type is specified;
+* `subs`: one of three values (only meaningful is a type is specified;
 the default is CAST):
 ** STRICT: only values of exactly the specified type are allowed
 ** SUB: values of subclasses are also allowed
 ** CAST: any value CAST to the speciied type are allowed
 
-* nil: If True, "None" is an acceptable value for the field.
-
-* defaultValue: if the field is missing, requests for it return this
+* `defaultValue`: if the field is missing, requests for it return this
 value (which should be of an acceptable 'type'. If not specified,
 requesting a missing field raises KeyError, just as with a dict or namedtuple.
 
-For example:
+* `nil`: If True, "None" is an acceptable value for the field.
+
+* `fmt`: How to format the field for output (typically a %-code).
+
+* `seq`: [internal] -- this is the generated sequence number for the field.
+To change field order, see `RecordDef.setOrder()`.
+
+For example, to define a Record type consisting of 5 fields, the first
+four of specific types, and the last allowing anything, and with the
+last three having default values:
+
     EmpRecord = RecordDef('EmpRecord', [
         [ 'fullName', str ],
         [ 'age'     , int ],
-        [ 'gender'  , str,   SubsValues.STRICT, True, None ],
-        [ 'salary'  , float, SubsValues.STRICT, True,  1.0 ],
-        [ 'userdata', None,  SubsValues.CAST, True, None ]
+        [ 'gender'  , str,   SubsValues.STRICT, None ],
+        [ 'salary'  , float, SubsValues.STRICT, 1.0 ],
+        [ 'userdata', None,  SubsValues.CAST, None ]
     ])
 
 ==Record==
@@ -306,19 +328,12 @@ class RecordDef():
     definition object is attached to Record instances.
 
     @param name: Just a name for the record type.
-    @param fields: specifies the fields allowed, and their constraint.
-        This can be a list or a dict.
-        If it's a list, each item can be:
-            a string field name (all constraints default); or
-            a (sub)list with constraints in order for FieldInfo construction
-        If it's a dict, the keys are fieldNames, which will be added in
-        alphabetical order. Each value can be either:
-            None
-            a list as just described, or
-            a dict mapping fieldnames to constraints named as for FieldInfo.
+    @param fields: specifies the fields allowed, and their constraints,
+        as a list or a dict. See the help for details.
     @param keyFields is a list of field names, together defining a key.
-    This lets the caller define something like the SQL notion of a compound
-    key applicable to Records of the given record type.
+        This lets the caller define something like the SQL notion of a compound
+        key applicable to Records of the given record type.
+
     TODO: Add a way to use just parts of fields (esp. strings), or at
     least let user give a function to derive the key from the record.
 

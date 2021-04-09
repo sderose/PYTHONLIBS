@@ -9,14 +9,7 @@ import sys, os
 import stat
 import math
 import time
-from functools import partial
-
-#from collections import defaultdict, namedtuple
-
-#from sjdUtils import sjdUtils
-#from alogging import ALogger
-#su = sjdUtils()
-#lg = ALogger(1)
+#from functools import partial
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -89,6 +82,7 @@ ignored.
 
 =To do=
 
+Finish `--outputFormat`.
 
 =Rights=
 
@@ -113,44 +107,32 @@ def warn(lvl, msg):
 
 ###############################################################################
 #
-class PowerStat:
-    """Extract and format info much like 'stat'.
-    A format item is like:
-        % flag? space? size? prec? fmt? sub? datum
-    There's a lot in stat that still isn't accessible this way. Perhaps
-    Add datum field like {statName}', to just use any name python stat knows?
-    (see https://docs.python.org/3/library/stat.html)
+class StatItem:
+    """Store the parsed fields of one %-spec, and format on request.
+    Also track where in the input string the field-spec was found, so we can
+    replace them correctly later.
+        flag    [#+-0 ]                # sign, padding, justify,...
+        siz     \\d                    # columns
+        prc     \\.\\d+                # precision
+        fmtCode [DOUXFS]               # dec, oct, udec, hex, float, str
+        subCode [HLM]                  # which part for pdrT
+        datum   [diplugramcBzbkfvNTYZ] # what actual data item
+    There are also specials like %[nt%@].
     """
-    flag    = r'(?P<flag>[#+-0 ])?'     # sign, padding, justify,...
-    siz     = r'(?P<siz>\d)?'
-    prc     = r'(?P<prc>\.\d+)?'        # only for time fields
-    fmt     = r'(?P<fmt>[DOUXFS])?'     # dec, oct, udec, hex, float, str
-    sub     = r'(?P<sub>[HLM])?'        # which part for pdrT
-    datum   = r'(?P<datum>[diplugramcBzbkfvNTYZ])'
-    # datum += r'|{<?P<datumName>\w+)'
-
-    itemExpr = ('%' + flag + siz + prc + fmt + sub + datum +
-        "|%(?P<esc>[nt%@])")
-
-    def __init__(self, statFormat=None, timeFormat=None):
-        self.statFormat = statFormat
-        if (timeFormat is None):
-            self.timeFormat ="%a %b %d %H:%M:%S %Z %Y"   # asctime
-        elif (timeFormat == 'ISO8601'):
-            self.timeFormat ="%Y-%m-%dT%H:%M:%S%z"       # ISO 8601
-        else:
-            self.timeFormat = timeFormat
-
-    def format(self, path):
-        st = os.stat(path)
-        buf = re.sub(
-            PowerStat.itemExpr,
-            partial(PowerStat.makeItem, st=st),
-            self.statFormat)
-        return buf
+    def __init__(self, mat):
+        self.pctString   = mat.groups(0)
+        self.startOffset = mat.start(0)
+        self.endOffset   = mat.end(0)
+        self.esc         = mat.group('esc') or False
+        self.flag        = mat.group('flag') or ''
+        self.siz         = mat.group('siz') or ''
+        self.prc         = mat.group('prc') or ''
+        self.fmtCode     = mat.group('fmt') or ''
+        self.subCode     = mat.group('sub') or ''
+        self.datum       = mat.group('datum')
 
     @staticmethod
-    def makeItem(mat, st=None):
+    def munge(mat, st):  # TODO: FIX, divide parse/store from format
         """Interpret one '%'-code, as defined by *nix 'stat' command.
         """
         if (mat.group('esc')):
@@ -197,98 +179,93 @@ class PowerStat:
         if (mat.group('fmt') == 'Y'): val = ' -> ' + val
         return val
 
-    @staticmethod
-    def getDatumByName(st, datumName):
-        try:
-            return st.__getitem__[datumName]
-        except KeyError:
-            return None
-
-    @staticmethod
-    def getDatum(st, itemLetter, subCode, fmtCode, theTimeFormat=None):
+    def formatDatum(self, st, theTimeFormat=None):
+        """This gets the raw datum given its code and subcode, and then formats
+        it as requested.
+        """
         # Cases that use 'sub' code
-        if (itemLetter == 'p'):                 # type and perm
-            return PowerStat.doPermissionBits(st, subCode, fmtCode)
+        if (self.datum == 'p'):                 # type and perm
+            return PowerStat.doPermissionBits(st, self.subCode, self.fmtCode)
 
-        if (itemLetter == 'd'):                 # device
-            # TODO: if (fmtCode == 's'): actual device name
+        if (self.datum == 'd'):                 # device
+            # TODO: if (self.fmtCode == 's'): actual device name
             # d gives a 4-byte int, where high order byte is major, low minor.
             dev = st[stat.ST_DEV]
-            if   (subCode == 'H'):              # major number
+            if   (self.subCode == 'H'):              # major number
                 return dev >> 24
-            elif (subCode == 'L'):              # minor number
+            elif (self.subCode == 'L'):              # minor number
                 return dev & 0xFF
-            elif (subCode == ''):               # raw number
+            elif (self.subCode == ''):               # raw number
                 return dev
             else: raise ValueError(
-                "Unrecognized d subCode '%s'." % (subCode))
+                "Unrecognized d self.subCode '%s'." % (self.subCode))
 
-        elif (itemLetter == 'r'):               # dev # for device special ***
+        elif (self.datum == 'r'):               # dev # for device special ***
             assert (st.IFBLK or st.IFCHR)
             dev = st[stat.ST_DEV]
-            if   (subCode == 'H'):              # major number
+            if   (self.subCode == 'H'):              # major number
                 return dev
-            elif (subCode == 'L'):              # minor number
+            elif (self.subCode == 'L'):              # minor number
                 return dev
             else: raise ValueError(
-                "Unrecognized r subCode '%s'." % (subCode))
+                "Unrecognized r self.subCode '%s'." % (self.subCode))
 
-        elif (itemLetter == 'T'):               # file type like ls -F   ***
+        elif (self.datum == 'T'):               # file type like ls -F   ***
             dev = st.ST_XXX
-            # TODO: if (fmtCode == 's'): actual file type
-            if   (subCode == 'H'):              # long form
+            # TODO: if (self.fmtCode == 's'): actual file type
+            if   (self.subCode == 'H'):              # long form
                 return dev
-            elif (subCode == 'L'):              # single-char flag
+            elif (self.subCode == 'L'):              # single-char self.flag
                 return dev
             else: raise ValueError(
-                "Unrecognized d subCode '%s'." % (subCode))
+                "Unrecognized d self.subCode '%s'." % (self.subCode))
 
         # Datetimes (returned as epoch times
         # (stat has a -t [fmt] option, which passes these through strftime)
-        elif (itemLetter in 'amcB'):
-            if   (itemLetter == 'a'):           # access time
+        elif (self.datum in 'amcB'):
+            if   (self.datum == 'a'):           # access time
                 tim = st[stat.ST_ATIME]
-            elif (itemLetter == 'm'):           # mod time
+            elif (self.datum == 'm'):           # mod time
                 tim = st[stat.ST_MTIME]
-            elif (itemLetter == 'c'):           # cre time
+            elif (self.datum == 'c'):           # cre time
                 tim = st[stat.ST_CTIME]
-            elif (itemLetter == 'B'):           # inode birth time       ***
+            elif (self.datum == 'B'):           # inode birth time       ***
                 tim = st.st_birthtime
             return PowerStat.formatTime(tim, theTimeFormat)
 
         # Numerics
-        elif (itemLetter == 'i'):               # inode
+        elif (self.datum == 'i'):               # inode
             return st[stat.ST_INO]
-        elif (itemLetter == 'l'):               # hard link count
+        elif (self.datum == 'l'):               # hard link count
             return st[stat.ST_NLINK]
-        elif (itemLetter == 'u'):               # owner uid
+        elif (self.datum == 'u'):               # owner uid
             return st[stat.ST_UID]
-        elif (itemLetter == 'g'):               # group id
+        elif (self.datum == 'g'):               # group id
             return st[stat.ST_GID]
-        elif (itemLetter == 'z'):               # size in bytes
+        elif (self.datum == 'z'):               # self.size in bytes
             return st[stat.ST_SIZE]
 
-        elif (itemLetter == 'b'):               # num blocks             ***
+        elif (self.datum == 'b'):               # num blocks             ***
             return st.ST_XXX
-        elif (itemLetter == 'k'):               # optimal blocksize      ***
+        elif (self.datum == 'k'):               # optimal blockself.size ***
             return st.ST_XXX
-        elif (itemLetter == 'v'):               # inode generation num   ***
+        elif (self.datum == 'v'):               # inode generation num   ***
             return st.ST_XXX
 
         # Other
-        elif (itemLetter == 'f'):               # user flags             ***
+        elif (self.datum == 'f'):               # user self.flags        ***
             return st.ST_XXX
 
         # Not actually from 'stat' struct (likewise 'T')
-        elif (itemLetter == 'N'):               # file name              ***
-            # TODO: if (fmtCode == 's'): actual file name
+        elif (self.datum == 'N'):               # file name              ***
+            # TODO: if (self.fmtCode == 's'): actual file name
             return st.ST_XXX
-        elif (itemLetter == 'Y'):               # symlink target         ***
+        elif (self.datum == 'Y'):               # symlink target         ***
             return st.ST_XXX
-        elif (itemLetter == 'Z'):               # rdev major,minor or size ***
+        elif (self.datum == 'Z'):               # rdev major,minor or self.size ***
             return st.ST_XXX
         else:
-            raise ValueError("Unrecognized datum code '%s'." % (itemLetter))
+            raise ValueError("Unrecognized datum code '%s'." % (self.datum))
 
     @staticmethod
     def doPermissionBits(st, subCode, fmtCode):
@@ -345,12 +322,77 @@ class PowerStat:
         return time.strftime(f, epochTime)
 
 
+
+###############################################################################
+#
+class PowerStat:
+    """Extract and format info much like 'stat'.
+    A format item is like:
+        % flag? space? size? prec? fmt? sub? datum
+
+    There's a lot in stat that still isn't accessible this way. Perhaps
+    Add datum field like {statName}', to just use any name python stat knows?
+    (see https://docs.python.org/3/library/stat.html)
+    """
+    flag    = r'(?P<flag>[#+-0 ])?'     # sign, padding, justify,...
+    siz     = r'(?P<siz>\d)?'
+    prc     = r'(?P<prc>\.\d+)?'        # only for time fields
+    fmt     = r'(?P<fmt>[DOUXFS])?'     # dec, oct, udec, hex, float, str
+    sub     = r'(?P<sub>[HLM])?'        # which part for pdrT
+    datum   = r'(?P<datum>[diplugramcBzbkfvNTYZ])'
+    # datum += r'|{<?P<datumName>\w+)'
+
+    itemExpr = re.compile('%' + flag + siz + prc + fmt + sub + datum +
+        "|%(?P<esc>[nt%@])")
+
+    def __init__(self, statFormat=None, timeFormat=None):
+        """Parse a `stat -f` argument into an array of literals and %-items.
+        """
+        self.statFormat = statFormat
+        self.theItems = []  # A mix of StatItems and literal strs
+        lastEnd = 0
+        for mat in re.finditer(PowerStat.itemExpr, statFormat):
+            if (mat.start() > lastEnd):
+                self.theItems.append(statFormat[lastEnd:mat.start()])
+            self.theItems.append(StatItem(mat))
+            lastEnd = mat.end()
+        if (len(statFormat) > lastEnd):
+            self.theItems.append(statFormat[lastEnd:])
+
+        if (timeFormat is None):
+            self.timeFormat ="%a %b %d %H:%M:%S %Z %Y"   # asctime
+        elif (timeFormat == 'ISO8601'):
+            self.timeFormat ="%Y-%m-%dT%H:%M:%S%z"       # ISO 8601
+        else:
+            self.timeFormat = timeFormat
+
+    def format(self, path):
+        st = os.stat(path)
+        buf = ''
+        for _i, thisItem in enumerate(self.theItems):
+            if (isinstance(thisItem, str)):
+                buf += thisItem
+            else:
+                buf += thisItem.format(st)
+        return buf
+
+    def formatTime(self, t):
+        assert False, "formatTime not yet implemented."
+
+    @staticmethod
+    def getDatumByName(st, datumName):
+        try:
+            return st.__getitem__[datumName]
+        except KeyError:
+            return None
+
+
 ###############################################################################
 # Main
 #
 if __name__ == "__main__":
-    statFormat = "-%Hu%Mu%Lu%Hg%Mg%Lg%Ho%Mo%Lo  %8su %8sg %6ds %12sm %sn"
-    timeFormat = "%Y-%m-%dT%H:%M:%S %Z"
+    statFormat0 = "-%Hu%Mu%Lu%Hg%Mg%Lg%Ho%Mo%Lo  %8su %8sg %6ds %12sm %sn"
+    timeFormat0 = "%Y-%m-%dT%H:%M:%S %Z"
     import argparse
     def anyInt(x):
         return int(x, 0)
@@ -370,11 +412,15 @@ if __name__ == "__main__":
             "--quiet", "-q",      action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
-            "--statFormat", "-f", type=str, default=statFormat,
-            help='stat-like %-codes to determine output format.')
+            "--outputFormat", "--oformat", "-o", type=str, default="plain",
+            choices = [ "plain", "html", "xsv", "csv", "tsv" ],
+            help='Record/field syntax for output.')
         parser.add_argument(
-            "--timeFormat", "-f", type=str, default=timeFormat,
-            help='strftime-like %-codes to determine time output format.')
+            "--statFormat", "-s", type=str, default=statFormat0,
+            help='stat-like percent-codes to determine output format.')
+        parser.add_argument(
+            "--timeFormat", "-t", type=str, default=timeFormat0,
+            help='strftime-like percent-codes to determine time output format.')
         parser.add_argument(
             "--verbose", "-v",    action='count',       default=0,
             help='Add more messages (repeatable).')

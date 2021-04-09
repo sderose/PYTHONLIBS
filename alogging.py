@@ -25,6 +25,7 @@ if PY3:
 
 __metadata__ = {
     'title'        : "alogging.py",
+    'description'  : "logging additions, for -v levels, stats, traceback, etc.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -109,13 +110,13 @@ There are many other options as well.
 `MsgRule(v=0, color=None, width=79)` prints a horizontal rule.
 
 You can also call the underlying `Msg(self, msgType, ...)` directly, with
-a `msgType` of 'v', 'e', or 'h', or with another `msgType` that you define
-using `defineMsgType()`.
+a `msgType` of 'v', 'e', or 'h'.
 
 ==defineMsgType(self, msgType, color=None, nLevels=0, func=None,
 prefix=None, infix=None, suffix=None, escape=None, indent=None)==
 
-This defines a new message type, that you can issue with `Msg(msgType, ...)`.
+''Deprecated.''
+Defines a new message type, that you can issue with `Msg(msgType, ...)`.
 Option set various formatting characteristics:
 
 * `color=None` -- see `ColorManager` for naming conventions
@@ -311,9 +312,7 @@ Default ''n'': 80.
 
 Issue a message (normally to STDOUT), using the formatting and options defined
 for the given ''msgType''. Types 'e' (error), 'w' (warning),
-and 'h' (header) are provided, and have
-shorthand calls (see following); additional
-types can be defined using ''defineMsgType''().
+and 'h' (header) are provided.
 
 ===Treatment of message with `eMsg`, `vMsg`, `hMsg`, etc.===
 
@@ -367,7 +366,7 @@ These items can be filled in by a message format:
 
 * 'msg'
 
-==Custom message types==
+==Message types==
 
 * ''defineMsgType''(type, color=None, nLevels=None, func=None,
 prefix=None, infix=None, suffix=None, escape=None, indent=None)
@@ -546,23 +545,7 @@ error, and criticals. This seems sensible to the author.
 * ''Msg(self, level, msgType='v', color=None, width=79)''
 
 Issues such a message. The ''msgType'' parameter specifies a message ''type''
-either from the predefined list (e, v, h, or x),
-or added using ''defineMsgType''(). A message type can specify:
-
-** a format-string to use for the message (unlike with ''Logger'',
-this can be different for each type);
-
-** a color (for when the `color` option is set);
-
-** whether the messages should be indented according to the current persistent-indentation level (see below);
-
-** whether unprintable characters should be escaped;
-
-** whether a full or partial stack-trace should be shown;
-
-** text to go before or after the message,
-(or between the parts when 2 are present).
-
+from the predefined list (e, v, h, or x).
 
 * ''vMsg(self, level, msg1, msg2, color=None)''
 
@@ -641,13 +624,6 @@ should show up as tiny mnemonics for the corresponding control characters.
 
 Sets the name of the character encoding to be used (default `utf-8`).
 
-* ''Option'':''direct''
-
-If set, messages will be sent directly to `stderr`.
-Otherwise they go through `logging.Logger`, which currently
-means that no messages are issued if verbosity is not set higher than 0
-(I prefer to have 0-level messages unconditionally displayed).
-
 * ''Option'':''filename''
 
 This is just passed along to the like-named argument of the
@@ -659,9 +635,7 @@ It defaults to `sys.stderr`.
 The string used by ''Msg''() to build indentation according to the
 ''indentation depth''
 set by ''MsgPush''(), ''MsgPop'', etc. Default: "  " (two spaces).
-Indentation is inserted before the message-type prefix (though after the
-Logger prefix), and after each newline in the prefix, infix, and suffix
-for the message (see ''defineMsgType''()).
+Indentation is inserted before the message and after each newline.
 
 * ''Option'':''noMoreStats''
 
@@ -731,9 +705,24 @@ Improve formatting.
 Linux command `dircolors` is not available. POD to MarkDown.
 * 2020-09-23: Add forward for `colorize()`, and a fallback. lint.
 * 2020-10-07: Add formatPickle().
+* 2020-12-10ff: Drop 'direct' option, start dropping defineMsgType
+and [evh]Msg() forms, in favor of warningN(), etc. Add verboseDefault. lint.
 
 
 =To do=
+
+* Sync to Py logger:
+    rename file to aLogger
+    drop 'direct' option
+    drop defineMsgType (globalchange, colorManager, lessData, ...)
+    drop versions of this package from `Volsunga
+    drop any redundant code from sjdUtils
+    drop prefix/infix/suffix
+    warn(0 ->w0...), etc.
+    drop stat arg
+    vMsg->i...
+    eMsg->e...
+    hMsg??
 
 * formatRec():
 ** Accept an options dict instead of long list of named options?
@@ -749,13 +738,7 @@ Linux command `dircolors` is not available. POD to MarkDown.
     self.openObject = "<<"; self.closeObject = ">>"
     self.disp_None = "*NONE*"
 
-* Discard eMsg()?
-
-* hMsg() not printing? should info/warn/error use indent?
-
 * Option to get rid of "INFO:root:" prefix from logging package.
-
-* Allow %(name) references to caller's variables??
 
 
 =Rights=
@@ -782,28 +765,33 @@ All those works are by the same author and are licensed under the same license
 ###############################################################################
 #
 class ALogger:
+    """A default verbosity level.
+    """
+    verboseDefault = 0
+
     def __init__(self,
         verbose:int  = None,       # Level of detail for 'info' messages.
         color        = None,
         filename:str = None,
         encoding:str = 'utf-8',
         level:int    = None,
-        direct:bool  = True,
         options:dict = None
         ):
 
         if (color is None):
             color = ('USE_COLOR' in os.environ)
 
+        if (verbose is None):
+            verbose = ALogger.verboseDefault
+
         self.options = {
-            'verbose'        : verbose or 1,# Verbosity level
+            'verbose'        : verbose,     # Verbosity level
             'color'          : color,       # Using terminal color?
             'filename'       : filename,    # For logging pkg
             'encoding'       : encoding,    # Assumed char set
             # Set a level that doesn't hide too much:
             # CRITICAL 50, ERROR 40, WARNING 30, INFO 20, DEBUG 10, NOTSET 0
             'level'          : level or 20, # For logging filtering
-            'direct'         : direct,      # stderr, not Logger package.
 
             'badChar'        : "?",         # Substitute for undecodables
             'controlPix'     : True,        # Show U+24xx for control chars?
@@ -843,6 +831,8 @@ class ALogger:
             logging.basicConfig(level=self.options['level'],
                                 format='%(message)s')
         self.lg             = logging.getLogger()
+
+        self.headPrefix = "\n*******"
 
         # msgType: color, nLevels, func, prefix, infix, suffix, escape, indent.
         self.msgTypes       = {}
@@ -1089,37 +1079,73 @@ class ALogger:
     ###########################################################################
     # Python 'Logger'-compatible calls:
     #
-    def log(self, level, msg, stat=None, **kwargs):    # TAKES LEVEL ARG
+    # The type-specific calls handles statistic-updating, because that should
+    # happen whether or not the level filters out actual display.
+    #
+    def log(self, level, msg, stat=None, color=None, **kwargs):  # ARGS!
         if (stat): self.bumpStat(stat)
-        if (self.options['direct']): self.directMsg(msg)
-        else: self.lg.log(level, msg, *kwargs)
+        if (self.options['verbose'] < level): return
+        self.directMsg(msg, kwargs)
     def debug(self, msg, stat=None, **kwargs):         # level = 10
         if (stat): self.bumpStat(stat)
-        if (self.options['direct']): self.directMsg(msg)
-        else: self.lg.debug(msg, *kwargs)
+        self.directMsg(msg, kwargs)
     def info(self, msg, stat=None, **kwargs):          # level = 20
         if (stat): self.bumpStat(stat)
-        if (self.options['direct']): self.directMsg(msg)
-        else: self.lg.info(msg, *kwargs)
+        self.directMsg(msg, kwargs)
     def warning(self, msg, stat=None, **kwargs):       # level = 30
         if (stat): self.bumpStat(stat)
-        if (self.options['direct']): self.directMsg(msg)
-        else: self.lg.warning(msg, *kwargs)
+        self.directMsg(msg, kwargs)
     def error(self, msg, stat=None, **kwargs):         # level = 40
         if (stat): self.bumpStat(stat)
-        if (self.options['direct']): self.directMsg(msg)
-        else: self.lg.error(msg, *kwargs)
+        self.directMsg(msg, kwargs)
     def exception(self, msg, stat=None, **kwargs):     # level = 40
         if (stat): self.bumpStat(stat)
-        if (self.options['direct']): self.directMsg(msg)
-        else: self.lg.exception(msg, *kwargs)
+        self.directMsg(msg, kwargs)
     def critical(self, msg, stat=None, **kwargs):      # level = 50
         if (stat): self.bumpStat(stat)
-        if (self.options['direct']): self.directMsg(msg)
-        else: self.lg.critical(msg, *kwargs)
+        self.directMsg(msg, kwargs)
 
-    def directMsg(self, msg):
-        #if (not msg.endswith("\n")): msg += "\n"
+
+    ###########################################################################
+    # Level-specific shorthand (replacing old log-style level param).
+    #
+    def info0(self, msg, **kwargs): self.log(0, msg, **kwargs)
+    def info1(self, msg, **kwargs): self.log(1, msg, **kwargs)
+    def info2(self, msg, **kwargs): self.log(2, msg, **kwargs)
+    def info3(self, msg, **kwargs): self.log(3, msg, **kwargs)
+    def info4(self, msg, **kwargs): self.log(4, msg, **kwargs)
+
+    def warning0(self, msg, **kwargs): self.log(0, msg, **kwargs)
+    def warning1(self, msg, **kwargs): self.log(1, msg, **kwargs)
+    def warning2(self, msg, **kwargs): self.log(2, msg, **kwargs)
+    def warning3(self, msg, **kwargs): self.log(3, msg, **kwargs)
+    def warning4(self, msg, **kwargs): self.log(4, msg, **kwargs)
+
+    def heading0(self, msg, **kwargs):
+        self.log(0, self.headPrefix + msg, **kwargs)
+    def heading1(self, msg, **kwargs):
+        self.log(1, self.headPrefix + msg, **kwargs)
+    def heading2(self, msg, **kwargs):
+        self.log(2, self.headPrefix + msg, **kwargs)
+    def heading3(self, msg, **kwargs):
+        self.log(3, self.headPrefix + msg, **kwargs)
+    def heading4(self, msg, **kwargs):
+        self.log(4, self.headPrefix + msg, **kwargs)
+
+    def error0(self, msg, **kwargs): self.log(0, msg, **kwargs)
+    def error1(self, msg, **kwargs): self.log(1, msg, **kwargs)
+    def error2(self, msg, **kwargs): self.log(2, msg, **kwargs)
+    def error3(self, msg, **kwargs): self.log(3, msg, **kwargs)
+    def error4(self, msg, **kwargs): self.log(4, msg, **kwargs)
+
+
+    def directMsg(self, msg, color=None, **kwargs):
+        """Pretty much everything ends up here.
+        'stat' are should have been handled and removed by caller.
+        """
+        #assert ('stat' not in kwargs)
+        ender = kwargs['end'] if 'end' in kwargs else "\n"
+        if (not msg.endswith(ender)): msg += ender
         #msg2 = re.sub(r'\n', '*', msg)
         sys.stderr.write(msg)
 
@@ -1163,7 +1189,7 @@ class ALogger:
         if (self.options['verbose']<verbose): return
         (on,off) = self.getPickedColorString(color, None)
         m = on + (char * width/len(char)) + off
-        self.info(m+"\n")
+        self.info(m)
 
     def vMsg(self, verbose:int, m1="", m2="", color=None, stat=""):
         """A variant of ''Msg''(), to issue a 'verbose' (msgType 'v') message.
@@ -1171,7 +1197,7 @@ class ALogger:
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, msgType='v')
-        self.info(m+"\n")
+        self.info(m)
 
     # Change called over to call error() directly, then delete eMsg().
     def eMsg(self, verbose:int, m1="", m2="", color=None, stat=""):
@@ -1181,7 +1207,7 @@ class ALogger:
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, msgType='e')
-        self.info(m+"\n")
+        self.info(m)
         if (verbose<0):
             raise AssertionError("alogging:eMsg with level %d." % (verbose))
 
@@ -1191,7 +1217,7 @@ class ALogger:
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, msgType='h')
-        self.info(m+"\n")
+        self.info(m)
 
     # Messages of various kinds (sync with Perl version)
     def Msg(self,msgType,m1="",m2="",
@@ -1253,9 +1279,9 @@ class ALogger:
         inf = msgDef['infix']
         if (indent or msgDef['indent']):
             ind = (self.options['indentString'] * self.msgIndentLevel)
-            #pre = ind + re.sub(r'\n', r'\n'+ind, msgDef['prefix'])
-            #inf = re.sub(r'\n', r'\n'+ind, msgDef['infix'])
-            #suf = re.sub(r'\n', r'\n'+ind, msgDef['suffix'])
+            pre = ind + re.sub(r'\n', r'\n'+ind, msgDef['prefix'])
+            inf = re.sub(r'\n', r'\n'+ind, msgDef['infix'])
+            suf = re.sub(r'\n', r'\n'+ind, msgDef['suffix'])
 
         caller = ""
         if (msgDef['func']): caller = self.getCaller() + ": "
