@@ -100,8 +100,6 @@ supports several "tabular" data formats, including many
 variants of CSV. This started out as a port from Perl, but needs to be updated
 so it sits on top of exiting Python libs where practical. See also `fsplit.py`.
 
-* `TabularFormats2.py` -- in progress
-
 * `Tokenizer.py` -- a very Unicode-aware word tokenizer for NLP work.
 
 * `TokensEN.py` -- includable by Tokenizer.py to support English-specific stuff
