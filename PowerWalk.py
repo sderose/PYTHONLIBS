@@ -5,8 +5,6 @@
 #
 #pylint: disable=W0212
 #
-#pylint: disable=W0212
-#
 from __future__ import print_function
 import sys, os
 import argparse
@@ -1988,6 +1986,13 @@ if __name__ == "__main__":
         parser.add_argument(
             "--quote", action='store_true',
             help='Sets both openQuote and closeQuote to "\'".')
+        parser.add_argument(
+            "--short", action='store_true',
+            help='Only show the bottom-level name in the outline view.')
+        parser.add_argument(
+            "--showInvisibles", type=str, default='literal',
+            choices=[ 'literal', 'octal', 'hex', 'pix', 'url' ],
+            help='How to display unusual characters.')
         parser.add_argument(
             "--serialize", action='store_true',
             help='With --copy, add a serial number to each file.')

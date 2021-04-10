@@ -29,6 +29,7 @@ __metadata__ = {
 __version__ = __metadata__["modified"]
 
 
+
 descr = """
 =Usage=
 
@@ -62,7 +63,8 @@ This is the easiest to use, for example:
 It provides a few keyword options on the constructor:
 
 **B<normalize> -- What Unicode normalization to apply.
-Default: "NFKD" (others are "NFC", "NFD", and "NFKC").
+
+Default: 'NFKD' (others are 'NFC', 'NFD', and 'NFKC').
 
 **B<breakHyphens> -- Whether to split hyphenated words. Default: False.
 

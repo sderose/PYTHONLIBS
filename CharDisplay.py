@@ -178,7 +178,6 @@ The normal form KD (NFKD) will apply the compatibility decomposition, i.e. repla
 Compatibility composition does I<not> merge characters such as uupercase
 English A and Greek alpha, or even soft hyphen. However, forms NKFC and
 NFKD do normalize non-breaking space to regular space.
-=Known bugs and limitations=
 
 
 =Related Commands=

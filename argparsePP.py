@@ -93,6 +93,27 @@ Issues:
     do this with just eval, after subbing in all the vars.
     usual question of how to signal interpolation.
 
+==Expressions?==
+
+Some (hopefully cleaner?) way to do logic, a bit like `find`. say,
+parentheses, boolean ops, and comparisons, where identifiers get resolved
+by a callback. But this really needs lazy evaluation -- you can only evaluate
+`find`-like conditions on a file-by-file basis.
+
+Issues:
+    * case and regex comparison
+    * case for `choices` values
+    * set operations
+    * date/time facilities
+    * check identifiers at parsetime, but eval later?
+    * indicate which are per-file evals?
+    * date differences like recency
+
+    --include = "(type='d' and size>12E+6 and (ext in [ 'foo', 'bar' ]))"
+
+    do this with just eval, after subbing in all the vars.
+    usual question of how to signal interpolation.
+
 ==Other options==
 
 * Way to make one shorthand option set 2 others, e.g. PowerWalk's --quote
