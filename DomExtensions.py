@@ -196,21 +196,20 @@ gets all elements which are among the first 20 children of `myNode`.
 
 ==Choosing nodes along XPath axes==
 
-A second major feature of DomExtensions, is support for
+A second major feature of DomExtensions, is called "Axis Selection".
+It provides support for
 walking all the XPath 'axes' in a DOM tree, such as
 ancestors, children, descendants, siblings, and so on. Each axis is available
 via a method called 'select' plus the axis name.
 
 Because it's often useful to consider only element nodes,
-or only #text nodes, or only element nodes of a certain element type, or
+or only #TEXT nodes, or only element nodes of a certain element type, or
 with a certain attribute or attribute-value pair, optional arguments can be
 used to filter in those ways:
 
 The 'select...' methods return node [n] (counting from 0)
 of a given type and/or attributes along a given axis.
-For example (using the Child axis, but you can substitute
-Descendant, PrecedingSibling, FollowingSibling, Preceding, Following,
-or Ancestor):
+For example:
 
     myNode.selectChild(3, elType='li', attrs={'class':'major'})
 
@@ -219,7 +218,8 @@ This will return the fourth child of `myNode` which:
 * is of the given element type name ('li'), and
 * has the attribute ''class'' with value ''major''.
 
-All the arguments are optional.
+All the arguments are optional. If none are provided, the first item
+along the axis (that is, #0) is returned.
 
 Constraints:
 
@@ -233,16 +233,18 @@ The `attrs` argument cannot be used except with an element type name or "*".
 qnames (names with a namespace) are not yet supported for ''elType''.
 
 * `attrs`, if provided, must be None or a dict of attribute name:value pairs,
-which all must match. The kind of matching depends on the type of value passed
-in the dict:
+which all must match for an element to be selected.
+The kind of matching depends on the type of value passed in the dict:
 
-* int or float: match numerically (non-numeric attribute values will not match,
-but will not raise an exception either).
+* int or float: match numerically. Attribute values that are not
+strings of Latin decimal digits will not match,
+but will not raise exceptions either. Hexadecimal and other forms should
+be added. [TODO]
 * a compiled regex: will be matched against the attribute value.
-* a string will be matched literally.
+* a string: matched literally. [TODO support case-ignoring]
 
-The `self`, `descendant-or-self`, `attribute`, and `namespace`
-axes are ''not'' supported for ''select...''.
+The `attribute`, and `namespace`
+axes are not yet supported for ''select...''.
 
 This is far less power than XPath provides, but it facilitates many programming tasks,
 such as scanning for all elements of a given type (which I find very common).
@@ -605,10 +607,11 @@ Internal whitespace is left unchanged.
 
 =back
 
+
 =Known bugs and limitations=
 
-Negative indexes along axes are not yet supported for all axes. Even where they
-all, speed depends on the DOM implementation you choose.
+Negative indexes along axes are supported only for the self, child,
+and descendant axes so far.
 
 `Node` is not changed to actually inherit from `list`, so there are surely some
 list behaviors that I haven't included (yet). Like sorting. Let me know.
@@ -621,6 +624,7 @@ attributes via regexes, and support multiple attribute constraints.
 
 The implementation for []-notation, like that or normal Python lists,
 actually checks for `isinstance(arg, int)`, so `myNode["1"]` will not work.
+
 
 =Related commands=
 
@@ -700,8 +704,10 @@ or: How to do better with Python and XML."
 Balisage Series on Markup Technologies, vol. 13 (2014).
 [https://doi.org/10.4242/BalisageVol13.DeRose02].
 
+
 =Options=
 """
+
 
 ###############################################################################
 #
@@ -811,7 +817,9 @@ def DEgetitem(self:Node, n1, n2=None, n3=None):
             raise IndexError(
                 "No 2 adjacent ints in [%s:%s:%s] for a Node." % (n1, n2, n3))
 
-def DEcontains(self:Node, elType:str):
+def DEcontains(self:Node, elType:str) -> bool:
+    """Test whether the node has a direct child of the given element type.
+    """
     if (elType[0] == '@'):
         return self.hasAttribute(elType)
     for ch in self.childNodes:
@@ -924,24 +932,29 @@ def innerHTML(self:Node, cOptions=None):
             sys.exit("Unknown node type %d." % (ty))
     return t
 
-def outerXML(self:Node, cOptions=None):
+def outerXML(self:Node, cOptions=None) -> str:
     return self.outerHTML(cOptions=cOptions)
-def innerXML(self:Node, cOptions=None):
+def innerXML(self:Node, cOptions=None) -> str:
     return self.innerHTML(cOptions=cOptions)
 
-def innerText(self:Node, sep=''):
+def innerText(self:Node, sep:str='') -> str:
     """
     Like usual innertext, but a function (instead of a property), and allows
     inserting something in between all the text nodes (typically a space,
     so text of list items etc. don't join up. But putting in spaces around
     HTML inlines like i and b, is occasionally wrong.
     """
+    if (self.nodeType == Node.TEXT_NODE or
+        self.nodeType == Node.TEXT_NODE):
+        sys.stderr.write(self.nodeValue+"\n")
+        return self.nodeValue
+    if (self.nodeType != Node.ELEMENT_NODE):  # PI, comment
+        return ""
     t = ""
-    for curNode in self.childNodes:
-        if (curNode.nodeType == Node.TEXT_NODE):
-            t += sep + curNode.nodeValue
-        elif (curNode.nodeType == Node.ELEMENT_NODE):
-            t += sep + curNode.innerText(sep=sep)
+    for childNode in self.childNodes:
+        if (childNode.nodeType == Node.ELEMENT_NODE):
+            if (t): t += sep
+            t += childNode.innerText(sep=sep)
     return t
 
 
@@ -959,37 +972,49 @@ def NNM_getitem(self:NamedNodeMap, which):
 
 
 ###############################################################################
+# Extended "Axis selects".
+#
 # Methods for finding the nth node along a given axis, that has a given
 # element type and/or attribute/value.
 #
-# TODO: negative to go from end.
+# TODO: Support negative to go from end.
 #
-def selectAncestor(self:Node, n=0, elType:str=None, attrs=None):
-    """Return the first/nth ancestor that fits the requirements.
-    """
-    if (not elType): elType = ""
-    cur = self.parentNode
-    return cur.selectAncestorOrSelf(
-        n=n, elType=elType, attrs=attrs)
-
-def selectAncestorOrSelf(self:Node, n=0, elType:str=None, attrs=None):
-    """Like selectAncestor(), but the node itself is also considered.
-    """
-    if (n<0): n = self.getDepth() + n
-    if (not elType): elType = ""
-    found = 0
-    cur = self
-    while (cur):
-        if (cur.nodeMatches(elType, attrs)):
-            found += 1
-            if (found >= n): return cur
-        cur= cur.parentNode
+def selectSelf(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+    if (self.nodeMatches(elType, attrs)):
+        if (n==0 or n==-1): return self
     return None
 
-def selectChild(self:Node, n=0, elType:str=None, attrs=None):
+def selectAncestor(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+    """Return the first/nth ancestor that fits the requirements.
+    TODO: Support negative n.
     """
+    if (n>=0):
+        cur = self.parentNode
+        return cur.selectAncestorOrSelf(
+            n=n, elType=elType, attrs=attrs)
+    else:
+        raise NOT_SUPPORTED_ERR("selectPreceding() doesn't support negative indexes yet.")
+
+def selectAncestorOrSelf(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+    """Like selectAncestor(), but the node itself is also considered.
+    n=-01 means the outermost one (if no
+    other constraints are given, the document element).
     """
-    if (not elType): elType = ""
+    if (n>=0):
+        found = 0
+        cur = self
+        while (cur):
+            if (cur.nodeMatches(elType, attrs)):
+                found += 1
+                if (found >= n): return cur
+            cur= cur.parentNode
+        return None
+    else:
+        raise NOT_SUPPORTED_ERR("selectPreceding() doesn't support negative indexes yet.")
+
+def selectChild(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+    """n=-01 means the last one.
+    """
     found = 0
     if (n >= 0):
         cur = self.getFirstChild()
@@ -1008,12 +1033,20 @@ def selectChild(self:Node, n=0, elType:str=None, attrs=None):
 
     return None
 
-def selectDescendant(self:Node, n=0, elType:str=None, attrs=None):
+def selectDescendantOrSelf(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+    """TODO: Support negative n.
+    """
+    if (self.nodeMatches(elType, attrs)):
+        if (n==0): return self
+        n -= 1
+    return selectDescendantR(n, elType, attrs)
+
+def selectDescendant(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
     """
     """
     return selectDescendantR(n, elType, attrs)
 
-def selectDescendantR(self:Node, n=0, elType:str=None, attrs=None):
+def selectDescendantR(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
     """
     """
     found = 0
@@ -1035,13 +1068,10 @@ def selectDescendantR(self:Node, n=0, elType:str=None, attrs=None):
             cur = cur.getPreceding()
         return None
 
-# TODO: Add selectDescendantOrSelf
-
-def selectPreceding(self:Node, n=0, elType:str=None, attrs=None):
+def selectPreceding(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
     """
     TODO: Support -n
     """
-    if (not elType): elType = ""
     if (n >= 0):
         cur = getPreceding(self)
         found = 0
@@ -1055,7 +1085,7 @@ def selectPreceding(self:Node, n=0, elType:str=None, attrs=None):
     else:
         raise NOT_SUPPORTED_ERR("selectPreceding() doesn't support negative indexes yet.")
 
-def getPreceding(self:Node):
+def getPreceding(self:Node) -> Node:
     """Get the immediately preceding node, if any. This includes earlier
     descendents= of ancestors, but not ancestors themselves, as in XPath.
     """
@@ -1068,7 +1098,7 @@ def getPreceding(self:Node):
         cur = cur.parentNode
     return None
 
-def getPrecedingAbsolute(self:Node):
+def getPrecedingAbsolute(self:Node) -> Node:
     """Get the immediately preceding node, but (unlike XPath) also considering
     ancestors themselves.
     """
@@ -1082,12 +1112,11 @@ def getPrecedingAbsolute(self:Node):
         cur = cur.parentNode
     return None
 
-def selectFollowing(self:Node, n=0, elType:str=None, attrs=None):
+def selectFollowing(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
     """As in XPath, does not include descendants.
     See https://stackoverflow.com/questions/44377798/
     TODO: Support -n
     """
-    if (not elType): elType = ""
     if (n >= 0):
         cur = self.getFollowing()
         found = 0
@@ -1100,7 +1129,7 @@ def selectFollowing(self:Node, n=0, elType:str=None, attrs=None):
     else:
         raise NOT_SUPPORTED_ERR("selectFollowing() doesn't support negative indexes yet.")
 
-def getFollowing(self:Node):
+def getFollowing(self:Node) -> Node:
     """As in XPath, does not include descendants.
     See https://stackoverflow.com/questions/44377798/
     """
@@ -1111,7 +1140,7 @@ def getFollowing(self:Node):
         cur = cur.parentNode
     return None
 
-def getFollowingAbsolute(self:Node):
+def getFollowingAbsolute(self:Node) -> Node:
     """Get the next node in document order, but (unlike XPath), also considering
     descendents (namely the first child).
     """
@@ -1123,11 +1152,10 @@ def getFollowingAbsolute(self:Node):
         cur = cur.parentNode
     return None
 
-def selectPrecedingSibling(self:Node, n=0, elType:str=None, attrs=None):
+def selectPrecedingSibling(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
     """
     TODO: Support -n
     """
-    if (not elType): elType = ""
     if (n >= 0):
         cur = self.getPreviousSibling()
         found = 0
@@ -1140,11 +1168,10 @@ def selectPrecedingSibling(self:Node, n=0, elType:str=None, attrs=None):
     else:
         raise NOT_SUPPORTED_ERR("selectPrecedingSibling() doesn't support negative indexes yet.")
 
-def selectFollowingSibling(self:Node, n=0, elType:str=None, attrs=None):
+def selectFollowingSibling(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
     """
     TODO: Support -n
     """
-    if (not elType): elType = ""
     if (n >= 0):
         cur = self.getFollowingSibling()
         found = 0
@@ -1160,18 +1187,18 @@ def selectFollowingSibling(self:Node, n=0, elType:str=None, attrs=None):
 
 ### Useful synonyms
 #
-def getPrecedingSibling(self:Node):
+def getPrecedingSibling(self:Node) -> Node:
     return self.previousSibling
-def precedingSibling(self:Node):
+def precedingSibling(self:Node) -> Node:
     return self.previousSibling
-def selectPreviousSibling(self:Node, **w):
+def selectPreviousSibling(self:Node, **w) -> Node:
     self.selectPrecedingSibling(*w)
 
-def getFollowingSibling(self:Node):
+def getFollowingSibling(self:Node) -> Node:
     return self.nextSibling
-def followingSibling(self:Node):
+def followingSibling(self:Node) -> Node:
     return self.nextSibling
-def selectNextSibling(self:Node, **w):
+def selectNextSibling(self:Node, **w) -> Node:
     self.selectFollowingSibling(*w)
 
 # No select for root, self, attribute, or namespace axes.
@@ -1179,7 +1206,7 @@ def selectNextSibling(self:Node, **w):
 
 ###############################################################################
 #
-def getLeastCommentAncestor(self:Node, other:Node):
+def getLeastCommonAncestor(self:Node, other:Node) -> Node:
     """Return the smallest node that is an ancestor of both nodes.
     """
     other = other.parentNode
@@ -1188,7 +1215,7 @@ def getLeastCommentAncestor(self:Node, other:Node):
         other = other.parentNode
     return None
 
-def getLeftBranch(self:Node):
+def getLeftBranch(self:Node) -> Node:
     """
     Find the furthest node down if you always go left.
     """
@@ -1196,7 +1223,7 @@ def getLeftBranch(self:Node):
     while (cur.firstChild): cur = cur.firstChild
     return cur
 
-def getRightBranch(self:Node):
+def getRightBranch(self:Node) -> Node:
     """
     Find the furthest node down if you always go right.
     """
@@ -1204,13 +1231,13 @@ def getRightBranch(self:Node):
     while (cur.lastChild): cur = cur.lastChild
     return cur
 
-def getFirstChild(self:Node, nodeType=None):
+def getFirstChild(self:Node, nodeType=None) -> Node:
     return self.selectChild(self, n=0, elType=nodeType)
 
-def getLastChild(self:Node, nodeType=None):
+def getLastChild(self:Node, nodeType=None) -> Node:
     return self.selectChild(self, n=-1, elType=nodeType)
 
-def getNChildNodes(self:Node, nodeType=None):
+def getNChildNodes(self:Node, nodeType=None) -> int:
     """Return the number of children of the current node.
     TODO: Node implementations that don't use physical arrays
     may want to override this for speed.
@@ -1222,7 +1249,7 @@ def getNChildNodes(self:Node, nodeType=None):
             (nodeType=='*' or nodeType==ch.nodeName)): n += 1
     return n
 
-def getChildNumber(self:Node, nodeType=None):
+def getChildNumber(self:Node, nodeType=None) -> int:
     """Return the number of this node among its siblings.
     @param nodeType: If specified, only count siblings that are elements of
     the specified type ('*' for all).
@@ -1235,7 +1262,7 @@ def getChildNumber(self:Node, nodeType=None):
         if (ch==self): return n
     return None
 
-def getDepth(self:Node):
+def getDepth(self:Node) -> int:
     """
     How far down are we? Document element is 1.
     """
@@ -1246,7 +1273,7 @@ def getDepth(self:Node):
         cur = cur.parentNode
     return d
 
-def getMyIndex(self:Node, onlyElements=True):
+def getMyIndex(self:Node, onlyElements=True) -> int:
     """Return the position in order, among the node's siblings.
     The first child is [0]!
     """
@@ -1263,18 +1290,21 @@ def getMyIndex(self:Node, onlyElements=True):
         if (onlyElements==False or sib.nodeType==Node.ELEMENT_NODE): n += 1
     raise(ValueError)
 
-def getFQGI(self:Node):
+def getFQGI(self:Node, sep="/") -> str:
+    """Return the sequence of element type names of all ancestors, in
+    document order, separated by `sep`.
     """
-    """
-    assert (self.nodeType == Node.ELEMENT_NODE)
-    f = ""
     cur = self
+    f = ""
+    if (cur.nodeType != Node.ELEMENT_NODE):
+        f = cur.nodeName
+        cur = cur.parentNode
     while (cur):
-        f = "/" + self.nodeName + f
+        f = self.nodeName + "/" + f
         cur = cur.parentNode
     return f
 
-def isWithinType(self:Node, elType):
+def isWithinType(self:Node, elType) -> bool:
     """
     Test whether a node has an ancestor of a specified element type.
     """
@@ -1284,10 +1314,10 @@ def isWithinType(self:Node, elType):
         cur = cur.parentNode
     return False
 
-def isDescendantOf(self:Node, node:Node):
+def isDescendantOf(self:Node, node:Node) -> bool:
     return isWithin(self, node)
 
-def isWithin(self:Node, node:Node):
+def isWithin(self:Node, node:Node) -> bool:
     """
     Test whether some specific node is an ancestor of the given node.
     """
@@ -1297,13 +1327,15 @@ def isWithin(self:Node, node:Node):
         cur = cur.parentNode
     return False
 
+# TODO: Switch to Enum?
+#
 CONTENT_EMPTY = 0
 CONTENT_TEXT = 1
 CONTENT_ELEMENT = 2
 CONTENT_MIXED = 3
 CONTENT_ODD = -1
 
-def getContentType(self):
+def getContentType(self) -> int:
     """Test whether this elements has text and/or element children.
     If there are PI, COMMENT, and/or CDATA children, returns CONTENT_ODD
     (TODO: perhaps CDATA should count as just text?).
@@ -1321,7 +1353,7 @@ def getContentType(self):
 ###############################################################################
 # XPointer support
 #
-def getXPointer(self:Node, textOffset=None):
+def getXPointer(self:Node, textOffset=None) -> str:
     """Get a simple numeric XPointer to the node, as a string.
     With `textOffset`, dig down and find the specified character (not byte!)
     among the descendants, and return a precise pointer there. If the
@@ -1758,6 +1790,49 @@ def promoteChildren(self:Node):
         parent.insertBefore(moving, parent)
         cur = cont
     parent.removeChild(self)
+
+def moveChildToAttribute(root:Node, pname:str, chname:str, aname:str, onDup="skip"):
+    """Within the subtree under `root`, check all elements named `ename` that
+    have a child of type `chname`, and move the content of that child onto
+    attribute `aname` of the parent. The child element is deleted.
+
+    Cases of interest:
+        * What if the parent already has an `aname` attribute?
+        * What if there's more than child of that type?
+        * What if the child has attributes of its own?
+        * What if the child has subelements of its own?
+
+    You can check that all cases in a given subtree lack these cases, by
+    calling `findNonAttributable`.
+    """
+    nDone = 0
+    for node in root.eachNode(pname):
+        if (node.hasAttribute(aname)): continue
+        chNodes = node.getChildNodes(chname)
+        if (len(chNodes) != 1): continue
+        ch = chNodes[0]
+        attrs = ch.getsAttribute()
+        if (attrs and len(attrs)>0): continue
+        if (ch.getElements("*")): continue
+        node.setAttribute(aname, ch.innerText())
+        node.removeChild(ch)
+        nDone += 1
+    return nDone
+
+def findNonAttributable(root:Node, pname:str, chname:str, aname:str):
+    """Basically a dry run for `moveChildToAttribute`.
+    @return The first node that can't have a child move up onto an attribute.
+    """
+    for node in root.eachNode(pname):
+        if (node.hasAttribute(aname)): return node
+        chNodes = node.getChildNodes(chname)
+        if (len(chNodes) != 1): return node
+        ch = chNodes[0]
+        attrs = ch.getsAttribute()
+        if (attrs and len(attrs)>0): return node
+        if (ch.getElements("*")): return node
+        nDone += 1
+    return None
 
 
 ###############################################################################
@@ -2574,7 +2649,7 @@ class BS4Features:
         @param limit: Max number of nodes to return.
         @param class_: Matches against any token in @class. But if there's a
             space, search literally instead. To check multiple, you can't (BS)
-            pass a list, but must switch to CSS selector syntax with select().
+            pass a list, but must switch to CSS selector syntax with CssSelect().
         @param **kwargs: Filter for an attr of that name (value True matches
             any value for the named attribute (even null???) To use attrs
             whose names aren't Python identifiers, pass them in a dict passed
@@ -2629,7 +2704,7 @@ class BS4Features:
         raise NOT_SUPPORTED_ERR
 
     @staticmethod
-    def select(node):
+    def CssSelect(node):
         """Pick elements via a CSS selector.
         Supports:
             element type
@@ -2713,7 +2788,7 @@ class DomExtensions:
     @staticmethod
     def patchDom(toPatch=xml.dom.Node, getItem=True, axisSelects=True):
         """Monkey-patch the extension methods into a given class.
-        TODO: Could do by scanning class for all callables....
+        See also patchDomAuto(), following.
         """
         testCase = getattr(toPatch, "selectAncestor", None)
         if (testCase and callable(testCase)): return
@@ -2726,6 +2801,7 @@ class DomExtensions:
         toPatch.innerHTML               = innerHTML
         toPatch.outerXML                = outerXML
         toPatch.innerXML                = innerXML
+        toPatch.innerText               = innerText
 
         toPatch.nameOfNodeType          = nameOfNodeType
 
@@ -2759,7 +2835,7 @@ class DomExtensions:
             toPatch.getFollowingSibling     = getFollowingSibling
             toPatch.getNextSibling          = getFollowingSibling
 
-        toPatch.getLeastCommentAncestor = getLeastCommentAncestor
+        toPatch.getLeastCommonAncestor  = getLeastCommonAncestor
         toPatch.getLeftBranch           = getLeftBranch
         toPatch.getRightBranch          = getRightBranch
         toPatch.getNChildNodes          = getNChildNodes
@@ -2830,6 +2906,38 @@ class DomExtensions:
         #NamedNodeMap.iteritems = nnmIteritems
         return
 
+    @staticmethod
+    def patchDomAuto(
+        toPatch=xml.dom.Node,
+        getItem:bool=True,      # patch __getItem__ and __contains__.
+        axisSelects:bool=True,  # include select...
+        excludes=None           # Don't add any listed here
+        ) -> int:               # Return how many methods we added.
+        """Monkey-patch the extension methods into a given class.
+        Iterate over all the callables, so we don't miss anything.
+        """
+        testCase = getattr(toPatch, "selectAncestor", None)
+        if (testCase and callable(testCase)): return
+
+        if (getItem):
+            toPatch.__getItem__ = DEgetitem
+            toPatch.__contains__ = DEcontains
+
+        toPatchDir = dir(toPatch)
+        nAdded = 0
+        de = DomExtensions()
+        for k in dir(de):
+            try:
+                v = de.__getattribute__(k)
+                if (not axisSelects and v.startswith("select")): continue
+                if (excludes and v in excludes): continue
+                if (not callable(v)): continue
+                if (k in toPatchDir): print("Overriding '%s'." % (k))
+                toPatch.setAttr(k, v)
+                nAdded += 1
+            except AttributeError:
+                print(" %-30s  *** FAILED ***" % (k))
+        return nAdded
 
 ###############################################################################
 # Test driver

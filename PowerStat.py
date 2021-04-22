@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# PowerStat.py
+# PowerStat.py: A Python clone+lib (more or less) of 'stat'.
 # 2020-11-23: Written by Steven J. DeRose.
 #
 from __future__ import print_function
@@ -83,6 +83,7 @@ ignored.
 =To do=
 
 Finish `--outputFormat`.
+
 
 =Rights=
 
@@ -307,7 +308,7 @@ class StatItem:
     @staticmethod
     def readableSize(n):
         suffixes = " KMGTP"
-        rank = math.floor(math.log(n, 1000))
+        rank = int(math.log(n, 1000))
         if (rank >= len(suffixes)): rank = len(suffixes) - 1
         if (rank == 0):
             buf = "%d" % (n)
@@ -412,7 +413,8 @@ if __name__ == "__main__":
             "--quiet", "-q",      action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
-            "--outputFormat", "--oformat", "-o", type=str, default="plain",
+            "--outputFormat", "--output-format", "--oformat", "-o",
+            type=str, default="plain",
             choices = [ "plain", "html", "xsv", "csv", "tsv" ],
             help='Record/field syntax for output.')
         parser.add_argument(
