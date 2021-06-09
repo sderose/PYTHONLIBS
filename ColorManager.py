@@ -146,7 +146,7 @@ Remove any ANSI terminal color escapes from ''s''.
 Return the length of ''s'', but ignoring any ANSI terminal color strings.
 This is just shorthand for `len(uncolorize(s))`.
 
-* '''color2HTML(s)'''
+* '''color2Html(s)'''
 
 (experimental) Map color escapes to HTML. This should work fine for simple
 cases, but it might come out odd if you have multiple color-changes in a row.
@@ -413,7 +413,7 @@ class ColorManager:
         """
         return(len(self.uncolorize(s)))
 
-    def color2HTML(self, s):  # TODO: Finish
+    def color2Html(self, s):  # TODO: Finish
         """Convert colors escapes to HTML <spans>.
         TODO: This is dumb about overlapping/nested/serial colors, because
         ANSI terminal color does not use a stack discipline.
