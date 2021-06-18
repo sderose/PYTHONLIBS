@@ -29,7 +29,7 @@ __version__ = __metadata__['modified']
 
 
 descr = """
-=head1 Usage
+=Usage=
 
 ReadAny.py [options] [files]
 
@@ -45,43 +45,43 @@ and get callbacks per file or record.
 Also maintains counts of records and of each category of file-system item.
 
 
-=head1 Methods
+=Methods=
 
 The usual File methods are also supported: I<open>() (a no-op), I<close>(),
 I<seek>(), I<tell>(), I<isatty>(), I<read>(), I<readline>().
 
 =over
 
-=item * B<ReadAny(files, recursive=0, binaries=0, halt="ALL", backups=0, hiddens=0, links=0, verbose=0)>
+* B<ReadAny(files, recursive=0, binaries=0, halt="ALL", backups=0, hiddens=0, links=0, verbose=0)>
 
 Constructor.
 
 =over
 
-=item * I<files> is an array of paths, such as from a typical command line.
+* I<files> is an array of paths, such as from a typical command line.
 If the array is empty, STDIN is used (but will not be uncompressed!)
 
-=item * I<recursive> makes the read proceed down through sub-directories.
+* I<recursive> makes the read proceed down through sub-directories.
 
-=item * I<binaries> includes binary files other than zips and gzips (those two
+* I<binaries> includes binary files other than zips and gzips (those two
 kinds are transparently opened and their contents decompressed, regardless
 of this setting).
 UNFINISHED
 
-=item * I<hiddens> includes files whose names, or any of whose ancestor
+* I<hiddens> includes files whose names, or any of whose ancestor
 directories names, start with ".".
 
-=item * I<halt> determines whether a user interrupt (^C) should
+* I<halt> determines whether a user interrupt (^C) should
 stop nothing (C<IGNORE>),
 stop just the current file (C<FILE>), or
 stop everything (C<ALL>).
 C<ALL> is the default.
 UNFINISHED
 
-=item * I<backups> determines whether to include files which appear to
+* I<backups> determines whether to include files which appear to
 be backups: namely, with names ending "~" or ".bak" or "#".
 
-=item * I<verbose> specifies the messaging level (default: 0).
+* I<verbose> specifies the messaging level (default: 0).
 
 =back
 
@@ -119,19 +119,19 @@ at a time. The callbacks are:
 
 =over
 
-=item * I<openCB(path, fh, type)>
+* I<openCB(path, fh, type)>
 
 If provided, called when each file it opened (not including directories
 or files that are missing or skipped, such as backups).
 
-=item * I<recordCB(string, path, recnum, totalRecords)>
+* I<recordCB(string, path, recnum, totalRecords)>
 
 If this callback is not defined, the file will not even be read by this
 package. If this callback is defined, it will be called for each record
 of each input file; if it returns -1 the file will be closed (see
 I<closeCB>) and the next file started; if -2, all files will be closed.
 
-=item * I<closeCB(path, fh, type, totalRecordsInFile, totalRecords)>
+* I<closeCB(path, fh, type, totalRecordsInFile, totalRecords)>
 
 If provided, called just before the item is closed.
 
@@ -140,7 +140,7 @@ If provided, called just before the item is closed.
 =back
 
 
-=head Related Commands
+=Related Commands=
 
 C<zcat> -- unzips and cats a file.
 
@@ -149,10 +149,10 @@ C<less> -- clever enough to unzip things by itself.
 This package ised by C<selectNgrams.py> and C<calculateMI.py>.
 
 
-=head1 Known bugs and limitations
+=Known bugs and limitations=
 
 
-=head1 History
+=History=
 
 * 2013-03-22: Written by Steven J. DeRose.
 * 2013-04-03: Split out from selectNgrams.py.
@@ -161,7 +161,7 @@ This package ised by C<selectNgrams.py> and C<calculateMI.py>.
 * 2020-08-27: New layout.
 
 
-=head1 To do
+=To do=
 
 * Add uudecode, mscompress, etc.?
 * Add grep-like --include/--exclude?
@@ -186,7 +186,7 @@ For the most recent version, see [http://www.derose.net/steve/utilities]
 or [https://github.com/sderose].
 
 
-=head1 Options
+=Options=
 """
 
 

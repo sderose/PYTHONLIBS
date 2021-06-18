@@ -809,7 +809,7 @@ operational yet).
 * 2021-04-19: Hook up `--perm` to start testing.
 Filter by git status. More option re. symlinks, start Mac .webloc support.
 Improve doc, typehints, etc. Track inodes of directories to try to protect
-against circular symlinks. 
+against circular symlinks.
 
 
 =Rights=
@@ -1901,7 +1901,6 @@ class PowerWalk:
                                 (curAct, PowerWalk.maskValues[w+pcode]))
         return actions
 
-
     def chSort(self, curPath:str, chList, reverse=False) -> list:
         """Sort a file-list returned from os.listdir somehow.
         """
@@ -2000,8 +1999,8 @@ def isBackup(path:str, descendants=False) -> bool:
         foo.txt (2020-09-15 13-34-38-374) -- bbedit backup convention
 
     Should anything with r'\\bbackup\\b' at all, count?
-    Do we need something for temp files? /tmp..., .tmp, .temp...?
-
+    TODO: Perhaps add option for user to pass additional regex?
+    TODO: Do we need something for temp files? /tmp..., .tmp, .temp...?
     TODO: Call this from other utils that need it...
 
     """
@@ -2087,17 +2086,8 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(
                 description=descr, formatter_class=BlockFormatter)
         except ImportError:
-            parser = argparse.ArgumentParser(description=descr)
+            parser:argparse.ArgumentParser = argparse.ArgumentParser(description=descr)
 
-        parser.add_argument(
-            "--anonymousClose", action='store_true',
-            help='Suppress display of container-close.')
-        parser.add_argument(
-            "--closeDelim", metavar='S', type=str, default="    <==",
-            help='Display before directory name on close.')
-        parser.add_argument(
-            "--closeQuote", metavar="Q", type=str, default='',
-            help='Put this after the reported paths.')
         parser.add_argument(
             "--copyTo", metavar='P', type=str,
             help='Copy chosen files to this directory (see also --serialize).')
@@ -2107,12 +2097,6 @@ if __name__ == "__main__":
         parser.add_argument(
             "--exec", metavar='CMD', type=str,
             help='Run CMD on each selected item (like "find --exec").')
-        parser.add_argument(
-            "--iString", metavar='S', type=str, default='    ',
-            help='Repeat this string to create indentation.')
-        parser.add_argument(
-            "--itemSep", metavar='S', type=str, default='',
-            help='Put this in to separate items (e.g., a comma).')
         parser.add_argument(
             "--longNames", metavar='N', type=int, default=0,
             help='Only report files with names longer than this.')
@@ -2143,10 +2127,6 @@ if __name__ == "__main__":
             "--short", action='store_true',
             help='Only show the bottom-level name in the outline view.')
         parser.add_argument(
-            "--showInvisibles", type=str, default='literal',
-            choices=[ 'literal', 'octal', 'hex', 'pix', 'url' ],
-            help='How to display unusual characters.')
-        parser.add_argument(
             "--statFormat", action='store_true',
             help='Display output like "stat -f" for each file.')
         parser.add_argument(
@@ -2168,12 +2148,42 @@ if __name__ == "__main__":
             help='Path(s) to files, directories, containers to traverse.')
 
         PowerWalk.addOptionsToArgparse(parser)
+        addOutputFormatOptions(parser)
 
         args0 = parser.parse_args()
 
         if (args0.quote):  # Overridden by  some following oformat values.
             args0.openQuote = args0.closeQuote = "'"
+        if (args0.oformat): mapNamedOFOs(args0)
+        return(args0)
 
+    def addOutputFormatOptions(parser:argparse.ArgumentParser, prefix:str="") -> None:
+        """Add a boatload of options for how to format output, mainly filelists.
+        (should become a general tree-layout class)
+        """
+        parser.add_argument(
+            "--anonymousClose", action='store_true',
+            help='Suppress display of container-close.')
+        parser.add_argument(
+            "--closeDelim", metavar='S', type=str, default="    <==",
+            help='Display before directory name on close.')
+        parser.add_argument(
+            "--closeQuote", metavar="Q", type=str, default='',
+            help='Put this after the reported paths.')
+        parser.add_argument(
+            "--iString", metavar='S', type=str, default='    ',
+            help='Repeat this string to create indentation.')
+        parser.add_argument(
+            "--itemSep", metavar='S', type=str, default='',
+            help='Put this in to separate items (e.g., a comma).')
+        parser.add_argument(
+            "--showInvisibles", type=str, default='literal',
+            choices=[ 'literal', 'octal', 'hex', 'pix', 'url' ],
+            help='How to display unusual characters.')
+
+    def mapNamedOFOs(args0:argparse.Namespace) -> None:
+        """Map named output format types to their consequences.
+        """
         if (args0.oformat == 'plain'):
             args0.openDelim = ''
             args0.closeDelim = ''
@@ -2208,9 +2218,10 @@ if __name__ == "__main__":
             args0.openQuote = '"'
             args0.closeQuote = '"'
             args0.anonymousClose = True
-        return(args0)
+        else:
+            warning0("Unknown output format '%s'." % (args0.oformat))
 
-    def makeDisplayableName(s) -> str:  # TODO: Finish showInvisibles support
+    def makeDisplayableName(s:str) -> str:  # TODO: Finish showInvisibles support
         if (s.isalnum):
             return s
         if (args.showInvisibles == 'literal'):
@@ -2226,7 +2237,7 @@ if __name__ == "__main__":
         else:
             raise KeyError("Unknown --showInvisibles value.")
 
-    def quoteFilename(f, op, cl) -> str:
+    def quoteFilename(f:str, op:str, cl:str) -> str:
         """This is not as smart as it should be. For example, it will
         do weird things for multi-char quotes, and it only knows how to
         backslash.

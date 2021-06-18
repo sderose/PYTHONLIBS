@@ -71,6 +71,7 @@ Esp. useful for imported args, like PowerWalk.py's.
 * Slice: take n:m where n>=0 and m>=n (or option with negatives)
 * token accumulator: repeatable option, but you can either do `-x foo -x bar`,
 or `-x "foo bar"`, or mix the two.
+* string with \\-codes expanded
 
 ==Expressions?==
 

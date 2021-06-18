@@ -147,7 +147,7 @@ Inline emphasis uses 2 and/or 3 apostrophes on each side:
     This ''word'' is '''really''' important to '''''me and you'''''.
 
 
-=head3 MarkDown
+===MarkDown===
 
 B<MarkDown> is fairly common. For a description see
 L<here|"http://daringfireball.net/projects/markdown/syntax">.

@@ -9,7 +9,7 @@ import sys, os
 import stat
 import math
 import time
-from typing import Any, List, Dict
+from typing import Any
 import re
 #from functools import partial
 
@@ -98,9 +98,17 @@ or [https://github.com/sderose].
 
 ###############################################################################
 #
-def warn(lvl, msg):
+def warn(lvl:int, msg:str) -> None:
     if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
     if (lvl < 0): sys.exit()
+
+
+###############################################################################
+# More semantically useful types for data
+class Epoch(float):
+    pass
+class Unsigned(int):
+    pass
 
 
 ###############################################################################
@@ -121,30 +129,32 @@ class StatItem:
     There are also specials like %[nt%@].
     """
 
+
     # Map each chosen datum to the sprintf field type it defaults to showing as.
-    defaultFmtCodes = [
-        "d": "s",  # Device upon which file resides.
-        "i": "d",  # file's inode number.
-        "p": "s",  # File type and permissions.
-        "l": "d",  # Number of hard links to file.
-        "u": "d",  # User id of file's owner
-        "g": "d",  # Group ID of file's owner.
-        "r": "d",  # Device number for character/block device special files.
-        "a": "t",  # access time
-        "m": "t",  # mod time
-        "c": "t",  # creation time
-        "B": "t",  # inode birth time
-        "z": "d",  # The size of file in bytes.
-        "b": "d",  # Number of blocks allocated for file.
-        "k": "d",  # Optimal file system I/O operation block size.
-        "f": "?",  # User defined flags for file.
-        "v": "d",  # Inode generation number.
+    defaultFmtCodes = {
+        #code:  ( sprintfType, datumType )
+        "d": ( "s", str ),  # Device upon which file resides.
+        "i": ( "d", Unsigned ),  # file's inode number.
+        "p": ( "s", str ),  # File type and permissions.
+        "l": ( "d", Unsigned ),  # Number of hard links to file.
+        "u": ( "d", Unsigned ),  # User id of file's owner
+        "g": ( "d", Unsigned ),  # Group ID of file's owner.
+        "r": ( "d", Unsigned ),  # Device number for character/block device special files.
+        "a": ( "t", Epoch ),  # access time
+        "m": ( "t", Epoch ),  # mod time
+        "c": ( "t", Epoch ),  # creation time
+        "B": ( "t", Epoch ),  # inode birth time
+        "z": ( "d", Unsigned ),  # The size of file in bytes.
+        "b": ( "d", Unsigned ),  # Number of blocks allocated for file.
+        "k": ( "d", Unsigned ),  # Optimal file system I/O operation block size.
+        "f": ( "?", str ),  # User defined flags for file.
+        "v": ( "d", Unsigned ),  # Inode generation number.
         # The following are not in struct stat:
-        "N": "s",  # The name of the file.
-        "T": "s",  # The file type, as in ls -F, or more descriptive if 'H' given.
-        "Y": "s",  # The target of a symbolic link.
-        "Z": "s|d",  # ``major,minor'' from rdev field for char/block special; else size
-    ]
+        "N": ( "s", str ),  # The name of the file.
+        "T": ( "s", str ),  # The file type, as in ls -F, or more descriptive if 'H' given.
+        "Y": ( "s", str ),  # The target of a symbolic link.
+        "Z": ( "s", str ),  # ``major,minor'' from rdev field for char/block special; else size
+    }
 
     def __init__(self, mat):
         self.mat         = mat  # Should go away?
@@ -167,7 +177,7 @@ class StatItem:
         if (self.fmtCode in "DOUXFS"):
             self.sprintfCode += self.fmtCode.lower()
         elif (self.fmtCode == ''):
-            dft = self.defaultFmtCodes[self.datum]
+            dft, self.typ = self.defaultFmtCodes[self.datum]
             self.sprintfCode += dft if (dft!='t') else 's'  # times are strings...
         else:
             assert False, "Bad fmtCode '%s' in:\n" % (self.fmtCode) + self.toString()
@@ -184,10 +194,10 @@ class StatItem:
     def intCap(mat, captureName:str, default:int=0) -> int:
         try:
             return int(mat.group(captureName))
-        except Exception:
+        except ValueError:
             return int(default)
 
-    def munge(self, st):  # TODO: FIX, divide parse/store from format
+    def munge(self, st:os.stat_result):  # TODO: FIX, divide parse/store from format
         """Interpret one '%'-code, as defined by *nix 'stat' command.
         """
         if (self.mat.group('esc')):
@@ -227,22 +237,27 @@ class StatItem:
             else:
                 flag = self.mat.group('sub')
 
-        datumValue = self.getItem(st, datumCode, sub, fmtCode)
+        datumValue = self.getDatum(st)
 
         fmt = "%" + siz + prc + fmtCode
         val = fmt % (datumValue)
         if (self.mat.group('fmt') == 'Y'): val = ' -> ' + val
         return val
 
-    def formatItem(self, st, theTimeFormat:str=None) -> str:
+    def formatItem(self, st:os.stat_result, theTimeFormat:str=None) -> str:
         """This gets the raw datum given its code and subcode, and then formats
         it as requested.
         """
         datum = self.getDatum(st)
-        formattedDatum = self.sprintfCode % (datum)
+        if (self.typ == Epoch):
+            return self.formatTime(datum, theTimeFormat)
+        if (self.typ == Unsigned):
+            return self.sprintfCode % (datum)
+        else:
+            return self.sprintfCode % (datum)
 
-    def getDatum(self, st) -> Any:
-        """This gets the raw datum given its code and subcode, in raw form.
+    def getDatum(self, st:os.stat_result) -> Any:
+        """This gets the raw datum in raw form, given its code and subcode.
         """
         # Cases that use 'sub' code
         if (self.datum == 'p'):                 # type and perm
@@ -292,7 +307,7 @@ class StatItem:
                 tim = st[stat.ST_CTIME]
             elif (self.datum == 'B'):           # inode birth time       ***
                 tim = st.st_birthtime
-            return self.formatTime(tim, theTimeFormat)
+            return tim
 
         # Numerics
         elif (self.datum == 'i'):               # inode
@@ -329,7 +344,7 @@ class StatItem:
             raise ValueError("Unrecognized datum code '%s'." % (self.datum))
 
     @staticmethod
-    def doPermissionBits(st, subCode, fmtCode):
+    def doPermissionBits(st:os.stat_result, subCode:str, fmtCode:str):
         """Python 3.3 adds stat.filemode(mode), to gen the 10-char string.
         """
         if  (subCode == 'H'):
@@ -366,7 +381,7 @@ class StatItem:
         return st.ST_XXX
 
     @staticmethod
-    def readableSize(n):
+    def readableSize(n:int):
         suffixes = " KMGTP"
         rank = int(math.log(n, 1000))
         if (rank >= len(suffixes)): rank = len(suffixes) - 1
@@ -378,7 +393,7 @@ class StatItem:
         return buf
 
     @staticmethod
-    def formatTime(epochTime, f=None):
+    def formatTime(epochTime, f:str=None):
         if (f is None): f = "%a, %d %b %Y %H:%M:%S %Z"
         return time.strftime(f, epochTime)
 
@@ -406,7 +421,7 @@ class PowerStat:
     itemExpr = re.compile('%' + flag + siz + prc + fmt + sub + datum +
         "|%(?P<esc>[nt%@])")
 
-    def __init__(self, statFormat=None, timeFormat=None):
+    def __init__(self, statFormat:str=None, timeFormat:str=None):
         """Parse a `stat -f` argument into an array of literals and %-items.
         """
         self.statFormat = statFormat
@@ -428,7 +443,7 @@ class PowerStat:
         else:
             self.timeFormat = timeFormat
 
-    def format(self, path):
+    def format(self, path:str):
         st = os.stat(path)
         buf = ''
         for i, thisItem in enumerate(self.theItems):
@@ -441,7 +456,7 @@ class PowerStat:
         return buf
 
     @staticmethod
-    def getDatumByName(st, datumName):
+    def getDatumByName(st:os.stat_result, datumName:str):
         try:
             return st.__getitem__[datumName]
         except KeyError:

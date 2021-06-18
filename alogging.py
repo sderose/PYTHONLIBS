@@ -10,7 +10,8 @@ import os
 import re
 import logging
 import inspect
-from collections import defaultdict, Iterable
+from collections import defaultdict
+from typing import Iterable
 #import time
 #import string
 #import argparse
@@ -130,15 +131,16 @@ Option set various formatting characteristics:
 
 ==formatRec(self, obj, options=None)==
 
-This will fairly nicely format any (?) Python object. It knows about the basic
+This will fairly nicely format any (?) Python object as an annotated outline.
+It knows about the basic
 scalar and collection datatypes, as well as basic numpy and PyTorch vector types.
 For objects, it knows to show their non-callable properties.
 
-`options` should be  dict, which may include:
+`options` should be a dict, which may include:
 * `obj`       -- The data to be displayed.
-* `specials`  -- display callable and "__"-initial members of objects.
+* `specials`  -- Display callable and "__"-initial members of objects.
 * `maxDepth`  -- Limit how far down nested collections will be displayed. Default: 3.
-* `maxItems`  -- Limit how many items of a long list will be displayed.
+* `maxItems`  -- Limit how many items of lists will be displayed.
 * `showSize`  -- Display len() for collection objects.
 * `quoteKeys` -- Put quotes around the keys of dicts. Default: False
 * `keyWidth`  -- Allow this much room for dict keys, in trying to line things up.
@@ -675,7 +677,7 @@ package's hierarchical loggers model.
 There is not yet an option to remove the default text that ''logging''
 prefixes to messages (such as "INFO:root:").
 
-Seems to be a problem with `maxItems` in `formatRec()`.
+Seems to be a problem with `maxItems`, and with suppressing callables in `formatRec()`.
 
 `formatRec()` could use options to shorten long displays, such as:
 
@@ -725,12 +727,13 @@ and [evh]Msg() forms, in favor of warningN(), etc. Add verboseDefault. lint.
     hMsg??
 
 * formatRec():
-** Accept an options dict instead of long list of named options?
-** Support more numpy, PyTorch classes
+** Support more numpy, PyTorch classes (and have a way to extend?)
+Just make a dict of types, mapping to their formatter functions.
+** Perhaps accept maxItems as a dict, mapping types to limits?
 ** Protect against circular structures.
 ** For collections of length 1, put on same line
-** Perhaps accept maxItems as a dict, mapping types to limits?
 ** Implement key and property sorting options.
+** Use kw_args instead of long list of named options?
 
 * Unify formatRec() `options` parameter, with ALogger items?
     self.openDict = "{"; self.closeDict = "}"
@@ -1584,6 +1587,7 @@ class ALogger:
                 for n in keyList:
                     v = obj[n]
                     inum += 1
+                    if (self.skipIt(v, n, options)): continue
                     if (options['maxItems'] and inum >= options['maxItems']):
                         buf += "*** maxItems reached ***"
                         break
@@ -1639,10 +1643,7 @@ class ALogger:
                 #skipped = 0
                 for nm in (stuff):
                     thing = getattr(obj, nm, "[NONE]")
-                    if ((nm.startswith('__') or callable(thing))
-                        and not specials):
-                        #skipped += 1
-                        continue
+                    if (self.skipIt(thing, nm, options)): continue
                     #buf += (ind + "  .%s (%s): " % (nm, type(thing)))
                     ofmt = ind + "  .%-" + str(options['propWidth']) + "s = %s,\n"
                     buf += ofmt % (
@@ -1654,6 +1655,12 @@ class ALogger:
             buf += self.formatScalar(obj)
         return buf
         # end formatRec
+
+    def skipIt(self, thing, nm, options):
+        if (options['specials']): return False
+        if (callable(thing)): return True
+        if (isinstance(nm, str) and nm.startswith('__')): return True
+        return False
 
     def quote(self, s, addQuotes=False):
         if (not addQuotes): return s

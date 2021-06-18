@@ -297,158 +297,160 @@ cp1252ToUnicode = {
 }
 
 ASCII = [
-    #Dec, Name,                          Hex,    FPI,    URL
+    #Dec, Lit|Mnem, Name,                Hex, fpiOK,uriOK
     #
-    [  0, "NUL", "NULL" ],
-    [  1, "SOH", "Start of Heading" ],
-    [  2, "STX", "End of heading" ],
-    [  3, "ETX", "End of text" ],
-    [  4, "EOT", "End of transmission" ],
-    [  5, "ENQ", "Enquiry" ],
-    [  6, "ACK", "Acknowledge" ],
-    [  7, "BEL", "Bell" ],
+    [  0, "NUL", "NULL",                 0x00, "-", "-" ],
+    [  1, "SOH", "Start of Heading",     0x01, "-", "-" ],
+    [  2, "STX", "End of heading",       0x02, "-", "-" ],
+    [  3, "ETX", "End of text",          0x03, "-", "-" ],
+    [  4, "EOT", "End of transmission",  0x04, "-", "-" ],
+    [  5, "ENQ", "Enquiry",              0x05, "-", "-" ],
+    [  6, "ACK", "Acknowledge",          0x06, "-", "-" ],
+    [  7, "BEL", "Bell",                 0x07, "-", "-" ],
 
-    [  8, "BS", "Backspace",             "0x08",    "-", "-" ],
-    [  9, "TAB","Horizontal tabulation", "0x09",    "-", "-" ],
-    [ 10, "LF", "Line feed",             "0x0A",    "+", "-" ],
-    [ 11, "VT", "Vertical tabulation", ],
-    [ 12, "FF", "Form feed" ],
-    [ 13, "CR", "Carriage return",       "0x0D",    "+", "-" ],
-    [ 14, "SO", "Shift out" ],
-    [ 15, "SI", "Shift in" ],
+    [  8, "BS", "Backspace",             0x08, "-", "-" ],
+    [  9, "TAB","Horizontal tabulation", 0x09, "-", "-" ],
+    [ 10, "LF", "Line feed",             0x0A, "+", "-" ],
+    [ 11, "VT", "Vertical tabulation",   0x0B, "-", "-" ],
+    [ 12, "FF", "Form feed",             0x0C, "-", "-" ],
+    [ 13, "CR", "Carriage return",       0x0D, "+", "-" ],
+    [ 14, "SO", "Shift out",             0x0E, "-", "-" ],
+    [ 15, "SI", "Shift in",              0x0F, "-", "-" ],
 
-    [ 16, "DLE", "Data link escape" ],
-    [ 17, "DC1", "Device control 1" ],
-    [ 18, "DC2", "Device control 2" ],
-    [ 19, "DC3", "Device control 3" ],
-    [ 20, "DC4", "Device control 4" ],
-    [ 21, "NAK", "Negative acknowledge" ],
-    [ 22, "SYN", ],
-    [ 23, "ETB", "End of transmission block" ],
+    [ 16, "DLE", "Data link escape",     0x10, "-", "-" ],
+    [ 17, "DC1", "Device control 1",     0x11, "-", "-" ],
+    [ 18, "DC2", "Device control 2",     0x12, "-", "-" ],
+    [ 19, "DC3", "Device control 3",     0x13, "-", "-" ],
+    [ 20, "DC4", "Device control 4",     0x14, "-", "-" ],
+    [ 21, "NAK", "Negative acknowledge", 0x15, "-", "-" ],
+    [ 22, "SYN", "Synchronous Idle",     0x16, "-", "-" ],
+    [ 23, "ETB", "End of transmission block", 0x17, "-", "-" ],
 
-    [ 24, "CAN", "Cancel" ],
-    [ 25, "EM",  "End message" ],
-    [ 26, "SUB", "Substitute character" ],
-    [ 27, "ESC", "Escape",               "0x1B",    "-", "-" ],
-    [ 28, "FS",  "Field Separator" ],
-    [ 29, "GS",  "Group Separator" ],
-    [ 30, "RS",  "Record Separator" ],
-    [ 31, "US",  "Unit Separator" ],
+    [ 24, "CAN", "Cancel",               0x18, "-", "-" ],
+    [ 25, "EM",  "End message",          0x19, "-", "-" ],
+    [ 26, "SUB", "Substitute character", 0x1a, "-", "-" ],
+    [ 27, "ESC", "Escape",               0x1B, "-", "-" ],
+    [ 28, "FS",  "Field Separator",      0x1c, "-", "-" ],
+    [ 29, "GS",  "Group Separator",      0x1d, "-", "-" ],
+    [ 30, "RS",  "Record Separator",     0x1e, "-", "-" ],
+    [ 31, "US",  "Unit Separator",       0x1f, "-", "-" ],
 
-    [ 32, "SPACE","SPACE",               "0x20",    "+", "-" ],
-    [ 33, "!",  "exclamation mark",      "0x21",    "-", "+" ],
-    [ 34, '"",  "quotation mark",        "0x22",    "-", "*' ],
-    [ 35, "#",  "number sign",           "0x23",    "-", "-" ],
-    [ 36, "$",  "dollar sign",           "0x24",    "-", "+" ],
-    [ 37, "%",  "percent sign",          "0x25",    "-", "(escape)" ],
-    [ 38, "&",  "ampersand",             "0x26",    "-", "*" ],
-    [ 39, "'",  "apostrophe",            "0x27",    "+", "+" ],
+    [ 32, "SPACE","SPACE",               0x20, "+", "-" ],
+    [ 33, "!",  "exclamation mark",      0x21, "-", "+" ],
+    [ 34, '"',  "quotation mark",        0x22, "-", "*" ],
+    [ 35, "#",  "number sign",           0x23, "-", "-" ],
+    [ 36, "$",  "dollar sign",           0x24, "-", "+" ],
+    [ 37, "%",  "percent sign",          0x25, "-", "(escape)" ],
+    [ 38, "&",  "ampersand",             0x26, "-", "*" ],
+    [ 39, "'",  "apostrophe",            0x27, "+", "+" ],
 
-    [ 40, "(",  "left parenthesis",      "0x28",    "+", "+" ],
-    [ 41, ")",  "right parenthesis",     "0x29",    "+", "+" ],
-    [ 42, "*",  'asterisk',              '0x2A',    '-', '+' ],
-    [ 43, '+',  'plus sign',             '0x2B',    '+', '+' ],
-    [ 44, ',',  'comma',                 '0x2C',    '+', '-' ],
-    [ 45, '-',  'hyphen, minus sign',    '0x2D',    '+', '+' ],
-    [ 46, '.',  'full stop',             '0x2E',    '+', '+' ],
-    [ 47, '/',  'solidus',               '0x2F',    '+', '~' ],
+    [ 40, "(",  "left parenthesis",      0x28, "+", "+" ],
+    [ 41, ")",  "right parenthesis",     0x29, "+", "+" ],
+    [ 42, "*",  'asterisk',              0x2A, "-", '+' ],
+    [ 43, '+',  'plus sign',             0x2B, "+", '+' ],
+    [ 44, ',',  'comma',                 0x2C, "+", '-' ],
+    [ 45, '-',  'hyphen, minus sign',    0x2D, "+", '+' ],
+    [ 46, '.',  'full stop',             0x2E, "+", '+' ],
+    [ 47, '/',  'solidus',               0x2F, "+", '~' ],
 
-    [ 48, '0',  'digit 0',               '0x30',    '+', '+' ],
-    [ 49, '1',  'digit 1',               '0x31',    '+', '+' ],
-    [ 50, '2',  'digit 2',               '0x32',    '+', '+' ],
-    [ 51, '3',  'digit 3',               '0x33',    '+', '+' ],
-    [ 52, '4',  'digit 4',               '0x34',    '+', '+' ],
-    [ 53, '5',  'digit 5',               '0x35',    '+', '+' ],
-    [ 54, '6',  'digit 6',               '0x36',    '+', '+' ],
-    [ 55, '7',  'digit 7',               '0x37',    '+', '+' ],
-    [ 56, '8',  'digit 8',               '0x38',    '+', '+' ],
+    [ 48, '0',  'digit 0',               0x30, "+", '+' ],
+    [ 49, '1',  'digit 1',               0x31, "+", '+' ],
+    [ 50, '2',  'digit 2',               0x32, "+", '+' ],
+    [ 51, '3',  'digit 3',               0x33, "+", '+' ],
+    [ 52, '4',  'digit 4',               0x34, "+", '+' ],
+    [ 53, '5',  'digit 5',               0x35, "+", '+' ],
+    [ 54, '6',  'digit 6',               0x36, "+", '+' ],
+    [ 55, '7',  'digit 7',               0x37, "+", '+' ],
+    [ 56, '8',  'digit 8',               0x38, "+", '+' ],
 
-    [ 57, '9',  'digit 9',               '0x39',    '+', '+' ],
-    [ 58, ',',  'colon',                 '0x3A',    '+', '~' ],
-    [ 59, ';',  'semicolon',             '0x3B',    '-', '~' ],
-    [ 60, '<',  'less-than sign',        '0x3C',    '-', '*' ],
-    [ 61, '=',  'equals sign',           '0x3D',    '+', '~' ],
-    [ 62, '>',  'greater-than sign',     '0x3E',    '-', '*' ],
-    [ 63, '?',  'question mark',         '0x3F',    '+', '~' ],
+    [ 57, '9',  'digit 9',               0x39, "+", '+' ],
+    [ 58, ',',  'colon',                 0x3A, "+", '~' ],
+    [ 59, ';',  'semicolon',             0x3B, "-", '~' ],
+    [ 60, '<',  'less-than sign',        0x3C, "-", '*' ],
+    [ 61, '=',  'equals sign',           0x3D, "+", '~' ],
+    [ 62, '>',  'greater-than sign',     0x3E, "-", '*' ],
+    [ 63, '?',  'question mark',         0x3F, "+", '~' ],
 
-    [ 64, '@',  'commercial at',         '0x40',    '-', '~' ],
-    [ 65, 'A',  'capital letter A',      '0x41',    '+', '+' ],
-    [ 66, 'B',  'capital letter B',      '0x42',    '+', '+' ],
-    [ 67, 'C',  'capital letter C',      '0x43',    '+', '+' ],
-    [ 68, 'D',  'capital letter D',      '0x44',    '+', '+' ],
-    [ 69, 'E',  'capital letter E',      '0x45',    '+', '+' ],
-    [ 70, 'F',  'capital letter F',      '0x46',    '+', '+' ],
-    [ 71, 'G',  'capital letter G',      '0x47',    '+', '+' ],
+    [ 64, '@',  'commercial at',         0x40, "-", '~' ],
+    [ 65, 'A',  'capital letter A',      0x41, "+", '+' ],
+    [ 66, 'B',  'capital letter B',      0x42, "+", '+' ],
+    [ 67, 'C',  'capital letter C',      0x43, "+", '+' ],
+    [ 68, 'D',  'capital letter D',      0x44, "+", '+' ],
+    [ 69, 'E',  'capital letter E',      0x45, "+", '+' ],
+    [ 70, 'F',  'capital letter F',      0x46, "+", '+' ],
+    [ 71, 'G',  'capital letter G',      0x47, "+", '+' ],
 
-    [ 72, 'H',  'capital letter H',      '0x48',    '+', '+' ],
-    [ 73, 'I',  'capital letter I',      '0x49',    '+', '+' ],
-    [ 74, 'J',  'capital letter J',      '0x4A',    '+', '+' ],
-    [ 75, 'K',  'capital letter K',      '0x4B',    '+', '+' ],
-    [ 76, 'L',  'capital letter L',      '0x4C',    '+', '+' ],
-    [ 77, 'M',  'capital letter M',      '0x4D',    '+', '+' ],
-    [ 78, 'N',  'capital letter N',      '0x4E',    '+', '+' ],
-    [ 79, 'O',  'capital letter O',      '0x4F',    '+', '+' ],
+    [ 72, 'H',  'capital letter H',      0x48, "+", '+' ],
+    [ 73, 'I',  'capital letter I',      0x49, "+", '+' ],
+    [ 74, 'J',  'capital letter J',      0x4A, "+", '+' ],
+    [ 75, 'K',  'capital letter K',      0x4B, "+", '+' ],
+    [ 76, 'L',  'capital letter L',      0x4C, "+", '+' ],
+    [ 77, 'M',  'capital letter M',      0x4D, "+", '+' ],
+    [ 78, 'N',  'capital letter N',      0x4E, "+", '+' ],
+    [ 79, 'O',  'capital letter O',      0x4F, "+", '+' ],
 
-    [ 80, 'P',  'capital letter P',      '0x50',    '+', '+' ],
-    [ 81, 'Q',  'capital letter Q',      '0x51',    '+', '+' ],
-    [ 82, 'R',  'capital letter R',      '0x52',    '+', '+' ],
-    [ 83, 'S',  'capital letter S',      '0x53',    '+', '+' ],
-    [ 84, 'T',  'capital letter T',      '0x54',    '+', '+' ],
-    [ 85, 'U',  'capital letter U',      '0x55',    '+', '+' ],
-    [ 86, 'V',  'capital letter V',      '0x56',    '+', '+' ],
-    [ 87, 'W',  'capital letter W',      '0x57',    '+', '+' ],
+    [ 80, 'P',  'capital letter P',      0x50, "+", '+' ],
+    [ 81, 'Q',  'capital letter Q',      0x51, "+", '+' ],
+    [ 82, 'R',  'capital letter R',      0x52, "+", '+' ],
+    [ 83, 'S',  'capital letter S',      0x53, "+", '+' ],
+    [ 84, 'T',  'capital letter T',      0x54, "+", '+' ],
+    [ 85, 'U',  'capital letter U',      0x55, "+", '+' ],
+    [ 86, 'V',  'capital letter V',      0x56, "+", '+' ],
+    [ 87, 'W',  'capital letter W',      0x57, "+", '+' ],
 
-    [ 88, 'X',  'capital letter X',      '0x58',    '+', '+' ],
-    [ 89, 'Y',  'capital letter Y',      '0x59',    '+', '+' ],
-    [ 90, 'Z',  'capital letter Z',      '0x5A',    '+', '+' ],
-    [ 91, '[',  'left square bracket',   '0x5B',    '-', '-' ],
-    [ 92, '\\', 'reverse solidus',       '0x5C',    '-', '-' ],
-    [ 93, ']',  'right square bracket',  '0x5D',    '-', '*' ],
-    [ 94, '^',  'circumflex',            '0x5E',    '-', '-' ],
-    [ 95, '_',  'underscore',            '0x5F',    '-', '+' ],
+    [ 88, 'X',  'capital letter X',      0x58, "+", '+' ],
+    [ 89, 'Y',  'capital letter Y',      0x59, "+", '+' ],
+    [ 90, 'Z',  'capital letter Z',      0x5A, "+", '+' ],
+    [ 91, '[',  'left square bracket',   0x5B, "-", '-' ],
+    [ 92, '\\', 'reverse solidus',       0x5C, "-", '-' ],
+    [ 93, ']',  'right square bracket',  0x5D, "-", '*' ],
+    [ 94, '^',  'circumflex',            0x5E, "-", '-' ],
+    [ 95, '_',  'underscore',            0x5F, "-", '+' ],
 
-    [ 96, '`',  'grave',                 '0x60',    '-', '-' ],
-    [ 97, 'a',  'small letter a',        '0x61',    '+', '+' ],
-    [ 98, 'b',  'small letter b',        '0x62',    '+', '+' ],
-    [ 99, 'c',  'small letter c',        '0x63',    '+', '+' ],
-    [ 100, 'd', 'small letter d',        '0x64',    '+', '+' ],
-    [ 101, 'e', 'small letter e',        '0x65',    '+', '+' ],
-    [ 102, 'f', 'small letter f',        '0x66',    '+', '+' ],
-    [ 103, 'g', 'small letter g',        '0x67',    '+', '+' ],
+    [ 96, '`',  'grave',                 0x60, "-", '-' ],
+    [ 97, 'a',  'small letter a',        0x61, "+", '+' ],
+    [ 98, 'b',  'small letter b',        0x62, "+", '+' ],
+    [ 99, 'c',  'small letter c',        0x63, "+", '+' ],
+    [ 100, 'd', 'small letter d',        0x64, "+", '+' ],
+    [ 101, 'e', 'small letter e',        0x65, "+", '+' ],
+    [ 102, 'f', 'small letter f',        0x66, "+", '+' ],
+    [ 103, 'g', 'small letter g',        0x67, "+", '+' ],
 
-    [ 104, 'h', 'small letter h',        '0x68',    '+', '+' ],
-    [ 105, 'i', 'small letter i',        '0x69',    '+', '+' ],
-    [ 106, 'j', 'small letter j',        '0x6A',    '+', '+' ],
-    [ 107, 'k', 'small letter k',        '0x6B',    '+', '+' ],
-    [ 108, 'l', 'small letter l',        '0x6C',    '+', '+' ],
-    [ 109, 'm', 'small letter m',        '0x6D',    '+', '+' ],
-    [ 110, 'n', 'small letter n',        '0x6E',    '+', '+' ],
-    [ 111, 'o', 'small letter o',        '0x6F',    '+', '+' ],
+    [ 104, 'h', 'small letter h',        0x68, "+", '+' ],
+    [ 105, 'i', 'small letter i',        0x69, "+", '+' ],
+    [ 106, 'j', 'small letter j',        0x6A, "+", '+' ],
+    [ 107, 'k', 'small letter k',        0x6B, "+", '+' ],
+    [ 108, 'l', 'small letter l',        0x6C, "+", '+' ],
+    [ 109, 'm', 'small letter m',        0x6D, "+", '+' ],
+    [ 110, 'n', 'small letter n',        0x6E, "+", '+' ],
+    [ 111, 'o', 'small letter o',        0x6F, "+", '+' ],
 
-    [ 112, 'p', 'small letter p',        '0x70',    '+', '+' ],
-    [ 113, 'q', 'small letter q',        '0x71',    '+', '+' ],
-    [ 114, 'r', 'small letter r',        '0x72',    '+', '+' ],
-    [ 115, 's', 'small letter s',        '0x73',    '+', '+' ],
-    [ 116, 't', 'small letter t',        '0x74',    '+', '+' ],
-    [ 117, 'u', 'small letter u',        '0x75',    '+', '+' ],
-    [ 118, 'v', 'small letter v',        '0x76',    '+', '+' ],
-    [ 119, 'w', 'small letter w',        '0x77',    '+', '+' ],
+    [ 112, 'p', 'small letter p',        0x70, "+", '+' ],
+    [ 113, 'q', 'small letter q',        0x71, "+", '+' ],
+    [ 114, 'r', 'small letter r',        0x72, "+", '+' ],
+    [ 115, 's', 'small letter s',        0x73, "+", '+' ],
+    [ 116, 't', 'small letter t',        0x74, "+", '+' ],
+    [ 117, 'u', 'small letter u',        0x75, "+", '+' ],
+    [ 118, 'v', 'small letter v',        0x76, "+", '+' ],
+    [ 119, 'w', 'small letter w',        0x77, "+", '+' ],
 
-    [ 120, 'x', 'small letter x',        '0x78',    '+', '+' ],
-    [ 121, 'y', 'small letter y',        '0x79',    '+', '+' ],
-    [ 122, 'z', 'small letter z',        '0x7A',    '+', '+' ],
-    [ 123, '{', 'left curly bracket',    '0x7B',    '-', '-' ],
-    [ 124, '|', 'vertical bar',          '0x7C',    '-', '-' ],
-    [ 125, '}', 'right curly bracket',   '0x7D',    '-', '-' ],
-    [ 126, '~', 'tilde',                 '0x7E',    '-', '-' ],
-    [ 127, ]
+    [ 120, 'x', 'small letter x',        0x78, "+", '+' ],
+    [ 121, 'y', 'small letter y',        0x79, "+", '+' ],
+    [ 122, 'z', 'small letter z',        0x7A, "+", '+' ],
+    [ 123, '{', 'left curly bracket',    0x7B, "-", '-' ],
+    [ 124, '|', 'vertical bar',          0x7C, "-", '-' ],
+    [ 125, '}', 'right curly bracket',   0x7D, "-", '-' ],
+    [ 126, '~', 'tilde',                 0x7E, "-", '-' ],
+    [ 127, '\xFF', 'DELETE or Y WITH DIAERESIS', 0x7F, "-", '-' ],
 ]
 
 for i in range(0, 128):
-    if (ASCII[i][0] != i):
-        sys.stderr.write(
-            "Table error, entry for %d is at index %d." % (ASCII[i][0], i))
+    if (ASCII[i][0] != i or len(ASCII[i]) != 6):
+        sys.stderr.write("ASCII table error, entry %d." % (i))
         sys.exit()
+
+def okInFPI(n:int) -> bool: return (n<128 and ASCII[n][4] == '+')
+def okInURI(n:int) -> bool: return (n<128 and ASCII[n][5] == '+')
 
 C0names = [
     "NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL",
@@ -1502,6 +1504,7 @@ charProperties = {
     "entNamed":    	  ( str, 'F', "HTML named entity reference", ),
 
     # Properties
+    "fpiOK":          ( '?', 'P', "fpiOK", ),
     "uriOK":          ( '?', 'P', "uriOK", ),
     "numval":         ( int, 'P', "numval", ),
     "jargon":      	  ( str, 'P', "jargon", ),
@@ -1594,9 +1597,8 @@ def getCharInfo(n):
 
     # Properties
     #
-    charInfo["uriOK"]      = False
-    if (n<128 and len(ASCII[n]) >= 6 and ASCII[n][5] == "+"):
-        charInfo["uriOK"]  = True
+    charInfo["fpiOK"]     = okInFPI(n)
+    charInfo["uriOK"]     = okInURI(n)
     charInfo["bidi"]      = unicodedata.bidirectional(literal)
     charInfo["combining"] = unicodedata.combining(literal)
     charInfo["eawidth"]   = unicodedata.east_asian_width(literal)
@@ -1629,28 +1631,38 @@ def makeDisplay(n, full=True) -> str:
                 charInfo["ent16"], charInfo["ent10"], charInfo["entNamed"])),
             fmtline("Unix jargon",      charInfo["jargon"] or "")
         ]) + "\n"
-        if (full): msg += "\n".join([
+        if (full):
+            nfc = charInfo["NFC"]
+            nfkc = charInfo["NFKC"]
+            nfd = charInfo["NFD"]
+            nfkd = charInfo["NFKD"]
+            if (nfc == nfkc == nfd == nfkd):
+                val = "[no changes]"
+            else:
+                val = "NFC '%s' %s, NFKC '%s' %s, NFD '%s' %s, NFKD '%s' %s" % (
+                (charInfo["NFC"],  stringToHex(charInfo["NFC"]),
+                 charInfo["NFKC"], stringToHex(charInfo["NFKC"]),
+                 charInfo["NFD"],  stringToHex(charInfo["NFD"]),
+                 charInfo["NFKD"], stringToHex(charInfo["NFKD"])
+                ))
+            msg += "\n".join([
                 fmtline("Numeric value", charInfo["numval"]),
                 fmtline("Is Bidi",       charInfo["bidi"]),
                 fmtline("Is Combining",  charInfo["combining"]),
                 fmtline("ea width",      charInfo["eawidth"]),
                 fmtline("Mirror",        charInfo["mirror"]),
                 fmtline("Decompose",     charInfo["decomp"]),
-                fmtline("Normalizations",
-                    "NFC '%s' %s, NFKC '%s' %s, NFD '%s' %s, NFKD '%s' %s" %
-                    (charInfo["NFC"],  stringToHex(charInfo["NFC"]),
-                     charInfo["NFKC"], stringToHex(charInfo["NFKC"]),
-                     charInfo["NFD"],  stringToHex(charInfo["NFD"]),
-                     charInfo["NFKD"], stringToHex(charInfo["NFKD"])
-                    ))
+                fmtline("Normalizations", val)
         ])
     except KeyError as e:
         print("KeyError: %s.\n%s" % (e, charInfo))
         msg = "[FAIL]"
 
     if (n in cp1252ToUnicode): msg += (
-        "WARNING: May be intended as CP1252. If so use U+%05x (%s)." % (
+        "\n    WARNING: May be intended as CP1252. If so use U+%05x (%s)." % (
         cp1252ToUnicode[n], unicodedata.name(cp1252ToUnicode[n], None)))
+    elif (n == 0xFF): msg += (
+        "\n    WARNING: 0XFF may be DELETE or LATIN SMALL LETTER Y WITH DIAERESIS")
 
     if (n<32):
         lit = "(C0 control: " + C0names[n]
