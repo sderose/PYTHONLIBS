@@ -1,21 +1,24 @@
 #!/usr/bin/env python
 #
-# LooseDict.py: enhance dict to handle case-ignorant or similar lookups.
+# LooseDict.py: Enhance dict to handle case-ignorant or similar lookups.
+# 2018-09-04: Written by Steven J. DeRose.
 #
 from __future__ import print_function
 import sys
 import argparse
 import unicodedata
 import re
+from typing import Any, List, Callable
 
 __metadata__ = {
     'title'        : "LooseDict.py",
+    'description'  : "Enhance dict to handle case-ignorant or similar lookups.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2018-09-04",
-    'modified'     : "2020-01-01",
+    'modified'     : "2021-07-18",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -96,7 +99,9 @@ not the normalized form (of course, you can convert using 'getNormKey').
 pairs in order of normalized keys (or reversed order if you also pass
 `reverse=True`).
 
+
 =Related Commands=
+
 
 =Known bugs and Limitations=
 
@@ -106,15 +111,19 @@ The normalizer function must be idempotent. That is, after being applied once,
 additional applications should make no further changes. Or in other words,
 normalizing an already-normalized key should not denormalize it.
 
+
 =History=
 
 2018-09-04: Written. Copyright by Steven J. DeRose.
+2021-07-18: Cleanup.
+
 
 =To do=
 
 * Add an option to find from unique abbreviation of key.
 * Implement __cmp__.
 * Provide functions that do Unicode normalizations.
+
 
 =Rights=
 
@@ -125,6 +134,7 @@ For further information on this license, see
 
 For the most recent version, see [http://www.derose.net/steve/utilities]
 or [https://github.com/sderose].
+
 
 =Options=
 """
@@ -137,7 +147,7 @@ class LooseDict(dict):
     too). See also "Emulating container types":
     https://docs.python.org/2/reference/datamodel.html#emulating-container-types
     """
-    def __init__(self, key=None, sorter=None):
+    def __init__(self, key:Any=None, sorter:Callable=None):
         super(LooseDict, self).__init__()
         if (key): self.keyFunction = key
         else: self.keyFunction = str.lower
@@ -145,7 +155,7 @@ class LooseDict(dict):
         else: self.sorter = sorted
         self.normKeys = {}  # Map from normalized to real keys
 
-    def __setitem__(self, someKey, value):
+    def __setitem__(self, someKey:Any, value:Any) -> None:
         normKey = self.getNormKey(someKey)
         print("in setitem for '%s', norm='%s', val='%s'." %
             (someKey, normKey, value))
@@ -156,25 +166,25 @@ class LooseDict(dict):
         super(LooseDict, self).__setitem__(someKey, value)
         return
 
-    def __getitem__(self, someKey):
+    def __getitem__(self, someKey:Any) -> Any:
         normKey = self.getNormKey(someKey)
         realKey = self.normKeys[normKey]
         return super(LooseDict, self).__getitem__(realKey)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key) -> None:
         normKey = self.getNormKey(key)
         realKey = self.normKeys[normKey]
         del self[realKey]
 
-    def getRealKey(self, someKey):
+    def getRealKey(self, someKey:Any):
         normKey = self.keyFunction(someKey)
         if (normKey not in self.normKeys): return None
         return self.normKeys[normKey]
 
-    def getNormKey(self, someKey):
+    def getNormKey(self, someKey:Any) -> Any:
         return self.keyFunction(someKey)
 
-    def __has_key__(self, someKey):
+    def __has_key__(self, someKey:Any) -> bool:
         normKey = self.getNormKey(someKey)
         return normKey in self.normKeys
 
@@ -188,7 +198,7 @@ class LooseDict(dict):
             newld[kk] = self[kk]
         return newld
 
-    def __iteritems__(self, sortNorm=False, reverse=False):
+    def __iteritems__(self, sortNorm:bool=False, reverse:bool=False):
         """Make Python 2 users happy....
         """
         if (sortNorm):
@@ -199,19 +209,11 @@ class LooseDict(dict):
         return None
 
     def __iter__(self):
-        itr = Object()
-        if (self.sorter):
-            itr.list = sorted(self.keys(), compare=self.sorter)
-        else:
-            itr.list = sorted(self.keys())
-        itr.curPos = 0
-        itr.__iter__ = lambda x: self
-        while(itr.__next__(self)):
-            itr.curPos += 1
-            if (itr.curPos >= len(itr.list)): return None
-            return itr.list[itr.curPos]
+        """Return an iterator for the object.
+        """
+        return LooseDictIterator(self)
 
-    def __contains__(self, key):
+    def __contains__(self, key:Any):
         normKey = self.getNormKey(key)
         return super(LooseDict, self).__contains__(normKey)
 
@@ -219,29 +221,45 @@ class LooseDict(dict):
     #    return self.__cmp__(self.__dict__, dict_)
 
     @staticmethod
-    def nfkd(s):
+    def nfkd(s:str) -> str:
         return LooseDict.unormalize(s, 'NFKD', ignoreCase=False)
 
     @staticmethod
-    def nfkdi(s):
+    def nfkdi(s:str) -> str:
         return LooseDict.unormalize(s, 'NFKD', ignoreCase=True)
 
     @staticmethod
-    def nfc(s):
+    def nfc(s:str) -> str:
         return LooseDict.unormalize(s, 'NFC', ignoreCase=False)
 
     @staticmethod
-    def nfci(s):
+    def nfci(s:str) -> str:
         return LooseDict.unormalize(s, 'NFC', ignoreCase=True)
 
     @staticmethod
-    def unormalize(s, form="NFC", ignoreCase=True):
+    def unormalize(s:str, form:str="NFC", ignoreCase:bool=True) -> str:
         if (form == "NFKD"): s2 = unicodedata.normalize('NFKD', s)
         elif (form == "NFD"): s2 = unicodedata.normalize('NFD', s)
         elif (form == "NFKC"): s2 = unicodedata.normalize('NFKC', s)
         elif (form == "NFC"): s2 = unicodedata.normalize('NFC', s)
         if (ignoreCase): s2 = s2.lower()
         return s2
+
+
+###############################################################################
+#
+class LooseDictIterator:
+    """Also used for class normdict, below.
+    """
+    def __init__(self, theLD):
+        self.theLD = theLD
+        if (theLD.sorter):
+            self.keySeq = sorted(theLD.keys(), compare=theLD.sorter)
+        else:
+            self.keySeq = sorted(theLD.keys())
+
+    def __next__(self):
+        for k in self.keySeq: yield self.theLD[k]
 
 
 ###############################################################################
@@ -278,28 +296,28 @@ class normdict(dict):
         self.dataLocked = False
         self.theDict    = {}
 
-    def lockKeys(self):
+    def lockKeys(self) -> None:
         self.keysLocked = True
 
-    def unlockKeys(self):
+    def unlockKeys(self) -> None:
         self.keysLocked = False
 
-    def lockData(self):
+    def lockData(self) -> None:
         self.dataLocked = True
 
-    def unlockData(self):
+    def unlockData(self) -> None:
         self.dataLocked = False
 
-    def findAbbrev(self, key):
+    def findAbbrev(self, key:Any) -> Any:
         if (self.normalizer): normKey = self.normalizer(key)
         else:                 normKey = key
         for k in self.theDict.keys():
             if (k.startswith(normKey)): return k
         return None
 
-    def matchingKeys(self, regex):
+    def matchingKeys(self, regexpr) -> List:
         matches = []
-        rc = re.compile(regex)
+        rc = re.compile(regexpr)
         for k in self.theDict.keys():
             if (re.match(rc, k)): matches.append(k)
         return matches
@@ -317,7 +335,7 @@ class normdict(dict):
     def __len__(self):
         return len(self.theDict)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key:Any) -> Any:
         if (self.normalizer): normKey = self.normalizer(key)
         else:                 normKey = key
         if (self.keyType and isinstance(key, self.keyType)):
@@ -329,7 +347,7 @@ class normdict(dict):
         else:
             raise KeyError
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key:Any, value:Any) -> None:
         if (self.normalizer): normKey = self.normalizer(key)
         else:                 normKey = key
         if (self.keyType and not isinstance(key, self.keyType) or
@@ -341,7 +359,7 @@ class normdict(dict):
             raise KeyError
         self.theDict[normKey] = value
 
-    def __delitem__(self, key):
+    def __delitem__(self, key:Any) -> None:
         """Should keysLocked prevent deletion, too?
         """
         if (self.normalizer): normKey = self.normalizer(key)
@@ -352,19 +370,9 @@ class normdict(dict):
             raise KeyError
 
     def __iter__(self):
-        itr = Object()
-        if (self.sorter):
-            itr.list = sorted(self.theDict.keys(), compare=self.sorter)
-        else:
-            itr.list = sorted(self.theDict.keys())
-        itr.curPos = 0
-        itr.__iter__ = lambda x: self
-        while(itr.__next__(self)):
-            itr.curPos += 1
-            if (itr.curPos >= len(itr.list)): return None
-            return itr.list[itr.curPos]
+        return LooseDictIterator(self)
 
-    def __contains__(self, key):
+    def __contains__(self, key) -> bool:
         if (self.normalizer): normKey = self.normalizer(key)
         else:                 normKey = key
         return normKey in self.theDict

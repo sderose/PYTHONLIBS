@@ -5,12 +5,10 @@
 #
 #pylint: disable=W0603,W0511
 #
-from __future__ import print_function
 import sys
 import argparse
 import re
-#import string
-#import codecs
+from typing import Dict, Any
 
 __metadata__ = {
     'title'        : "fsplit.py",
@@ -482,7 +480,7 @@ class DialectX:
         "quotedNewline":     ( bool, False ),
     }
 
-    def apply_arguments(self, theArgs):
+    def apply_arguments(self, theArgs:argparse.Namespace) -> None:
         """Call this to move the arguments (typically added by
         add_my_arguments), to the current instance.
         """
@@ -699,17 +697,17 @@ class DictWriter:
                 if (not re.match(DictWriter._formatRegex, f)):
                     raise ValueError("Unparseable fieldFormat '%s'." % (f))
 
-    def writeheader(self):
+    def writeheader(self) -> None:
         self.writerow(self.fieldnames)
 
-    def writerows(self, rows:list):
+    def writerows(self, rows:list) -> int:
         rnum = 0
         for row in rows:
             rnum += 1
             self.writerow(row)
         return rnum
 
-    def writerow(self, row:dict):
+    def writerow(self, row:dict) -> None:
         buf = ""
         if (self.fieldnames is None):
             self.fieldnames = sorted(row.keys())
@@ -721,21 +719,18 @@ class DictWriter:
         buf[-len(self.dialect.delimiter):] = self.dialect.lineterminator
         self.f.write(buf)
 
-    def writecomment(self, s):
+    def writecomment(self, s:str):
         self.f.write(self.dialect.comment + s + self.dialect.lineterminator)
 
-    def formatOneField(self, fname, fval):
+    def formatOneField(self, fname:str, fval:Any) -> str:
         return self.formatScalar(fval)
 
-    def formatScalar(self, obj):  # From alogging.py
+    def formatScalar(self, obj) -> str:  # From alogging.py
         ty = type(obj)
         if (obj is                             None):
             return self.disp_None
-        elif (isinstance(obj,                  str) or
-            isinstance(obj,                    basestring)):
+        elif (isinstance(obj,                  str)):
             return '"%s"' % (obj)
-        elif (isinstance(obj,                  unicode)):
-            return 'u"%s"' % (obj)
         elif (isinstance(obj,                  bytearray)):
             return 'b"%s"' % (obj)
         #elif (isinstance(obj,                  buffer)):
@@ -779,10 +774,10 @@ def writer(csvfile, **formatParams):
     staticDialect = DialectX(**formatParams)
     staticFile = csvfile
 
-def writeheader(fieldnames):
+def writeheader(fieldnames:list) -> None:
     writerow(fieldnames)
 
-def writerow(row:list):
+def writerow(row:list) -> None:
     buf = ""
     for field in row:
         buf += field + staticDialect.delimiter
@@ -821,7 +816,7 @@ UQuotePairs = [  # From my UnicodeSpecials.py
 lastQuoteArg = None
 lastQuoteMap = None
 
-def setupQuoteMap(quoteArg:str):
+def setupQuoteMap(quoteArg:str) -> Dict:
     """Given a specification of a kind of quoting, return a dict that
     maps one or more "open" quote characters to their corresponding "close"
     quote characters (which may be the same, as with straight quotes and
@@ -862,16 +857,16 @@ def setupQuoteMap(quoteArg:str):
     lastQuoteArg = quoteArg
     return lastQuoteMap
 
-def unescapeViaMap(c):
+def unescapeViaMap(c:str) -> str:
     if (c in escapeMap): return escapeMap[c]
     return c
 
-def dquote(s:str):
+def dquote(s:str) -> str:
     """Put double angle quotes around a string for display.
     """
     return u"\u00AB" + str(s) + u"\u00BB"
 
-def parseEntity(s:str):
+def parseEntity(s:str) -> (str, int):
     """Handle XML/HTML entity and numeric character references.
     Just pass this off to Python html package (only imported if needed).
     NOTE: Unknown entities, like '&foo;', do not raise an error.
@@ -918,22 +913,22 @@ class DatatypeHandler:
 
         self.specialFloats = specialFloats
 
-    def handleDatatypes(self, d:DialectX, tokens):
-        import Datatypes
+    def handleDatatypes(self, d:DialectX, tokens:list) -> None:
+        #import Datatypes
         if (isinstance(d.typeList, list)):
             for i, typ in enumerate(d.typeList):
                 if (not typ): continue
                 tokens[i] = typ(tokens[i])
         elif (d.typeList=='AUTO'):
             for i, token in enumerate(tokens):
-                tokens[i] = autoType(token)
+                tokens[i] = self.autoType(token)
         else:
             raise ValueError(
                 "typeList option must be 'AUTO' or a list of types, not '%s'." %
                 (type(d.typeList)))
 
     @staticmethod
-    def datetimeCaster(s:str):
+    def datetimeCaster(s:str) -> str:
         """Return a date, time, or datetime object created from a string, or
         raises ValueError otherwise.
         """
@@ -951,7 +946,7 @@ class DatatypeHandler:
         raise ValueError("String cannot be parsed as date and/or time: '%s'" % (s))
 
     @staticmethod
-    def boolCaster(s:str):
+    def boolCaster(s:str) -> bool:
         """Returns True (perhaps a paradox, given that I wrote this function
         on 2020-02-29) for more than just the empty string; False for a similar
         range, and raises ValueError otherwise (like for 'xyz').
@@ -963,7 +958,7 @@ class DatatypeHandler:
             pass
         return True
 
-    def autoType(self, tok:str):
+    def autoType(self, tok:str) -> Any:
         """Convert a string to the most specific type we can.
 
         Complex uses the Python "1+1j" (not "1+1i"!) form)
@@ -1025,7 +1020,7 @@ def fsplit(
     minsplit:bool            = None,     # Min number of fields - 1
     maxsplit:bool            = None,     # Max number of fields - 1
     typeList:bool            = None      # type to cast each field to
-    ):
+    ) -> list:
     """Fancier string splitter. Lots of options, and Unicode aware.
     """
     if (dialect is None):

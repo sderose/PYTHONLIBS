@@ -3,7 +3,7 @@
 # PowerWalk: More capable version os Python's os.walk.
 # 2018-04-21: `PowerWalk.py` split out of my `countTags.py`.
 #
-#pylint: disable=W0212
+#pylint: disable=W0212,W0603
 #
 from __future__ import print_function
 import sys, os
@@ -16,12 +16,12 @@ from os.path import getatime, getctime, getmtime, getsize, splitext, stat
 from enum import Enum
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
+from typing import Dict, Any
 
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
+assert sys.version_info[0] >= 3
 
 verbose = 0  # Also set by PowerWalk.setOptions('verbose')
-def warn(lvl, msg):
+def warn(lvl:int, msg:str):
     if (verbose>=lvl): sys.stderr.write("%s\n" % (msg))
 
 
@@ -130,7 +130,8 @@ See also
 by appending numbers.
 
 * `--exec` '[...{}...]\\;' -- Run a given command on each selected item,
-much like `find --exec`.
+much like `find --exec`. Output from the runs is printed unless
+you specify `--quiet`.
 
 * `--serialize` -- put a serial number on each file with `--copyTo`
 (as well as `--serializeFormat` to set the format (default '_%04d')).
@@ -947,7 +948,7 @@ class TraversalState(list):
     confirmed as an OPEN, CLOSE, LEAF, IGNORE, or ERROR (based on the
     options in effect, a reference to which is passed to the constructor).
     """
-    def __init__(self, options):
+    def __init__(self, options:Dict):
         super(TraversalState, self).__init__()
         self.depth = 0
         self.iString = '    '
@@ -1160,7 +1161,7 @@ class PowerWalk:
         "verbose"             : int,
     }
 
-    def handlePathsArg(self, topLevelItems):
+    def handlePathsArg(self, topLevelItems:list):
         if (not topLevelItems):
             return [ os.environ['PWD'] ]
         elif (isinstance(topLevelItems, list)):
@@ -1230,7 +1231,7 @@ class PowerWalk:
             raise ValueError("Unknown option '%s'." % (name))
         return self.options[name]
 
-    def setOption(self, name:str, value, strict:bool=False) -> None:
+    def setOption(self, name:str, value:Any, strict:bool=False) -> None:
         """Note: If the options are coming in from argparse, an unset
         list or dict will perhaps be None, so fix to an empty one.
         """
@@ -1662,14 +1663,9 @@ class PowerWalk:
         else:
             fh = codecs.open(path, mode=self.options['mode'],
                 encoding=self.options['encoding'])
-            # Py 2: codecs.open returns old-style class StreamReaderWriter
-            if (PY2 and '__class__' in fh and
-                fh.__class__.__name__ != 'StreamReaderWriter'):
-                raise ValueError("Got type '%s' (%s) for %s." %
-                    (type(fh), fh.__class__.__name__, path))
         return fh
 
-    def passesFilters(self, path:str, theStat, trav) -> bool:
+    def passesFilters(self, path:str, theStat:os.stat_result, trav:TraversalState) -> bool:
         """Check the file at 'path' against all the filters, and
         return True iff it's one the user wants. 'hidden' applies to
         containers (such as directories) and to leafs (such as files).
@@ -1687,7 +1683,7 @@ class PowerWalk:
                 return False
         return self.dirPassesFilters(path, theStat, trav)
 
-    def dirPassesFilters(self, path:str, _theStat, trav) -> bool:
+    def dirPassesFilters(self, path:str, _theStat:os.stat_result, trav:TraversalState) -> bool:
         if (self.options['type'] and self.options['type']!='d'):
             self.recordEvent(trav, "ignoredByType")
             return False
@@ -1706,11 +1702,10 @@ class PowerWalk:
         self.recordEvent(trav, 'directory')
         return True
 
-    def filePassesFilters(self, path:str, theStat, trav) -> bool:
+    def filePassesFilters(self, path:str, theStat:os.stat_result, trav:TraversalState) -> bool:
         """Test most of the file-filtering conditions.
         Return True only if the all pass (reaching the final 'else').
         """
-        # TODO: Add --include and --exclude like for grep
         _, tail = os.path.split(path)
         (_, extPart) = os.path.splitext(tail)
         extPart = extPart.strip(". \t\n\r")
@@ -1761,7 +1756,7 @@ class PowerWalk:
         warn(2, "%s filter: %s" % ("PASS" if passes else "FAIL", tail))
         return passes
 
-    def passesType(self, _path:str, theStat) -> bool:
+    def passesType(self, _path:str, theStat:os.stat_result) -> bool:
         """Test like "find -type", return if it's ok.
         """
         mode = theStat.st_mode
@@ -1797,7 +1792,7 @@ class PowerWalk:
             warn(0, "Unknown -type value '%s'." % (ty))
         return True
 
-    def passesPerm(self, _path:str, theStat, permOptions:list) -> bool:
+    def passesPerm(self, _path:str, theStat:os.stat_result, permOptions:list) -> bool:
         """Check the file's permission and related bits, against the
         specs provided in the option, as parsed earlier by makeActions.
         @param direction: '-' requires it to be off; '+' on.
@@ -1901,7 +1896,7 @@ class PowerWalk:
                                 (curAct, PowerWalk.maskValues[w+pcode]))
         return actions
 
-    def chSort(self, curPath:str, chList, reverse=False) -> list:
+    def chSort(self, curPath:str, chList:list, reverse=False) -> list:
         """Sort a file-list returned from os.listdir somehow.
         """
         warn(2, "Sorting by '%s'." % (self.options['sort']))
@@ -2040,7 +2035,7 @@ def isGenerated(name:str) -> bool:
         if (re.search(ge, b)): return(True)
     return(False)
 
-def getGitStatus(path) -> str:
+def getGitStatus(path:str) -> str:
     """See what sort of git state we're in (see `git status --help` for -s):
         ' ' = unmodified
         M = modified
@@ -2061,7 +2056,7 @@ def getGitStatus(path) -> str:
         buf = check_output(tokens)
     except CalledProcessError:
         return "0"
-    if buf[0] in " MADRCU?!": return buf[1]
+    if str(buf[0]) in " MADRCU?!": return buf[1]
     warn(0, "Unknown code '%s' from git status -s '%s'." % (path))
     return None
 
@@ -2069,9 +2064,9 @@ def getFileInfo(path:str) -> str:
     """See what the "file" command has to say about something...
     """
     buf = check_output([ "file", "-b", path ])
-    return buf
+    return str(buf)
 
-def xset(path:str, prop:str, val) -> None:
+def xset(path:str, prop:str, val:Any) -> None:
     #import xattr
     warn(0, "--xattr is not yet supported for %s: %s=%s." % (path, prop, val))
     sys.exit()
@@ -2161,23 +2156,24 @@ if __name__ == "__main__":
         """Add a boatload of options for how to format output, mainly filelists.
         (should become a general tree-layout class)
         """
+        if (not prefix.startswith("--")): prefix = "--" + prefix
         parser.add_argument(
-            "--anonymousClose", action='store_true',
+            prefix+"anonymousClose", action='store_true',
             help='Suppress display of container-close.')
         parser.add_argument(
-            "--closeDelim", metavar='S', type=str, default="    <==",
+            prefix+"closeDelim", metavar='S', type=str, default="    <==",
             help='Display before directory name on close.')
         parser.add_argument(
-            "--closeQuote", metavar="Q", type=str, default='',
+            prefix+"closeQuote", metavar="Q", type=str, default='',
             help='Put this after the reported paths.')
         parser.add_argument(
-            "--iString", metavar='S', type=str, default='    ',
+            prefix+"iString", metavar='S', type=str, default='    ',
             help='Repeat this string to create indentation.')
         parser.add_argument(
-            "--itemSep", metavar='S', type=str, default='',
+            prefix+"itemSep", metavar='S', type=str, default='',
             help='Put this in to separate items (e.g., a comma).')
         parser.add_argument(
-            "--showInvisibles", type=str, default='literal',
+            prefix+"showInvisibles", type=str, default='literal',
             choices=[ 'literal', 'octal', 'hex', 'pix', 'url' ],
             help='How to display unusual characters.')
 
@@ -2219,7 +2215,7 @@ if __name__ == "__main__":
             args0.closeQuote = '"'
             args0.anonymousClose = True
         else:
-            warning0("Unknown output format '%s'." % (args0.oformat))
+            warn(0, "Unknown output format '%s'." % (args0.oformat))
 
     def makeDisplayableName(s:str) -> str:  # TODO: Finish showInvisibles support
         if (s.isalnum):
@@ -2326,7 +2322,8 @@ if __name__ == "__main__":
                 if ('{}' in cmd): re.sub(r'{}', path0, cmd)
                 else: cmd += ' ' + path0
                 try:
-                    check_output(cmd, shell=True)
+                    buf0 = check_output(cmd, shell=True)
+                    if (not args.quiet): print(buf0)
                 except CalledProcessError as e:
                     warn(0, "Failed on %s:\n    %s" % (cmd, e))
         elif (what0 == PWType.CLOSE):
