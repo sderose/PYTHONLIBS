@@ -1801,9 +1801,9 @@ class PowerWalk:
         #s = os.stat(path)
         for direction, mask in permOptions:
             if (direction == '-'):
-                if (theStat & mask): return False
+                if (theStat.st_mode & mask): return False
             elif (direction == '+'):
-                if not (theStat & mask): return False
+                if not (theStat.st_mode & mask): return False
             else:
                 raise ValueError("Huh?")
         return True
@@ -1867,7 +1867,7 @@ class PowerWalk:
 
         chmod also has settings for ACLs (access control lists).
         """
-        warn(0, "makeActions for arg '%s'." % (perm))
+        warn(1, "makeActions for arg '%s'." % (perm))
         try:
             return int(perm, 8)
         except ValueError:
@@ -1876,13 +1876,14 @@ class PowerWalk:
         whoCodes = "augo"
         opCodes = "-+="
         permCodes = "rstwxXugo"
-        clauseExpr = r'([%s]+)([%s][%s]+])' % (whoCodes, opCodes, permCodes)
+        clauseExpr = r'([%s]+)([%s][%s]+)' % (whoCodes, opCodes, permCodes)
 
         actions = []
         for clause in (re.split(r',\s*', perm)):
             mat = re.match(clauseExpr, clause)
             if (not mat):
-                raise ValueError("Unknown perm code '%s'." % (clause))
+                raise ValueError("Unknown perm code '%s' (regex r'%s')." %
+                    (clause, clauseExpr))
             who = mat.group(1)
             curAct = "+"
             for tok in re.split(r'([-+=])', mat.group(2)):
