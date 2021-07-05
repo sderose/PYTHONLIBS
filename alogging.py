@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # alogging: messaging, logging, and statistics features from sjdUtils.py.
-# Fairly compatible with Python's Logging package.
+# Fairly close to Python's Logging package, but adds color and -v stacking.
 # Written 2011-12-09 by Steven J. DeRose
 #
 from __future__ import print_function
@@ -26,7 +26,7 @@ if PY3:
 
 __metadata__ = {
     'title'        : "alogging.py",
-    'description'  : "logging additions, for -v levels, stats, traceback, etc.",
+    'description'  : "logging additions, for -v levels, stats, formatting, traceback,...",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -60,6 +60,8 @@ Derived from `sjdUtils.py`'s messaging methods.
 * Option to bump counters for any/all messages, making it easy
 to keep and report error statistics
 
+* `formatRec()` for nice layout of nested data structures.
+
 
 =Usage=
 
@@ -68,6 +70,8 @@ to keep and report error statistics
 
     lg.warn(msg)
     lg.vMsg(2, msg1, msg2, color='red', stat='Input too long')
+
+    print(lg.formatRec(myBigDataThing))
 
 `warn`, `info`, `error`, `fatal`, `exception`, and `critical` work
 like in Python `logging.warn()`, except that there is only one context,
@@ -904,6 +908,7 @@ class ALogger:
     #
     def setALoggerOption(self, name, value=1):
         return(self.setOption(name, value))
+
     def setOption(self, name, value=1):
         """Set option ''name'' to ''value''.
         """
@@ -924,6 +929,7 @@ class ALogger:
         """Set the degree of verbosity for messages to be reported.
         This is NOT the same as the logging package 'level'!
         """
+        v = int(v)
         if (v>0 and not self.lg.isEnabledFor(20)):
             self.lg.setLevel(20)
         return(self.setALoggerOption('verbose', v))
@@ -1085,28 +1091,28 @@ class ALogger:
     # The type-specific calls handles statistic-updating, because that should
     # happen whether or not the level filters out actual display.
     #
-    def log(self, level, msg, stat=None, color=None, **kwargs):  # ARGS!
+    def log(self, level, msg, stat=None, **kwargs):  # ARGS!
         if (stat): self.bumpStat(stat)
         if (self.options['verbose'] < level): return
-        self.directMsg(msg, kwargs)
+        self.directMsg(msg, **kwargs)
     def debug(self, msg, stat=None, **kwargs):         # level = 10
         if (stat): self.bumpStat(stat)
-        self.directMsg(msg, kwargs)
+        self.directMsg(msg, **kwargs)
     def info(self, msg, stat=None, **kwargs):          # level = 20
         if (stat): self.bumpStat(stat)
-        self.directMsg(msg, kwargs)
+        self.directMsg(msg, **kwargs)
     def warning(self, msg, stat=None, **kwargs):       # level = 30
         if (stat): self.bumpStat(stat)
-        self.directMsg(msg, kwargs)
+        self.directMsg(msg, **kwargs)
     def error(self, msg, stat=None, **kwargs):         # level = 40
         if (stat): self.bumpStat(stat)
-        self.directMsg(msg, kwargs)
+        self.directMsg(msg, **kwargs)
     def exception(self, msg, stat=None, **kwargs):     # level = 40
         if (stat): self.bumpStat(stat)
-        self.directMsg(msg, kwargs)
+        self.directMsg(msg, **kwargs)
     def critical(self, msg, stat=None, **kwargs):      # level = 50
         if (stat): self.bumpStat(stat)
-        self.directMsg(msg, kwargs)
+        self.directMsg(msg, **kwargs)
 
 
     ###########################################################################
@@ -1142,7 +1148,7 @@ class ALogger:
     def error4(self, msg, **kwargs): self.log(4, msg, **kwargs)
 
 
-    def directMsg(self, msg, color=None, **kwargs):
+    def directMsg(self, msg, **kwargs):
         """Pretty much everything ends up here.
         'stat' are should have been handled and removed by caller.
         """
@@ -1150,6 +1156,9 @@ class ALogger:
         ender = kwargs['end'] if 'end' in kwargs else "\n"
         if (not msg.endswith(ender)): msg += ender
         #msg2 = re.sub(r'\n', '*', msg)
+        if (kwargs['color']):
+            if (not self.colorManager): msg += " (color not enabled)"
+            else: msg = self.colorManager.colorize(kwargs['color'])
         sys.stderr.write(msg)
 
 
@@ -1194,7 +1203,7 @@ class ALogger:
         m = on + (char * width/len(char)) + off
         self.info(m)
 
-    def vMsg(self, verbose:int, m1="", m2="", color=None, stat=""):
+    def vMsg(self, verbose:int, m1:str, m2:str="", color:str=None, stat:str=""):
         """A variant of ''Msg''(), to issue a 'verbose' (msgType 'v') message.
         """
         if (stat!=""): self.bumpStat(stat)
@@ -1203,9 +1212,10 @@ class ALogger:
         self.info(m)
 
     # Change called over to call error() directly, then delete eMsg().
-    def eMsg(self, verbose:int, m1="", m2="", color=None, stat=""):
+    def eMsg(self, verbose:int, m1:str, m2:str="", color:str=None, stat:str=""):
         """A variant of ''Msg''(), to issue an 'error' (msgType 'e') message.
         """
+
         self.errorCount += 1
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
@@ -1214,7 +1224,7 @@ class ALogger:
         if (verbose<0):
             raise AssertionError("alogging:eMsg with level %d." % (verbose))
 
-    def hMsg(self, verbose:int, m1="", m2="", color=None, stat=""):
+    def hMsg(self, verbose:int, m1:str, m2:str="", color:str=None, stat:str=""):
         """A variant of ''Msg''(), to issue a 'heading' (msgType 'h') message.
         """
         if (stat!=""): self.bumpStat(stat)
@@ -1223,8 +1233,8 @@ class ALogger:
         self.info(m)
 
     # Messages of various kinds (sync with Perl version)
-    def Msg(self,msgType,m1="",m2="",
-        color=None,escape=None,stat=None,verbose:int=0):
+    def Msg(self, msgType, m1:str, m2:str="",
+        color:str=None, escape:str=None, stat:str=None, verbose:int=0):
         """Issue a message of the given ''msgType'' (see I<defineMsgType).
         See also the wrappers ''hMsg''(), ''vMsg''(), and ''hMsg''().
 
@@ -1260,8 +1270,8 @@ class ALogger:
         self.lg.info(m)
         return
 
-    def assembleMsg(self, m1="", m2="",
-             color=None, escape=False, indent=None, nLevels=0, msgType='v'):
+    def assembleMsg(self, m1:str, m2:str="",
+             color:str=None, escape:bool=False, indent=None, nLevels:int=0, msgType:str='v'):
         """Assemble the components of a message to be printed.
         bumpStat also happens there.
         Parameters corresponding to definedMsgType() ones, are overrides.
@@ -1312,7 +1322,7 @@ class ALogger:
         return(m)
 
 
-    def getLoc(self, startLevel=0, endLevel=0):
+    def getLoc(self, startLevel:int=0, endLevel:int=0):
         """Return a line(s) showing where we were invoked from.
         frameItems = [ 'frameObj', 'file', 'lineno',
                        'function', "[codeLines]", 'indexOfLine' ]
@@ -1337,13 +1347,13 @@ class ALogger:
     ###########################################################################
     # Statistic-keeping
     #
-    def defineStat(self, stat):
+    def defineStat(self, stat:str):
         """Create a new statistic. Optional, because stats are quietly created
         as needed. However, I<setOption('noMoreStats', True) prevents this.
         """
         self.msgStats[stat] = 0
 
-    def bumpStat(self, stat, amount=1):
+    def bumpStat(self, stat:str, amount:int=1):
         """Increment the named statistic, by ''amount'' (default: 1).
         If the name contains "/", it splits there. The first part is
         the overall stat name, which will be stored as a dict, with
@@ -1356,7 +1366,7 @@ class ALogger:
         else:
             self.msgStats[stat] = amount
 
-    def appendStat(self, stat, datum):
+    def appendStat(self, stat:str, datum):
         """Append to the named statistic (converting to a list first if needed)
         """
         if (stat in self.msgStats):
@@ -1366,7 +1376,7 @@ class ALogger:
         else:
             self.msgStats[stat] = [ datum ]
 
-    def setStat(self, stat, value):
+    def setStat(self, stat:str, value):
         """Force the named statistic to the given value.
         """
         if (stat in self.msgStats):
@@ -1376,14 +1386,14 @@ class ALogger:
         else:
             self.msgStats[stat] = value
 
-    def getStat(self, stat):
+    def getStat(self, stat:str):
         """Return the current value of the named statistic.
         """
         if (stat in self.msgStats): return(self.msgStats[stat])
         return(0)
 
-    def showStats(self, zeros=False, descriptions=None,
-                  dotfill=0, fillchar='.', onlyMatching='', lists='len'):
+    def showStats(self, zeros:bool=False, descriptions:dict=None,
+                  dotfill:bool=0, fillchar:str='.', onlyMatching:str='', lists:str='len'):
         """Display all the stat values, via ''pline''()
         @param ''zeros'': if not True, statistics counts of 0 are excluded.
         @param ''descriptions'': map from names to a ''label'' argument to
@@ -1442,8 +1452,8 @@ class ALogger:
         if (nPrinted==0):
             self.lg.info("    (no stats logged)")
 
-    def pline(self, label, n, denom=None, dotfill=0, fillchar='.',
-        width=None, quiet=False):
+    def pline(self, label:str, n:int, denom:float=None, dotfill:int=0, fillchar:str='.',
+        width:int=None, quiet:bool=False):
         """Display via ''vMsg''(), with ''label'' padded to ''width'' columns,
         (default: `plineWidth` option). ''n'' is justified according to type.
             With ''dotfill'', every ''dotfill'''th line will pad ''label''
@@ -1482,13 +1492,13 @@ class ALogger:
         if (not quiet): self.lg.info(msg)
         return(msg)
 
-    def clearStats(self):
+    def clearStats(self) -> None:
         self.msgStats = {}
 
     # dir() can be wrong, e.g., if the object has a custom __getattr__.
     # Does not seem to work for Cython objects such as in Spacy.
     #
-    def dirMain(self, obj, includeCallables=False):
+    def dirMain(self, obj, includeCallables:bool=False):
         tdict = {}
         for k in dir(obj):
             if (k.startswith("__") or k == "_"): continue
@@ -1504,7 +1514,7 @@ class ALogger:
 
     ###########################################################################
     #
-    def formatPickle(self, path):
+    def formatPickle(self, path:str):
         import pickle
         with open(path, "rb") as ifh:
             stuff = pickle.load(ifh)
@@ -1662,7 +1672,7 @@ class ALogger:
         if (isinstance(nm, str) and nm.startswith('__')): return True
         return False
 
-    def quote(self, s, addQuotes=False):
+    def quote(self, s:str, addQuotes:bool=False):
         if (not addQuotes): return s
         return '"' + re.sub(r'"', '\\"', s) + '"'
 

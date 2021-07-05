@@ -118,11 +118,15 @@ normalizing an already-normalized key should not denormalize it.
 2021-07-18: Cleanup.
 
 
+
 =To do=
 
 * Add an option to find from unique abbreviation of key.
+Then integrate that for `strfchr.py`, `bibtex2html.py`, etc.
 * Implement __cmp__.
-* Provide functions that do Unicode normalizations.
+* Perhaps add `items()` variant that hands back actual vs. normalized key?
+* Perhaps add notion of explicit aliases (say, separate dict that just maps?)
+
 
 
 =Rights=
@@ -211,9 +215,19 @@ class LooseDict(dict):
     def __iter__(self):
         """Return an iterator for the object.
         """
-        return LooseDictIterator(self)
+        itr = object()
+        if (self.sorter):
+            itr.list = sorted(self.keys(), compare=self.sorter)
+        else:
+            itr.list = sorted(self.keys())
+        itr.curPos = 0
+        itr.__iter__ = lambda x: self
+        while(itr.__next__(self)):
+            itr.curPos += 1
+            if (itr.curPos >= len(itr.list)): return None
+            return itr.list[itr.curPos]
 
-    def __contains__(self, key:Any):
+    def __contains__(self, key):
         normKey = self.getNormKey(key)
         return super(LooseDict, self).__contains__(normKey)
 
@@ -370,9 +384,19 @@ class normdict(dict):
             raise KeyError
 
     def __iter__(self):
-        return LooseDictIterator(self)
+        itr = object()
+        if (self.sorter):
+            itr.list = sorted(self.theDict.keys(), compare=self.sorter)
+        else:
+            itr.list = sorted(self.theDict.keys())
+        itr.curPos = 0
+        itr.__iter__ = lambda x: self
+        while(itr.__next__(self)):
+            itr.curPos += 1
+            if (itr.curPos >= len(itr.list)): return None
+            return itr.list[itr.curPos]
 
-    def __contains__(self, key) -> bool:
+    def __contains__(self, key):
         if (self.normalizer): normKey = self.normalizer(key)
         else:                 normKey = key
         return normKey in self.theDict

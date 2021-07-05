@@ -669,6 +669,9 @@ with XPath "//" operator).
 * Change eachTextNode, etc. to be real generators.
 * Add type-hinting.
 * Add access items in NamedNodeMaps via [] notation.
+* Possibly, extend `innerXML`, `innerText`, etc. to be able to exclude
+certain subtrees, such as for embedded footnotes, speaker tags interrupting
+speeches, etc.?
 
 ==Lower priority==
 
@@ -1664,6 +1667,56 @@ def getAllDescendants(root, excludeTypes=None, includeTypes=None):
     for ch in root.childNodes:
         yield getAllDescendants(ch)
     return
+
+
+###############################################################################
+# Tabular structure support
+#
+def getColumn(self:Node, onlyChild="tbody", colNum:int=1, colSpanAttr:str=None) -> list:
+    """Called on the root of table-like structure, return a list of
+    the colNum-th child element of each child element. That should amount
+    to the colNum-th column.
+    @param onlyChild: If not "", look for a child of self of that type,
+    and treat it as the container-of-rows.
+    @param colSpanAttr: If set, treat that attribute name like HTML "colspan".
+    """
+    if (onlyChild):
+        base = self.selectChild(onlyChild)
+    else:
+        base = self
+    if (not base or base.nodeType != Node.ELEMENT_NODE): return None
+    cells = []
+    for row in base.childNodes:
+        if (row.nodeType != Node.ELEMENT_NODE): continue
+        cells.append(row.getCellOfRow(colNum=colNum, colSpanAttr=colSpanAttr))
+    return cells
+
+def getCellOfRow(self:Node, colNum:int=1, colSpanAttr:str=None) -> Node:
+    """Pretty much like getElementChild(), but can account for horizontal
+    spans (this does not yet adjust for vertical/row spans!).
+    """
+    found = 0
+    for ch in self.childNodes:
+        if (ch.nodeType != Node.ELEMENT_NODE): continue
+        found += 1
+        if (found == colNum): return ch
+        if (colSpanAttr):
+            cspan = int(ch.getAttribute(colSpanAttr))
+            if (cspan > 1): found += cspan-1
+    return None
+
+def transpose(self:Node):
+    raise Exception("Unimplemented")
+
+def eliminateSpans(self:Node, rowSpanAttr:str="rowspan", colSpanAttr:str="colspan"):
+    """Insert extra cells (empty, or copies of 'filler'), to obviate
+    spans within the table.
+    """
+    raise Exception("Unimplemented")
+
+def hasSubTable(self:Node, tableTag="table"):
+    st = self.getDescendant(tableTag)
+    return (st is not None)
 
 
 ###############################################################################
