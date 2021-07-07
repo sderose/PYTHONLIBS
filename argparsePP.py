@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 #
-# argparsePP.py: A slightly extended `argparse`.
+# argparsePP.py: An extended `argparse`.
 # By Steven J. DeRose, started ~2014-06.
 #
 #pylint: disable=W0613, W0212, W0622, W0123
 #
-#from __future__ import print_function
 import sys, os
 import re
 import argparse
@@ -14,7 +13,7 @@ from unicodedata import normalize
 
 __metadata__ = {
     "title"        : "argParsePP.py",
-    "description"  : "A slightly extended `argparse`.",
+    "description"  : "An extended `argparse`.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
     "type"         : "http://purl.org/dc/dcmitype/Software",
@@ -56,8 +55,10 @@ Unfinished.
 
 =To do=
 
-Make a way to suppress an argument(s) from -h.
+Make a way to suppress an argument(s) from having their help displayed
+with default `-h`.
 Esp. useful for imported args, like PowerWalk.py's.
+Perhaps hide them under a secondary command, such as -h-PowerWalk.
 
 ==More types==
 
@@ -90,6 +91,7 @@ Issues:
     * check identifiers at parsetime, but eval later?
     * indicate which are per-file evals?
     * date differences like recency
+    * support case-ignore and unique-abbrevs for enums (see `LooseDict.py`)
 
     --include = "(type='d' and size>12E+6 and (ext in [ 'foo', 'bar' ]))"
 

@@ -7,6 +7,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+from typing import Union
 
 __metadata__ = {
     'title'        : "ColorManager.py",
@@ -16,7 +17,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2011-12-09",
-    'modified'     : "2020-09-16",
+    'modified'     : "2021-07-01",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -56,6 +57,8 @@ terminal program to another:
 "concealed" (aka 'invisible' or 'hidden'),
 "strike" (aka 'strikethru' or 'strikethrough'),
 "plain" (no special effect)
+
+Names passed as arguments are forced to lower-case before lookup.
 
 For detailed information on the color-name conventions, see `colorNames.md`.
 For information on the ANSI codes, see for example
@@ -201,6 +204,7 @@ Clean up doc. Move effects to end, not beginning per ColorNames.md.
 * 2020-11-24: Clean up and describe command-line usage. Add `--uncolorize` and
 `--testEffects`. Make `--text` and stdin work the same way.
 * 2020-12-14: Start support for HTML output.
+* 2021-07-01: Sync args to `colorize()` with `colorstring.py`.
 
 
 =To do=
@@ -212,11 +216,7 @@ Clean up doc. Move effects to end, not beginning per ColorNames.md.
 * Consider additional ANSI codes
 ([https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters]):
 
-* Primary and alternate fonts; Fraktur (!); double underline; underline color;
-superscript/subscript
-proportional spacing ("not known to be used on terminals");
-* framed, incircled, overlined
-* 'off' for specific effects
+* Primary and alternate fonts (see `mathAlphanumerics.py`).
 
 * Perhaps allow color synonyms like CSS?
     0 black   -- #000
@@ -236,8 +236,12 @@ Creative Commons Attribution-Share-alike 3.0 unported license.
 For further information on this license, see
 [https://creativecommons.org/licenses/by-sa/3.0].
 
+
 =Options=
 """
+
+def warning(msg:str) -> None:
+    sys.stderr.write(msg+"\n")
 
 
 ###############################################################################
@@ -288,7 +292,7 @@ class ColorManager:
         self.offColor = chr(27) + "[m"  # ANSI to turn off colors
         self.setupColors(effects=effects)
 
-    def setupColors(self, effects=None):
+    def setupColors(self, effects:Union[bool, list]=None):
         """Work out all known color, effect, and combination names, and
         put them in a hash that maps them to their escape sequences.
         If 'effects' is not None, it must be either True (to enable all
@@ -297,7 +301,7 @@ class ColorManager:
         """
         #nc = os.popen("tput colors").read()
         #if ((not nc) or int(nc) < 8):
-        #    self.lg.warning("Color not supported? 'tput colors' says '%s'." % (nc))
+        #    warning("Color not supported? 'tput colors' says '%s'." % (nc))
         self.colorStrings = {}
 
         # Be nice to blink-sensitive folks
@@ -343,49 +347,52 @@ class ColorManager:
                         self.colorStrings[c+"/"+c2+"/"+e] = (
                             "%s%d;%d;%dm" % (eb, en, 30+cn, 40+c2n))
         except KeyError as err:
-            sys.stderr.write(
-                "KeyError in color setup: %s\n" % (err))
+            warning("KeyError in color setup: %s\n" % (err))
         return()
 
-    def addColor(self, newName, oldName):
+    def addColor(self, newName:str, oldName:str) -> bool:
         """Add `newName` to the color table, so it can be passed to ''vMsg''.
         It becomes a synonym for ''oldName'' (any previous ''newName''
         is replaced, but ''oldName'' remains).
         """
+        newName = newName.lower()
+        oldName = oldName.lower()
         try:
             self.colorStrings[newName] = self.colorStrings[oldName]
         except KeyError:
             return(False)
         return(True)
 
-    def isColorName(self, name):
+    def isColorName(self, name:str) -> bool:
+        name = name.lower()
         return(bool(name in self.colorStrings))
 
-    def getColorString(self, name):
+    def getColorString(self, name:str) -> str:
         """Return the ANSI escape sequence to obtain the named color.
         Raises KeyError if color name is not known.
         """
+        name = name.lower()
         try:
             return(self.colorStrings[name])
         except KeyError as e:
-            sys.stderr.write("ColorManager: Unknown name '%s':\n    %s" %
+            warning("ColorManager: Unknown name '%s':\n    %s" %
                 (name, e))
             return ""
 
-    def getColorStrings(self):
+    def getColorStrings(self) -> dict:
         """Return the dict of all known color names and escape strings.
         """
         return(self.colorStrings)
 
-    def tostring(self, sampleText='sample', filterRegex=None):
+    def tostring(self, sampleText:str='sample', filterRegex:str=None) -> str:
         buf = ""
         for k in sorted(self.colorStrings.keys()):
             if (filterRegex and not re.match(filterRegex, k)): continue
             buf += "    %s  %s\n" % (self.colorize(k, sampleText), k)
         return(buf)
 
-    def colorize(self, s="", argColor='red', endAs="off",
-        fg='', bg='', effect=''):
+    def colorize(self, msg:str="", argColor:str=None, endAs:str="off",
+        fg:str='', bg:str='', effect:str='') -> str:
         """If color is enabled, surround `string` with the escape sequences
         needed to put it in the specified color (assuming the name is known).
         The color may be specified either by;
@@ -394,42 +401,46 @@ class ColorManager:
         `endAs` is the color that will be changed to at the end.
         """
         if (not argColor):
-            argColor = "%s/%s/%s" % (fg, bg, effect)
+            argColor = fg
+            if (bg): argColor += "/" + bg
+            if (effect): argColor += "/" + effect
+        argColor = argColor.lower()
         if (argColor in self.colorStrings):
-            buf = self.colorStrings[argColor] + s + self.colorStrings[endAs]
+            buf = self.colorStrings[argColor] + msg + self.colorStrings[endAs.lower()]
         else:
-            buf = "<%s>%s</%s>" % (argColor, s, argColor)
+            warning("Unknown color name '%s'." % (argColor))
+            buf = "<%s>%s</%s>" % (argColor, msg, argColor)
         return(buf)
 
-    def uncolorize(self, s):
+    def uncolorize(self, msg:str) -> str:
         """Remove any ANSI terminal color escapes from a string.
         """
-        t = re.sub(self.colorRegex,    '', s)
+        t = re.sub(self.colorRegex,    '', msg)
         return(t)
 
-    def uncoloredLen(self, s):
+    def uncoloredLen(self, msg:str) -> int:
         """Return the length of a string in characters, not counting any ANSI
         terminal color escapes or any trailing whitespace.
         """
-        return(len(self.uncolorize(s)))
+        return(len(self.uncolorize(msg)))
 
-    def color2Html(self, s):  # TODO: Finish
+    def color2Html(self, msg:str) -> str:  # TODO: Finish
         """Convert colors escapes to HTML <spans>.
         TODO: This is dumb about overlapping/nested/serial colors, because
         ANSI terminal color does not use a stack discipline.
         """
-        t = re.sub(self.colorRegex, self.htmlMapper, s)
+        t = re.sub(self.colorRegex, self.htmlMapper, msg)
         return(t)
 
     @staticmethod
     def htmlMapper(_mat):
         assert(False)
 
-    def esc2css(self, e):
+    def esc2css(self, e:str) -> str:
         parts = [ code for code in re.split(r"\D+", e) if code.isnum() ]
         return ";".join(parts)
 
-    def toName(self, num):
+    def toName(self, num) -> str:
         if (ColorManager.numbers2Names is None):
             for nam, num in self.colorStrings.items():
                 ColorManager.numbers2Names[num] = nam
@@ -441,10 +452,7 @@ class ColorManager:
 if __name__ == "__main__":
     import argparse
 
-    def warn(lvl, msg):
-        if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
-
-    def processOptions():
+    def processOptions() -> argparse.Namespace:
         try:
             from BlockFormatter import BlockFormatter
             parser = argparse.ArgumentParser(
@@ -472,16 +480,18 @@ if __name__ == "__main__":
             "--testEffects", action='store_true',
             help='Show samples of all known effects.')
         parser.add_argument(
-            "--text", type=str, default="Sample text",
-            help="The text to display with --color.")
-        parser.add_argument(
             "--uncolorize", action='store_true',
             help='Remove ANSI terminal color escapes from the input.')
         parser.add_argument(
             "--version", action='version', version=__version__,
             help='Display version information, then exit.')
 
+        parser.add_argument(
+            "text", type=str, nargs=argparse.REMAINDER,
+            help="Rest of args are a message for --colorize if used.")
+
         args0 = parser.parse_args()
+        if (args0.text): args0.text = " ".join(args0.text)
         return args0
 
 
@@ -500,9 +510,9 @@ if __name__ == "__main__":
     cm = ColorManager(effects=True)
     ctable = cm.getColorStrings()
 
-    if (args.color):
+    if (args.colorize):
         try:
-            onSeq = ctable[args.color]
+            onSeq = ctable[args.colorize]
         except KeyError:
             print("\nCan't find color '%s'. See colorNames.md." % (args.color))
             sys.exit()
