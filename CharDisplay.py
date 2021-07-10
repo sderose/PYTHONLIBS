@@ -18,14 +18,14 @@ if (PY2):
     # from urllib import quote as urlquote
     # from urllib import unquote as urlunquote
     # from htmlentitydefs import codepoint2name
-    # from htmlentitydefss import decode as htmlUnescape
+    # from htmlentitydefss import decode as unescape
     # def chr(n): return unichr(n)
 else:
     from urllib.parse import quote as urlquote
     from urllib.parse import unquote as urlunquote
     from urllib.request import urlopen
     from html.entities import codepoint2name
-    from html import unescape as htmlUnescape
+    from html import unescape
     def unichr(n): return chr(n)
 
 __metadata__ = {
@@ -176,7 +176,8 @@ includes.
 Accept string and other arguments, not just codepoints.
 Change property internal names to uppercase. Drop redundant data.
 Add actual names for C0 control chars (not just mnemonics).
-
+* 2021-07-09: Add protectDisplay() to avoid displaying literal control chars
+or other troublesome ones.
 
 =Options=
 """
@@ -1594,7 +1595,10 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
 
     return charInfo
 
-def makeDisplay(n, full=True) -> str:
+def makeDisplay(n:int, full=True) -> str:
+    """Make a terminal-friendly display of many properties of the Unicode
+    character at the given codepoint 'n'.
+    """
     charInfo = getCharInfo(n)
 
     try:
@@ -1606,7 +1610,7 @@ def makeDisplay(n, full=True) -> str:
             fmtline("Block",            charInfo["BLOCKNAME"]),
             fmtline("Plane",            "%d: %s" % (
                 charInfo["PLANENUMBER"], charInfo["PLANENAME"])),
-            fmtline("Literal",          "'" + charInfo["LITERAL"] + "'"),
+            fmtline("Literal",          "'" + protectDisplay(charInfo["LITERAL"]) + "'"),
             fmtline("Bases",            "o%08o d%06d 0x%05x" % (n, n, n)),
             fmtline("Unicode",          "U+%05x, utf8 %s, URI %s (URI? %s, FPI? %s)" % (
                 n,  charInfo["UTF8"], charInfo["URI"],
@@ -1636,10 +1640,10 @@ def makeDisplay(n, full=True) -> str:
                 fmtline("Decompose",     "???"),  #charInfo["DECOMP"]),  # TODO: Fix Decompose
                 fmtline("Normalizations",
                     "NFC '%s' %s, NFKC '%s' %s, NFD '%s' %s, NFKD '%s' %s" %
-                    (charInfo["NFC"],  stringToHex(charInfo["NFC"]),
-                     charInfo["NFKC"], stringToHex(charInfo["NFKC"]),
-                     charInfo["NFD"],  stringToHex(charInfo["NFD"]),
-                     charInfo["NFKD"], stringToHex(charInfo["NFKD"])
+                    (protectDisplay(charInfo["NFC"]),  stringToHex(charInfo["NFC"]),
+                     protectDisplay(charInfo["NFKC"]), stringToHex(charInfo["NFKC"]),
+                     protectDisplay(charInfo["NFD"]),  stringToHex(charInfo["NFD"]),
+                     protectDisplay(charInfo["NFKD"]), stringToHex(charInfo["NFKD"])
                     )),
             ])
     except KeyError as e:
@@ -1665,6 +1669,15 @@ def makeDisplay(n, full=True) -> str:
         msg += lit
 
     return msg + "\n"
+
+def protectDisplay(c, alt="[omitted]"):
+    """See if the character is one that messes with display too much, and
+    replace it with something more palatable.
+    c may be a character or an int code point.
+    """
+    if isinstance(c, int): c = chr(c)
+    if (re.match(r"[\s\x00-\x1F\x80-\x9F]", c, re.UNICODE)): return alt
+    return c
 
 def stringToHex(x) -> str:
     """Show all the BYTES in hex.
@@ -1726,7 +1739,7 @@ def getCodePoint(cspec) -> int:
 
     # Full entities
     if (cspec.startswith("&") and cspec.endswith(";")):
-        c = htmlUnescape(cspec)              # XML entities
+        c = unescape(cspec)                                # XML entities
         if (len(c)==1): return ord(c)
 
     if (cspec.isdigit()):                                  # OCTINT, DECINT

@@ -14,7 +14,12 @@ from collections import defaultdict
 from typing import Iterable
 #import time
 #import string
-#import argparse
+
+# Need this to do formatRec() right for it:
+try:
+    from xml.dom.minidom import NamedNodeMap
+except ImportError:
+    class NamedNodeMap(list): pass  # Just get it out of the way...
 
 PY3 = sys.version_info[0] == 3
 if PY3:
@@ -150,7 +155,7 @@ For objects, it knows to show their non-callable properties.
 * `keyWidth`  -- Allow this much room for dict keys, in trying to line things up.
 Default: 14.
 * `propWidth` -- Allow this much room for object property names.
-* `noExpand`  -- A dict of types or typenames, which are to be displayed
+* `stopTypes`  -- A dict of types or typenames, which are to be displayed
 as just present, without all their (non-callable) properties. At the moment,
 these are checked by == on the type and the typename, so subclasses must be
 explicitly listed to be affected.
@@ -691,30 +696,6 @@ Seems to be a problem with `maxItems`, and with suppressing callables in `format
 * use a special displayer method, say, __format__()?
 
 
-=History=
-
-* 2011-12-09: Port from Perl to Python by Steven J. DeRose.
-(... see `sjdUtils.py`)
-* 2015-10-13: Split messaging features from `sjdUtils` to new `ALogger`.
-Integrate with Python `logging` package.
-* 2015-12-31ff: Improve doc.
-* 2018-04-02: Add `direct` option to make Anaconda Nav happier.
-* 2018-07-29: Add `showSize` option to `formatRec`.
-* 2018-08-07: Add `quoteKey` and `keyWidth` options to `formatRec()`.
-* 2018-08-17: Add `maxItems` option to `formatRec()`.
-* 2020-03-02: New layout, doc to MarkDown, document `formatRec()` better. Lint.
-* 2020-03-06: Add `formatRec()` support for numpy and Torch vectors.
-Move `formatRec()` options to a dict instead of individual parameters, and make
-them inherit right. Add `propWidth`, `noExpand`, `disp_None`.
-Improve formatting.
-* 2020-08-19: Cleanup, lint, add some type-hinting. Improve messaging when
-Linux command `dircolors` is not available. POD to MarkDown.
-* 2020-09-23: Add forward for `colorize()`, and a fallback. lint.
-* 2020-10-07: Add formatPickle().
-* 2020-12-10ff: Drop 'direct' option, start dropping defineMsgType
-and [evh]Msg() forms, in favor of warningN(), etc. Add verboseDefault. lint.
-
-
 =To do=
 
 * Sync to Py logger:
@@ -746,6 +727,32 @@ Just make a dict of types, mapping to their formatter functions.
     self.disp_None = "*NONE*"
 
 * Option to get rid of "INFO:root:" prefix from logging package.
+
+
+=History=
+
+* 2011-12-09: Port from Perl to Python by Steven J. DeRose.
+(... see `sjdUtils.py`)
+* 2015-10-13: Split messaging features from `sjdUtils` to new `ALogger`.
+Integrate with Python `logging` package.
+* 2015-12-31ff: Improve doc.
+* 2018-04-02: Add `direct` option to make Anaconda Nav happier.
+* 2018-07-29: Add `showSize` option to `formatRec`.
+* 2018-08-07: Add `quoteKey` and `keyWidth` options to `formatRec()`.
+* 2018-08-17: Add `maxItems` option to `formatRec()`.
+* 2020-03-02: New layout, doc to MarkDown, document `formatRec()` better. Lint.
+* 2020-03-06: Add `formatRec()` support for numpy and Torch vectors.
+Move `formatRec()` options to a dict instead of individual parameters, and make
+them inherit right. Add `propWidth`, `noExpand`, `disp_None`.
+Improve formatting.
+* 2020-08-19: Cleanup, lint, add some type-hinting. Improve messaging when
+Linux command `dircolors` is not available. POD to MarkDown.
+* 2020-09-23: Add forward for `colorize()`, and a fallback. lint.
+* 2020-10-07: Add formatPickle().
+* 2020-12-10ff: Drop 'direct' option, start dropping defineMsgType
+and [evh]Msg() forms, in favor of warningN(), etc. Add verboseDefault. lint.
+* 2021-07-09: formatRec(): Fix maxDepth limiting, clean up option handling.
+Rename `noExpand` to `stopTypes`, add `stopNames`.
 
 
 =Rights=
@@ -898,7 +905,7 @@ class ALogger:
     def colorize(self, argColor='red', s="", endAs="off",
         fg='', bg='', effect=''):
         if (self.colorManager):
-            return self.colorManager.colorize(argColor=argColor, s=s,
+            return self.colorManager.colorize(argColor=argColor, msg=s,
                 endAs=endAs, fg=fg, bg=bg, effect=effect)
         return "*" + s + "*"
 
@@ -1156,7 +1163,7 @@ class ALogger:
         ender = kwargs['end'] if 'end' in kwargs else "\n"
         if (not msg.endswith(ender)): msg += ender
         #msg2 = re.sub(r'\n', '*', msg)
-        if (kwargs['color']):
+        if ('color' in kwargs):
             if (not self.colorManager): msg += " (color not enabled)"
             else: msg = self.colorManager.colorize(kwargs['color'])
         sys.stderr.write(msg)
@@ -1520,66 +1527,78 @@ class ALogger:
             stuff = pickle.load(ifh)
         return self.formatRec(stuff)
 
+    def getFROptionDefaults(self):
+        """Initial/default values for all the formatRec() options.
+        """
+        options = {
+            "specials":     False,    # Show callables and __xxx__ items
+            "showSize":     True,     # Display len() of aggregates
+            "maxDepth":     3,        # Limit recursion levels
+            "depthMessage": "(more)", # Show in place of deeper objects
+            "maxItems":     0,        # Limit items to show from lists
+            "quoteKeys":    False,    # Put quotation marks around dict keys?
+            "keyWidth":     14,       # Columns to leave for dict keys
+            "sortKeys":     True,     # Dicts shown in key order?
+            "indentSize":   4,        # Spaces per indent level
+            "stopTypes":    {},       # Types *not* to expand
+            "stopNames":    {},       # Names/keys *not* to expand
+            "propWidth":    16,       # Columns to leave for object prop names
+        }
+        return options
+
     def formatRec(self,
-        obj,                    # Data to format
-        specials:bool=False,    #
-        showSize:bool=True,     # Display len() of aggregates
-        maxDepth:int=3,         # Limit recursion levels
-        maxItems:int=0,         # Limit items to show from lists
-        quoteKeys:bool=False,   # Put quotation marks around dict keys?
-        keyWidth:int=14,        # Columns to leave for keys
-        sortKeys:bool=True,     # Dicts shown in key order?
-        indentSize:int=4,       # Spaces per indent level
-        noExpand:dict=None,     # Items *not* to expand
-        propWidth:int=16,       #
-        options:dict=None,      # Same options, but as a dict
-        depth:int=0             # (internal depth tracking)
+        obj,                      # Data to format
+        **kwargs                  # Options
         ):
         """Format a pretty wide range of data structures for pretty-printing.
         Based on a similar PHP tool I built with ccel.org.
+
+        Options are set on the initial call; internal recursion is via
+        formatRec_R, so we don't have to reprocess them all the way down.
+
         @return: A printable string.
+
         NOTE: This is protected against circular structures only by 'maxDepth'.
         """
-        # Now prefer a dict for 'options', but allow old keyword params instead
-        if (options is None): options = {}
-        if (depth == 0):
-            if ('specials'  not in options): options['specials'  ] = specials
-            if ('maxDepth'  not in options): options['maxDepth'  ] = maxDepth
-            if ('maxItems'  not in options): options['maxItems'  ] = maxItems
-            if ('showSize'  not in options): options['showSize'  ] = showSize
-            if ('quoteKeys' not in options): options['quoteKeys' ] = quoteKeys
-            if ('keyWidth'  not in options): options['keyWidth'  ] = keyWidth
-            if ('sortKeys'  not in options): options['sortKeys'  ] = sortKeys
-            #
-            if ('indentSize'not in options): options['indentSize'] = indentSize
-            if ('noExpand'  not in options):
-                if (noExpand): options['noExpand'] = noExpand
-                else: options['noExpand'] = {}
-            if ('propWidth' not in options): options['propWidth' ] = propWidth
+        options = self.getFROptionDefaults()
+        for k, v in kwargs.items():
+            if (k not in options):
+                raise KeyError("Bad formatRec() option '%s'." % (k))
+            if (type(v) != type(options[k])):
+                raise ValueError("Expected type %s, not %s, for formatRec option '%s'." %
+                    (type(options[k]), type(v), k))
+            options[k] = v
 
-        if (depth > options['maxDepth']): return
-        #ty = type(obj)
-        ind = ' ' * (indentSize * depth)
-        #buf += (ind + "*** Dumping a '%s'." % (type(obj)))
+        return self.formatRec_R(obj, options=options, depth=0)
+
+    def formatRec_R(self, obj, options, depth):
+        """The real (recursive) formatter.
+        """
+        #print("In formatRec_R, depth %d, maxDepth %d." % (depth, options['maxDepth']))
+        if (depth > options['maxDepth']):
+            return options['depthMessage']
+
+        ind = ' ' * (options['indentSize'] * depth)
         buf = ""
+        #buf += (ind + "*** Dumping a '%s'." % (type(obj)))
 
-        if (obj is None):
+        if (obj is None):                                           # NONE
             buf += ind + self.disp_None
 
         #elif (type(obj).__name__ in [ Node, Document ]):
         #    buf += "%s%s%s" % (unichr(0x227A), type(obj), unichr(0x227B))
 
-        elif (callable(obj)):
+        elif (callable(obj)):                                       # CALLABLE
             #buf += (ind + "callable '%s'\n" % (nm))
             nm = getattr(obj, '__name__', "[UNNAMED]")
             buf += ind + "Callable '%s()'" % (nm)
 
         # If a scalar is in some aggregates, the aggregate adds ind and \n.
-        elif (type(obj) in [ int, float, complex, str, unicode ] or
-            isinstance(obj, (int, float, complex, basestring))):  # SCALARS
+        elif (type(obj) in [ bool, int, float, complex, str, unicode ] or
+            isinstance(obj, (bool, int, float, complex, basestring))): # SCALARS
             buf += self.formatScalar(obj)
 
-        elif (isinstance(obj, dict)):                      # DICT
+        elif (isinstance(obj, dict)):                               # DICT
             # namedtuple, defaultdict?
             buf += ind
             if (options['showSize']): buf += "dict |%d|:" % (len(obj))
@@ -1603,10 +1622,10 @@ class ALogger:
                         break
                     buf += dfmt % (
                         self.quote(n, options['quoteKeys']),
-                        self.formatRec(v, depth+1, options=options))
+                        self.formatRec_R(v, options=options, depth=depth+1))
                 buf += ind + self.closeDict
 
-        elif (isinstance(obj, (tuple, set, frozenset))):   # TUPLE, SETS
+        elif (isinstance(obj, (tuple, set, frozenset))):            # TUPLE, SET
             buf += ind
             if (options['showSize']): buf += "set-ish |%d|" % (len(obj))
             if (len(obj)):
@@ -1614,10 +1633,10 @@ class ALogger:
                 for n, v in enumerate(obj):
                     if (options['maxItems'] and n > options['maxItems']): break
                     buf += ("%s%s,\n" %
-                    (ind, self.formatRec(v, depth+1, options=options)))
+                    (ind, self.formatRec_R(v, options=options, depth=depth+1)))
                 buf += ind + self.closeList
 
-        elif (isinstance(obj, list)):                      # LIST
+        elif (isinstance(obj, list)):                               # LIST
             buf += ind
             if (options['showSize']): buf += "list |%d|" % (len(obj))
             if (len(obj)):
@@ -1625,48 +1644,70 @@ class ALogger:
                 for n, v in enumerate(obj):
                     if (options['maxItems'] and n > options['maxItems']): break
                     buf += "%s #%d: %s,\n" % (
-                        ind, n, self.formatRec(v, depth+1, options=options))
+                        ind, n, self.formatRec_R(v, options=options, depth=depth+1))
                 buf += ind + self.closeList
 
-        elif (type(obj).__name__ == "Tensor"):             # torch Tensor
+        elif (type(obj).__name__ == "Tensor"):                      # torch Tensor
             # Ignore most props
             if (obj.is_cuda): cFlag = " (cuda)"
             else: cFlag = ""
             buf += "%4d-D TENSOR of |%d| %s%s" % (
                 obj.dim(), len(obj), obj.dtype, cFlag)
 
-        elif (type(obj).__name__ == 'ndarray'):            # numpy array
+        elif (type(obj).__name__ == 'ndarray'):                     # numpy array
             buf += "ndarray |%d}|" % (len(obj))
 
-        elif (isinstance(obj, object)):                    # OBJECT
-            if (type(obj) in options['noExpand'] or
-                type(obj).__name__ in options['noExpand']):
+        elif isinstance(obj, NamedNodeMap):                         # NamedNodeMap
+            # This is weird, dir() won't touch it. Just map it to a dict
+            # and print it that way. Geez. TODO: Support sortKeys.
+            eqDict = {}
+            for k, v in obj.items():
+                eqDict[k] = v
+            return self.formatRec_R(eqDict, options=options, depth=depth)
+
+        #elif (isinstance(obj, type)):                               # TYPE
+        #    buf += "(type)"
+
+        elif (isinstance(obj, object)):                             # OBJECT
+            if (type(obj) in options['stopTypes'] or
+                type(obj).__name__ in options['stopTypes']):
                 buf += ind + "(object of type %s)" % (type(obj).__name__)
             else:
-                stuff = dir(obj)
-                #buf += ind
-                if (isinstance(obj, Iterable)): iFlag = " (Iterable)"
-                else: iFlag = ""
-                if (options['showSize']):
-                    buf += "obj %s |%d|%s" % (type(obj).__name__, len(stuff), iFlag)
-                buf += ": %s\n" % (self.openObject)
-                #skipped = 0
-                for nm in (stuff):
-                    thing = getattr(obj, nm, "[NONE]")
-                    if (self.skipIt(thing, nm, options)): continue
-                    #buf += (ind + "  .%s (%s): " % (nm, type(thing)))
-                    ofmt = ind + "  .%-" + str(options['propWidth']) + "s = %s,\n"
-                    buf += ofmt % (
-                        nm, self.formatRec(thing, depth+1, options=options))
-                buf += ind + self.closeObject
+                try:
+                    stuff = dir(obj).keys()
+                    #buf += ind
+                    if (isinstance(obj, Iterable)): iFlag = " (Iterable)"
+                    else: iFlag = ""
+                    if (options['showSize']):
+                        buf += "obj %s |%d|%s" % (type(obj).__name__, len(stuff), iFlag)
+                    buf += ": %s\n" % (self.openObject)
+                    #skipped = 0
+                    if (options['sortKeys']): stuff = sorted(stuff)
+                    for nm in (stuff):
+                        thing = getattr(obj, nm, "[NONE]")
+                        if (self.skipIt(thing, nm, options)): continue
+                        #buf += (ind + "  .%s (%s): " % (nm, type(thing)))
+                        ofmt = ind + "  .%-" + str(options['propWidth']) + "s = %s,\n"
+                        buf += ofmt % (
+                            nm, self.formatRec_R(thing, options=options, depth=depth+1))
+                    buf += ind + self.closeObject
+                except AttributeError:
+                    # xml.dom.minidom.NamedNodeMap lands here, dir can't deal....
+                    buf += "(dir() failed for %s)" % (type(obj))
 
-        else:                                              # UNKNOWN
+        else:                                                       # UNKNOWN
             buf += ("something else")
             buf += self.formatScalar(obj)
         return buf
-        # end formatRec
+        # end formatRec_R
 
     def skipIt(self, thing, nm, options):
+        """Called for members of objects (and dicts?), return True if we
+        should skip this member due to name, being callable, etc.
+        If the 'specials' option is set, we keep callable and __s; but
+        that can be overridden for names listed specifically in `stopName`.
+        """
+        if (nm in options['stopNames']): return True
         if (options['specials']): return False
         if (callable(thing)): return True
         if (isinstance(nm, str) and nm.startswith('__')): return True

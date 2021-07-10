@@ -211,20 +211,20 @@ Need to be clear about the notion of constraining what keys are allowed in the
 dict, and what the structure of the values is.
 
 
-=History=
-
-* 2018-06-09: Written by Steven J. DeRose.
-* 2020-09-08: Add Strictness as Enum. Add 'format' to FieldInfo.
-Add prettyPrint().
-* 2020-10-21: Rename Strictness to SubsValues, shorten fieldInfo prop names.
-
-
 =To do=
 
 * Do a similar class, but immutable, so basically just adding type-checking
 to namedtuple?
 * Hook up directly to `Datatypes.py`.
 * Perhaps package with hookup to argparse to use for package option mgmt?
+
+
+=History=
+
+* 2018-06-09: Written by Steven J. DeRose.
+* 2020-09-08: Add Strictness as Enum. Add 'format' to FieldInfo.
+Add prettyPrint().
+* 2020-10-21: Rename Strictness to SubsValues, shorten fieldInfo prop names.
 
 
 =Rights=

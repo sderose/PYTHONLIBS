@@ -188,17 +188,6 @@ No option for multiple tokens with `X-Enum` or `X-Match`.
 The X- types don't check properly with the driver (at least).
 
 
-=History=
-
-* Written 2012-05-07 by Steven J. DeRose.
-* 2015-05-11: Convert local data to Python inits. Clean up.
-* 2020-08-12: New layout. Add X-Probability. Much cleaner regexes.
-POD to MarkDown. Add methods for defining and applying specific
-regexes and enums. Distinguish "Regex" type from "Match".
-* 2020-09-02: Pull in accurate Unicode XML character sets from XmlRegexes.py.
-* 2020-09-22: Improve test harness, fix several bugs.
-
-
 =To do=
 
 * Finish date/time handling.
@@ -210,6 +199,17 @@ regexes and enums. Distinguish "Regex" type from "Match".
 * Add a type that accepts H-style numbers like 3.2M.
 
 * Possibly integrate with formatting featu8res of `csv2xml.py`, `alogging.py`.
+
+
+=History=
+
+* Written 2012-05-07 by Steven J. DeRose.
+* 2015-05-11: Convert local data to Python inits. Clean up.
+* 2020-08-12: New layout. Add X-Probability. Much cleaner regexes.
+POD to MarkDown. Add methods for defining and applying specific
+regexes and enums. Distinguish "Regex" type from "Match".
+* 2020-09-02: Pull in accurate Unicode XML character sets from XmlRegexes.py.
+* 2020-09-22: Improve test harness, fix several bugs.
 
 
 =Rights=

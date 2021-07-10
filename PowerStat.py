@@ -70,6 +70,8 @@ and many others).
 Does not catch and report %-codes that violate the syntax rules. They're just
 ignored.
 
+Finish `--outputFormat`.
+
 
 =History=
 
@@ -77,12 +79,7 @@ ignored.
 * 2021-06-03: More work on parsing/mapping `stat`-style format specs.
 
 
-=To do=
-
-Finish `--outputFormat`.
-
-
-=Rights=
+==Rights=
 
 Copyright 2020-11-23 by Steven J. DeRose. This work is licensed under a
 Creative Commons Attribution-Share-alike 3.0 unported license.
@@ -220,7 +217,7 @@ class StatItem:
             elif (datumCode in 'YTN'): fmtCode = 's'
             else: fmtCode = 'u'
 
-        flag = '0'
+        flag = ''  # [#+-0 ] for sign, padding, justify,...
         if self.mat.group('flag'): flag = self.mat.group('flag')
         siz = ''
         if self.mat.group('siz'): flag = self.mat.group('siz')
@@ -239,7 +236,7 @@ class StatItem:
 
         datumValue = self.getDatum(st)
 
-        fmt = "%" + siz + prc + fmtCode
+        fmt = "%" + flag + siz + prc + fmtCode
         val = fmt % (datumValue)
         if (self.mat.group('fmt') == 'Y'): val = ' -> ' + val
         return val
