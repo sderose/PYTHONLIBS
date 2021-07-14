@@ -14,11 +14,10 @@ import re
 #from functools import partial
 
 PY3 = sys.version_info[0] == 3
-if PY3:
-    if (sys.version_info[1] < 7):
-        def isascii(s):
-            if (re.match(r'^[[:ascii:]]+$', s)): return True
-            return False
+if (PY3 and sys.version_info[1] < 7):
+    def isascii(s):
+        if (re.match(r'^[[:ascii:]]+$', s)): return True
+        return False
 
 __metadata__ = {
     'title'        : "PowerStat.py",
@@ -177,10 +176,10 @@ class StatItem:
             dft, self.typ = self.defaultFmtCodes[self.datum]
             self.sprintfCode += dft if (dft!='t') else 's'  # times are strings...
         else:
-            assert False, "Bad fmtCode '%s' in:\n" % (self.fmtCode) + self.toString()
-        print("Created format item:\n" + self.toString())
+            assert False, "Bad fmtCode '%s' in:\n" % (self.fmtCode) + self.tostring()
+        print("Created format item:\n" + self.tostring())
 
-    def toString(self):
+    def tostring(self):
         buf = "From '%s':\n" % (self.pctString or "-none-")
         for k in [ 'esc', 'flag', 'siz', 'prc', 'fmt', 'sub', 'datum' ]:
             buf += "    '%s': '%s'\n" % (k, self.mat.group(k) or "-none-")

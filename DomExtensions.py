@@ -2916,6 +2916,7 @@ class DomExtensions:
                 toPatch.getPreviousSibling      = getPrecedingSibling
                 toPatch.selectNextSibling       = selectFollowingSibling
                 toPatch.getNextSibling          = getFollowingSibling
+                toPatch.tostring                = toPatch.toString  # More Pythonic
 
         toPatch.getLeastCommonAncestor  = getLeastCommonAncestor
         toPatch.getLeftBranch           = getLeftBranch

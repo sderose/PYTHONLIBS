@@ -499,58 +499,58 @@ class DialectX:
 
         # Options like Python 'csv' package:
         parser.add_argument(
-            pre+"delimiter",          type=str, default="\t",
+            pre+"delimiter", type=str, default="\t",
             help='.')
         parser.add_argument(
-            pre+"doublequote",        action="store_true",
+            pre+"doublequote", action="store_true",
             help='.')
         parser.add_argument(
-            pre+"escapechar",         type=str, default="\\",
+            pre+"escapechar", type=str, default="\\",
             help='.')
         parser.add_argument(
-            pre+"lineterminator",     type=str, default="\n",
+            pre+"lineterminator", type=str, default="\n",
             help='.')
         parser.add_argument(
-            pre+"quotechar",          type=str, default='"',
+            pre+"quotechar", type=str, default='"',
             help='.')
         parser.add_argument(
-            pre+"quoting",            type=str, default="MINIMAL",
+            pre+"quoting", type=str, default="MINIMAL",
             choices=[ 'ALL', 'MINIMAL', 'NONNUMERIC', 'NONE'],
             help='When should fields be quoted?.')
         parser.add_argument(
-            pre+"skipinitialspace",   type=bool, default=True,
+            pre+"skipinitialspace", type=bool, default=True,
             help='.')
         parser.add_argument(
-            pre+"strict",             type=bool, default=True,
+            pre+"strict", type=bool, default=True,
             help='.')
 
         if (csvOnly): return
 
         # Other options, as for my fsplit.py package.
         parser.add_argument(
-            pre+"comment",            type=str, default=None,
+            pre+"comment", type=str, default=None,
             help='.')
         parser.add_argument(
-            pre+"entities",           action="store_true",
+            pre+"entities", action="store_true",
             help='.')
         parser.add_argument(
-            pre+"maxsplit",           type=int, default=None,
+            pre+"maxsplit", type=int, default=None,
             help='.')
         parser.add_argument(
-            pre+"minsplit",           type=int, default=None,
+            pre+"minsplit", type=int, default=None,
             help='.')
         parser.add_argument(
-            pre+"multidelimiter",     action="store_true",
+            pre+"multidelimiter", action="store_true",
             help='.')
         parser.add_argument(
-            pre+"types",              type=str, action="append",
+            pre+"types", type=str, action="append",
             choices=[ 'str', 'int', 'float', 'bool' ],
             help='A list of types for the fields (repeatable).')
         parser.add_argument(
-            pre+"uescapes",           action="store_true",
+            pre+"uescapes", action="store_true",
             help='.')
         parser.add_argument(
-            pre+"xescapes",           action="store_true",
+            pre+"xescapes", action="store_true",
             help='.')
 
         return
@@ -678,7 +678,8 @@ class DictWriter:
         fieldformats:list=None,
         restval:str='',
         extrasaction:str='raise',
-        dialect:str='excel'
+        dialect:str='excel',
+        disp_None:str="[none]"
         #**kwds1
         ):
         self.f            = f
@@ -686,7 +687,7 @@ class DictWriter:
         self.restval      = restval
         self.extrasaction = extrasaction
         self.dialect      = dialects[dialect]
-
+        self.disp_None    = disp_None
         if (fieldnames):
             if (not isinstance(fieldnames, list)):
                 raise ValueError("fieldnames must be a list.")
@@ -714,7 +715,7 @@ class DictWriter:
         for _, fname in enumerate(self.fieldnames):
             #fname = self.fieldnames[fnum]
             fval = row[fname] if fname in row else ""
-            formattedVal = self.formatOneField(fname, fval)
+            formattedVal = self.formatOneField(fval)
             buf += formattedVal + self.dialect.delimiter
         buf[-len(self.dialect.delimiter):] = self.dialect.lineterminator
         self.f.write(buf)
@@ -722,7 +723,7 @@ class DictWriter:
     def writecomment(self, s:str):
         self.f.write(self.dialect.comment + s + self.dialect.lineterminator)
 
-    def formatOneField(self, fname:str, fval:Any) -> str:
+    def formatOneField(self, fval:Any) -> str:
         return self.formatScalar(fval)
 
     def formatScalar(self, obj) -> str:  # From alogging.py
@@ -1188,9 +1189,6 @@ def mapTypeNames(types):
 # Main
 #
 if __name__ == "__main__":
-    def anyInt(x):
-        return int(x, 0)
-
     def processOptions():
         try:
             from BlockFormatter import BlockFormatter
@@ -1201,17 +1199,17 @@ if __name__ == "__main__":
             description=descr)
 
         parser.add_argument(
-            "--quiet", "-q",      action='store_true',
+            "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
-            "--verbose", "-v",    action='count',       default=0,
+            "--verbose", "-v", action='count', default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
             "--version", action='version', version=__version__,
             help='Display version information, then exit.')
 
         parser.add_argument(
-            'files',             type=str,
+            'files', type=str,
             nargs=argparse.REMAINDER,
             help='Path(s) to input file(s)')
 
@@ -1260,7 +1258,8 @@ if __name__ == "__main__":
         if (theFields): print("    ==> %s" % (theFields))
         return theFields
 
-    def phead(msg): print("\n******* %s" % (msg))
+    def phead(msg):
+        print("\n******* %s" % (msg))
 
     phead("TAB")
     s0 = ""

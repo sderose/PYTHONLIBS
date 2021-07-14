@@ -356,6 +356,7 @@ class BlockFormatter(argparse.HelpFormatter):
         "breakLong":   False,     # Can split inside long tokens (like URLs)
         "altFill":     None,      # Replacement for _fill_text().
         "comment":     "$",       # Comment indicator
+        "externalParser": None,
     }
 
     def _fill_text(self, text, width, indent):
@@ -370,11 +371,11 @@ class BlockFormatter(argparse.HelpFormatter):
         hang = BlockFormatter._options["hangIndent"]
 
         # Divide at blank lines line breaks to keep
-        if (args.externalParser):
+        if (BlockFormatter._options["externalParser"]):
             from markdown2Xml import markdown2Xml
             mdx = markdown2Xml()
             recs = re.split(r"\n", text)
-            blocksObjs = linesToBlocks(recs)
+            blocksObjs = mdx.linesToBlocks(recs)
             blockTexts = [ bl.text for bl in blocksObjs ]
         else:
             blocks = BlockFormatter.makeBlocks(text)
@@ -561,6 +562,7 @@ if __name__ == "__main__":
 
     args = processOptions()
     BlockFormatter._options["verbose"] = args.verbose
+    BlockFormatter._options["externalParser"] = args.externalParser
     if (args.altFill):
         BlockFormatter._options["altFill"] = BlockFormatter._alt_fill
 
