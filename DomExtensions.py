@@ -628,6 +628,10 @@ actually checks for `isinstance(arg, int)`, so `myNode["1"]` will not work.
 
 =To do=
 
+* Update to use/provide whatwg DOM features like 
+NodeIterator and TreeWalker [https://dom.spec.whatwg.org/#nodeiterator]
+and NodeFilters (latter is there as enum), DOMTokenList,...?
+
 * Make NamedNodeMap much more Pythonic:
     ** dir(nnm) fails.
 
@@ -748,6 +752,9 @@ ARG_STAR      = 3
 ARG_RESERVED  = 4
 ARG_NAME      = 5
 
+_regexType = type(re.compile(r'a*'))
+
+
 #try:
 #    from BaseDom import BaseDom
 #    BaseDom.usePythonExceptions()
@@ -761,7 +768,30 @@ class INDEX_SIZE_ERR(Exception):
 class HIERARCHY_REQUEST_ERR(Exception):
     pass
 
-_regexType = type(re.compile(r'a*'))
+class NodeFilter(Enum):  
+    """
+    See https://dom.spec.whatwg.org/#callbackdef-nodefilter
+    """
+    # Constants for acceptNode()
+    FILTER_ACCEPT = 1
+    FILTER_REJECT = 2
+    FILTER_SKIP = 3
+
+    # Constants for whatToShow
+    SHOW_ALL = 0xFFFFFFFF
+    SHOW_ELEMENT = 0x1
+    SHOW_ATTRIBUTE = 0x2
+    SHOW_TEXT = 0x4
+    SHOW_CDATA_SECTION = 0x8
+    SHOW_ENTITY_REFERENCE = 0x10  # legacy
+    SHOW_ENTITY = 0x20 # legacy
+    SHOW_PROCESSING_INSTRUCTION = 0x40
+    SHOW_COMMENT = 0x80
+    SHOW_DOCUMENT = 0x100
+    SHOW_DOCUMENT_TYPE = 0x200
+    SHOW_DOCUMENT_FRAGMENT = 0x400
+    SHOW_NOTATION = 0x800  # legacy
+
 
 
 def DEgetitem(self:Node, n1, n2=None, n3=None) -> List:
@@ -1591,8 +1621,8 @@ def getEscapedAttributeList(self:Node, sortAttributes:bool=False, quoteChar='"')
     if (sortAttributes): anames = sorted(anames)
     for aname in anames:
         avalue = self.getEscapedAttribute(aname, quoteChar=quoteChar)
-        if (quoteChar == "'"): buf += "%s='%s'" % (aname, avalue)
-        else: buf += '%s="%s"' % (aname, avalue)
+        if (quoteChar == "'"): buf +=  "%s='%s'" % (aname, avalue)
+        else: buf += ' %s="%s"' % (aname, avalue)
     return buf
 
 def addAttributeToken(self:Node, attrName, token, duplicates:bool=False) -> bool:
@@ -2214,7 +2244,6 @@ def ind(cOptions, depth, name="", isStart:bool=True, isEnd:bool=False):
     pre = post = ""
     if (cOptions.schemaInfo):  # TODO: Finish
         si = cOptions.schemaInfo
-        #isEmpty = si.getProp(name, "empty")
         dtype = si.getProp(name, "display")
         if (dtype and dtype != "inline"):
             nPreBreaks = si.getProp(name, 'pre')
@@ -2249,8 +2278,6 @@ def collectAllXml2r(self:Node, cOptions, depth=1):
 
     #sys.stderr.write("Emitting nodeType %d, name %s\n" % (ntype, name))
 
-    isEmpty = 0
-
     # Assemble the data and/or markup
     #
     if (ntype == Node.ELEMENT_NODE):                  # 1 ELEMENT
@@ -2258,7 +2285,7 @@ def collectAllXml2r(self:Node, cOptions, depth=1):
             name, getEscapedAttributeList(self,
                 sortAttributes=cOptions.sortAttributes,
                 quoteChar=cOptions.quoteChar))
-        if (isEmpty): textBuf += " />"
+        if (len(self.childNodes) == 0): textBuf += " />"
         else: textBuf += ">"
         em.emit(textBuf)
 
@@ -2319,8 +2346,14 @@ def collectAllXml2r(self:Node, cOptions, depth=1):
 
 
 ###############################################################################
-def collectAllXml(self:Node, delim=" ", indentString='    ',
-    schemaInfo=None, lineBreak = "\n", depth=1):
+def collectAllXml(
+    self:Node,                # Root of subtree to generate XML for
+    delim:str="",             # Put before each start tag
+    indentString:str='    ',  # Repeat to construct indentation
+    schemaInfo=None,          # Something to put ahead of the fragment
+    lineBreak:str="\n",       # Linebreak to use (or '')
+    depth:int=1
+    ):
     """Collect a subtree as WF XML, with appropriate escaping. Can also
     put a delimiter before each start-tag; if it contains '\n', then the
     XML will also be hierarchically indented. -color applies.
@@ -2329,45 +2362,33 @@ def collectAllXml(self:Node, delim=" ", indentString='    ',
     ntype = self.nodeType
 
     # Calculate whitespace to put around the element
-    indent = ""
-    isEmpty = 0
-    if (schemaInfo):
-        raise ValueError("Unsupported feature 'schemaInfo'.")
-    else:
-        if (indentString): indent = (indentString * depth)
-        else: indent = delim
+    if (indentString): indent = (indentString * depth)
+    else: indent = delim
 
     # Assemble the data and/or markup
     textBuf = ""
     if (ntype == Node.ELEMENT_NODE):                  # 1 ELEMENT:
-        attlist = getEscapedAttributeList(self,
-            sortAttributes=False,
-            quoteChar='"')
-        textBuf += (indentString * depth) + "<" + name + attlist
-        if (isEmpty):
-            textBuf = textBuf + "/>"
+        attlist = getEscapedAttributeList(self, sortAttributes=False, quoteChar='"')
+        textBuf += lineBreak + (indentString * depth) + "<" + name + attlist
+        if (len(self.childNodes) == 0):
+            textBuf += "/>"
         else:
-            textBuf = textBuf + ">"
+            textBuf += ">"
             for ch in self.childNodes:
-                textBuf = textBuf + collectAllXml(ch, delim, 1, depth+1)
-            if (indentString):
-                textBuf = textBuf + (indentString * depth)
-            textBuf = textBuf + "</" + name + ">" + lineBreak
+                textBuf += ch.collectAllXml(delim=delim, lineBreak=lineBreak, depth=depth+1)
+            textBuf += "</" + name + ">" + lineBreak
     elif (ntype == Node.ATTRIBUTE_NODE):              # 2 ATTR
         raise ValueError("Why are we seeing an attribute node?")
-
     elif (ntype == Node.TEXT_NODE):                   # 3 TEXT
-        textBuf = textBuf + escapeXml(self.data)
-
-    elif (ntype == Node.CDATA_SECTION_NODE):          # 4
+        textBuf += escapeXml(self.data)
+    elif (ntype == Node.CDATA_SECTION_NODE):          # 4 CDATA
+        textBuf += escapeXml(self.data)
+    elif (ntype == Node.ENTITY_REFERENCE_NODE):       # 5 ENTITY REF (deprecated)
         pass
-    elif (ntype == Node.ENTITY_REFERENCE_NODE):       # 5
-        pass
-    elif (ntype == Node.ENTITY_NODE):                 # 6
+    elif (ntype == Node.ENTITY_NODE):                 # 6 ENTITY
         pass
     elif (ntype == Node.PROCESSING_INSTRUCTION_NODE): # 7 PI
         textBuf += "<?" + self.target + " " + self.data + "?>"
-
     elif (ntype == Node.COMMENT_NODE):                # 8 COMMENT
         textBuf = textBuf + indent + "<!--" + self.data + "-->"
         if (indentString):
@@ -2375,10 +2396,10 @@ def collectAllXml(self:Node, delim=" ", indentString='    ',
     elif (ntype == Node.DOCUMENT_NODE):               # 9
         pass
     elif (ntype == Node.DOCUMENT_TYPE_NODE):          # 10
-        pass
+        textBuf += "<!DOCTYPE %s>" % (self.nodeName) + lineBreak
     elif (ntype == Node.DOCUMENT_FRAGMENT_NODE):      # 11
         pass
-    elif (ntype == Node.NOTATION_NODE):               # 12
+    elif (ntype == Node.NOTATION_NODE):               # 12  (deprecated)
         pass
     else:
         raise ValueError("startCB: Bad DOM node type returned: %d" % ntype)
@@ -2553,7 +2574,7 @@ def nukeNonXmlChars(s:str) -> str:
     """Remove the C0 control characters not allowed in XML. Unassigned
     Unicode characters higher up, are left unchanged.
     """
-    return re.sub("[\x00-\x08\x0b\x0c\x0e-\x1f]", "", s)
+    return re.sub("[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(s))
 
 def unescapeXml(s:str) -> str:
     """Escape as needed for XML content: lt, amp, and ]]>.
