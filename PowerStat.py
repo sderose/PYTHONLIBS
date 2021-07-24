@@ -152,7 +152,8 @@ class StatItem:
         "Z": ( "s", str ),  # ``major,minor'' from rdev field for char/block special; else size
     }
 
-    def __init__(self, mat):
+    def __init__(self, mat:re.Match):
+        assert isinstance(mat, re.Match)
         self.mat         = mat  # Should go away?
         self.pctString   = mat.group(0)
         self.startOffset = mat.start(0)
@@ -179,7 +180,7 @@ class StatItem:
             assert False, "Bad fmtCode '%s' in:\n" % (self.fmtCode) + self.tostring()
         print("Created format item:\n" + self.tostring())
 
-    def tostring(self):
+    def tostring(self) -> str:
         buf = "From '%s':\n" % (self.pctString or "-none-")
         for k in [ 'esc', 'flag', 'siz', 'prc', 'fmt', 'sub', 'datum' ]:
             buf += "    '%s': '%s'\n" % (k, self.mat.group(k) or "-none-")
@@ -187,10 +188,12 @@ class StatItem:
         return buf
 
     @staticmethod
-    def intCap(mat, captureName:str, default:int=0) -> int:
+    def intCap(mat:re.Match, captureName:str, default:int=0) -> int:
         try:
             return int(mat.group(captureName))
-        except ValueError:
+        except ValueError as e:
+            return int(default)
+        except TypeError as e:
             return int(default)
 
     def munge(self, st:os.stat_result):  # TODO: FIX, divide parse/store from format
@@ -377,7 +380,9 @@ class StatItem:
         return st.ST_XXX
 
     @staticmethod
-    def readableSize(n:int):
+    def readableSize(n:int) -> str:
+        """Make a readable size like many -H options.
+        """
         suffixes = " KMGTP"
         rank = int(math.log(n, 1000))
         if (rank >= len(suffixes)): rank = len(suffixes) - 1
@@ -389,7 +394,7 @@ class StatItem:
         return buf
 
     @staticmethod
-    def formatTime(epochTime, f:str=None):
+    def formatTime(epochTime, f:str=None) -> str:
         if (f is None): f = "%a, %d %b %Y %H:%M:%S %Z"
         return time.strftime(f, epochTime)
 
@@ -439,7 +444,7 @@ class PowerStat:
         else:
             self.timeFormat = timeFormat
 
-    def format(self, path:str):
+    def format(self, path:str) -> str:
         st = os.stat(path)
         buf = ''
         for i, thisItem in enumerate(self.theItems):
@@ -517,7 +522,8 @@ if __name__ == "__main__":
     #
     args = processOptions()
 
-    warn(1, "Stat format spec is: '%s'" % (args.statFormat))
+    if (not args.quiet):
+        warn(0, "Stat format spec is: '%s'" % (args.statFormat))
     ps = PowerStat(args.statFormat, args.timeFormat)
 
     if (len(args.files) == 0):

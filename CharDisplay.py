@@ -17,14 +17,14 @@ if (PY2):
     sys.stderr.write("Not thoroughly tested in Python 2.")
     # from urllib import quote as urlquote
     # from urllib import unquote as urlunquote
-    # from htmlentitydefs import codepoint2name
+    #from htmlentitydefs import codepoint2name, name2codepoint
     # from htmlentitydefss import decode as unescape
     # def chr(n): return unichr(n)
 else:
     from urllib.parse import quote as urlquote
     from urllib.parse import unquote as urlunquote
     from urllib.request import urlopen
-    from html.entities import codepoint2name
+    from html.entities import codepoint2name, name2codepoint
     from html import unescape
     def unichr(n): return chr(n)
 
@@ -36,7 +36,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 2.7.6, 3.6",
     "created"      : "2018-04-21",
-    "modified"     : "2020-02-12",
+    "modified"     : "2021-07-23",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -148,6 +148,10 @@ Compatibility composition does I<not> merge characters such as uppercase
 English A and Greek alpha, or even soft hyphen. However, forms NKFC and
 NFKD do normalize non-breaking space to regular space.
 
+* If the code point is in the range 0x80 to 0xFF, an additional line is displayed
+saying what that code point is in the "Mac Roman" character set, and what the
+Unicode code point for ''that'' is (unless you set `--nomac`).
+
 
 =Related Commands=
 
@@ -178,6 +182,8 @@ Change property internal names to uppercase. Drop redundant data.
 Add actual names for C0 control chars (not just mnemonics).
 * 2021-07-09: Add protectDisplay() to avoid displaying literal control chars
 or other troublesome ones.
+* 2021-07-23: Add MacRoman from Perl `chr`, display it when applicable, and provide
+--nomac to suppress.
 
 =Options=
 """
@@ -220,6 +226,162 @@ cp1252ToUnicode = {
     0x9E : 0x017E,   # LATIN SMALL LETTER Z WITH CARON
     0x9F : 0x0178,   # LATIN CAPITAL LETTER Y WITH DIAERESIS
 }
+
+###############################################################################
+# See http://en.wikipedia.org/wiki/Mac_OS_Roman
+# (from Perl code in 'chr')
+#
+macRomanData = {
+    # mac: ( Unucode Entity    Unicode Name
+    ####### C1 #######
+    0x80 : ( 0x00C4, "Auml",   'LATIN CAPITAL LETTER A WITH DIAERESIS', ),
+    0x81 : ( 0x00C5, "Aring",  'LATIN CAPITAL LETTER A WITH RING ABOVE', ),
+    0x82 : ( 0x00C7, "Ccedil", 'LATIN CAPITAL LETTER C WITH CEDILLA', ),
+    0x83 : ( 0x00C9, "Eacute", 'LATIN CAPITAL LETTER E WITH ACUTE', ),
+    0x84 : ( 0x00D1, "Ntilde", 'LATIN CAPITAL LETTER N WITH TILDE', ),
+    0x85 : ( 0x00D6, "Ouml",   'LATIN CAPITAL LETTER O WITH DIAERESIS', ),
+    0x86 : ( 0x00DC, "Uuml",   'LATIN CAPITAL LETTER U WITH DIAERESIS', ),
+    0x87 : ( 0x00E1, "aacute", 'LATIN SMALL LETTER A WITH ACUTE', ),
+    0x88 : ( 0x00E0, "agrave", 'LATIN SMALL LETTER A WITH GRAVE', ),
+    0x89 : ( 0x00E2, "acirc",  'LATIN SMALL LETTER A WITH CIRCUMFLEX', ),
+    0x8A : ( 0x00E4, "auml",   'LATIN SMALL LETTER A WITH DIAERESIS', ),
+    0x8B : ( 0x00E3, "atilde", 'LATIN SMALL LETTER A WITH TILDE', ),
+    0x8C : ( 0x00E5, "aring",  'LATIN SMALL LETTER A WITH RING ABOVE', ),
+    0x8D : ( 0x00E7, "ccedil", 'LATIN SMALL LETTER C WITH CEDILLA', ),
+    0x8E : ( 0x00E9, "eacute", 'LATIN SMALL LETTER E WITH ACUTE', ),
+    0x8F : ( 0x00E8, "egrave", 'LATIN SMALL LETTER E WITH GRAVE', ),
+    0x90 : ( 0x00EA, "ecirc",  'LATIN SMALL LETTER E WITH CIRCUMFLEX', ),
+    0x91 : ( 0x00EB, "euml",   'LATIN SMALL LETTER E WITH DIAERESIS', ),
+    0x92 : ( 0x00ED, "iacute", 'LATIN SMALL LETTER I WITH ACUTE', ),
+    0x93 : ( 0x00EC, "igrave", 'LATIN SMALL LETTER I WITH GRAVE', ),
+    0x94 : ( 0x00EE, "icirc",  'LATIN SMALL LETTER I WITH CIRCUMFLEX', ),
+    0x95 : ( 0x00EF, "iuml",   'LATIN SMALL LETTER I WITH DIAERESIS', ),
+    0x96 : ( 0x00F1, "ntilde", 'LATIN SMALL LETTER N WITH TILDE', ),
+    0x97 : ( 0x00F3, "oacute", 'LATIN SMALL LETTER O WITH ACUTE', ),
+    0x98 : ( 0x00F2, "ograve", 'LATIN SMALL LETTER O WITH GRAVE', ),
+    0x99 : ( 0x00F4, "ocirc",  'LATIN SMALL LETTER O WITH CIRCUMFLEX', ),
+    0x9A : ( 0x00F6, "ouml",   'LATIN SMALL LETTER O WITH DIAERESIS', ),
+    0x9B : ( 0x00F5, "otilde", 'LATIN SMALL LETTER O WITH TILDE', ),
+    0x9C : ( 0x00FA, "uacute", 'LATIN SMALL LETTER U WITH ACUTE', ),
+    0x9D : ( 0x00F9, "ugrave", 'LATIN SMALL LETTER U WITH GRAVE', ),
+    0x9E : ( 0x00FB, "ucirc",  'LATIN SMALL LETTER U WITH CIRCUMFLEX', ),
+    0x9F : ( 0x00FC, "uuml",   'LATIN SMALL LETTER U WITH DIAERESIS', ),
+    ####### G1 #######
+    0xA0 : ( 0x2020, "dagger", 'DAGGER', ),
+    0xA1 : ( 0x00B0, "deg",    'DEGREE SIGN', ),
+    0xA2 : ( 0x00A2, "cent",   'CENT SIGN', ),
+    0xA3 : ( 0x00A3, "pound",  'POUND SIGN', ),
+    0xA4 : ( 0x00A7, "sect",   'SECTION SIGN', ),
+    0xA5 : ( 0x2022, "bull",   'BULLET', ),
+    0xA6 : ( 0x00B6, "para",   'PILCROW SIGN', ),
+    0xA7 : ( 0x00DF, "szlig",  'LATIN SMALL LETTER SHARP S', ),
+    0xA8 : ( 0x00AE, "reg",    'REGISTERED SIGN', ),
+    0xA9 : ( 0x00A9, "copy",   'COPYRIGHT SIGN', ),
+    0xAA : ( 0x2122, "trade",  'TRADE MARK SIGN', ),
+    0xAB : ( 0x00B4, "acute",  'ACUTE ACCENT', ),
+    0xAC : ( 0x00A8, "uml",    'DIAERESIS', ),
+    0xAD : ( 0x2260, "ne",     'NOT EQUAL TO', ),
+    0xAE : ( 0x00C6, "AElig",  'LATIN CAPITAL LETTER AE', ),
+    0xAF : ( 0x00D8, "Oslash", 'LATIN CAPITAL LETTER O WITH STROKE', ),
+    0xB0 : ( 0x221E, "infin",  'INFINITY', ),
+    0xB1 : ( 0x00B1, "plusmn", 'PLUS-MINUS SIGN', ),
+    0xB2 : ( 0x2264, "le",     'LESS-THAN OR EQUAL TO', ),
+    0xB3 : ( 0x2265, "ge",     'GREATER-THAN OR EQUAL TO', ),
+    0xB4 : ( 0x00A5, "yen",    'YEN SIGN', ),
+    0xB5 : ( 0x00B5, "micro",  'MICRO SIGN', ),
+    0xB6 : ( 0x2202, "part",   'PARTIAL DIFFERENTIAL', ),
+    0xB7 : ( 0x2211, "sum",    'N-ARY SUMMATION', ),
+    0xB8 : ( 0x220F, "prod",   'N-ARY PRODUCT', ),
+    0xB9 : ( 0x03C0, "pi",     'GREEK SMALL LETTER PI', ),
+    0xBA : ( 0x222B, "int",    'INTEGRAL', ),
+    0xBB : ( 0x00AA, "ordf",   'FEMININE ORDINAL INDICATOR', ),
+    0xBC : ( 0x00BA, "ordm",   'MASCULINE ORDINAL INDICATOR', ),
+    0xBD : ( 0x03A9, "Omega",  'GREEK CAPITAL LETTER OMEGA', ),
+    0xBE : ( 0x00E6, "aelig",  'LATIN SMALL LETTER AE', ),
+    0xBF : ( 0x00F8, "oslash", 'LATIN SMALL LETTER O WITH STROKE', ),
+    0xC0 : ( 0x00BF, "iquest", 'INVERTED QUESTION MARK', ),
+    0xC1 : ( 0x00A1, "iexcl",  'INVERTED EXCLAMATION MARK', ),
+    0xC2 : ( 0x00AC, "not",    'NOT SIGN', ),
+    0xC3 : ( 0x221A, "radic",  'SQUARE ROOT', ),
+    0xC4 : ( 0x0192, "fnof",   'LATIN SMALL LETTER F WITH HOOK', ),
+    0xC5 : ( 0x2248, "asymp",  'ALMOST EQUAL TO', ),
+    0xC6 : ( 0x2206, "",       'INCREMENT', ),
+    0xC7 : ( 0x00AB, "laquo",  'LEFT-POINTING DOUBLE ANGLE QUOTATION MARK', ),
+    0xC8 : ( 0x00BB, "raquo",  'RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK', ),
+    0xC9 : ( 0x2026, "hellip", 'HORIZONTAL ELLIPSIS', ),
+    0xCA : ( 0x00A0, "nbsp",   'NO-BREAK SPACE', ),
+    0xCB : ( 0x00C0, "Agrave", 'LATIN CAPITAL LETTER A WITH GRAVE', ),
+    0xCC : ( 0x00C3, "Atilde", 'LATIN CAPITAL LETTER A WITH TILDE', ),
+    0xCD : ( 0x00D5, "Otilde", 'LATIN CAPITAL LETTER O WITH TILDE', ),
+    0xCE : ( 0x0152, "OElig",  'LATIN CAPITAL LIGATURE OE', ),
+    0xCF : ( 0x0153, "oelig",  'LATIN SMALL LIGATURE OE', ),
+    0xD0 : ( 0x2013, "ndash",  'EN DASH', ),
+    0xD1 : ( 0x2014, "mdash",  'EM DASH', ),
+    0xD2 : ( 0x201C, "ldquo",  'LEFT DOUBLE QUOTATION MARK', ),
+    0xD3 : ( 0x201D, "rdquo",  'RIGHT DOUBLE QUOTATION MARK', ),
+    0xD4 : ( 0x2018, "lsquo",  'LEFT SINGLE QUOTATION MARK', ),
+    0xD5 : ( 0x2019, "rsquo",  'RIGHT SINGLE QUOTATION MARK', ),
+    0xD6 : ( 0x00F7, "divide", 'DIVISION SIGN', ),
+    0xD7 : ( 0x25CA, "loz",    'LOZENGE', ),
+    0xD8 : ( 0x00FF, "yuml",   'LATIN SMALL LETTER Y WITH DIAERESIS', ),
+    0xD9 : ( 0x0178, "Yuml",   'LATIN CAPITAL LETTER Y WITH DIAERESIS', ),
+    0xDA : ( 0x2044, "frasl",  'FRACTION SLASH', ),
+    0xDB : ( 0x20AC, "euro",   'EURO SIGN', ),
+    0xDC : ( 0x2039, "lsaquo", 'SINGLE LEFT-POINTING ANGLE QUOTATION MARK', ),
+    0xDD : ( 0x203A, "rsaquo", 'SINGLE RIGHT-POINTING ANGLE QUOTATION MARK', ),
+    0xDE : ( 0xFB01, "",       'LATIN SMALL LIGATURE FI', ),
+    0xDF : ( 0xFB02, "",       'LATIN SMALL LIGATURE FL', ),
+    0xE0 : ( 0x2021, "Dagger", 'DOUBLE DAGGER', ),
+    0xE1 : ( 0x00B7, "middot", 'MIDDLE DOT', ),
+    0xE2 : ( 0x201A, "sbquo",  'SINGLE LOW-9 QUOTATION MARK', ),
+    0xE3 : ( 0x201E, "bdquo",  'DOUBLE LOW-9 QUOTATION MARK', ),
+    0xE4 : ( 0x2030, "permil", 'PER MILLE SIGN', ),
+    0xE5 : ( 0x00C2, "Acirc",  'LATIN CAPITAL LETTER A WITH CIRCUMFLEX', ),
+    0xE6 : ( 0x00CA, "Ecirc",  'LATIN CAPITAL LETTER E WITH CIRCUMFLEX', ),
+    0xE7 : ( 0x00C1, "Aacute", 'LATIN CAPITAL LETTER A WITH ACUTE', ),
+    0xE8 : ( 0x00CB, "Euml",   'LATIN CAPITAL LETTER E WITH DIAERESIS', ),
+    0xE9 : ( 0x00C8, "Egrave", 'LATIN CAPITAL LETTER E WITH GRAVE', ),
+    0xEA : ( 0x00CD, "Iacute", 'LATIN CAPITAL LETTER I WITH ACUTE', ),
+    0xEB : ( 0x00CE, "Icirc",  'LATIN CAPITAL LETTER I WITH CIRCUMFLEX', ),
+    0xEC : ( 0x00CF, "Iuml",   'LATIN CAPITAL LETTER I WITH DIAERESIS', ),
+    0xED : ( 0x00CC, "Igrave", 'LATIN CAPITAL LETTER I WITH GRAVE', ),
+    0xEE : ( 0x00D3, "Oacute", 'LATIN CAPITAL LETTER O WITH ACUTE', ),
+    0xEF : ( 0x00D4, "Ocirc",  'LATIN CAPITAL LETTER O WITH CIRCUMFLEX', ),
+    # WARNING: Apple uses U+F8FF for their logo, but that's private-use.
+    0xF0 : ( 0xF8FF, "",       'APPLE LOGO', ),
+    0xF1 : ( 0x00D2, "Ograve", 'LATIN CAPITAL LETTER O WITH GRAVE', ),
+    0xF2 : ( 0x00DA, "Uacute", 'LATIN CAPITAL LETTER U WITH ACUTE', ),
+    0xF3 : ( 0x00DB, "Ucirc",  'LATIN CAPITAL LETTER U WITH CIRCUMFLEX', ),
+    0xF4 : ( 0x00D9, "Ugrave", 'LATIN CAPITAL LETTER U WITH GRAVE', ),
+    0xF5 : ( 0x0131, "",       'LATIN SMALL LETTER DOTLESS I', ),
+    0xF6 : ( 0x02C6, "circ",   'MODIFIER LETTER CIRCUMFLEX ACCENT', ),
+    0xF7 : ( 0x02DC, "tilde",  'SMALL TILDE', ),
+    0xF8 : ( 0x00AF, "macr",   'MACRON', ),
+    0xF9 : ( 0x02D8, "",       'BREVE', ),
+    0xFA : ( 0x02D9, "",       'DOT ABOVE', ),
+    0xFB : ( 0x02DA, "",       'RING ABOVE', ),
+    0xFC : ( 0x00B8, "cedil",  'CEDILLA', ),
+    0xFD : ( 0x02DD, "",       'DOUBLE ACUTE ACCENT', ),
+    0xFE : ( 0x02DB, "",       'OGONEK', ),
+    0xFF : ( 0x02C7, "",       'CARON', ),
+} # macRomanData
+
+# TODO: Move to separate test process
+for i in sorted(macRomanData.keys()):
+    ucp, ent, nam = macRomanData[i]
+    if (i<128 or i>255): 
+        raise ValueError("macRomanData[%04x]: key out of range." % (i))
+    if (ucp is None):
+        continue
+    if (ucp < 0XA0 or ucp > 0xFB02): 
+        raise ValueError("macRomanData[%04x]: Unicode equivalent %04x out of range." % (i, ucp))
+    if (ent):
+        cpOfEntity = name2codepoint[ent]
+        if (cpOfEntity != ucp): 
+            raise ValueError("macRomanData[%04x]: entity '%s' maps to %04x which is '%s', not %04x." % 
+                (i, ent, cpOfEntity, codepoint2name[cpOfEntity], ucp))
+    if (not re.match(r"[- A-Z0-9]{5,}$", nam)):
+        raise ValueError("macRomanData[%04x]: bad name '%s'." % (i, nam))
 
 ASCII = [
     #Dec, Lit|Mnem, Name,                Hex, fpiOK,uriOK
@@ -1646,6 +1808,11 @@ def makeDisplay(n:int, full=True) -> str:
                      protectDisplay(charInfo["NFKD"]), stringToHex(charInfo["NFKD"])
                     )),
             ])
+            if (not args.nomac and n>=128 and n <=255 and n in macRomanData):
+                macData = macRomanData[n]
+                macDescr = "%s (U+%04x)" % (macData[2], macData[0])
+                msg += "\n" + fmtline("But on Mac:", macDescr)
+
     except KeyError as e:
         print("KeyError raised makeDisplay(0x%04x, full=%s): key: '%s'," %
             (n, full, e))
@@ -1792,6 +1959,9 @@ if __name__ == "__main__":
         parser.add_argument(
             "--help-categories", action="store_true",
             help="Display a list of character categories and exit.")
+        parser.add_argument(
+            "--nomac", action="store_true",
+            help="Suppress 'but on Mac' line for ccode points 128-255.")
         parser.add_argument(
             "--python", action="store_true",
             help="Make --cat write Python tuples, not just messages.")

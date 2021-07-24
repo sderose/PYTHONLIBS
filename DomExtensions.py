@@ -628,11 +628,14 @@ actually checks for `isinstance(arg, int)`, so `myNode["1"]` will not work.
 
 =To do=
 
+For canonical XML, make getEscapedAttributeList() put namespace attrs first,
+and escape CR and all > in content.
+
 * Update to use/provide whatwg DOM features like 
 NodeIterator and TreeWalker [https://dom.spec.whatwg.org/#nodeiterator]
 and NodeFilters (latter is there as enum), DOMTokenList,...?
 
-* Make NamedNodeMap much more Pythonic:
+* Make NamedNodeMap more Pythonic:
     ** dir(nnm) fails.
 
 * Add way to get applicable alignment for a table cell or column
@@ -642,20 +645,17 @@ and NodeFilters (latter is there as enum), DOMTokenList,...?
     ** scan column, if all numeric (except header) use right, else left; header center?
     ** Pull in table and style features from html2latex.py.
 * Support negative 'n' for rest of axis selects.
-* Add insertPrecedingSibling, insertFollowingSibling, insertParent, insertAfter
-* Allow creating nodes with no ownerDocument; they get attached when inserted
+* Allow creating nodes with no ownerDocument; they get attached when inserted.
 * Implement splitNode and wrap/surround(see help)
 * Let appendChild, insertBefore, insertAfter, etc. take lists.
 * Change eachTextNode, etc. to be real generators.
 * Finish type-hinting.
 * Add access for items in NamedNodeMaps via [] notation.
 * Option for innerXml/outerXml to guarantee Canonical result (in progress).
-* Possibly, extend `innerXML`, `innerText`, etc. to be able to exclude
-certain subtrees, such as for embedded footnotes, speaker tags interrupting
-speeches, etc.?
 
 ==Lower priority==
 
+* Add insertPrecedingSibling, insertFollowingSibling, insertParent, insertAfter
 * Possibly support myNode[["P"]] to scan all descendants (by analogy
 with XPath "//" operator).
 * Add a way to turn off all indenting for collectAllXml2 with one option.
@@ -664,6 +664,9 @@ with XPath "//" operator).
 * Normalize line-breaks, Unicode whitespace within text nodes
 * Consider additions from https://lxml.de/api/index.html:
 ** strip_attributes,....
+* Possibly, extend `innerXML`, `innerText`, etc. to be able to exclude
+certain subtrees, such as for embedded footnotes, speaker tags interrupting
+speeches, etc.?
 * Move in matchesToElements from mediaWiki2HTML.
 * Sync with XPLib.js
 * Find next node of given qgi? Select by qgi?
@@ -1612,6 +1615,7 @@ def getEndTag(self:Node, appendAttr='id'):
 
 def getEscapedAttributeList(self:Node, sortAttributes:bool=False, quoteChar='"'):
     """Assemble the entire attribute list, escaped as needed to write out as XML.
+    TODO: At least for canonical XML, put namespace attrs first.
     """
     buf = ""
     if (not (self)): return None
@@ -2627,7 +2631,7 @@ def stripSpace(s:str, allUnicode:bool=False) -> str:
 # Various places to put output data.
 #
 class Emitter:
-    """Used by collectXML2 etc. to transmit data to any of several targets.
+    """Used by collectallXml, etc. to transmit data to any of several targets.
     This allows the same code to write to a file, a buffer, or whatever.
     """
     def __init__(self, where, arg=None):
