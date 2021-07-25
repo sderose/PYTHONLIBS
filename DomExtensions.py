@@ -52,16 +52,16 @@ DOM much more similarly to using XPath, XPtr, etc.
 ==Usage==
 
 You can use ''patchDOM''() to monkey-patch these routines into a class
-(default: ''xml.dom.Node''):
+(default: ''xml.dom.minidom.Node''):
 
     import DomExtensions
     import xml.dom
-    DomExtensions.patchDom(toPatch=xml.dom.Node)
+    DomExtensions.patchDom(toPatch=xml.dom.minidom.Node)
 
 or to just enable support for using Python's
 subscript brackets: `myNode[...]`, do:
 
-    DomExtensions.enableBrackets(toPatch=xml.dom.Node)
+    DomExtensions.enableBrackets(toPatch=xml.dom.minidom.Node)
 
 See L<#Using [] notation>, below, for the details. In short, you can say things
 like myNode[0], myNode["p":3:5], myNode["@id"], and so on.
@@ -103,7 +103,7 @@ subscript brackets: `myNode[...]`.
 
 To enable ''just'' this feature, do:
 
-    DomExtensions.enableBrackets(toPatch=xml.dom.Node)
+    DomExtensions.enableBrackets(toPatch=xml.dom.minidom.Node)
 
 For example, instead of
 
@@ -2562,7 +2562,7 @@ def escapeASCII(s:str, width:int=4, base:int=16, htmlNames:bool=True) -> str:
             nonlocal width, base, htmlNames
         else:
             # https://stackoverflow.com/questions/3190706/
-            raise ValueError("PY3 dependency: nonlocal.")  # TODO
+            raise ValueError("PY3 dependency: nonlocal.")
         if (htmlNames and code in codepoint2name):
             return "&%s;" % (codepoint2name[code])
         if (base==10):
@@ -2736,7 +2736,7 @@ class BS4Features:
             yield node.data
 
     @staticmethod
-    def stripped_strings(node, normSpace=False, allUnicode:bool=False):
+    def stripped_strings(node:Node, normSpace=False, allUnicode:bool=False):
         """Generate the series of all text node descendants as strings,
         but with leading and trailing space stripped. Also, skip any text
         nodes that are white-space-only.
@@ -2751,7 +2751,7 @@ class BS4Features:
             if (ss): yield ss
 
     @staticmethod
-    def find_all(node, name, attrs=None, recursive:bool=True, string=None,
+    def find_all(node:Node, name, attrs=None, recursive:bool=True, string=None,
         limit=0, class_=None, **kwargs):
         """
         @param name: Can take a string, regex, list, fn, or True.
@@ -2789,8 +2789,7 @@ class BS4Features:
 
 
     @staticmethod
-    def BSfind_matcher(node, name,
-        attrs=None, string=None, class_=None, **kwargs):
+    def BSfind_matcher(node:Node, name, attrs=None, string=None, class_=None, **kwargs):
         """Approximate the semantics of filtering params for BS4 find_all() etc.
         """
         if (name and not node.match(name)): return False
@@ -2811,7 +2810,7 @@ class BS4Features:
 
 
     @staticmethod
-    def find(node, **kwargs):
+    def find(node:Node, **kwargs):
         """ Same as find_all limit=1.
         """
         raise NOT_SUPPORTED_ERR
@@ -2866,7 +2865,7 @@ class DomExtensions:
         self.DE = 1
 
     @staticmethod
-    def enableBrackets(toPatch=xml.dom.Node):
+    def enableBrackets(toPatch=Node):
         """Patch in only the implementationa of __getItem__() and __contains__,
         which let you use list-bracket notation (with all 3 arguments) to pick out
         childNodes or attributes from Nodes. For example:
@@ -2893,14 +2892,14 @@ class DomExtensions:
         toPatch.__contains__ = DEcontains
 
     @staticmethod
-    def patchDOM(toPatch=xml.dom.Node, getItem:bool=True) -> None:
+    def patchDOM(toPatch=Node, getItem:bool=True) -> None:
         """Some people capitalize acronyms.
         """
         DomExtensions.patchDom(toPatch=toPatch, getItem=getItem)
 
     @staticmethod
     def patchDom(
-        toPatch=xml.dom.minidom.Node,   # What class to monkey-patch
+        toPatch=Node,   # What class to monkey-patch
         getItem:bool=True,              # Include the __getitem__ mod?
         axisSelects:bool=True,          # Include axis selectors?
         synonyms:bool=False,            # preceding/previous, following/next
@@ -3082,7 +3081,7 @@ class DomExtensions:
 
     @staticmethod
     def patchDomAuto(
-        toPatch=xml.dom.Node,
+        toPatch=Node,
         getItem:bool=True,      # patch __getItem__ and __contains__.
         axisSelects:bool=True,  # include select...
         excludes=None           # Don't add any listed here
@@ -3147,17 +3146,20 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--quiet", "-q",      action='store_true',
+            "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
-            "--verbose", "-v",    action='count',       default=0,
+            "--showMethods", action='store_true',
+            help='Display a list of the methods defined.')
+        parser.add_argument(
+            "--verbose", "-v", action='count', default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
             "--version", action='version', version=__version__,
             help='Display version information, then exit.')
 
         parser.add_argument(
-            'files',             type=str,
+            'files', type=str,
             nargs=argparse.REMAINDER,
             help='Path(s) to input file(s)')
 
@@ -3168,11 +3170,17 @@ if __name__ == "__main__":
     #
     args = processOptions()
 
-    warn(0, "Patching extensions onto xml.dom.Node...")
+    if (args.showMethods):
+        from subprocess import check_output
+        buf0 = str(check_output([ "grep", "-E", "^(class| *def )", __file__ ]))
+        print(re.sub(r"\\n", "\n", buf0))
+        sys.exit()
+        
+    warn(0, "Patching extensions onto xml.dom.minidom.Node...")
     DomExtensions.patchDOM()
     # Of course it doesn't have the method, until we've patched it in....
     #pylint: disable=E1101
-    if (callable(xml.dom.Node.getDepth)):
+    if (callable(Node.getDepth)):
         warn(0, "Patch succeeded.")
     else:
         warn(0, "Patch failed.")
