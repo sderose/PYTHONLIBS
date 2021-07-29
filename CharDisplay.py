@@ -1668,20 +1668,18 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
     """
     charInfo = { "n": n, "ERROR": None }
 
-    if (n > 0xFFFF):
-        charInfo["ERROR"] = "[Out of range (0x%06x)]" % (n)
-        return charInfo
+    if (n > 0x1FFFF):
+        raise ValueError("[Out of range (0x%06x)]" % (n))
 
     if (n == 0xEFBFBD):
-        charInfo["ERROR"] = "UTF-8 of U+FFFD (Replacement Character) 0xEFBFBD"
-        return charInfo
+        raise ValueError("UTF-8 of U+FFFD (Replacement Character) 0xEFBFBD")
 
     literal = charInfo["LITERAL"]  = unichr(n)
 
     # Unicodedata does not return names for C0 controls....
     if (n < 32): charInfo["UNAME" ] = C0Names[n]
     else: charInfo["UNAME" ] = unicodedata.name(literal)
-    if (not charInfo["UNAME" ]):  # Includes private use chars.
+    if (not charInfo["UNAME"]):  # Includes private use chars.
         charInfo["ERROR"] = "Cannot find name for U+%05x." % (n)
         charInfo["UNAME" ] = "[???]"
 
@@ -1755,14 +1753,23 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
     charInfo["JARGON"] = None
     if (literal in unixJargon): charInfo["JARGON"] = unixJargon[literal]
 
+    if (args.verbose):
+        buf = "CharInfo for U+%05x:\n" % (n)
+        for k, v in charInfo.items():
+            buf += "    %-16s %s\n" % (k, v)
+        sys.stderr.write(buf+"    =======\n\n")
     return charInfo
 
 def makeDisplay(n:int, full=True) -> str:
     """Make a terminal-friendly display of many properties of the Unicode
     character at the given codepoint 'n'.
     """
-    charInfo = getCharInfo(n)
-
+    try:
+        charInfo = getCharInfo(n)
+    except ValueError as e:
+        sys.stderr.write("%s" % (e))
+        return "???"
+    
     try:
         msg = "\n".join([
             fmtline("Unicode Name",     charInfo["UNAME" ]),
@@ -1813,8 +1820,8 @@ def makeDisplay(n:int, full=True) -> str:
                 macDescr = "%s (U+%04x)" % (macData[2], macData[0])
                 msg += "\n" + fmtline("But on Mac:", macDescr)
 
-    except KeyError as e:
-        print("KeyError raised makeDisplay(0x%04x, full=%s): key: '%s'," %
+    except KeyError as e:  # KeyError as e:
+        print("KeyError raised in makeDisplay(0x%04x, full=%s): key: '%s'," %
             (n, full, e))
         for k in sorted(charInfo.keys()):
             print("    %-20s  %s" % ('"'+k+'"', charInfo[k]))
