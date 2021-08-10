@@ -389,6 +389,7 @@ See [http://creativecommons.org/licenses/by-sa/3.0/ for more information].
 For the most recent version, see [http://www.derose.net/steve/utilities]
 or [https://github.com/sderose].
 
+
 =Options=
 """
 
@@ -474,7 +475,7 @@ class DialectX:
         "maxsplit":          ( int,  None ),
         "minsplit":          ( int,  None ),
         "multidelimiter":    ( bool, False ),
-        "types":             ( str,  None ),
+        "typeList":          ( str,  None ),
         "uescapes":          ( bool, False ),
         "xescapes":          ( bool, False ),
         "quotedNewline":     ( bool, False ),
@@ -543,9 +544,9 @@ class DialectX:
             pre+"multidelimiter", action="store_true",
             help='.')
         parser.add_argument(
-            pre+"types", type=str, action="append",
+            pre+"typeList", type=str, action="append",
             choices=[ 'str', 'int', 'float', 'bool' ],
-            help='A list of types for the fields (repeatable).')
+            help='A type for the (next) field (repeatable).')
         parser.add_argument(
             pre+"uescapes", action="store_true",
             help='.')
@@ -972,7 +973,7 @@ class DatatypeHandler:
         """
         tok2 = tok.strip()
 
-        if (tok2 is ''):
+        if (tok2 == ""):
             return tok
         if (self.boolCasterFunc):
             try: return self.boolCasterFunc(tok2)

@@ -3,15 +3,15 @@
 # DomGetitem.py: Make xml.dom.minidom.Node and ts subclass much more Pythonic.
 # 2021-07-21: Extracted from DomExtensions.py, where it also is available.
 #
-#pylint: disable=W0613, W0212
+#pylint: disable=W0613, W0212, E1101
 #
-#import sys
+import sys
 import re
 #import codecs
 #from enum import Enum
 from typing import List
-import xml.dom, xml.dom.minidom
-from xml.dom.minidom import Node #, NamedNodeMap
+#import xml.dom, xml.dom.minidom
+from xml.dom.minidom import Node, Document  #, NamedNodeMap
 
 #from html.entities import codepoint2name, name2codepoint
 
@@ -125,19 +125,22 @@ class PyNode(Node):
     xmlName = nameStartChar + nameChar + '*'
 
     @staticmethod
-    def isXmlName(s:str) -> bool:
+    def isXmlName(s:str) -> bool: 
+        if (s is None): return False
+        #print("types: expr %s, s %s." % (type(PyNode.xmlName), type(s)))
         if (re.match(PyNode.xmlName, s, re.UNICODE)): return True
         return False
 
     # Following constants are returned by argType():
+    ARG_NONE      = 0
     ARG_INT       = 1
     ARG_ATTRIBUTE = 2
     ARG_STAR      = 3
     ARG_RESERVED  = 4
     ARG_NAME      = 5
 
-    def __init__(self, *args, **kwargs):
-        super(PyNode, self).__init__(self, *args, **kwargs)
+    def __init__(self, *args9, **kwargs):
+        super(PyNode, self).__init__(self, *args9, **kwargs)
         
     def __getitem__(self:Node, n1:int, n2:int=None, n3:str=None) -> List:
         """Access nodes via Python list notation.
@@ -145,6 +148,7 @@ class PyNode(Node):
         typ1 = PyNode.argType(n1)
         typ2 = PyNode.argType(n2)
         typ3 = PyNode.argType(n3)
+        print("argTypes are %s, %s, %s." % (typ1, typ2, typ3))
         if (n3 is not None): nargs = 3
         elif (n2 is not None): nargs = 2
         else: nargs = 1
@@ -157,6 +161,7 @@ class PyNode(Node):
             if (typ1 == PyNode.ARG_INT):                              # [0]
                 return self.childNodes[n1]
             if (typ1 == PyNode.ARG_ATTRIBUTE):                        # ['@id']
+                warn(0, "Getting attr, arg 1 is '%s'." % (n1))
                 return self.getAttribute(n1[1:])
             return self._getChildNodesByName_(n1)              # ['p'] ['#text'] ['*']
 
@@ -199,17 +204,16 @@ class PyNode(Node):
     def argType(s:str) -> int:
         """Categorize one of the arguments to __getitem__().
         """
-        if (isinstance(s, int)): return PyNode.ARG_INT
+        if (s is None): return PyNode.ARG_NONE
+        if (isinstance(s, int)): return PyNode.ARG_INT  # TODO: Allow float, maybe?
 
         # Next 3 can all be handled by _getListItemsByName_()
         if (s in [ "#text", "#comment", "#pi", "#cdata" ]): return PyNode.ARG_RESERVED
-        if (PyNode.isXmlName(s)): return PyNode.ARG_NAME
         if (s == "*"): return PyNode.ARG_STAR
-
         if (s[0] == "@" and PyNode.isXmlName(s[1:])): return PyNode.ARG_ATTRIBUTE
+        if (PyNode.isXmlName(s)): return PyNode.ARG_NAME
         #if (s == ".."): return PyNode.ARG_ANCESTOR
-        if (s is None): return None
-        raise IndexError("Bad argument type for '%s'." % (s))
+        raise IndexError("Unrecognized argument type for '%s'." % (s))
 
     def _getChildNodesByName_(self:Node, name:str) -> list:
         """Return a list of this node's children of a given element name
@@ -230,4 +234,67 @@ class PyNode(Node):
             if (item.nodeType==Node.ELEMENT_NODE and (s=='*' or item._nodeName==s)):
                 inodes.append(item)
         return inodes
+
+
+###############################################################################
+# Test driver
+#
+if __name__ == "__main__":
+    import argparse
+
+    def warn(lvl:int, msg:str) -> None:
+        if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
+
+    def processOptions() -> argparse.Namespace:
+        try:
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
+        except ImportError:
+            parser = argparse.ArgumentParser(description=descr)
+
+        parser.add_argument(
+            "--quiet", "-q", action='store_true',
+            help='Suppress most messages.')
+        parser.add_argument(
+            "--verbose", "-v", action='count', default=0,
+            help='Add more messages (repeatable).')
+        parser.add_argument(
+            "--version", action='version', version=__version__,
+            help='Display version information, then exit.')
+
+        args0 = parser.parse_args()
+        return args0
+
+    ###########################################################################
+    #
+    args = processOptions()
+
+    warn(0, "Patching extensions onto xml.dom.minidom.Node...")
+    Node.__getitem__ = PyNode.__getitem__
+    Node._getChildNodesByName_ = PyNode._getChildNodesByName_
+    Node. _getListItemsByName_ = PyNode. _getListItemsByName_
+
+    theDocEl = Document()
+    theDocEl.nodeName = "book"
+    print("Document nodeName is '%s'." % (theDocEl.nodeName))
+    body = theDocEl.createElement("body")
+    theDocEl.appendChild(body)
+    print("body element nodeName is '%s'." % (body.nodeName))
+    
+    nParas = 10
+    for i in range(nParas):
+        e = theDocEl.createElement("p")
+        e.setAttribute("id", "myId_%2d" % (i))
+        e.appendChild(theDocEl.createTextNode("This is a some text."))
+        body.appendChild(e)
+
+    print("Sample document created.")
+
+    for i in range(0,nParas,2):
+        print("ch %d: type '%s'" % (i, body[i].nodeName))
+        print("    id: %s" % (body[i]["@id"]))
+        
+    
+    warn(0, "Done.")
 
