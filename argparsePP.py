@@ -37,9 +37,8 @@ An improved ArgumentParser and argparse:
 * Supports alternative hyphen conventions
 * Supports adding "toggle" attributes, with changeable "--no-" prefix (`add_toggle()`)
 * Adds several useful attribute types, including ones useful with
-Unicode, XSD, and other widely-used standards.
-* Can automatically expand "choices" values to one-hot separate attributes
-(`add_enum()`)
+Unicode, XSD, and other widely-used standards
+* Can automatically expand "choices" values to one-hot separate attributes (`add_enum()`)
 * Can ignore case for option names
 
 
@@ -55,10 +54,11 @@ Unfinished.
 
 =To do=
 
-Make a way to suppress an argument(s) from having their help displayed
+* Make a way to suppress an argument(s) from having their help displayed
 with default `-h`.
 Esp. useful for imported args, like PowerWalk.py's.
 Perhaps hide them under a secondary command, such as -h-PowerWalk.
+* Add an option to write out a zsh auto-completion file.
 
 ==More types==
 
