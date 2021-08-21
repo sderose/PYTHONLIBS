@@ -898,7 +898,7 @@ class ALogger:
     def colorize(self, argColor='red', s="", endAs="off",
         fg='', bg='', effect=''):
         if (self.colorManager):
-            return self.colorManager.colorize(argColor=argColor, s=s,
+            return self.colorManager.colorize(argColor=argColor, msg=s,
                 endAs=endAs, fg=fg, bg=bg, effect=effect)
         return "*" + s + "*"
 
@@ -954,6 +954,7 @@ class ALogger:
             sys.stderr.write("Regex error: %s\n" % (e))
         return(s)
 
+
     ###########################################################################
     # Set default options for predefined message-types v, e, h, x.
     #
@@ -992,7 +993,6 @@ class ALogger:
               u"/magenta/white",   escape=0, indent=1,  prefix=u"\n******* ")
             self.defineMsgType(u'x',
               u"/blue",            escape=0, indent=0)
-
 
     def defineMsgType(self, msgType, color=None, nLevels=0, func=None,
         prefix=None, infix=None, suffix=None, escape=None, indent=None):
@@ -1056,6 +1056,7 @@ class ALogger:
             return(self.colorStrings[self.msgTypes[mt]['color']],
                    self.colorStrings[u'off'])
         return("","")
+
 
     ###########################################################################
     # Manage persistent indentation of xMsg calls.
@@ -1147,7 +1148,6 @@ class ALogger:
     def error3(self, msg, **kwargs): self.log(3, msg, **kwargs)
     def error4(self, msg, **kwargs): self.log(4, msg, **kwargs)
 
-
     def directMsg(self, msg, **kwargs):
         """Pretty much everything ends up here.
         'stat' are should have been handled and removed by caller.
@@ -1156,11 +1156,10 @@ class ALogger:
         ender = kwargs['end'] if 'end' in kwargs else "\n"
         if (not msg.endswith(ender)): msg += ender
         #msg2 = re.sub(r'\n', '*', msg)
-        if (kwargs['color']):
+        if ('color' in kwargs):
             if (not self.colorManager): msg += " (color not enabled)"
             else: msg = self.colorManager.colorize(kwargs['color'])
         sys.stderr.write(msg)
-
 
     # Pass through a few useful methods?
     def setLevel(self, lvl):
@@ -1320,7 +1319,6 @@ class ALogger:
         m += on + pre + caller + um1 + off + inf + um2 + suf
         if (locMsg): m += "\n" + locMsg
         return(m)
-
 
     def getLoc(self, startLevel:int=0, endLevel:int=0):
         """Return a line(s) showing where we were invoked from.
@@ -1667,6 +1665,8 @@ class ALogger:
         # end formatRec
 
     def skipIt(self, thing, nm, options):
+        """See if this is an item we're not supposed to display.
+        """
         if (options['specials']): return False
         if (callable(thing)): return True
         if (isinstance(nm, str) and nm.startswith('__')): return True
@@ -1676,8 +1676,10 @@ class ALogger:
         if (not addQuotes): return s
         return '"' + re.sub(r'"', '\\"', s) + '"'
 
-    # Scalars don't add their own newline.
     def formatScalar(self, obj):
+        """Return a formatted version of a scalar variable. If passed an
+        aggregate, format its length instead.
+        """
         ty = type(obj)
         if (obj is                             None):
             return self.disp_None
@@ -1726,7 +1728,7 @@ class ALogger:
 # Run some simple tests if invoked as its own command.
 #
 if __name__ == "__main__":
-    print("Running basic tests on alogging.py")
+    print("Running smoke tests on alogging.py")
 
     if (len(sys.argv) > 1):
         print(descr)

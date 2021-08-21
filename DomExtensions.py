@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # DomExtensions: A bunch of (hopefully) useful additions to the DOM API.
 #
@@ -941,23 +941,21 @@ def innerXML(self:Node, cOptions=None) -> str:
     return self.innerHTML(cOptions=cOptions)
 
 def innerText(self:Node, sep:str='') -> str:
-    """
-    Like usual innertext, but a function (instead of a property), and allows
+    """Like usual innertext, but a function (instead of a property), and allows
     inserting something in between all the text nodes (typically a space,
     so text of list items etc. don't join up. But putting in spaces around
     HTML inlines like i and b, is occasionally wrong.
     """
     if (self.nodeType == Node.TEXT_NODE or
-        self.nodeType == Node.TEXT_NODE):
+        self.nodeType == Node.CDATA_SECTION_NODE):
         sys.stderr.write(self.nodeValue+"\n")
         return self.nodeValue
     if (self.nodeType != Node.ELEMENT_NODE):  # PI, comment
         return ""
     t = ""
     for childNode in self.childNodes:
-        if (childNode.nodeType == Node.ELEMENT_NODE):
-            if (t): t += sep
-            t += childNode.innerText(sep=sep)
+        if (t): t += sep
+        t += childNode.innerText(sep=sep)
     return t
 
 
@@ -1552,6 +1550,7 @@ def getStartTag(self:Node, sortAttributes=False):
     Generate a start tag for the given element.
     TODO: support sorting.
     """
+    assert self.nodeType == Node.ELEMENT_NODE
     assert (sortAttributes==False)
     buf = "<%s" % (self.nodeName)
     if (self.getAttribute('id')):
@@ -1569,11 +1568,20 @@ def getEndTag(self:Node, appendAttr='id'):
     this name, put that attribute as a comment following the end-tag. This
     is handy when editing, esp. for large or deep documents.
     """
+    assert self.nodeType == Node.ELEMENT_NODE
     buf = "</%s>" % (self.nodeName)
     if (appendAttr and self.getAttribute(appendAttr)):
         buf += '<!-- id="%s" -->' % (self.getAttribute(appendAttr))
     return buf
 
+def getPI(self:Node):
+    assert self.nodeType == Node.PROCESSING_INSTRUCTION_NODE
+    return "<?%s %s?>" % (self.target, self.data)
+    
+def getComment(self:Node):
+    assert self.nodeType == Node.COMMENT_NODE
+    return "<!--%s -->" % (self.data)
+    
 def getEscapedAttributeList(self:Node, sortAttributes=False, quoteChar='"'):
     """
     Assemble the entire attribute list, escaped as needed to write out as XML.

@@ -18,7 +18,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2020-02-28",
-    'modified'     : "2020-08-08",
+    'modified'     : "2021-07-12",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -41,6 +41,7 @@ This library, however, can also handle:
 * Expanding special chars like
 \\xFF (`xescapes`); \\uFFFF (`uescapes`); &#xFFFFF;, &bull;, etc. (`entities`)
 * Ignoring repeated delimiters (like `sed` can) (`multidelimiter`)
+* (in progress) cycling deimiters (like `paste -d`)
 
 ===Datatype-related features===
 
@@ -124,13 +125,15 @@ A dialect has many options. Several match ones from `csv`, with
 the same names and at least the same values. Those like in `csv` include:
 
 * ''delimiter'':str = "\\t" -- The field separator character or string.
+This can be a single string, or a list of several. If it's a list, the
+delimiters are used in rotation.
 
 * ''doublequote'':bool = True -- If set, allow putting `quotechar` inside
 a quoted string, by doubling it. I'm not fond of this defaulting True,
 but that's what Python `csv` does, so I stuck with it.
 
 * ''escapechar'':str = "\\\\" -- If set, this character can be put before
-the quotechar, delimiter, or itself, to make that character literal rather
+a quotechar, delimiter, or itself, to make that character literal rather
 than special. The escapechar can also be used before any of
 'f', 'n', 'r', 't', 'v', '\\\\', or '0' for the usual meanings.
 
@@ -209,10 +212,11 @@ have occurred (making this many + 1 tokens).
 this many splits are made.
 
 * ''multidelimiter'':bool = False -- If set, multiple adjacent delimiters do
-NOT result in empty tokens, but be treated the same as a single delimiter.
+NOT result in empty tokens, but are treated the same as a single delimiter.
 This would typically be done when the delimiter is just a space.
 Empty fields can, however, be inserted by quoting them (because the delimiters
-on each side are no longer "adjacent").
+on each side are no longer "adjacent"). This option should probably not be
+used in combination with a list of cycling deimiters.
 
 * ''typeList'' = None -- If set, this option must be either a list of
 `type`s, or the keyword "AUTO". If provided as a list of types, the parsed
@@ -339,7 +343,7 @@ is raised if they don't match.
 * More flexible delimiters:
     ** regex delimiters
     ** the "whitespace to nonspace transition" approach (like awk, column, and sort)
-    ** Support for cycling delimiters (like 'paste -d)
+    ** Support for cycling delimiters (like 'paste -d').
 
 * Special treatment of empty/missing fields
 * Field Defaults
@@ -379,6 +383,8 @@ Refactor test cases and error handling.
 * 2020-10-21: Start support for controlling order of fields with DictWriter.
 Pull in `formatScalar` from my `alogging`.
 
+* 2021-07-12: Start supporting delimiter dycling like `paste -d`.
+
 
 =Rights=
 
@@ -388,6 +394,7 @@ See [http://creativecommons.org/licenses/by-sa/3.0/ for more information].
 
 For the most recent version, see [http://www.derose.net/steve/utilities]
 or [https://github.com/sderose].
+
 
 =Options=
 """
@@ -410,7 +417,7 @@ class DialectX:
         dialectName:str,
 
         # Options like Python 'csv' package:
-        delimiter:str            = "\t",    # What char?
+        delimiter:list           = None,    # Field separator(s)
         doublequote:bool         = True,    # TODO Support ""
         escapechar:str           = "\\",    # Backslashing?
         lineterminator:str       = "\n",    # What's the line-break?
@@ -430,10 +437,13 @@ class DialectX:
         xescapes:bool            = False,   # Interpret \xFF
         quotedNewline:bool       = False    # Allow multiline quoted values
     ):
+        if (delimiter is None): delimiter = [ "\t" ]
+        if (not isinstance(delimiter, list)): delimiter = [ delimiter ]
+
         self.dialectName         = dialectName
 
         # Options like Python 'csv' package:
-        self.delimiter           = delimiter
+        self.delimiter           = delimiter   # But can be a list
         self.doublequote         = doublequote
         self.escapechar          = escapechar
         self.lineterminator      = lineterminator
@@ -458,7 +468,7 @@ class DialectX:
 
     __theOptionNames__ = {
         # name               ( type, default )
-        "delimiter":         ( str, "\t" ),
+        "delimiter":         ( list, [ "\t" ] ),
         "doublequote":       ( bool, False ),
         "escapechar":        ( str, "\\" ),
         "lineterminator":    ( str, "\n" ),
@@ -499,59 +509,60 @@ class DialectX:
 
         # Options like Python 'csv' package:
         parser.add_argument(
-            pre+"delimiter",          type=str, default="\t",
+            pre+"delimiter", type=str, default="\t", action='append',
+            help='Field separators, one or more characters. Repeatable, in which'+
+            ' case they cycle like `paste -d`.')
+        parser.add_argument(
+            pre+"doublequote", action="store_true",
+            help='A quote may be doubled to become literal (rather than escaped).')
+        parser.add_argument(
+            pre+"escapechar", type=str, default="\\",
+            help='This can be used to escape a quote, delimiter, or itself.')
+        parser.add_argument(
+            pre+"lineterminator", type=str, default="\n",
             help='.')
         parser.add_argument(
-            pre+"doublequote",        action="store_true",
-            help='.')
+            pre+"quotechar", type=str, default='"',
+            help='What character to use to quote fields that need it.')
         parser.add_argument(
-            pre+"escapechar",         type=str, default="\\",
-            help='.')
-        parser.add_argument(
-            pre+"lineterminator",     type=str, default="\n",
-            help='.')
-        parser.add_argument(
-            pre+"quotechar",          type=str, default='"',
-            help='.')
-        parser.add_argument(
-            pre+"quoting",            type=str, default="MINIMAL",
+            pre+"quoting", type=str, default="MINIMAL",
             choices=[ 'ALL', 'MINIMAL', 'NONNUMERIC', 'NONE'],
             help='When should fields be quoted?.')
         parser.add_argument(
-            pre+"skipinitialspace",   type=bool, default=True,
+            pre+"skipinitialspace", type=bool, default=True,
             help='.')
         parser.add_argument(
-            pre+"strict",             type=bool, default=True,
+            pre+"strict", type=bool, default=True,
             help='.')
 
         if (csvOnly): return
 
         # Other options, as for my fsplit.py package.
         parser.add_argument(
-            pre+"comment",            type=str, default=None,
+            pre+"comment", type=str, default=None,
             help='.')
         parser.add_argument(
-            pre+"entities",           action="store_true",
+            pre+"entities", action="store_true",
             help='.')
         parser.add_argument(
-            pre+"maxsplit",           type=int, default=None,
-            help='.')
+            pre+"maxsplit", type=int, default=None,
+            help='Do at most this many splits, resulting in this+1 fields.')
         parser.add_argument(
-            pre+"minsplit",           type=int, default=None,
-            help='.')
+            pre+"minsplit", type=int, default=None,
+            help='Do at least this many splits, or report an error.')
         parser.add_argument(
-            pre+"multidelimiter",     action="store_true",
-            help='.')
+            pre+"multidelimiter", action="store_true",
+            help='Treat multiple adjacent delimiters (e.g. space), as just one.')
         parser.add_argument(
-            pre+"types",              type=str, action="append",
+            pre+"types", type=str, action="append",
             choices=[ 'str', 'int', 'float', 'bool' ],
             help='A list of types for the fields (repeatable).')
         parser.add_argument(
-            pre+"uescapes",           action="store_true",
-            help='.')
+            pre+"uescapes", action="store_true",
+            help='Recognize \\uFFFF-style special characters.')
         parser.add_argument(
-            pre+"xescapes",           action="store_true",
-            help='.')
+            pre+"xescapes", action="store_true",
+            help='Recognize \\xwFF-style special characters.')
 
         return
 
@@ -708,15 +719,17 @@ class DictWriter:
         return rnum
 
     def writerow(self, row:dict) -> None:
+        nDelims = len(self.dialect.delimiter)
         buf = ""
         if (self.fieldnames is None):
             self.fieldnames = sorted(row.keys())
-        for _, fname in enumerate(self.fieldnames):
+        for i, fname in enumerate(self.fieldnames):
+            thisDelim = self.dialect.delimiter[ i % nDelims ]
             #fname = self.fieldnames[fnum]
             fval = row[fname] if fname in row else ""
             formattedVal = self.formatOneField(fname, fval)
-            buf += formattedVal + self.dialect.delimiter
-        buf[-len(self.dialect.delimiter):] = self.dialect.lineterminator
+            buf += formattedVal + thisDelim
+        buf[-len(thisDelim):] = self.dialect.lineterminator
         self.f.write(buf)
 
     def writecomment(self, s:str):
@@ -778,10 +791,12 @@ def writeheader(fieldnames:list) -> None:
     writerow(fieldnames)
 
 def writerow(row:list) -> None:
+    nDelims = len(staticDialect.delimiter)
     buf = ""
-    for field in row:
-        buf += field + staticDialect.delimiter
-    buf[-len(staticDialect.delimiter):] = staticDialect.lineterminator
+    for i, field in enumerate(row):
+        thisDelim = staticDialect.delimiter[ i % nDelims ]
+        buf += field + thisDelim
+    buf[-len(thisDelim):] = staticDialect.lineterminator
     staticFile.write(buf)
 
 
@@ -1003,7 +1018,7 @@ def fsplit(
     dialect:DialectX         = None,    # The DialectX to assume
 
     # Manual options like Python 'csv' package:
-    delimiter:str            = "\t",    # Multi-character ok, but not regex
+    delimiter:list           = None,    # Multi-character ok, but not regex
     doublequote:bool         = False,   # TODO
     escapechar:str           = "\\",
     lineterminator:str       = "\n",    # UNUSED?
@@ -1023,6 +1038,11 @@ def fsplit(
     ) -> list:
     """Fancier string splitter. Lots of options, and Unicode aware.
     """
+    if (delimiter is None):
+        delimiter = [ "\t" ]
+    if (not isinstance(delimiter, list)):
+        delimiter = [ delimiter ]
+
     if (dialect is None):
         dialect = DialectX(
             "FROM_ARGS",
@@ -1048,9 +1068,11 @@ def fsplit(
 
     d = dialect
 
-    if (d.delimiter == ''):
+    nDelims = len(d.delimiter)
+    if (nDelims==1 and d.delimiter[0] == ''):
         return s.split()
-    dlen = len(d.delimiter)
+    thisDelim = d.delim[0]
+    dlen = thisDelim
 
     currentQuoteMap = setupQuoteMap(d.quotechar)
     if (d.skipinitialspace): s = s.lstrip()
@@ -1120,13 +1142,13 @@ def fsplit(
                     (tokens[-1], context(s, i)))
             pendingQuote = currentQuoteMap[c]
 
-        elif (c == d.delimiter[0] and context(s, i).startswith(d.delimiter)):
+        elif (c == thisDelim[0] and context(s, i).startswith(thisDelim)):
             if (d.multidelimiter):
                 nDelims = 0
-                while (s[i+nDelims*dlen].startswith(d.delimiter)): nDelims += 1
+                while (s[i+nDelims*dlen].startswith(thisDelim)): nDelims += 1
                 toIgnore = (nDelims * dlen) - 1
             if (d.maxsplit is not None and len(tokens) >= d.maxsplit):
-                tokens.append(s[i+len(d.delimiter):])
+                tokens.append(s[i+len(thisDelim):])
                 break
             tokens.append("")
 

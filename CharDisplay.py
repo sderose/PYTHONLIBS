@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # CharDisplay.py: Show tons of info about a character(s).
 # 2018-04-21: Written by Steven J. DeRose
