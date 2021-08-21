@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 #
-# BlockFormatter.
-# Upgrade for Python argparse, that don't forcibly wrap all text.
+# BlockFormatter: Upgrade for Python argparse help formatting.
 #
 # This is "Level" 1, which wraps lines to fit a given width, but retains
 # blank lines and line-breaks before MarkDown-ish lists, tables, headings, etc.
@@ -25,8 +24,7 @@ else:
 
 __metadata__ = {
     "title"        : "BlockFormatter.py",
-    "description"  :
-        "Simple formatter class for Python argparse.",
+    "description"  : "Simple formatter class for Python argparse.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
     "type"         : "http://purl.org/dc/dcmitype/Software",
@@ -47,6 +45,25 @@ defines
 a
 class that can be used with Python's
 `argparse` package in order to get better formatting.
+Mainly, in recognizes Markdown, POD, blank lines, and/or similar conventions,
+and divides the input into paragraph-level blocks, within which text
+is wrapped.
+
+
+==Formatting Behavior==
+
+Blank lines remain. This includes lines that contain only spaces and TABs
+(they will actually be empty on output, however).
+
+Lines that are indented get a newline and indentation before them,
+but no blank line (unless there was one there in the input too). Tabs are
+expanded in the indentation, assuming tabstops every 4 spaces unless
+the 'tabstops' option is set.
+
+Unindented lines are wrapped with preceding lines, except:
+* when the previous lines looks like a heading, horizontal rule, etc; or
+* when the current line start with a markdown-like block markup such as [*=\\d].
+
 
 ==BlockFormatter(argparse.HelpFormatter)==
 
@@ -54,6 +71,7 @@ This simple class is like the default argparse formatter except that
 it does ''not'' wrap lines across blank lines. That is, blank lines stay there.
 
 ===To use it with argparse===
+
     from BlockFormatter import BlockFormatter
 
     doc = ""
@@ -66,33 +84,25 @@ it does ''not'' wrap lines across blank lines. That is, blank lines stay there.
 
     * It's useful.
     * It's easy.
-    * It's upgradeable.
+    * It's *upgradeable*.
     ...
     ""
 
     parser = argparse.ArgumentParser(description=doc,
         formatter_class=BlockFormatter)
 
-===To use it as an independent formatter===
+===To use it from Python in general===
 
     from BlockFormatter import BlockFormatter
     doc = "..."
     hf = BlockFormatter(None)
+    BlockFormatter._options["tabStops"] = 8
+    ...
     print(hf._format_text(doc))
 
+===To use it from the command line===
 
-==Behavior==
-
-Blank lines remain. This includes lines that contain only spaces and TABs
-(they will actually be empty on output, however).
-
-Lines that are indented get a newline and indentation before them,
-but no blank line (unless there was one there in the input too). Tabs will be
-expanded in the indentation, assuming tabstops every 4 spaces.
-
-Unindented lines will be wrapped with preceding lines, except:
-* when the previous lines looks like a heading, horizontal rule, etc; or
-* when the current line start with a markdown-like block markup such as [*=\\d].
+    BlockFormatter.py [options] [file.md]
 
 ==Options==
 
@@ -148,28 +158,34 @@ One such is provided: BlockFormatter._alt_fill (experimental).
 
 =Related commands and libraries=
 
+==This series of formatters==
+
 This is the lowest level of my formatters: it only outputs a single, monospace
 font, with no support for color, bold, etc.
 
 One step up is `BlockFormatterPlus`, which adds:
-* support for ANSI terminal basic color and effects (by integrating my `ColorManager.py` package (q.v.)), and
-* emulation of font variation via Unicode's alternate Latin alphabets (by
-integrating my `mathAlphanumerics.py` package (q.v.). This provides
-italic, bold, script, double-struck, sans-serif, and other variations
-(but only for Latin letters and Arabic digits).
+* support for ANSI terminal basic color and effects (by integrating
+my `ColorManager.py` package (q.v.)), and
+font variation via Unicode's alternate Latin alphabets
+(see my `mathAlphanumerics.py` package). This provides
+italic, bold, script, double-struck, sans-serif, etc.).
 
-Another step up, but not really finished/working yet, is my formatter for MarkDown, MediaWiki, and POD, which adds customizable input parsing and
+Another step up, but not really finished/working yet, is my formatter for
+MarkDown, MediaWiki, and POD, which adds customizable input parsing and
 output styles.
 
-A different Python Markdown formatter (though not, to my knowledge, integrated with argparse), is [https://pypi.org/project/markdown-formatter/].
+==Other related items==
 
-My `argparsePP.py` variant adds some other features to argparse itself:
+A different Python Markdown formatter (though not, to my knowledge,
+integrated with argparse), is [https://pypi.org/project/markdown-formatter/].
 
-* Adds a showDefaults option
-* Adds a shortMetavars option (to save space on the screen)
-* Supports alternative hyphen conventions
-* Supports adding 'toggle' attributes, with '--no-' prefix (changeable)
-* Add an 'anyInt' type that accepts decimal, hex, or octal numbers
+My `argparsePP.py` add various other features to argparse, such as
+alternative hyphenation conventions; reversible boolean; and many more types.
+
+My `markdown2Xml.py` converts various kinds of Markdown to various XML
+schemas, including of course HTML.
+
+My `pod2markdown.py` converts Perl "POD" to Markdown.
 
 
 =Known bugs and limitations=
@@ -186,6 +202,7 @@ variants much better, for what I think are very good reasons.
 * Does not support MarkDown per se's "Two spaces at the end of a line
 produces a line break." I think using impossible-to-see markup that
 some editors will freely delete, is a non-starter.
+
 
 =To Do=
 
@@ -231,22 +248,23 @@ Refactor entity/escape/tab handling.
 =Options=
 """
 
+
 ##############################################################################
 #
 esc = chr(27)
 specialChars = {
-    "lsquo":   unichr(0x2018),    "rsquo":   unichr(0x2019),
-    "ldquo":   unichr(0x201C),    "rdquo":   unichr(0x201D),
-    "lsaquo":  unichr(0x2039),    "rsaquo":  unichr(0x203A),
-    "ldaquo":  unichr(0x00AB),    "rdaquo":  unichr(0x00BB),
+    "lsquo":   unichr(0x2018), "rsquo":   unichr(0x2019),
+    "ldquo":   unichr(0x201C), "rdquo":   unichr(0x201D),
+    "lsaquo":  unichr(0x2039), "rsaquo":  unichr(0x203A),
+    "ldaquo":  unichr(0x00AB), "rdaquo":  unichr(0x00BB),
 
-    "endash":  unichr(0x2013),    "emdash":  unichr(0x2014),
-    "shy":     unichr(0x00AD),    "hypoint": unichr(0x2027),
+    "endash":  unichr(0x2013), "emdash":  unichr(0x2014),
+    "shy":     unichr(0x00AD), "hypoint": unichr(0x2027),
     "hyminus": unichr(0x002D),
 
-    "ensp":    unichr(0x2002),    "emsp":    unichr(0x2003),
-    "thinsp":  unichr(0x2009),    "hairsp":  unichr(0x200A),
-    "zerosp":  unichr(0x200B),    "nbsp":    unichr(0x00A0),
+    "ensp":    unichr(0x2002), "emsp":    unichr(0x2003),
+    "thinsp":  unichr(0x2009), "hairsp":  unichr(0x200A),
+    "zerosp":  unichr(0x200B), "nbsp":    unichr(0x00A0),
 
     "lt": "<", "gt": ">", "apos": "'", "quo": '"', "amp": "&",
 }
@@ -284,6 +302,38 @@ def uescapes(s):
 
 
 ##############################################################################
+# See markdown2Xml.py
+#
+blockTypes = set([
+    "BLANK",       # whitespace-only (block-separator)
+    "PRE",         # Pretty much just means "indented"
+    "HEAD",        # whatever level
+    "RULE",        # horizontal rule
+    "TROW",        # table row
+    "ITEM",        # list item
+    "DT",          # definition term (?)
+    "DD",          # definition description
+    "PARA",        # plain paragraph
+    "COMMENT",     # comment line/obj
+    ])
+
+class Block:
+    """A single block (para, listitem, headings, table row, etc), as
+    teased out by linesToBlocks().
+    """
+    def __init__(self, btype:str="PARA", text:str="", level:int=0, typeSequence=None, cols:int=None):
+        assert btype in blockTypes
+        self.btype = btype                # kind of block
+        self.text = text                  # accumulated text content
+        self.level = level                # heading OR indentation level
+        self.typeSequence = typeSequence  # nested listed, such as "##*#*"
+        self.cols = cols                  # num columns in a table row
+
+    def add(self, text):
+        self.text += text
+
+
+###############################################################################
 #
 class BlockFormatter(argparse.HelpFormatter):
     """A formatter for argparse. This differs from the default formatter, in
@@ -306,6 +356,7 @@ class BlockFormatter(argparse.HelpFormatter):
         "breakLong":   False,     # Can split inside long tokens (like URLs)
         "altFill":     None,      # Replacement for _fill_text().
         "comment":     "$",       # Comment indicator
+        "externalParser": None,
     }
 
     def _fill_text(self, text, width, indent):
@@ -320,9 +371,18 @@ class BlockFormatter(argparse.HelpFormatter):
         hang = BlockFormatter._options["hangIndent"]
 
         # Divide at blank lines line breaks to keep
-        blocks = BlockFormatter.makeBlocks(text)
+        if (BlockFormatter._options["externalParser"]):
+            from markdown2Xml import markdown2Xml
+            mdx = markdown2Xml()
+            recs = re.split(r"\n", text)
+            blocksObjs = mdx.linesToBlocks(recs)
+            blockTexts = [ bl.text for bl in blocksObjs ]
+        else:
+            blocks = BlockFormatter.makeBlocks(text)
+
         for i in range(len(blocks)):
-            vMsg(2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
+            vMsg(2, "\n******* BLOCK %d (len %d): //%s//" %
+                (i, len(blocks[i]), blocks[i]))
             item, istring = BlockFormatter.doSpecialChars(blocks[i])
 
             #print("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
@@ -332,9 +392,10 @@ class BlockFormatter(argparse.HelpFormatter):
             if (istring!=""): indParam = indent + istring + (" "*hang)
             else: indParam = indent
 
+            #pylint: disable=E1102
             if (callable(BlockFormatter._options["altFill"])):
-                withNewlines = self._options["altFill"](
-                    item, width, indParam)
+                withNewlines = self._options["altFill"](item, width, indParam)
+            #pylint: enable=E1102
             else:
                 withNewlines = super(BlockFormatter, self)._fill_text(
                     item, width, indParam)
@@ -352,12 +413,12 @@ class BlockFormatter(argparse.HelpFormatter):
             * combine each wrappable group of lines into one
         Explicit blank lines stay as one block each.
         The returned blocks do NOT have final \n.
-        TODO: Move the parsing out to MarkdownSyntaxes.py
+        TODO: Use markdown2Xml.py
         """
         blocks = [ "" ]
         breakAfter = False
         for t in re.split(r"\n", text, flags=re.MULTILINE | re.UNICODE):
-            #blockType = "???"
+            blockType = "???"
             if (BlockFormatter._options["comment"]!="" and
                 t.startswith(BlockFormatter._options["comment"])):
                 blockType = "COMMENT"
@@ -368,27 +429,28 @@ class BlockFormatter(argparse.HelpFormatter):
             elif (t[0] == "="):                     # heading
                 blocks.append(t)
                 breakAfter = True
-                blockType = "HEADING"
+                blockType = "HEAD"
             elif (re.match(r"-{3,}|={3,}\s*$", t)): # rule
                 blocks.append("=" * 79)
                 breakAfter = True
                 blockType = "RULE"
-            elif (t[0] == "|"):                     # table
+            elif (t[0] == "|"):                     # table row
                 blocks.append(t)
                 breakAfter = True
-                blockType = "TABLE"
+                blockType = "TROW"
             elif (t[0] in "*#:0123456789 \t"):      # keep line break
                 blocks.append(t)
-                blockType = "LIST, IND"
+                blockType = "ITEM"
             else:                                   # continued text
                 if (breakAfter):
                     blocks.append(t)
                     breakAfter = False
-                    blockType = "TEXT POST BR"
+                    blockType = "PARA"
+
                 else:
                     if (blocks[-1] != ""): blocks[-1] += " "
                     blocks[-1] += t
-                    blockType = "TEXT CONTINUE"
+                    blockType = "PARA"
             #print("+%s: %s" % (blockType, blocks[-1]))
         return blocks
 
@@ -396,6 +458,7 @@ class BlockFormatter(argparse.HelpFormatter):
     def doSpecialChars(item):
         """Expand tabs, escapes, entities, etc.
         Return the expanded text, but with leading indent separate
+        TODO: Switch to markdown2Xml.InlineMapper class.
         """
         indentString = ""
         mat = re.match(r"^([ \t]+)", item)
@@ -435,56 +498,59 @@ if __name__ == "__main__":
             description=descr, formatter_class=BlockFormatter)
 
         parser.add_argument(
-            "--altFill",          action="store_true",
+            "--altFill", action="store_true",
             help="Use an alternate method to fill lines.")
         parser.add_argument(
-            "--breakLong",        action="store_true",
+            "--breakLong", action="store_true",
             help="Allow breaking long tokens (like URLs) at non-spaces.")
         parser.add_argument(
-            "--comment",          type=str, metavar="C", default="//",
+            "--comment", type=str, metavar="C", default="//",
             help="Treat lines starting with this, as comment lines.")
         parser.add_argument(
-            "--entities",         action="store_true",
+            "--entities", action="store_true",
             help="Recognize HTML/XML special characters.")
         parser.add_argument(
-            "--hangIndent",       type=int, default=2,
+            "--externalParser", action="store_true",
+            help="Use markdown2Xml.py for parsing, instead of local code.")
+        parser.add_argument(
+            "--hangIndent", type=int, default=2,
             help="Apply hanging indents of this many spaces.")
         parser.add_argument(
-            "--iencoding",        type=str, metavar="E", default="utf-8",
+            "--iencoding", type=str, metavar="E", default="utf-8",
             help="Assume this character set for input files. Default: utf-8.")
         parser.add_argument(
-            "--oencoding",        type=str, metavar="E",
+            "--oencoding", type=str, metavar="E",
             help="Use this character set for output files.")
         parser.add_argument(
-            "--quiet", "-q",      action="store_true",
+            "--quiet", "-q", action="store_true",
             help="Suppress most messages.")
         parser.add_argument(
-            "--showInvis",        action="store_true",
+            "--showInvis", action="store_true",
             help="Turn control characters etc. to visible forms.")
         parser.add_argument(
-            "--split",            action="store_true",
+            "--split", action="store_true",
             help="Just split lines.")
         parser.add_argument(
-            "--tabStops",         type=int, default=4,
+            "--tabStops", type=int, default=4,
             help="Assume tabstops every n columns.")
         parser.add_argument(
-            "--uescapes",         action="store_true",
+            "--uescapes", action="store_true",
             help="Recognize \\uFFFF-style special characters.")
         parser.add_argument(
-            "--unicode",          action="store_const",  dest="iencoding",
+            "--unicode", action="store_const", dest="iencoding",
             const="utf8", help="Assume utf-8 for input files.")
         parser.add_argument(
-            "--verbose", "-v",    action="count",       default=0,
+            "--verbose", "-v", action="count", default=0,
             help="Add more messages (repeatable).")
         parser.add_argument(
             "--version", action="version", version=__version__,
             help="Display version information, then exit.")
         parser.add_argument(
-            "--xescapes",         action="store_true",
+            "--xescapes", action="store_true",
             help="Recognize \\xFF-style special characters.")
 
         parser.add_argument(
-            "files",             type=str,
+            "files", type=str,
             nargs=argparse.REMAINDER,
             help="Path(s) to input file(s)")
 
@@ -496,6 +562,7 @@ if __name__ == "__main__":
 
     args = processOptions()
     BlockFormatter._options["verbose"] = args.verbose
+    BlockFormatter._options["externalParser"] = args.externalParser
     if (args.altFill):
         BlockFormatter._options["altFill"] = BlockFormatter._alt_fill
 

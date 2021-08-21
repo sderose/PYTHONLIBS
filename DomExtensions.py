@@ -9,6 +9,7 @@ import sys
 import re
 import codecs
 from enum import Enum
+from typing import List, IO
 import xml.dom, xml.dom.minidom
 from xml.dom.minidom import Node, NamedNodeMap
 
@@ -16,10 +17,7 @@ PY3 = sys.version_info[0] == 3
 if PY3:
     from html.entities import codepoint2name, name2codepoint
     def unichr(n): return chr(n)
-    def unicode(s, encoding='utf-8', errors='strict'): str(s, encoding, errors)
     def cmp(a, b): return  ((a > b) - (a < b))
-else:
-    from htmlentitydefs import codepoint2name, name2codepoint
 
 __metadata__ = {
     'title'        : "DomExtensions.py",
@@ -29,7 +27,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2010-01-10",
-    'modified'     : "2021-01-02",
+    'modified'     : "2021-07-08",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -54,16 +52,16 @@ DOM much more similarly to using XPath, XPtr, etc.
 ==Usage==
 
 You can use ''patchDOM''() to monkey-patch these routines into a class
-(default: ''xml.dom.Node''):
+(default: ''xml.dom.minidom.Node''):
 
     import DomExtensions
     import xml.dom
-    DomExtensions.patchDom(toPatch=xml.dom.Node)
+    DomExtensions.patchDom(toPatch=xml.dom.minidom.Node)
 
 or to just enable support for using Python's
 subscript brackets: `myNode[...]`, do:
 
-    DomExtensions.enableBrackets(toPatch=xml.dom.Node)
+    DomExtensions.enableBrackets(toPatch=xml.dom.minidom.Node)
 
 See L<#Using [] notation>, below, for the details. In short, you can say things
 like myNode[0], myNode["p":3:5], myNode["@id"], and so on.
@@ -105,7 +103,7 @@ subscript brackets: `myNode[...]`.
 
 To enable ''just'' this feature, do:
 
-    DomExtensions.enableBrackets(toPatch=xml.dom.Node)
+    DomExtensions.enableBrackets(toPatch=xml.dom.minidom.Node)
 
 For example, instead of
 
@@ -211,7 +209,7 @@ The 'select...' methods return node [n] (counting from 0)
 of a given type and/or attributes along a given axis.
 For example:
 
-    myNode.selectChild(3, elType='li', attrs={'class':'major'})
+    myNode.selectChild(3, nodeName='li', attrs={'class':'major'})
 
 This will return the fourth child of `myNode` which:
 
@@ -226,11 +224,11 @@ Constraints:
 * ''n'' counts from 0 and defaults to 0.
 Most axes support negative indexes; but not yet all of them.
 
-* ''elType'' supports "*", "#text", "#comment", "#cdata", and "#pi", just like
+* ''nodeName'' supports "*", "#text", "#comment", "#cdata", and "#pi", just like
 the bracket notation described earlier. It defaults to "*".
 The `attrs` argument cannot be used except with an element type name or "*".
 
-qnames (names with a namespace) are not yet supported for ''elType''.
+qnames (names with a namespace) are not yet supported for ''nodeName''.
 
 * `attrs`, if provided, must be None or a dict of attribute name:value pairs,
 which all must match for an element to be selected.
@@ -260,7 +258,7 @@ Return the value of attribute ''name'', from the first node along the
 ''ancestor-or-self'' axis of ''node'' that specifies it.
 Thus, the attribute's value is inherited down the tree, similar to ''xml:lang''.
 
-* '''getCompoundAttr'''(self, name, sep='#', keepMissing=False)
+* '''getCompoundAttribute'''(self, name, sep='#', keepMissing=False)
 
 Return the concatenation of the values of the named attribute,
 from all ancestors (and self). Separate them with 'sep'.
@@ -316,6 +314,10 @@ For example, "html/body/div/ul/li/p/b".
 '''Note''': An FQGI does ''not'' identify a specific element instance or location
 in a document; for that, see ''getXPointer''().
 
+* '''compareDocumentPosition'''(n1, n2)
+
+Compare two nodes for document order, returning -1, 0, or 1.
+
 * '''getXPointer'''(node, textOffset=None)
 
 Return the XPointer child sequence that leads to ''node''.
@@ -336,10 +338,6 @@ Compare two XPointer child-sequences (see ''getXPointer'')
 for relative document order, returning -1, 0, or 1.
 This does not require actually looking at a document, so no document or
 node is passed.
-
-* '''compareDocumentPosition'''(n1, n2)
-
-Compare two nodes for document order, returning -1, 0, or 1.
 
 * '''XPointerInterpret'''(document, x)
 
@@ -610,20 +608,73 @@ Internal whitespace is left unchanged.
 
 =Known bugs and limitations=
 
-Negative indexes along axes are supported only for the self, child,
-and descendant axes so far.
+* Axis selects should:
 
-`Node` is not changed to actually inherit from `list`, so there are surely some
+** uniformly support negative indexes  (currently only for the self, child,
+and descendant axes).
+** uniformly allow begin:end ranges.
+** permit selecting elements and
+attributes via regexes, and support multiple attribute constraints
+(probably just allow passing a dict).
+
+* `Node` is not changed to actually inherit from `list`, so there are surely some
 list behaviors that I haven't included (yet). Like sorting. Let me know.
 
-''selectChild''() and its kin should probably permit selecting elements and
-attributes via regexes, and support multiple attribute constraints.
+* qnames.
 
-''selectChild''() and its kin do not yet support filtering by qnames.
-
-
-The implementation for []-notation, like that or normal Python lists,
+* The __getitem__() implementation for []-notation, like normal Python lists,
 actually checks for `isinstance(arg, int)`, so `myNode["1"]` will not work.
+
+
+=To do=
+
+For canonical XML, make getEscapedAttributeList() put namespace attrs first,
+and escape CR and all > in content.
+
+* Update to use/provide whatwg DOM features like 
+NodeIterator and TreeWalker [https://dom.spec.whatwg.org/#nodeiterator]
+and NodeFilters (latter is there as enum), DOMTokenList,...?
+
+* Make NamedNodeMap more Pythonic:
+    ** dir(nnm) fails.
+
+* Add way to get applicable alignment for a table cell or column
+    ** @align or @style on the cell
+    ** <col>?
+    ** CSS (at least if explicit in an HTML header)
+    ** scan column, if all numeric (except header) use right, else left; header center?
+    ** Pull in table and style features from html2latex.py.
+* Support negative 'n' for rest of axis selects.
+* Allow creating nodes with no ownerDocument; they get attached when inserted.
+* Implement splitNode and wrap/surround(see help)
+* Let appendChild, insertBefore, insertAfter, etc. take lists.
+* Change eachTextNode, etc. to be real generators.
+* Finish type-hinting.
+* Add access for items in NamedNodeMaps via [] notation.
+* Option for innerXml/outerXml to guarantee Canonical result (in progress).
+
+==Lower priority==
+
+* Add insertPrecedingSibling, insertFollowingSibling, insertParent, insertAfter
+* Possibly support myNode[["P"]] to scan all descendants (by analogy
+with XPath "//" operator).
+* Add a way to turn off all indenting for collectAllXml2 with one option.
+* Implement a few useful BS4 bits (see class BS4Features) (and add to help).
+* String to tag converter, like for quotes?
+* Normalize line-breaks, Unicode whitespace within text nodes
+* Consider additions from https://lxml.de/api/index.html:
+** strip_attributes,....
+* Possibly, extend `innerXML`, `innerText`, etc. to be able to exclude
+certain subtrees, such as for embedded footnotes, speaker tags interrupting
+speeches, etc.?
+* Move in matchesToElements from mediaWiki2HTML.
+* Sync with XPLib.js
+* Find next node of given qgi? Select by qgi?
+* String to entity ref, like for quotes, dashes, odd spaces, etc.
+* Un-namespace methods: merge ns1/ns2; change prefix/url; drop all;....
+* Allow choice of how to 'escape' PIs and comments.
+* More optional parameters for Document.create___ (like attrs on element).
+* More flexibility on createAttribute etc.
 
 
 =Related commands=
@@ -655,40 +706,9 @@ Generate SAX.
 * 2020-05-22: Add a few items from BS4, and a few new features.
 * 2021-01-02: Add NodeTypes class, improve XPointer support.
 * 2021-03-17: Add getContentType().
-
-
-=To do=
-
-* Possibly support myNode[["P"]] to scan all descendants (by analogy
-with XPath "//" operator).
-* Add insertPrecedingSibling, insertFollowingSibling, insertParent, insertAfter
-* Allow creating nodes with no ownerDocument; they get attached when inserted
-* Implement splitNode and warp/surround(see help)
-* Option for innerXml/outerXml to guarantee Canonical result.
-* Let appendChild, insertBefore, insertAfter, etc. take lists.
-* Change eachTextNode, etc. to be real generators.
-* Add type-hinting.
-* Add access items in NamedNodeMaps via [] notation.
-* Possibly, extend `innerXML`, `innerText`, etc. to be able to exclude
-certain subtrees, such as for embedded footnotes, speaker tags interrupting
-speeches, etc.?
-
-==Lower priority==
-
-* Add a way to turn off all indenting for collectAllXml2 with one option.
-* Implement a few useful BS4 bits (see class BS4Features) (and add to help).
-* String to tag converter, like for quotes?
-* Normalize line-breaks, Unicode whitespace within text nodes
-* Consider additions from https://lxml.de/api/index.html:
-** strip_attributes,....
-* Move in matchesToElements from mediaWiki2HTML.
-* Sync with XPLib.js
-* Find next node of given qgi? Select by qgi?
-* String to entity ref, like for quotes, dashes, odd spaces, etc.
-* Un-namespace methods: merge ns1/ns2; change prefix/url; drop all;....
-* Allow choice of how to 'escape' PIs and comments.
-* More optional parameters for Document.create___ (like attrs on element).
-* More flexibility on createAttribute etc.
+* 2021-07-08: Add some methods omitted from patchDom(). Add checking for such.
+Type-hinting. Proof and sort patchDom list vs. reality.
+* 2021-07-20: Fix eachNode to do attribute nodes, too. Add removeNodesByNodeType().
 
 
 =Rights=
@@ -735,11 +755,14 @@ ARG_STAR      = 3
 ARG_RESERVED  = 4
 ARG_NAME      = 5
 
-try:
-    from BaseDom import BaseDom
-    BaseDom.usePythonExceptions()
-except ImportError as e:
-    sys.stderr.write("Could not import BaseDom for Exceptions.\n")
+_regexType = type(re.compile(r'a*'))
+
+
+#try:
+#    from BaseDom import BaseDom
+#    BaseDom.usePythonExceptions()
+#except ImportError as e:
+#    sys.stderr.write("DomExtensions: Could not import BaseDom for Exceptions.\n")
 
 class NOT_SUPPORTED_ERR(Exception):
     pass
@@ -748,12 +771,34 @@ class INDEX_SIZE_ERR(Exception):
 class HIERARCHY_REQUEST_ERR(Exception):
     pass
 
-_regexType = type(re.compile(r'a*'))
-
-
-def DEgetitem(self:Node, n1, n2=None, n3=None):
+class NodeFilter(Enum):  
     """
-    Access nodes via Python list notation, based on my paper:
+    See https://dom.spec.whatwg.org/#callbackdef-nodefilter
+    """
+    # Constants for acceptNode()
+    FILTER_ACCEPT = 1
+    FILTER_REJECT = 2
+    FILTER_SKIP = 3
+
+    # Constants for whatToShow
+    SHOW_ALL = 0xFFFFFFFF
+    SHOW_ELEMENT = 0x1
+    SHOW_ATTRIBUTE = 0x2
+    SHOW_TEXT = 0x4
+    SHOW_CDATA_SECTION = 0x8
+    SHOW_ENTITY_REFERENCE = 0x10  # legacy
+    SHOW_ENTITY = 0x20 # legacy
+    SHOW_PROCESSING_INSTRUCTION = 0x40
+    SHOW_COMMENT = 0x80
+    SHOW_DOCUMENT = 0x100
+    SHOW_DOCUMENT_TYPE = 0x200
+    SHOW_DOCUMENT_FRAGMENT = 0x400
+    SHOW_NOTATION = 0x800  # legacy
+
+
+
+def DEgetitem(self:Node, n1, n2=None, n3=None) -> List:
+    """Access nodes via Python list notation, based on my paper:
       DeRose, Steven J. JSOX: A Justly Simple Objectization for XML:
       Or: How to do better with Python and XML.
       Balisage Series on Markup Technologies, vol. 13 (2014).
@@ -820,15 +865,15 @@ def DEgetitem(self:Node, n1, n2=None, n3=None):
             raise IndexError(
                 "No 2 adjacent ints in [%s:%s:%s] for a Node." % (n1, n2, n3))
 
-def DEcontains(self:Node, elType:str) -> bool:
+def DEcontains(self:Node, nodeName:str) -> bool:
     """Test whether the node has a direct child of the given element type.
     """
-    if (elType[0] == '@'):
-        return self.hasAttribute(elType)
+    if (nodeName[0] == '@'):
+        return self.hasAttribute(nodeName)
     for ch in self.childNodes:
         if (ch.nodeType == Node.ELEMENT_NODE and
-            (elType == '*' or elType == ch.nodeName)): return True
-        if (elType[0] == '#' and elType == self.nodeName): return True
+            (nodeName == '*' or nodeName == ch.nodeName)): return True
+        if (nodeName[0] == '#' and nodeName == self.nodeName): return True
         return False
 
 def nameOfNodeType(self:Node):
@@ -836,8 +881,7 @@ def nameOfNodeType(self:Node):
     return NodeTypes[nt]
 
 def _getChildNodesByName_(self:Node, name:str):
-    """
-    Return a list of this node's children of a given element name
+    """Return a list of this node's children of a given element name
     '*' gets all element children, but no pi, comment, text....
     """
     return self._getListItemsByName_(self.childNodes, name)
@@ -876,12 +920,6 @@ def argType(s):
 ###############################################################################
 # Methods to make minidom (or whatever) look like JS DOM.
 #
-def nnmIteritems(self:NamedNodeMap):
-    """
-    """
-    for k in self.keys:
-        yield (k, self[k])
-
 def outerHTML(self:Node, indent:str="    "):
     """
     """
@@ -963,13 +1001,21 @@ def innerText(self:Node, sep:str='') -> str:
 # Methods to add to NamedNodeMap to make it more usable.
 # xml.dom.minidom claims to have this, but I have had problems with it.
 # http://epydoc.sourceforge.net/stdlib/xml.dom.minidom.NamedNodeMap-class.html
+# TODO: Can we make dir() work for these?
 #
+def NNM_iteritems(self:NamedNodeMap):
+    """Let us iterate (I think this got added eventually).
+    """
+    for k in self.keys:
+        yield (k, self[k])
+
 def NNM_getitem(self:NamedNodeMap, which):
-    try:
-        x = int(which)
-        return self.item(x)
-    except ValueError:
-        return self.getNamedItem(which).vValue
+    """Allow accessing attributes by number.
+    """
+    if (isinstance(which, int)):
+        return self.items()[which]
+    else:
+        return self.getNamedItem(which).value
 
 
 ###############################################################################
@@ -980,83 +1026,83 @@ def NNM_getitem(self:NamedNodeMap, which):
 #
 # TODO: Support negative to go from end.
 #
-def selectSelf(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
-    if (self.nodeMatches(elType, attrs)):
+def selectSelf(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
+    if (self.nodeMatches(nodeName, attrs)):
         if (n==0 or n==-1): return self
     return None
 
-def selectAncestor(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectAncestor(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
     """Return the first/nth ancestor that fits the requirements.
     TODO: Support negative n.
     """
-    if (n>=0):
-        cur = self.parentNode
-        return cur.selectAncestorOrSelf(
-            n=n, elType=elType, attrs=attrs)
-    else:
+    if (n<0):
         raise NOT_SUPPORTED_ERR("selectPreceding() doesn't support negative indexes yet.")
+    cur = self.parentNode
+    return cur.selectAncestorOrSelf(
+        n=n, nodeName=nodeName, attrs=attrs)
 
-def selectAncestorOrSelf(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectAncestorOrSelf(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
     """Like selectAncestor(), but the node itself is also considered.
     n=-01 means the outermost one (if no
     other constraints are given, the document element).
     """
-    if (n>=0):
-        found = 0
-        cur = self
-        while (cur):
-            if (cur.nodeMatches(elType, attrs)):
-                found += 1
-                if (found >= n): return cur
-            cur= cur.parentNode
-        return None
-    else:
+    if (n<0):
         raise NOT_SUPPORTED_ERR("selectPreceding() doesn't support negative indexes yet.")
+    found = 0
+    cur = self
+    while (cur):
+        if (cur.nodeMatches(nodeName, attrs)):
+            found += 1
+            if (found >= n): return cur
+        cur= cur.parentNode
+    return None
 
-def selectChild(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectChild(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
     """n=-01 means the last one.
     """
     found = 0
     if (n >= 0):
         cur = self.getFirstChild()
         while (cur):
-            if (self.nodeMatches(elType, attrs)):
+            if (self.nodeMatches(nodeName, attrs)):
                 found += 1
                 if (found >= n): return cur
             cur = cur.nextSibling()
     else:
         cur = self.getLastChild()
         while (cur):
-            if (self.nodeMatches(elType, attrs)):
+            if (self.nodeMatches(nodeName, attrs)):
                 found += 1
                 if (found >= -n): return cur
             cur = cur.precedingSibling()
 
     return None
 
-def selectDescendantOrSelf(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectDescendantOrSelf(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
     """TODO: Support negative n.
     """
-    if (self.nodeMatches(elType, attrs)):
+    if (n<0):
+        raise NOT_SUPPORTED_ERR("selectDescendantOrSelf() doesn't support negative indexes yet.")
+    if (self.nodeMatches(nodeName, attrs)):
         if (n==0): return self
         n -= 1
-    return selectDescendantR(n, elType, attrs)
+    return selectDescendantR(n, nodeName, attrs)
 
-def selectDescendant(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectDescendant(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
     """
     """
-    return selectDescendantR(n, elType, attrs)
+    return selectDescendantR(n, nodeName, attrs)
 
-def selectDescendantR(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectDescendantR(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
     """
     """
     found = 0
     if (n >= 0):
-        if (self.nodeMatches(elType, attrs)):
+        if (self.nodeMatches(nodeName, attrs)):
             found += 1
             if (found >= n): return self
         for ch in self.childNodes:
-            node = self.getDescendantByAttributeR(ch, n, elType, attrs)
+            node = self.getDescendantByAttributeR(ch, n, nodeName, attrs)
             if (node):
                 found += 1
                 if (found >= n): return ch
@@ -1064,27 +1110,25 @@ def selectDescendantR(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
     else:
         cur = self.rightBranch
         while (cur != self):
-            if (cur.nodeMatches(elType, attrs)): found += 1
+            if (cur.nodeMatches(nodeName, attrs)): found += 1
             if (found >= -n): return cur
             cur = cur.getPreceding()
         return None
 
-def selectPreceding(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectPreceding(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
+    """TODO: Support -n
     """
-    TODO: Support -n
-    """
-    if (n >= 0):
-        cur = getPreceding(self)
-        found = 0
-        while (cur):
-            if (isWithin(self, cur)): continue  # No ancestors, please.
-            if (cur.nodeMatches(elType, attrs)):
-                found += 1
-                if (found >= n): return cur
-            cur=getPreceding(cur)
-        return None
-    else:
+    if (n < 0):
         raise NOT_SUPPORTED_ERR("selectPreceding() doesn't support negative indexes yet.")
+    cur = getPreceding(self)
+    found = 0
+    while (cur):
+        if (isWithin(self, cur)): continue  # No ancestors, please.
+        if (cur.nodeMatches(nodeName, attrs)):
+            found += 1
+            if (found >= n): return cur
+        cur=getPreceding(cur)
+    return None
 
 def getPreceding(self:Node) -> Node:
     """Get the immediately preceding node, if any. This includes earlier
@@ -1113,22 +1157,21 @@ def getPrecedingAbsolute(self:Node) -> Node:
         cur = cur.parentNode
     return None
 
-def selectFollowing(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectFollowing(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
     """As in XPath, does not include descendants.
     See https://stackoverflow.com/questions/44377798/
     TODO: Support -n
     """
-    if (n >= 0):
-        cur = self.getFollowing()
-        found = 0
-        while (cur):
-            if (cur.nodeMatches(elType, attrs)):
-                found += 1
-                if (found >= n): return cur
-            cur = self.getFollowing()
-        return None
-    else:
+    if (n < 0):
         raise NOT_SUPPORTED_ERR("selectFollowing() doesn't support negative indexes yet.")
+    cur = self.getFollowing()
+    found = 0
+    while (cur):
+        if (cur.nodeMatches(nodeName, attrs)):
+            found += 1
+            if (found >= n): return cur
+        cur = self.getFollowing()
+    return None
 
 def getFollowing(self:Node) -> Node:
     """As in XPath, does not include descendants.
@@ -1153,38 +1196,33 @@ def getFollowingAbsolute(self:Node) -> Node:
         cur = cur.parentNode
     return None
 
-def selectPrecedingSibling(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectPrecedingSibling(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
+    """TODO: Support -n
     """
-    TODO: Support -n
-    """
-    if (n >= 0):
-        cur = self.getPreviousSibling()
-        found = 0
-        while (cur):
-            if (cur.nodeMatches(elType, attrs)):
-                found += 1
-                if (found >= n): return cur
-            cur = cur.getPreviousSibling()
-        return None
-    else:
+    if (n < 0):
         raise NOT_SUPPORTED_ERR("selectPrecedingSibling() doesn't support negative indexes yet.")
+    cur = self.getPreviousSibling()
+    found = 0
+    while (cur):
+        if (cur.nodeMatches(nodeName, attrs)):
+            found += 1
+            if (found >= n): return cur
+        cur = cur.getPreviousSibling()
+    return None
 
-def selectFollowingSibling(self:Node, n:int=0, elType:str="", attrs=None) -> Node:
+def selectFollowingSibling(self:Node, n:int=0, nodeName:str="", attrs:dict=None) -> Node:
+    """TODO: Support -n
     """
-    TODO: Support -n
-    """
-    if (n >= 0):
-        cur = self.getFollowingSibling()
-        found = 0
-        while (cur):
-            if (cur.nodeMatches(elType, attrs)):
-                found += 1
-                if (found >= n): return cur
-            cur = cur.getFollowingSibling()
-        return None
-    else:
+    if (n < 0):
         raise NOT_SUPPORTED_ERR("selectFollowingSibling() doesn't support negative indexes yet.")
-
+    cur = self.getFollowingSibling()
+    found = 0
+    while (cur):
+        if (cur.nodeMatches(nodeName, attrs)):
+            found += 1
+            if (found >= n): return cur
+        cur = cur.getFollowingSibling()
+    return None
 
 ### Useful synonyms
 #
@@ -1217,28 +1255,32 @@ def getLeastCommonAncestor(self:Node, other:Node) -> Node:
     return None
 
 def getLeftBranch(self:Node) -> Node:
-    """
-    Find the furthest node down if you always go left.
+    """Find the furthest node down if you always go left.
     """
     cur = self
     while (cur.firstChild): cur = cur.firstChild
     return cur
 
 def getRightBranch(self:Node) -> Node:
-    """
-    Find the furthest node down if you always go right.
+    """Find the furthest node down if you always go right.
     """
     cur = self
     while (cur.lastChild): cur = cur.lastChild
     return cur
 
-def getFirstChild(self:Node, nodeType=None) -> Node:
-    return self.selectChild(self, n=0, elType=nodeType)
+def getFirstChild(self:Node, nodeName:str=None) -> Node:
+    for ch in self.childNodes:
+        if (ch.nodeName == nodeName): return ch
+        if (nodeName=="*" and ch.nodeType==Node.ELEMENT_NODE): return ch
+    return None
 
-def getLastChild(self:Node, nodeType=None) -> Node:
-    return self.selectChild(self, n=-1, elType=nodeType)
+def getLastChild(self:Node, nodeName:str=None) -> Node:
+    for ch in reversed(self.childNodes):
+        if (ch.nodeName == nodeName): return ch
+        if (nodeName=="*" and ch.nodeType==Node.ELEMENT_NODE): return ch
+    return None
 
-def getNChildNodes(self:Node, nodeType=None) -> int:
+def getNChildNodes(self:Node, nodeType:str=None) -> int:
     """Return the number of children of the current node.
     TODO: Node implementations that don't use physical arrays
     may want to override this for speed.
@@ -1250,7 +1292,7 @@ def getNChildNodes(self:Node, nodeType=None) -> int:
             (nodeType=='*' or nodeType==ch.nodeName)): n += 1
     return n
 
-def getChildNumber(self:Node, nodeType=None) -> int:
+def getChildNumber(self:Node, nodeType:str=None) -> int:
     """Return the number of this node among its siblings.
     @param nodeType: If specified, only count siblings that are elements of
     the specified type ('*' for all).
@@ -1264,8 +1306,7 @@ def getChildNumber(self:Node, nodeType=None) -> int:
     return None
 
 def getDepth(self:Node) -> int:
-    """
-    How far down are we? Document element is 1.
+    """How far down are we? Document element is 1.
     """
     d = 0
     cur = self
@@ -1274,7 +1315,7 @@ def getDepth(self:Node) -> int:
         cur = cur.parentNode
     return d
 
-def getMyIndex(self:Node, onlyElements=True) -> int:
+def getMyIndex(self:Node, onlyElements:bool=True) -> int:
     """Return the position in order, among the node's siblings.
     The first child is [0]!
     """
@@ -1291,7 +1332,7 @@ def getMyIndex(self:Node, onlyElements=True) -> int:
         if (onlyElements==False or sib.nodeType==Node.ELEMENT_NODE): n += 1
     raise(ValueError)
 
-def getFQGI(self:Node, sep="/") -> str:
+def getFQGI(self:Node, sep:str="/") -> str:
     """Return the sequence of element type names of all ancestors, in
     document order, separated by `sep`.
     """
@@ -1305,13 +1346,12 @@ def getFQGI(self:Node, sep="/") -> str:
         cur = cur.parentNode
     return f
 
-def isWithinType(self:Node, elType) -> bool:
-    """
-    Test whether a node has an ancestor of a specified element type.
+def isWithinType(self:Node, nodeName:str) -> bool:
+    """Test whether a node has an ancestor of a specified element type.
     """
     cur = self
     while (cur):
-        if (cur.nodeName == elType): return True
+        if (cur.nodeName == nodeName): return True
         cur = cur.parentNode
     return False
 
@@ -1319,8 +1359,7 @@ def isDescendantOf(self:Node, node:Node) -> bool:
     return isWithin(self, node)
 
 def isWithin(self:Node, node:Node) -> bool:
-    """
-    Test whether some specific node is an ancestor of the given node.
+    """Test whether some specific node is an ancestor of the given node.
     """
     cur = self.parentNode
     while (cur):
@@ -1342,8 +1381,8 @@ def getContentType(self) -> int:
     (TODO: perhaps CDATA should count as just text?).
     """
     if (len(self.childNodes) == 0): return self.CONTENT_EMPTY
-    eChild = self.selectChild(n=0, elType='*')
-    tChild = self.selectChild(n=0, elType='#TEXT')
+    eChild = self.selectChild(n=0, nodeName='*')
+    tChild = self.selectChild(n=0, nodeName='#TEXT')
     if (eChild):
         if tChild: return self.CONTENT_MIXED
         else: return self.CONTENT_ELEMENT
@@ -1354,7 +1393,7 @@ def getContentType(self) -> int:
 ###############################################################################
 # XPointer support
 #
-def getXPointer(self:Node, textOffset=None) -> str:
+def getXPointer(self:Node, textOffset:int=None) -> str:
     """Get a simple numeric XPointer to the node, as a string.
     With `textOffset`, dig down and find the specified character (not byte!)
     among the descendants, and return a precise pointer there. If the
@@ -1376,7 +1415,7 @@ def getXPointer(self:Node, textOffset=None) -> str:
     xp = getXPointerToNode(theTextNode) + "#%d" % (localOffset)
     return xp
 
-def findTextByOffset(self:Node, textOffset=0):
+def findTextByOffset(self:Node, textOffset:int=0):
     """Given a text offset within the *entire* text under the given node,
     find which particular TEXT_NODE descendant contains it, and how far
     into that TEXT_NODE it is.
@@ -1391,7 +1430,12 @@ def findTextByOffset(self:Node, textOffset=0):
         textSeen += lastLen
     return tnode, lastLen
 
-def getXPointerToNode(self:Node, idAttrName="id"):
+def compareDocumentPosition(self:Node, other:Node):
+    """Compare two nodes for order.
+    """
+    return self.XPointerCompare(self.getXPointer(), other.getXPointer())
+
+def getXPointerToNode(self:Node, idAttrName:str="id") -> str:
     """Get a simple XPointer to the node, as a string.
     If `idAttrName` is given, the XPointer will use that as an ID, and
     use child sequence numbers from there down. This is much more robust.
@@ -1421,12 +1465,7 @@ def XPointerCompare(self:Node, xp1, xp2):
     # At least one of them ran out...
     return cmp(len(t1), len(t2))
 
-def compareDocumentPosition(self:Node, other:Node):
-    """Compare two nodes for order.
-    """
-    return self.XPointerCompare(self.getXPointer(), other.getXPointer())
-
-def XPointerInterpret(self:Node,  xp):
+def XPointerInterpret(self:Node,  xp) -> Node:
     """Given an XPointer string, find the node (if it exists).
     """
     document = self.ownerDocument()
@@ -1446,11 +1485,11 @@ def XPointerInterpret(self:Node,  xp):
 ###############################################################################
 # @TODO UPDATE TO MATCH AJICSS.js
 #
-def nodeMatches(self:Node, elType="*", attrs=None):
+def nodeMatches(self:Node, nodeName="*", attrs:dict=None) -> bool:
     """Check if a node matches the supported selection constraints.
     Used by all the selectAXIS() methods.
 
-    @param elType can be any of the following:
+    @param nodeName can be any of the following:
         A literal node name for an element
         '*' (the default) for any element
         '#' plus a DOM nodeType name (can omit '_NODE', or abbreviate)
@@ -1471,17 +1510,17 @@ def nodeMatches(self:Node, elType="*", attrs=None):
     @TODO: Perhaps allow regexes, numeric comparison for numeric values, etc.
     @TODO: Perhaps allow matching against any token(s) of an attribute?
     """
-    if (elType):                                     # check type constraint:
-        if (elType == "*"):
+    if (nodeName):                                     # check type constraint:
+        if (nodeName == "*"):
             if (self.nodeType!=Node.ELEMENT_NODE): return False
-        elif (":" in elType):
+        elif (":" in nodeName):
             raise NOT_SUPPORTED_ERR("Namespaces not yet allowed for select...().")
         else:
             # Would prefer to test _sre.SRE_Pattern, but that doesn't work.
-            if (type(elType) == _regexType):
-                if (not re.match(elType, self.nodeName)): return False
+            if (type(nodeName) == _regexType):
+                if (not re.match(nodeName, self.nodeName)): return False
             else:
-                if (self.nodeName != elType): return False
+                if (self.nodeName != nodeName): return False
 
     if (not attrs): return True
     if (self.nodeType == Node.TEXT_NODE): return False
@@ -1524,12 +1563,13 @@ def getInheritedAttribute(self:Node, aname):
     return None
 
 def getEscapedAttribute(self:Node, aname, quoteChar='"'):
-    """
+    """Retrieve the value of a named attribute, and return it after escaping
+    any occurrences of the `quoteChar` (usually double quote).
     """
     avalue = self.getAttribute(aname)
     return escapeXmlAttribute(avalue, quoteChar='"')
 
-def getCompoundAttr(self:Node, name, sep='#', keepMissing=False):  ### Not DOM
+def getCompoundAttribute(self:Node, name, sep='#', keepMissing:bool=False):  ### Not DOM
     """Return the concatenation of the values of the named attribute,
     from all ancestors (and self). Separate them with 'sep'.
     This facilitates a notion of compound keys (or hierarchical IDs).
@@ -1545,25 +1585,26 @@ def getCompoundAttr(self:Node, name, sep='#', keepMissing=False):  ### Not DOM
         cur = cur.parentNode
     return None
 
-def getStartTag(self:Node, sortAttributes=False):
-    """
-    Generate a start tag for the given element.
-    TODO: support sorting.
+def getStartTag(self:Node, sortAttributes:bool=False, discards:list=None) -> str:
+    """Generate a start tag for the given element.
+    @param sortAttributes: Put the attributes in alphanetical order, as for Canonical XML.
+    @param discards: Don't include any attributes whose names are given here.
     """
     assert self.nodeType == Node.ELEMENT_NODE
     assert (sortAttributes==False)
-    buf = "<%s" % (self.nodeName)
-    if (self.getAttribute('id')):
-        buf += ' id="%s"' % (self.getEscapedAttribute('id'))
-    for a in (self.attributes):
-        if (a == 'id'): continue
+    anames = []
+    for a, _v in (self.attributes.items()):
+        if (discards and a in discards): continue
+        anames.append(a)
+    if (sortAttributes): anames = sorted(anames)
+    
+    buf = ""
+    for a in (anames):
         buf += ' %s="%s"' % (a, self.getEscapedAttribute(a))
-    buf += ">"
-    return buf
+    return "<%s%s>" % (self.nodeName, buf)
 
 def getEndTag(self:Node, appendAttr='id'):
-    """
-    Generate a canonical end tag for the given element.
+    """Generate a normal end tag for the given element.
     @param appendAttr: If set, and the given element has an attribute with
     this name, put that attribute as a comment following the end-tag. This
     is handy when editing, esp. for large or deep documents.
@@ -1583,8 +1624,8 @@ def getComment(self:Node):
     return "<!--%s -->" % (self.data)
     
 def getEscapedAttributeList(self:Node, sortAttributes=False, quoteChar='"'):
-    """
-    Assemble the entire attribute list, escaped as needed to write out as XML.
+    """Assemble the entire attribute list, escaped as needed to write out as XML.
+    TODO: At least for canonical XML, put namespace attrs first.
     """
     buf = ""
     if (not (self)): return None
@@ -1594,28 +1635,37 @@ def getEscapedAttributeList(self:Node, sortAttributes=False, quoteChar='"'):
     if (sortAttributes): anames = sorted(anames)
     for aname in anames:
         avalue = self.getEscapedAttribute(aname, quoteChar=quoteChar)
-        if (quoteChar == "'"): buf += "%s='%s'" % (aname, avalue)
-        else: buf += '%s="%s"' % (aname, avalue)
+        if (quoteChar == "'"): buf +=  "%s='%s'" % (aname, avalue)
+        else: buf += ' %s="%s"' % (aname, avalue)
     return buf
 
-def addAttributeToken(self:Node, attrName, token, duplicates=False):
-    """TODO Pull in code from JavaScript...
+def addAttributeToken(self:Node, attrName, token, duplicates:bool=False) -> bool:
+    """Make sure the attribute includes the specified token.
+    @return: True if it was actually add (that is, it wasn't there before).
     """
-    raise NOT_SUPPORTED_ERR("No addAttributeToken")
+    attrValue = self.getAttribute(attrName)
+    if re.match(r"\b%s\b" % (token), attrValue): return False
+    self.setAttribute(attrName, attrValue + token)
+    return True
 
-def removeAttributeToken(self:Node, attrName, token):
+def removeAttributeToken(self:Node, attrName, token) -> bool:
+    """Delete an attribute value token if present.
+    @return: True if it was actually there before being removed.
     """
-    """
-    raise NOT_SUPPORTED_ERR("No removeAttributeToken")
+    attrValue = self.getAttribute(attrName)
+    attrValue2 = re.sub(r"\b%s\b" % (token), "", attrValue)
+    if (attrValue2 != attrValue):
+        self.setAttribute(attrName, attrValue2)
+        return True
+    return False
 
-
-def removeWhiteSpaceNodes(self:Node):
+def removeWhiteSpaceNodes(self:Node) -> None:
     """Drop all text nodes that contain only whitespace characters.
     """
     # print "running removeWhiteSpaceNodesCB\n"
     eachNodeCB(self, callbackA=removeWhiteSpaceNodesCB, callbackB=None)
 
-def removeWhiteSpaceNodesCB(self:Node):
+def removeWhiteSpaceNodesCB(self:Node) -> None:
     """This only deals with XML whitespace, not all Unicode.
     """
     if (self.nodeType != Node.TEXT_NODE): return
@@ -1623,7 +1673,7 @@ def removeWhiteSpaceNodesCB(self:Node):
     mat = re.search(xmlSpaceOnlyRegex, t, "")
     if (mat): self.parentNode.removeChild(self)
 
-def removeNodesByTagName(self:Node, nodeName):
+def removeNodesByTagName(self:Node, nodeName) -> int:
     """
     """
     nodes = self.getElementsByTagName(nodeName)
@@ -1633,20 +1683,31 @@ def removeNodesByTagName(self:Node, nodeName):
         ct += 1
     return ct
 
-def untagNodesByTagName(root, nodeName):
+def removeNodesByNodeType(self:Node, nodeType) -> int:
+    """Remove all nodes of a given nodeType, such as PIs, comments, namespace nodes....
+    TODO: Not sure if this iteration will be happy if deleting elements....
     """
+    for node in self.eachNode():
+        if (node.nodeType != nodeType): continue
+        node.parent.removeChild(node)
+        ct += 1
+    return ct
+
+def untagNodesByTagName(root, nodeName) -> None:
+    """Find all elements of a given element type, and remove them, leaving their
+    descendants otherwise intact.
     """
     for t in root.getElementsByTagName(nodeName):
         tn = root.getDocument.createTextNode(t.innerText())
         t.parentNode.replaceChild(t, tn)
 
-def renameByTagName(root, oldName, newName):
-    """
+def renameByTagName(root, oldName, newName) -> None:
+    """Change the name for all elements of a given element type name.
     """
     for t in root.getElementsByTagName(oldName):
         t.nodeName = newName
 
-def forceTagCase(root, upper=False, attributesToo=False):
+def forceTagCase(root, upper=False, attributesToo:bool=False):
     """Force all element (and optionally attribute) names in a subtree,
     to lower (or upper) case.
     """
@@ -1662,8 +1723,7 @@ def forceTagCase(root, upper=False, attributesToo=False):
     return
 
 def getAllDescendants(root, excludeTypes=None, includeTypes=None):
-    """
-    Get a list of all descendants of the given node, in document order.
+    """Get a list of all descendants of the given node, in document order.
     @param excludeTypes: A list of nodeTypes to exclude (such as TEXT_NODE).
         Descendants of skipped nodes will still be traversed.
     @param excludeTypes: A list of nodeTypes to include. If not specified,
@@ -1778,11 +1838,10 @@ def insertFollowingSibling(self:Node, node):
     else: par.appendChild(node)
     return node
 
-def insertParent(self:Node, elType):
+def insertParent(self:Node, nodeName):
+    """TODO Allow a sequence of siblings
     """
-    TODO Allow a sequence of siblings
-    """
-    new = self.getOwnerDocument.createElement(elType)
+    new = self.getOwnerDocument.createElement(nodeName)
     self.parentNode.replaceChild(new, self)
     new.appendChild(self)
     return new
@@ -1791,8 +1850,7 @@ def insertParent(self:Node, elType):
 ###############################################################################
 #
 def mergeWithFollowingSibling(self:Node, cur):
-    """
-    Following sibling goes away, but its children are appended to the node.
+    """Following sibling goes away, but its children are appended to the node.
     """
     if (not (cur)): return None
     sib = cur.getFollowingSibling()
@@ -1802,8 +1860,7 @@ def mergeWithFollowingSibling(self:Node, cur):
     cur.parentNode.removeChild(sib)
 
 def mergeWithPrecedingSibling(self:Node, cur):
-    """
-    Preceding sibling goes away, but its children are appended to the node.
+    """Preceding sibling goes away, but its children are appended to the node.
     """
     if (not (cur)): return None
     sib = cur.getPrecedingSibling()
@@ -1922,22 +1979,28 @@ def eachNodeCB(self:Node, callbackA=None, callbackB=None, depth=1):
         if (callbackB(self)): return 1
     return 0 # succeed
 
-# TODO: rename to lose the "for" (&c)
-def eachNode(self:Node, wsn=True, depth=1):
+def eachNode(self:Node, wsn:bool=True, attributeNodes:bool=True, depth:int=1):
     """Generate all descendant nodes.
     @param wsn: If False, skip white-space-only nodes.
+    @param attributeNodes: If False, skip attribute nodes.
     """
-    if (not (self)): return
-    if (self.nodeType != Node.TEXT_NODE
-        or wsn or self.nodeValue.strip() != ''):
-        yield self
+    if (not self): return
+    if (self.nodeType==Node.TEXT_NODE and
+         (not wsn and self.nodeValue.strip() == '')): return     
+    yield self
+    
+    # TODO Check, this isn't quite how to iterate through attribute *nodes*
+    if (attributeNodes):  # TODO: How about namespace nodes? Separate option?
+        for attrNode in self.attributes:
+            yield attrNode
+                
     if (self.hasChildNodes()):
         for ch in self.childNodes:
-            for chEvent in eachTextNode(ch, depth+1):
+            for chEvent in eachNode(ch, depth=depth+1):
                 yield chEvent
     return
 
-def reversedEachNode(self:Node, wsn=True, depth=1):
+def reversedEachNode(self:Node, wsn:bool=True, depth=1):
     """Generate all descendant nodes in reverse order
     @param wsn: If False, skip white-space-only nodes.
     """
@@ -1951,7 +2014,7 @@ def reversedEachNode(self:Node, wsn=True, depth=1):
         yield self
     return
 
-def eachTextNode(self:Node, wsn=True, depth=1):
+def eachTextNode(self:Node, wsn:bool=True, depth=1):
     """Generate all descendant text nodes.
     @param wsn: If False, skip white-space-only nodes.
     """
@@ -1977,6 +2040,8 @@ def eachElement(self:Node, etype=None, depth=1):
             for chEvent in eachElement(ch, etype=None, depth=depth+1):
                 yield chEvent
     return
+
+# TODO: eachComment, eachPI, eachCDATA?
 
 def generateNodes(self:Node):
     """Traverse a subtree given its root, and yield the nodes preorder.
@@ -2057,7 +2122,7 @@ def collectAllText(self:Node, delim=" ", depth=1):
     return textBuf
 
 
-def getTextNodesIn(node:Node):
+def getTextNodesIn(node:Node) -> list:
     """Return just the text nodes under the specified starting node.
     By default, includes descendant text nodes; should add option to do
     just direct ones.
@@ -2075,25 +2140,27 @@ def getTextNodesIn(node:Node):
 ###############################################################################
 #
 def collectAllXml2(self:Node,
-    breakComments=True,      # Break/indent before comments
-    breakEnds=True,          # Break before end tags
-    breakPIs=True,           # Break/indent before processing instructions
-    breakStarts=True,        # Break before start tags
-    canonical=False,         # Generate Canonical XML
-    delim=" ",               # put between text nodes
-    emitter=None,            # What Emitter object to use
-    emptyForm="HTML",        # Which syntax to use for empty elements
-    indentString='    ',     # Repeat this to indent ("" not to)
-    indentText=False,        # Break/indent before text nodes
-    lineBreak="\n",          # String to use for line-breaks
-    quoteChar='"',           # For quoting attrs, etc.
+    breakComments:bool=True,      # Break/indent before comments
+    breakEnds:bool=True,          # Break before end tags
+    breakPIs:bool=True,           # Break/indent before processing instructions
+    breakStarts:bool=True,        # Break before start tags
+    canonical:bool=False,         # Generate Canonical XML
+    delim:str=" ",                # put between text nodes
+    emitter=None,                 # What Emitter object to use
+    emptyForm:str="HTML",         # Which syntax to use for empty elements: HTML, XML, SGML, NONE
+    indentString:str='    ',      # Repeat this to indent ("" not to)
+    indentText:bool=False,        # Break/indent before text nodes
+    lineBreak:str="\n",           # String to use for line-breaks
+    quoteChar:str='"',            # For quoting attrs, etc.
 
-    schemaInfo=None,         # Any schema-specific info (not yet used)
-    sortAttributes=False,    # Attrs in alphabetical order
-    strip=False              # Strip whitespace off text nodes?
-    ):
-    """
-    Collect a subtree as WF XML, with appropriate escaping. Can also
+    schemaInfo=None,              # Any schema-specific info (not yet used)
+    sortAttributes:bool=False,    # Attrs in alphabetical order
+    strip:bool=False,             # Strip whitespace off text nodes?
+    xmlDcl:bool=True,
+    doctype:bool=True,
+    normAttrs:bool=True,
+    ) -> str:
+    """Collect a subtree as WF XML, with appropriate escaping. Can also
     put a delimiter before each start-tag; if it contains '\n', then the
     XML will also be hierarchically indented. -color applies.
 
@@ -2102,19 +2169,22 @@ def collectAllXml2(self:Node,
     which concatenates everything into a string (other options include writing
     to a file or passing to a callback; or you can implement something else).
 
-    Canonical includes:
-        UTF-8
-        \n
-        attributes normalized
-        No CDATA sections or unnecessary entities
-        No XML declaration or Doctype
-        Empty elements go to start/end
-        Normalized whitespace outside the document element and inside tags
-        Attributes are alphabetized and double-quoted.
-        No redundant namespace declarations
-        xml:base is cleaned up
+    Canonical includes these features, some of which can be set separately:
+        oencoding:  UTF-8
+        lineBreak:  \n
+        normAttrs:  Attributes whitespace-normalized
+                    No CDATA sections or unnecessary entities
+        xmlDcl:     No XML declaration
+        doctype:    No Doctype
+        emptyForm:  Empty elements become start/end
+        quoteChar:  Normalized whitespace outside the document element and inside tags
+        sortAttributes:  Attributes are alphabetized
+        quoteChar:  Attributes are double-quoted
+                    No redundant namespace declarations
+                    xml:base is cleaned up
     """
-    if (emitter is None): emitter = Emitter("STRING")
+    if (emitter is None):
+        emitter = Emitter("STRING")
     if (emptyForm not in [
         'HTML',      # <br />
         'XML',       # <br/>
@@ -2150,7 +2220,10 @@ def collectAllXml2(self:Node,
         quoteChar,
         schemaInfo,
         sortAttributes,
-        strip
+        strip,
+        xmlDcl,
+        doctype,
+        normAttrs,
         )
     self.collectAllXml2r(cOptions)
     return emitter.string
@@ -2172,17 +2245,19 @@ CollectorOptionsNames = [
     'schemaInfo',     # None
     'sortAttributes', # False
     'strip',          # False
+    'xmlDcl',
+    'doctype',
+    'normAttrs',
 ]
 CollectorOptionsDef = namedtuple('CollectorOptions', CollectorOptionsNames)
 
-def ind(cOptions, depth, name="", isStart=True, isEnd=False):
+def ind(cOptions, depth, name="", isStart:bool=True, isEnd:bool=False):
     """Generate any needed linebreak + indentation. Should only be called
     for things that expect that (e.g., maybe not text).
     """
     pre = post = ""
     if (cOptions.schemaInfo):  # TODO: Finish
         si = cOptions.schemaInfo
-        #isEmpty = si.getProp(name, "empty")
         dtype = si.getProp(name, "display")
         if (dtype and dtype != "inline"):
             nPreBreaks = si.getProp(name, 'pre')
@@ -2217,8 +2292,6 @@ def collectAllXml2r(self:Node, cOptions, depth=1):
 
     #sys.stderr.write("Emitting nodeType %d, name %s\n" % (ntype, name))
 
-    isEmpty = 0
-
     # Assemble the data and/or markup
     #
     if (ntype == Node.ELEMENT_NODE):                  # 1 ELEMENT
@@ -2226,7 +2299,7 @@ def collectAllXml2r(self:Node, cOptions, depth=1):
             name, getEscapedAttributeList(self,
                 sortAttributes=cOptions.sortAttributes,
                 quoteChar=cOptions.quoteChar))
-        if (isEmpty): textBuf += " />"
+        if (len(self.childNodes) == 0): textBuf += " />"
         else: textBuf += ">"
         em.emit(textBuf)
 
@@ -2287,10 +2360,15 @@ def collectAllXml2r(self:Node, cOptions, depth=1):
 
 
 ###############################################################################
-def collectAllXml(self:Node, delim=" ", indentString='    ',
-    schemaInfo=None, lineBreak = "\n", depth=1):
-    """
-    Collect a subtree as WF XML, with appropriate escaping. Can also
+def collectAllXml(
+    self:Node,                # Root of subtree to generate XML for
+    delim:str="",             # Put before each start tag
+    indentString:str='    ',  # Repeat to construct indentation
+    schemaInfo=None,          # Something to put ahead of the fragment
+    lineBreak:str="\n",       # Linebreak to use (or '')
+    depth:int=1
+    ):
+    """Collect a subtree as WF XML, with appropriate escaping. Can also
     put a delimiter before each start-tag; if it contains '\n', then the
     XML will also be hierarchically indented. -color applies.
     """
@@ -2298,45 +2376,33 @@ def collectAllXml(self:Node, delim=" ", indentString='    ',
     ntype = self.nodeType
 
     # Calculate whitespace to put around the element
-    indent = ""
-    isEmpty = 0
-    if (schemaInfo):
-        raise ValueError("Unsupported feature 'schemaInfo'.")
-    else:
-        if (indentString): indent = (indentString * depth)
-        else: indent = delim
+    if (indentString): indent = (indentString * depth)
+    else: indent = delim
 
     # Assemble the data and/or markup
     textBuf = ""
     if (ntype == Node.ELEMENT_NODE):                  # 1 ELEMENT:
-        attlist = getEscapedAttributeList(self,
-            sortAttributes=False,
-            quoteChar='"')
-        textBuf += (indentString * depth) + "<" + name + attlist
-        if (isEmpty):
-            textBuf = textBuf + "/>"
+        attlist = getEscapedAttributeList(self, sortAttributes=False, quoteChar='"')
+        textBuf += lineBreak + (indentString * depth) + "<" + name + attlist
+        if (len(self.childNodes) == 0):
+            textBuf += "/>"
         else:
-            textBuf = textBuf + ">"
+            textBuf += ">"
             for ch in self.childNodes:
-                textBuf = textBuf + collectAllXml(ch, delim, 1, depth+1)
-            if (indentString):
-                textBuf = textBuf + (indentString * depth)
-            textBuf = textBuf + "</" + name + ">" + lineBreak
+                textBuf += ch.collectAllXml(delim=delim, lineBreak=lineBreak, depth=depth+1)
+            textBuf += "</" + name + ">" + lineBreak
     elif (ntype == Node.ATTRIBUTE_NODE):              # 2 ATTR
         raise ValueError("Why are we seeing an attribute node?")
-
     elif (ntype == Node.TEXT_NODE):                   # 3 TEXT
-        textBuf = textBuf + escapeXml(self.data)
-
-    elif (ntype == Node.CDATA_SECTION_NODE):          # 4
+        textBuf += escapeXml(self.data)
+    elif (ntype == Node.CDATA_SECTION_NODE):          # 4 CDATA
+        textBuf += escapeXml(self.data)
+    elif (ntype == Node.ENTITY_REFERENCE_NODE):       # 5 ENTITY REF (deprecated)
         pass
-    elif (ntype == Node.ENTITY_REFERENCE_NODE):       # 5
-        pass
-    elif (ntype == Node.ENTITY_NODE):                 # 6
+    elif (ntype == Node.ENTITY_NODE):                 # 6 ENTITY
         pass
     elif (ntype == Node.PROCESSING_INSTRUCTION_NODE): # 7 PI
         textBuf += "<?" + self.target + " " + self.data + "?>"
-
     elif (ntype == Node.COMMENT_NODE):                # 8 COMMENT
         textBuf = textBuf + indent + "<!--" + self.data + "-->"
         if (indentString):
@@ -2344,10 +2410,10 @@ def collectAllXml(self:Node, delim=" ", indentString='    ',
     elif (ntype == Node.DOCUMENT_NODE):               # 9
         pass
     elif (ntype == Node.DOCUMENT_TYPE_NODE):          # 10
-        pass
+        textBuf += "<!DOCTYPE %s>" % (self.nodeName) + lineBreak
     elif (ntype == Node.DOCUMENT_FRAGMENT_NODE):      # 11
         pass
-    elif (ntype == Node.NOTATION_NODE):               # 12
+    elif (ntype == Node.NOTATION_NODE):               # 12  (deprecated)
         pass
     else:
         raise ValueError("startCB: Bad DOM node type returned: %d" % ntype)
@@ -2359,9 +2425,8 @@ def collectAllXml(self:Node, delim=" ", indentString='    ',
 ###############################################################################
 fhGlobal = None  # TODO Unglobalize this, probably via partial functions.
 
-def export(self:Node, someElement, fh, includeXmlDecl=True, includeDoctype=False):
-    """
-    Write the whole thing to some file.
+def export(self:Node, someElement, fh:IO, includeXmlDecl:bool=True, includeDoctype:bool=False):
+    """Write the whole thing to some file.
     See also XML::DOM::Node::toString(), printToFile(), printToFileHandle().
     """
     global fhGlobal
@@ -2448,10 +2513,11 @@ def endCB(self:Node):
 ###############################################################################
 # GENERAL METHODS ON STRINGS
 #
-def escapeXmlAttribute(s, quoteChar='"'):
-    """
-    Turn characters special in (double-quoted) attributes, into char refs.
-    Set to "'" if you prefer single-quoting your attributes.
+def escapeXmlAttribute(s:str, quoteChar:str='"') -> str:
+    """Turn characters special in (double-quoted) attributes, into char refs.
+    Set to "'" if you prefer single-quoting your attributes, in which case that
+    character will be replaced by a character reference instead.
+    This always uses the predefined XML named special character references.
     """
     s = nukeNonXmlChars(s)
     s = re.sub(r'&', "&amp;",   s)
@@ -2460,8 +2526,9 @@ def escapeXmlAttribute(s, quoteChar='"'):
     else: s = re.sub(r"'", "&apos;",  s)
     return s
 
-def escapeXml(s, escapeAllGT=False):
+def escapeXml(s:str, escapeAllGT:bool=False) -> str:
     """Turn things special in text content, into char refs.
+    This always uses the predefined XML named special character references.
     """
     s = nukeNonXmlChars(s)
     s = re.sub(r'&',   "&amp;",  s)
@@ -2470,28 +2537,28 @@ def escapeXml(s, escapeAllGT=False):
     else: s = re.sub(r']]>', "]]&gt;", s)
     return s
 
-def escapeCDATA(s):
+def escapeCDATA(s:str, replaceWith:str="]]&gt;") -> str:
     """XML Defines no particular escaping for this, we use char-ref syntax.
     """
     s = nukeNonXmlChars(s)
-    s = re.sub(r']]>', "]]&gt;", s)
+    s = re.sub(r']]>', replaceWith, s)
     return s
 
-def escapeComment(s):
+def escapeComment(s:str, replaceWith:str="-&#x002d;") -> str:
     """XML Defines no particular escaping for this, we use char-ref syntax.
     """
     s = nukeNonXmlChars(s)
-    s = re.sub(r'--', "-&#x002d;", s)
+    s = re.sub(r'--', replaceWith, s)
     return s
 
-def escapePI(s):
+def escapePI(s:str, replaceWith:str="?&gt;") -> str:
     """XML Defines no particular escaping for this, we use char-ref syntax.
     """
     s = nukeNonXmlChars(s)
-    s = re.sub(r'\?>', "?&gt;", s)
+    s = re.sub(r'\?>', replaceWith, s)
     return s
 
-def escapeASCII(s, width=4, base=16, htmlNames=True):
+def escapeASCII(s:str, width:int=4, base:int=16, htmlNames:bool=True) -> str:
     """Turn all non-ASCII characters into character references.
     @param width: zero-pad numbers to at least this many digits.
     @param base: 10 for decimal, 16 for hexadecimal.
@@ -2505,7 +2572,7 @@ def escapeASCII(s, width=4, base=16, htmlNames=True):
             nonlocal width, base, htmlNames
         else:
             # https://stackoverflow.com/questions/3190706/
-            raise ValueError("PY3 dependency: nonlocal.")  # TODO
+            raise ValueError("PY3 dependency: nonlocal.")
         if (htmlNames and code in codepoint2name):
             return "&%s;" % (codepoint2name[code])
         if (base==10):
@@ -2517,20 +2584,19 @@ def escapeASCII(s, width=4, base=16, htmlNames=True):
     s = escapeXml(s)
     return s
 
-def nukeNonXmlChars(s):
+def nukeNonXmlChars(s:str) -> str:
     """Remove the C0 control characters not allowed in XML. Unassigned
     Unicode characters higher up, are left unchanged.
     """
-    return re.sub("[\x00-\x08\x0b\x0c\x0e-\x1f]", "", s)
+    return re.sub("[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(s))
 
-def unescapeXml(s):
+def unescapeXml(s:str) -> str:
     """Escape as needed for XML content: lt, amp, and ]]>.
     """
     return re.sub(r'&(#[xX])?(\w+);', unescapeXmlFunction, s)
 
-def unescapeXmlFunction(mat):
-    """
-    Convert HTML entities, and numeric character references, to literal chars.
+def unescapeXmlFunction(mat) -> str:
+    """Convert HTML entities, and numeric character references, to literal chars.
     """
     if (len(mat.group(1)) == 2):
         return unichr(int(mat.group[2], 16))
@@ -2545,9 +2611,8 @@ xmlSpaceChars = " \t\r\n"
 xmlSpaceRegex = re.compile("[%s]+" % (xmlSpaceChars))
 xmlSpaceOnlyRegex = re.compile("^[%s]*$" % (xmlSpaceChars))
 
-def normalizeSpace(s, allUnicode=False):
-    """
-    By default, this only normalizes *XML* whitespace,
+def normalizeSpace(s:str, allUnicode:bool=False) -> str:
+    """By default, this only normalizes *XML* whitespace,
     per the XML spec, section 2.3, grammar rule 3.
 
     NOTE: Most methods of removing Unicode whitespace in Python do not work
@@ -2562,9 +2627,8 @@ def normalizeSpace(s, allUnicode=False):
     s = s.strip(' ')
     return s
 
-def stripSpace(s:str, allUnicode=False):
-    """
-    Remove leading and trailing space, but don't touch internal.
+def stripSpace(s:str, allUnicode:bool=False) -> str:
+    """Remove leading and trailing space, but don't touch internal.
     """
     if (allUnicode):
         s = re.sub(r'^(?u)\s+|(?u)\s+$', " ", s, re.UNICODE)
@@ -2577,7 +2641,7 @@ def stripSpace(s:str, allUnicode=False):
 # Various places to put output data.
 #
 class Emitter:
-    """Used by collectXML2 etc. to transmit data to any of several targets.
+    """Used by collectallXml, etc. to transmit data to any of several targets.
     This allows the same code to write to a file, a buffer, or whatever.
     """
     def __init__(self, where, arg=None):
@@ -2605,7 +2669,7 @@ class Emitter:
                 % (where))
         return None
 
-    def emit(self, text):
+    def emit(self, text:str) -> None:
         #sys.stderr.write("*** Emit '%s'.\n" % (text))
         if (len(text)>0):
             self.lastChar = text[-1]
@@ -2619,21 +2683,19 @@ class Emitter:
         else:
             self.cb(text)
 
-    def lastCharEmitted(self):
+    def lastCharEmitted(self) -> str:
         return self.lastChar
 
 
 ###############################################################################
-###############################################################################
 #
 class DomIndex(dict):
-    """
-    Index on an attribute.
+    """Index on an attribute.
     Adds every element that has a given attribute, to a hash keyed on that
     attribute's value. Raises IndexError if a value is not unique unless
     'duplicates' is set to True.
     """
-    def __init__(self, docOrNode, aname, duplicates=False):
+    def __init__(self, docOrNode, aname:str, duplicates:bool=False):
         """Scan a document (or at least a subtree) and build a dict of the
         values found for a given attribute.
         @param document: Document or subtree head Node to scan.
@@ -2684,7 +2746,7 @@ class BS4Features:
             yield node.data
 
     @staticmethod
-    def stripped_strings(node, normSpace=False, allUnicode=False):
+    def stripped_strings(node:Node, normSpace=False, allUnicode:bool=False):
         """Generate the series of all text node descendants as strings,
         but with leading and trailing space stripped. Also, skip any text
         nodes that are white-space-only.
@@ -2699,7 +2761,7 @@ class BS4Features:
             if (ss): yield ss
 
     @staticmethod
-    def find_all(node, name, attrs=None, recursive=True, string=None,
+    def find_all(node:Node, name, attrs=None, recursive:bool=True, string=None,
         limit=0, class_=None, **kwargs):
         """
         @param name: Can take a string, regex, list, fn, or True.
@@ -2737,8 +2799,7 @@ class BS4Features:
 
 
     @staticmethod
-    def BSfind_matcher(node, name,
-        attrs=None, string=None, class_=None, **kwargs):
+    def BSfind_matcher(node:Node, name, attrs=None, string=None, class_=None, **kwargs):
         """Approximate the semantics of filtering params for BS4 find_all() etc.
         """
         if (name and not node.match(name)): return False
@@ -2759,7 +2820,7 @@ class BS4Features:
 
 
     @staticmethod
-    def find(node, **kwargs):
+    def find(node:Node, **kwargs):
         """ Same as find_all limit=1.
         """
         raise NOT_SUPPORTED_ERR
@@ -2814,7 +2875,7 @@ class DomExtensions:
         self.DE = 1
 
     @staticmethod
-    def enableBrackets(toPatch=xml.dom.Node):
+    def enableBrackets(toPatch=Node):
         """Patch in only the implementationa of __getItem__() and __contains__,
         which let you use list-bracket notation (with all 3 arguments) to pick out
         childNodes or attributes from Nodes. For example:
@@ -2841,13 +2902,20 @@ class DomExtensions:
         toPatch.__contains__ = DEcontains
 
     @staticmethod
-    def patchDOM(toPatch=xml.dom.Node, getItem=True):
+    def patchDOM(toPatch=Node, getItem:bool=True) -> None:
         """Some people capitalize acronyms.
         """
         DomExtensions.patchDom(toPatch=toPatch, getItem=getItem)
 
     @staticmethod
-    def patchDom(toPatch=xml.dom.Node, getItem=True, axisSelects=True):
+    def patchDom(
+        toPatch=Node,   # What class to monkey-patch
+        getItem:bool=True,              # Include the __getitem__ mod?
+        axisSelects:bool=True,          # Include axis selectors?
+        synonyms:bool=False,            # preceding/previous, following/next
+        xptr:bool=True,                 # XPointer and compareDocumentPosition
+        namedNodeMap:bool=True          # Make NNM more like Python iterables.
+        ) -> None:
         """Monkey-patch the extension methods into a given class.
         See also patchDomAuto(), following.
         """
@@ -2858,79 +2926,120 @@ class DomExtensions:
             toPatch.__getItem__ = DEgetitem
             toPatch.__contains__ = DEcontains
 
+        if (namedNodeMap):
+            DomExtensions.patchNamedNodeMap()
+
+        toPatch.nameOfNodeType          = nameOfNodeType
+
         toPatch.outerHTML               = outerHTML
         toPatch.innerHTML               = innerHTML
         toPatch.outerXML                = outerXML
         toPatch.innerXML                = innerXML
         toPatch.innerText               = innerText
 
-        toPatch.nameOfNodeType          = nameOfNodeType
-
         if (axisSelects):
+            # SELF
+            toPatch.selectSelf              = selectSelf
+
+            # ANCESTOR, A-O-S, CHILD, DESC
             toPatch.selectAncestor          = selectAncestor
+            toPatch.selectAncestorOrSelf    = selectAncestorOrSelf
             toPatch.selectChild             = selectChild
             toPatch.selectDescendant        = selectDescendant
-            toPatch.selectDescendantR       = selectDescendantR
+            #toPatch.selectDescendantR       = selectDescendantR
 
+            # PRECEDING, FOLLOWING
             toPatch.selectPreceding         = selectPreceding
+            toPatch.getPreceding            = getPreceding
             toPatch.selectPrevious          = selectPreceding
             toPatch.getPrecedingAbsolute    = getPrecedingAbsolute
-            toPatch.getPreceding            = getPreceding
-            toPatch.getPrevious             = getPreceding
-            toPatch.previous                = getPreceding
-
             toPatch.selectFollowing         = selectFollowing
-            toPatch.getFollowingAbsolute    = getFollowingAbsolute
-            toPatch.selectNext              = selectFollowing
             toPatch.getFollowing            = getFollowing
-            toPatch.getNext                 = getFollowing
-            toPatch.next                    = getFollowing
+            toPatch.getFollowingAbsolute    = getFollowingAbsolute
 
+            # SIBLINGS
             toPatch.selectPrecedingSibling  = selectPrecedingSibling
-            toPatch.selectPreviousSibling   = selectPrecedingSibling
             toPatch.getPrecedingSibling     = getPrecedingSibling
-            toPatch.getPreviousSibling      = getPrecedingSibling
-
             toPatch.selectFollowingSibling  = selectFollowingSibling
-            toPatch.selectNextSibling       = selectFollowingSibling
             toPatch.getFollowingSibling     = getFollowingSibling
-            toPatch.getNextSibling          = getFollowingSibling
+
+            if (synonyms):
+                toPatch.getPrevious             = getPreceding
+                toPatch.previous                = getPreceding
+                toPatch.selectNext              = selectFollowing
+                toPatch.getNext                 = getFollowing
+                toPatch.next                    = getFollowing
+                toPatch.selectPreviousSibling   = selectPrecedingSibling
+                toPatch.getPreviousSibling      = getPrecedingSibling
+                toPatch.selectNextSibling       = selectFollowingSibling
+                toPatch.getNextSibling          = getFollowingSibling
+                toPatch.tostring                = toPatch.toString  # More Pythonic
 
         toPatch.getLeastCommonAncestor  = getLeastCommonAncestor
         toPatch.getLeftBranch           = getLeftBranch
         toPatch.getRightBranch          = getRightBranch
+        toPatch.getFirstChild           = getFirstChild
+        toPatch.getLastChild            = getLastChild
         toPatch.getNChildNodes          = getNChildNodes
         toPatch.getChildNumber          = getChildNumber
         toPatch.getDepth                = getDepth
+        toPatch.getMyIndex              = getMyIndex
         toPatch.getFQGI                 = getFQGI
 
+        # Positional
         toPatch.isWithinType            = isWithinType
         toPatch.isDescendantOf          = isDescendantOf
         toPatch.isWithin                = isWithin
+        toPatch.getContentType          = getContentType
 
-        toPatch.getXPointer             = getXPointer
-        toPatch.getMyIndex              = getMyIndex
-        toPatch.XPointerCompare         = XPointerCompare
         cmpMethod = getattr(toPatch, "compareDocumentPosition", None)
         if (not cmpMethod):
             toPatch.compareDocumentPosition = compareDocumentPosition
-        toPatch.XPointerInterpret       = XPointerInterpret
+
+        # XPointer
+        if (xptr):
+            toPatch.getXPointer         = getXPointer
+            toPatch.findTextByOffset    = findTextByOffset
+            toPatch.getXPointerToNode   = getXPointerToNode
+            toPatch.XPointerCompare     = XPointerCompare
+            toPatch.XPointerInterpret   = XPointerInterpret
 
         toPatch.nodeMatches             = nodeMatches
-        toPatch.getInheritedAttribute   = getInheritedAttribute
-        toPatch.getCompoundAttr         = getCompoundAttr
-        toPatch.getEscapedAttribute     = getEscapedAttribute
-        toPatch.getEscapedAttributeList = getEscapedAttributeList
 
+        # Attributes
+        toPatch.getInheritedAttribute   = getInheritedAttribute
+        toPatch.getEscapedAttribute     = getEscapedAttribute
+        toPatch.getCompoundAttribute    = getCompoundAttribute
+
+        # Tags
+        toPatch.getStartTag             = getStartTag
+        toPatch.getEndTag               = getEndTag
+        toPatch.getEscapedAttributeList = getEscapedAttributeList
+        toPatch.addAttributeToken       = addAttributeToken
+
+        toPatch.removeAttributeToken    = removeAttributeToken
+
+        # Global changes
         toPatch.removeWhiteSpaceNodes   = removeWhiteSpaceNodes
         toPatch.removeNodesByTagName    = removeNodesByTagName
+        toPatch.removeNodesByNodeType   = removeNodesByNodeType
         toPatch.untagNodesByTagName     = untagNodesByTagName
         toPatch.renameByTagName         = renameByTagName
         toPatch.forceTagCase            = forceTagCase
+
         toPatch.getAllDescendants       = getAllDescendants
+
+        # TABLES
+        toPatch.getColumn               = getColumn
+        toPatch.getCellOfRow            = getCellOfRow
+        toPatch.transpose               = transpose
+        toPatch.eliminateSpans          = eliminateSpans
+        toPatch.hasSubTable             = hasSubTable
 
         toPatch.normalizeAllSpace       = normalizeAllSpace
         toPatch.normalize               = normalize
+
+        # Local changes
         toPatch.insertPrecedingSibling  = insertPrecedingSibling
         toPatch.insertFollowingSibling  = insertFollowingSibling
         toPatch.insertParent            = insertParent
@@ -2938,38 +3047,51 @@ class DomExtensions:
         toPatch.mergeWithPrecedingSibling = mergeWithPrecedingSibling
         toPatch.groupSiblings           = groupSiblings
         toPatch.promoteChildren         = promoteChildren
+        toPatch.moveChildToAttribute    = moveChildToAttribute
+        toPatch.findNonAttributable     = findNonAttributable
 
+        # Traversal
         toPatch.eachNodeCB              = eachNodeCB
         toPatch.eachNode                = eachNode
         toPatch.reversedEachNode        = reversedEachNode
         toPatch.eachTextNode            = eachTextNode
         toPatch.eachElement             = eachElement
-        #toPatch.eachElementOfType       = eachElementOfType
+        toPatch.generateNodes           = generateNodes
         toPatch.generateSaxEvents       = generateSaxEvents
 
+        # Collect/export
         toPatch.collectAllText          = collectAllText
+        # getTextNodesIn
         toPatch.collectAllXml2          = collectAllXml2
         toPatch.collectAllXml2r         = collectAllXml2r
         toPatch.collectAllXml           = collectAllXml
         toPatch.export                  = export
 
+        # Escapers
         toPatch.escapeXmlAttribute      = escapeXmlAttribute
         toPatch.escapeXml               = escapeXml
         toPatch.escapeCDATA             = escapeCDATA
         toPatch.escapeComment           = escapeComment
         toPatch.escapePI                = escapePI
         toPatch.escapeASCII             = escapeASCII
-
+        toPatch.nukeNonXmlChars         = nukeNonXmlChars
         toPatch.unescapeXml             = unescapeXml
+
+        # Space
         toPatch.normalizeSpace          = normalizeSpace
         toPatch.stripSpace              = stripSpace
 
-        #NamedNodeMap.iteritems = nnmIteritems
+        DomExtensions.checkPatch(toPatch)
         return
 
     @staticmethod
+    def patchNamedNodeMap():
+        # ? NamedNodeMap.__iteritems__ = NNM_iteritems
+        NamedNodeMap.__getitem__ = NNM_getitem
+
+    @staticmethod
     def patchDomAuto(
-        toPatch=xml.dom.Node,
+        toPatch=Node,
         getItem:bool=True,      # patch __getItem__ and __contains__.
         axisSelects:bool=True,  # include select...
         excludes=None           # Don't add any listed here
@@ -3000,16 +3122,32 @@ class DomExtensions:
                 print(" %-30s  *** FAILED ***" % (k))
         return nAdded
 
+
+    @staticmethod
+    def checkPatch(toPatch) -> int:
+        """Make sure we didn't miss adding anybody.
+        """
+        nMissing = 0
+        inPatch = toPatch.__dict__.keys()
+        for k, v in DomExtensions.__dict__.items():
+            if (not callable(v)): continue
+            if (k.startswith("__")): continue
+            if (k in inPatch): continue
+            sys.stderr.write("Did not get into patch: '%s'." % (k))
+            nMissing += 1
+        return nMissing
+
+
 ###############################################################################
 # Test driver
 #
 if __name__ == "__main__":
     import argparse
 
-    def warn(lvl, msg):
+    def warn(lvl:int, msg:str) -> None:
         if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
 
-    def processOptions():
+    def processOptions() -> argparse.Namespace:
         try:
             from BlockFormatter import BlockFormatter
             parser = argparse.ArgumentParser(
@@ -3018,17 +3156,20 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--quiet", "-q",      action='store_true',
+            "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
-            "--verbose", "-v",    action='count',       default=0,
+            "--showMethods", action='store_true',
+            help='Display a list of the methods defined.')
+        parser.add_argument(
+            "--verbose", "-v", action='count', default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
             "--version", action='version', version=__version__,
             help='Display version information, then exit.')
 
         parser.add_argument(
-            'files',             type=str,
+            'files', type=str,
             nargs=argparse.REMAINDER,
             help='Path(s) to input file(s)')
 
@@ -3039,12 +3180,21 @@ if __name__ == "__main__":
     #
     args = processOptions()
 
-    warn(0, "Patching extensions onto xml.dom.Node...")
+    if (args.showMethods):
+        from subprocess import check_output
+        buf0 = str(check_output([ "grep", "-E", "^(class| *def )", __file__ ]))
+        print(re.sub(r"\\n", "\n", buf0))
+        sys.exit()
+        
+    warn(0, "Patching extensions onto xml.dom.minidom.Node...")
     DomExtensions.patchDOM()
-    if (callable(xml.dom.Node.getDepth)):
+    # Of course it doesn't have the method, until we've patched it in....
+    #pylint: disable=E1101
+    if (callable(Node.getDepth)):
         warn(0, "Patch succeeded.")
     else:
         warn(0, "Patch failed.")
+    #pylint: enable=E1101
 
     if (len(args.files) == 0):
         tfileName = "testDoc.xml"

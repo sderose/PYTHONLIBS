@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# SimplifyUnicode
+# SimplifyUnicode: Compatibility mapping on steroids.
 # 2010-11-19ff: Written by Steven J. DeRose (in Perl)
 #
 import re
@@ -14,6 +14,7 @@ except NameError:
 
 __metadata__ = {
     'title'        : "SimplifyUnicode.py",
+    'description'  : "Compatibility mapping on steroids.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -147,13 +148,6 @@ Does not include Arabic ligatures, because there are so many.
 Does not include alternate mathematical Greek alphabets.
 
 
-=History=
-
-  2010-11-19ff: Written by Steven J. DeRose (in Perl)
-  ...
-  2012-01-10 sjd: Port to Python.
-
-
 =To do=
 
 * Add a test driver/standalone.
@@ -186,13 +180,20 @@ Does not include alternate mathematical Greek alphabets.
 * vocab
 
 
+=History=
+
+  2010-11-19ff: Written by Steven J. DeRose (in Perl)
+  ...
+  2012-01-10 sjd: Port to Python.
+
+
 =Ownership=
 
 This work by Steven J. DeRose is licensed under a Creative Commons
 Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+this license, see [http://creativecommons.org/licenses/by-sa/3.0/].
 
-For the most recent version, see http://www.derose.net/steve/utilities/.
+For the most recent version, see [http://www.derose.net/steve/utilities/].
 
 =Options=
 """
@@ -320,26 +321,21 @@ class SimplifyUnicode:
         s = re.sub(r'\s\s+', " ", s.rstrip().lstrip())
         return(s)
 
-
     def normalize_SpaceChars(self, s):
         s = re.sub(r'['+self.spaceChars+r']'," ",s)
         return(s)
-
 
     def normalize_DashChars(self, s):
         s = re.sub(r'['+self.dashChars+r']',"-",s)
         return(s)
 
-
     def normalize_DQuoteChars(self, s):
         s = re.sub(r'['+self.dQuoteChars+r']',"\"",s)
         return(s)
 
-
     def normalize_SQuoteChars(self, s):
         s = re.sub(r'['+self.sQuoteChars+r']',"'",s)
         return(s)
-
 
     def normalize_Widths(self, s):
         buf = ""
@@ -852,4 +848,3 @@ class SimplifyUnicode:
         x = (r'\s+WITH\s.*$', '', sname)
         x = (r'\s+SMALL\s+CAPITAL\s.*$', " SMALLCAP ", sname)
         return(sname)
-

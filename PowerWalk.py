@@ -1524,8 +1524,7 @@ class PowerWalk:
         try:
             theStat = os.stat(path)
         except (FileNotFoundError, OSError) as e:
-            warn(0, "Unexpected error statting '%s' [ino %d:\n    %s" %
-                (path, theStat.st_ino, e))
+            warn(0, "Unexpected error statting '%s':\n    %s" % (path, e))
             self.travState.bump("errors")
             return False
 

@@ -121,19 +121,17 @@ but I decided to just use TypeError for everything.
 
 * Perhaps add set, tuple, and others?
 
+`Record` is largely the same but for `namedtuple`.
+
+Should probably add the same idea for other Python container types:
+set, frozenset, defaultdict, dequeue, Counter, OrderedDict....
+
 
 =History=
 
 2020-02-19: Written by Steven J. DeRose.
 2020-11-21: Better doc.
 
-
-=To do=
-
-`Record` is largely the same but for `namedtuple`.
-
-Should probably add the same idea for other Python container types:
-set, frozenset, defaultdict, dequeue, Counter, OrderedDict....
 
 =Rights=
 

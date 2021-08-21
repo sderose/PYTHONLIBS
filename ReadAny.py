@@ -16,6 +16,7 @@ from sjdUtils import sjdUtils
 
 __metadata__ = {
     'title'        : "ReadAny.py",
+    'description'  : "Read plain/zip/gzip files, directories, etc.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -152,15 +153,6 @@ This package ised by C<selectNgrams.py> and C<calculateMI.py>.
 =Known bugs and limitations=
 
 
-=History=
-
-* 2013-03-22: Written by Steven J. DeRose.
-* 2013-04-03: Split out from selectNgrams.py.
-* 2013-06-20: Rough out rest of usual File methods.
-* 2018-06-01: Attach codecs.
-* 2020-08-27: New layout.
-
-
 =To do=
 
 * Add uudecode, mscompress, etc.?
@@ -173,6 +165,15 @@ This package ised by C<selectNgrams.py> and C<calculateMI.py>.
 * Integrate into: grepData, lessData, uniqData,
 countData, alignData, deriveData, countChars, vocab, ngrams,
 globalChange, body, randomRecords.
+
+
+=History=
+
+* 2013-03-22: Written by Steven J. DeRose.
+* 2013-04-03: Split out from selectNgrams.py.
+* 2013-06-20: Rough out rest of usual File methods.
+* 2018-06-01: Attach codecs.
+* 2020-08-27: New layout.
 
 
 =Rights=

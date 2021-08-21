@@ -168,6 +168,28 @@ You can specify the ''endAs'' option when colorizing A to avoid this.
 ColorManager has no support (yet) for 256-color terminals.
 
 
+=To do=
+
+* Resync Perl version.
+
+* Make color names localizable.
+
+* Consider additional ANSI codes
+([https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters]):
+
+* Primary and alternate fonts (see `mathAlphanumerics.py`).
+
+* Perhaps allow color synonyms like CSS?
+    0 black   -- #000
+    1 red     -- #F00
+    2 green   -- #0F0
+    3 yellow  -- #FF0
+    4 blue    -- #00F
+    5 magenta -- #F0F
+    6 cyan    -- #0FF
+    7 white   -- #FFF
+
+
 =Related commands=
 
 There is a Perl version in `ColorManager.pm`,
@@ -205,28 +227,6 @@ Clean up doc. Move effects to end, not beginning per ColorNames.md.
 `--testEffects`. Make `--text` and stdin work the same way.
 * 2020-12-14: Start support for HTML output.
 * 2021-07-01: Sync args to `colorize()` with `colorstring.py`.
-
-
-=To do=
-
-* Resync Perl version.
-
-* Make color names localizable.
-
-* Consider additional ANSI codes
-([https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters]):
-
-* Primary and alternate fonts (see `mathAlphanumerics.py`).
-
-* Perhaps allow color synonyms like CSS?
-    0 black   -- #000
-    1 red     -- #F00
-    2 green   -- #0F0
-    3 yellow  -- #FF0
-    4 blue    -- #00F
-    5 magenta -- #F0F
-    6 cyan    -- #0FF
-    7 white   -- #FFF
 
 
 =Rights=

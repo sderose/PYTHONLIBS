@@ -720,7 +720,7 @@ class Loader:
         blocks = self.makeBlocks(theLines)
         if (verbose):
             msg = ""
-            for b in blocks: msg += b.toString() + "\n"
+            for b in blocks: msg += b.tostring() + "\n"
             if (verbose>=1):
                 hMsg(1, "Before doing inlines (%d blocks):\n%s" %
                     (len(blocks), msg))
@@ -1175,7 +1175,7 @@ class Block:
     def toHTML(self):
         assert(False)
 
-    def toString(self):
+    def tostring(self):
         return("### %5s: bl %1d ind %2d marker '%s' text '%s'" %
             (self.type, self.blanks, len(self.indent), self.marker, self.text))
 

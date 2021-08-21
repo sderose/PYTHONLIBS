@@ -18,7 +18,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2018-09-04",
-    'modified'     : "2021-07-18",
+    'modified'     : "2021-07-08",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -112,13 +112,6 @@ additional applications should make no further changes. Or in other words,
 normalizing an already-normalized key should not denormalize it.
 
 
-=History=
-
-2018-09-04: Written. Copyright by Steven J. DeRose.
-2021-07-18: Cleanup.
-
-
-
 =To do=
 
 * Add an option to find from unique abbreviation of key.
@@ -127,6 +120,11 @@ Then integrate that for `strfchr.py`, `bibtex2html.py`, etc.
 * Perhaps add `items()` variant that hands back actual vs. normalized key?
 * Perhaps add notion of explicit aliases (say, separate dict that just maps?)
 
+
+=History=
+
+2018-09-04: Written. Copyright by Steven J. DeRose.
+2021-07-18: Cleanup.
 
 
 =Rights=
@@ -215,17 +213,7 @@ class LooseDict(dict):
     def __iter__(self):
         """Return an iterator for the object.
         """
-        itr = object()
-        if (self.sorter):
-            itr.list = sorted(self.keys(), compare=self.sorter)
-        else:
-            itr.list = sorted(self.keys())
-        itr.curPos = 0
-        itr.__iter__ = lambda x: self
-        while(itr.__next__(self)):
-            itr.curPos += 1
-            if (itr.curPos >= len(itr.list)): return None
-            return itr.list[itr.curPos]
+        return LooseDictIterator(self)
 
     def __contains__(self, key):
         normKey = self.getNormKey(key)
@@ -302,6 +290,9 @@ class normdict(dict):
             self.normalizer = lambda x: x.lower()
         elif (normalizer == "normSpace"):
             self.normalizer = lambda x: re.sub(r'\s+', ' ', x.split())
+        else:
+            self.normalizer = None
+            
         self.sorter     = sorter
         self.keyType    = keyType
         self.valueType  = valueType
@@ -324,7 +315,7 @@ class normdict(dict):
 
     def findAbbrev(self, key:Any) -> Any:
         if (self.normalizer): normKey = self.normalizer(key)
-        else:                 normKey = key
+        else: normKey = key
         for k in self.theDict.keys():
             if (k.startswith(normKey)): return k
         return None
@@ -351,7 +342,7 @@ class normdict(dict):
 
     def __getitem__(self, key:Any) -> Any:
         if (self.normalizer): normKey = self.normalizer(key)
-        else:                 normKey = key
+        else: normKey = key
         if (self.keyType and isinstance(key, self.keyType)):
             raise TypeError
         if (normKey in self.theDict):
@@ -363,7 +354,7 @@ class normdict(dict):
 
     def __setitem__(self, key:Any, value:Any) -> None:
         if (self.normalizer): normKey = self.normalizer(key)
-        else:                 normKey = key
+        else: normKey = key
         if (self.keyType and not isinstance(key, self.keyType) or
             self.valueType and not isinstance(value, self.valueType)):
             raise TypeError
@@ -377,28 +368,18 @@ class normdict(dict):
         """Should keysLocked prevent deletion, too?
         """
         if (self.normalizer): normKey = self.normalizer(key)
-        else:                 normKey = key
+        else: normKey = key
         if (normKey in self.theDict):
             del self.theDict[normKey]
         else:
             raise KeyError
 
     def __iter__(self):
-        itr = object()
-        if (self.sorter):
-            itr.list = sorted(self.theDict.keys(), compare=self.sorter)
-        else:
-            itr.list = sorted(self.theDict.keys())
-        itr.curPos = 0
-        itr.__iter__ = lambda x: self
-        while(itr.__next__(self)):
-            itr.curPos += 1
-            if (itr.curPos >= len(itr.list)): return None
-            return itr.list[itr.curPos]
+        return LooseDictIterator(self)
 
     def __contains__(self, key):
         if (self.normalizer): normKey = self.normalizer(key)
-        else:                 normKey = key
+        else: normKey = key
         return normKey in self.theDict
 
 
@@ -415,10 +396,10 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--quiet", "-q",      action='store_true',
+            "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
-            "--verbose", "-v",    action='count',       default=0,
+            "--verbose", "-v", action='count', default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
             "--version", action='version', version=__version__,
@@ -427,10 +408,8 @@ if __name__ == "__main__":
         args0 = parser.parse_args()
         return args0
 
-    ###########################################################################
-    #
     args = processOptions()
-    print("Testing...")
+    print("Testing LooseDict...")
 
     ld = LooseDict()
     ld['foobar'] = 12
