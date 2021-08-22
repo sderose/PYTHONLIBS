@@ -1700,17 +1700,12 @@ class ALogger:
         # end formatRec_R
 
     def skipIt(self, thing, nm, options):
-<<<<<<< HEAD
-        """See if this is an item we're not supposed to display.
-        """
-=======
         """Called for members of objects (and dicts?), return True if we
         should skip this member due to name, being callable, etc.
         If the 'specials' option is set, we keep callable and __s; but
         that can be overridden for names listed specifically in `stopName`.
         """
         if (nm in options['stopNames']): return True
->>>>>>> af7134ec2a0eaae11267fc381265af101441d19e
         if (options['specials']): return False
         if (callable(thing)): return True
         if (isinstance(nm, str) and nm.startswith('__')): return True

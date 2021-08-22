@@ -509,7 +509,6 @@ class DialectX:
 
         # Options like Python 'csv' package:
         parser.add_argument(
-<<<<<<< HEAD
             pre+"delimiter", type=str, default="\t", action='append',
             help='Field separators, one or more characters. Repeatable, in which'+
             ' case they cycle like `paste -d`.')
@@ -519,26 +518,12 @@ class DialectX:
         parser.add_argument(
             pre+"escapechar", type=str, default="\\",
             help='This can be used to escape a quote, delimiter, or itself.')
-=======
-            pre+"delimiter", type=str, default="\t",
-            help='.')
-        parser.add_argument(
-            pre+"doublequote", action="store_true",
-            help='.')
-        parser.add_argument(
-            pre+"escapechar", type=str, default="\\",
-            help='.')
->>>>>>> af7134ec2a0eaae11267fc381265af101441d19e
         parser.add_argument(
             pre+"lineterminator", type=str, default="\n",
             help='.')
         parser.add_argument(
             pre+"quotechar", type=str, default='"',
-<<<<<<< HEAD
             help='What character to use to quote fields that need it.')
-=======
-            help='.')
->>>>>>> af7134ec2a0eaae11267fc381265af101441d19e
         parser.add_argument(
             pre+"quoting", type=str, default="MINIMAL",
             choices=[ 'ALL', 'MINIMAL', 'NONNUMERIC', 'NONE'],
@@ -561,7 +546,6 @@ class DialectX:
             help='.')
         parser.add_argument(
             pre+"maxsplit", type=int, default=None,
-<<<<<<< HEAD
             help='Do at most this many splits, resulting in this+1 fields.')
         parser.add_argument(
             pre+"minsplit", type=int, default=None,
@@ -571,32 +555,14 @@ class DialectX:
             help='Treat multiple adjacent delimiters (e.g. space), as just one.')
         parser.add_argument(
             pre+"types", type=str, action="append",
-=======
-            help='.')
-        parser.add_argument(
-            pre+"minsplit", type=int, default=None,
-            help='.')
-        parser.add_argument(
-            pre+"multidelimiter", action="store_true",
-            help='.')
-        parser.add_argument(
-            pre+"typeList", type=str, action="append",
->>>>>>> af7134ec2a0eaae11267fc381265af101441d19e
             choices=[ 'str', 'int', 'float', 'bool' ],
             help='A type for the (next) field (repeatable).')
         parser.add_argument(
             pre+"uescapes", action="store_true",
-<<<<<<< HEAD
             help='Recognize \\uFFFF-style special characters.')
         parser.add_argument(
             pre+"xescapes", action="store_true",
             help='Recognize \\xwFF-style special characters.')
-=======
-            help='.')
-        parser.add_argument(
-            pre+"xescapes", action="store_true",
-            help='.')
->>>>>>> af7134ec2a0eaae11267fc381265af101441d19e
 
         return
 
@@ -762,15 +728,9 @@ class DictWriter:
             thisDelim = self.dialect.delimiter[ i % nDelims ]
             #fname = self.fieldnames[fnum]
             fval = row[fname] if fname in row else ""
-<<<<<<< HEAD
-            formattedVal = self.formatOneField(fname, fval)
+            formattedVal = self.formatOneField(fval)
             buf += formattedVal + thisDelim
         buf[-len(thisDelim):] = self.dialect.lineterminator
-=======
-            formattedVal = self.formatOneField(fval)
-            buf += formattedVal + self.dialect.delimiter
-        buf[-len(self.dialect.delimiter):] = self.dialect.lineterminator
->>>>>>> af7134ec2a0eaae11267fc381265af101441d19e
         self.f.write(buf)
 
     def writecomment(self, s:str):
