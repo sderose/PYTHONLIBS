@@ -6,7 +6,9 @@
 from __future__ import print_function
 import sys
 import re
-import datetime
+import math
+import time
+from datetime import datetime
 
 __metadata__ = {
     "title"        : "strftime.py",
@@ -93,44 +95,56 @@ def warning1(msg:str) -> None: log(1, msg)
 def warning2(msg:str) -> None: log(2, msg)
 def fatal(msg:str) -> None: log(0, msg); sys.exit()
 
-ISO8601 = r"(\d\d\d\d)-(\d\d)-(\d\d)([@Tt](\d\d):(\d\d):(\d\d)(\.\d_)?)?"
+ISO8601 = r"(\d\d\d\d)-(\d\d)-(\d\d)([@Tt](\d\d)(:\d\d)(:\d\d)?(\.\d_)?)?"
 
-def parseTime(t:str) -> datetime.datetime:
+def parseTime(t:str) -> datetime:
     """Parse a number of plausible time formats.
     TODO: Copy more variations from grepMail.py.
     """
     if (not t):
-        return datetime.datetime.now()
+        dt = datetime.now()
+        return dt
 
-    mat = re.match(ISO8601, t)                      # ISO 8601
-    if (mat):
-        yr = mat.group(1)
-        mo = mat.group(2)
-        dy = mat.group(3)
-        if (mat.group(3)):
-            hr = mat.group(4)
-            mi = mat.group(5)
-            se = mat.group(6)
-            ms = mat.group(7)
-        else:
-            hr = mi = se = ms = 0
-        return datetime.datetime(yr, mo, dy, hr, mi, se, ms, tzinfo=None)
-        
     try:
-        timestamp = datetime.datetime.fromisoformat(t)
-        return datetime.datetime.fromtimestamp(timestamp)
+        mat = re.match(ISO8601, t)                  # my ISO 8601
+        if (mat):
+            yr = mkInt(mat.group(1))
+            mo = mkInt(mat.group(2))
+            dy = mkInt(mat.group(3))
+            if (mat.group(4)):
+                hr = mkInt(mat.group(5))
+                mi = mkInt(mat.group(6))
+                se = mkInt(mat.group(7)) or 0
+                ms = float(mat.group(8)) or 0.0
+            else:
+                hr = mi = se = ms = 0
+            dt = datetime(yr, mo, dy, hr, mi, se, ms, tzinfo=None)
+            return dt
+    except (ValueError, TypeError):
+        pass
+         
+    try:                                            # builtin ISO8601
+        dt = datetime.fromisoformat(t)
+        return dt
     except ValueError:
         pass
         
     try:                                            # Epoch time
         timestamp = float(t)
-        return datetime.datetime.fromtimestamp(timestamp)
+        dt =  datetime.fromtimestamp(timestamp)
+        return dt
     except ValueError:
         pass
         
     fatal("Could not parse date/time '%s'." % (t))
 
-
+def mkInt(s:str, dft:int=0):
+    try:
+        return int(s.lstrip(":"))
+    except ValueError:
+        return dft
+        
+        
 ###############################################################################
 # Main
 #
@@ -191,10 +205,18 @@ if __name__ == "__main__":
     args = processOptions()
 
     datetimeObj = parseTime(args.time)
+    warning1("The datetime: %s" % (datetimeObj))
+    tstamp = time.mktime(datetimeObj.timetuple())
     
-    if (args.format): f = args.format
-    else: f = namedTimeFormats[args.asFormat]
-    sft = datetimeObj.strftime(f)
+    if (args.format): fmtName = args.format
+    else: fmtName = args.asFormat
+    if (fmtName == "EPOCH"):
+        sft = "%f" % (tstamp)
+    elif (fmtName == "IEPOCH"):
+        sft = "%d" % (math.floor(tstamp))
+    else:
+        template = namedTimeFormats[fmtName]
+        sft = datetimeObj.strftime(template)
     if (args.maxsize and len(sft) > args.maxsize):
         sft = sft[0:args.maxsize]
     print(sft)
