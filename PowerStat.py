@@ -4,7 +4,9 @@
 # 2020-11-23: Written by Steven J. DeRose.
 #
 from __future__ import print_function
-import sys, os
+import sys
+import os
+from os import stat as osstat  # See lsanc.py for example
 #import codecs
 import stat
 import math
@@ -27,7 +29,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2020-11-23",
-    'modified'     : "2021-06-03",
+    'modified'     : "2021-08-31",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -52,12 +54,49 @@ rather than just single letters to specify the datum desired.
 
 produces a display quite like `ls -ld`.
 
+Several pre-defined formats are available via a mnemonic name in dict `statFormats`.
+
 Items that don't have %-codes in normal `stats` can be gotten using similar
 syntax, but replacing the final single-letter code (such as 'm' for modification
 time), by `{name}`, where name is any of identifiers specified at
 (for example) [https://docs.python.org/3/library/stat.html] (such as UF_HIDDEN
 and many others).
 
+==Formats==
+
+Where they overlap, the format specifications here follow those of `stat`.
+They start with "%", but have a load of fields, mostly optional:
+
+* Optional flags: [#+-0] for affect leading zeros, signs, left-alignment, etc.
+* size (digits)
+* precision ("." + digits)    
+* fmt [DOUXFS] for decimal, octal, unsigned decimal, hex, float, or string.
+For some fields, like 'u' for user, the S form is a name, and the H form is the id.
+S for dates uses `strftime` formats.
+* sub [HML] only applies to p, d, r, and T (for p, it gets weird)
+* dataum -- the actual data item being rendered:
+    d device
+    i inode
+    p type and permissions
+    l number of hard links
+    u user
+    g group
+    r device number (for specials)
+    amcB times
+    z size in bytes
+    b size in blocks
+    k preferred block size
+    f flags
+    v inode generation
+    N name
+    T type (as in `ls -F`
+    Y link target
+    Z (special)
+
+==Examples==
+
+* %uS  gets user name as a string
+    
 
 =Related Commands=
 
@@ -76,7 +115,7 @@ Finish `--outputFormat`.
 
 * 2020-11-23: Written by Steven J. DeRose.
 * 2021-06-03: More work on parsing/mapping `stat`-style format specs.
-
+* 2021-08-31: Add --namedStatFormats.
 
 ==Rights=
 
@@ -94,10 +133,68 @@ or [https://github.com/sderose].
 
 ###############################################################################
 #
-def warn(lvl:int, msg:str) -> None:
-    if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
-    if (lvl < 0): sys.exit()
+args = None
 
+def log(lvl:int, msg:str) -> None:
+    if (not args or args.verbose >= lvl): sys.stderr.write(msg + "\n")
+def warning0(msg:str) -> None: log(0, msg)
+def warning1(msg:str) -> None: log(1, msg)
+def warning2(msg:str) -> None: log(2, msg)
+def fatal(msg:str) -> None: log(0, msg); sys.exit()
+
+
+###############################################################################
+# Provide some useful formats
+#
+#    -@    Display extended attribute keys and sizes in long (-l) output.
+#    -e    Print the Access Control List (ACL) associated with the file, if present.
+#    -g    Display the group name in the long (-l) format output (the owner name is suppressed).
+#    -h    When used with the -l option, use unit suffixes: Byte, Kilobyte, etc. in
+#          order to reduce the number of digits to three or less using base 2 for sizes.
+#    -i    For each file, print the file's file serial number (inode number).
+#    -k    If the -s option is specified, print the file size allocation in kilobytes, not blocks.
+#    -l    (``ell''.)  List in long format.
+#    -n    Display user and group IDs numerically in a long (-l) output.
+#    -O    Include the file flags in a long (-l) output.
+#    -o    List in long format, but omit the group id.
+#    -s    Display the number of blocks actually used by each file, in units of 512 bytes, rounded up.
+#
+# Times:
+#    -c    Use time when file status was last changed for sorting (-t) or long printing (-l).
+#    -T    When used with the -l (``ell'') option, display complete time information for the file,
+#          including month, day, hour, minute, second, and year.
+#    -u    Use time of last access, instead of last modification of the file.
+#    -U    Use time of file creation, instead of last modification.
+#
+# Special chars:
+#    -B    Force printing of non-printable characters in file names
+#          as \xxx, where xxx is the numeric value of the character in octal.
+#    -b    As -B, but use C escape codes whenever possible.
+#    -q    Force printing of non-graphic characters in file names as `?'; default for a terminal.
+#    -v    Force unedited printing of non-graphic characters; default when output is not to a terminal.
+#    -w    Force raw printing of non-printable characters.  Default when output is not to a terminal.
+#
+# Flags:
+#    -F    Display a slash (`/') after each pathname that is a directory, an asterisk (`*') for
+#          executable, an at sign (`@') for symbolic link, an equals sign (`=') for socket, a percent
+#          sign (`%') for whiteout, and a vertical bar (`|') for FIFO.
+#    -p    Write a slash (`/') after each filename if that file is a directory.
+#    -%    Distinguish dataless files and directories with a '%' character.
+#
+# ******* The mnemonics used are based on the `stat` command (q.v).
+#
+permBits = "%SHp%SMp%SLp"
+statFormats = {
+    # 0----+----1----+----2----+----3----+----4----+----5----+----6----+----7
+    # -rwxr-xr-x  1 sderose  staff    21K Jul 13 13:35 BlockFormatter.py
+    "ls_l":    "-" + permBits + "  %8su %8sg %6ds %12sm %sn",
+    # -rwxr-xr-x  1 staff    21K Jul 13 13:35 BlockFormatter.py
+    "ls_g":    "-" + permBits + "  %8sg %6ds %12sm %sn",
+    # BlockFormatter.py
+    "ls":      "%sn",
+    # BlockFormatter.py*
+    "ls_F":    ""
+}
 
 ###############################################################################
 # More semantically useful types for data
@@ -126,30 +223,30 @@ class StatItem:
     """
 
 
-    # Map each chosen datum to the sprintf field type it defaults to showing as.
+    # Map each chosen datum (see `stat`) to the sprintf field type it defaults to.
     defaultFmtCodes = {
         #code:  ( sprintfType, datumType )
-        "d": ( "s", str ),  # Device upon which file resides.
+        "d": ( "s", str ),       # Device upon which file resides.
         "i": ( "d", Unsigned ),  # file's inode number.
-        "p": ( "s", str ),  # File type and permissions.
+        "p": ( "s", str ),       # File type and permissions.
         "l": ( "d", Unsigned ),  # Number of hard links to file.
         "u": ( "d", Unsigned ),  # User id of file's owner
         "g": ( "d", Unsigned ),  # Group ID of file's owner.
         "r": ( "d", Unsigned ),  # Device number for character/block device special files.
-        "a": ( "t", Epoch ),  # access time
-        "m": ( "t", Epoch ),  # mod time
-        "c": ( "t", Epoch ),  # creation time
-        "B": ( "t", Epoch ),  # inode birth time
+        "a": ( "t", Epoch ),     # access time
+        "m": ( "t", Epoch ),     # mod time
+        "c": ( "t", Epoch ),     # creation time
+        "B": ( "t", Epoch ),     # inode birth time
         "z": ( "d", Unsigned ),  # The size of file in bytes.
         "b": ( "d", Unsigned ),  # Number of blocks allocated for file.
         "k": ( "d", Unsigned ),  # Optimal file system I/O operation block size.
-        "f": ( "?", str ),  # User defined flags for file.
+        "f": ( "?", str ),       # User defined flags for file.
         "v": ( "d", Unsigned ),  # Inode generation number.
         # The following are not in struct stat:
-        "N": ( "s", str ),  # The name of the file.
-        "T": ( "s", str ),  # The file type, as in ls -F, or more descriptive if 'H' given.
-        "Y": ( "s", str ),  # The target of a symbolic link.
-        "Z": ( "s", str ),  # ``major,minor'' from rdev field for char/block special; else size
+        "N": ( "s", str ),       # The name of the file.
+        "T": ( "s", str ),       # Flag as in ls -F, or more descriptive if 'H' given.
+        "Y": ( "s", str ),       # The target of a symbolic link.
+        "Z": ( "s", str ),       # ``major,minor'' from rdev field for char/block special; else size
     }
 
     def __init__(self, mat:re.Match):
@@ -166,7 +263,8 @@ class StatItem:
         # decimal, octal, hex, float, string.
         self.subCode     = mat.group('sub') or ''    # [HML]?
         self.datum       = mat.group('datum')        # field specifier char
-
+        self.typ         = None                      # As from defaultFmtCodes (?)
+        
         self.sprintfCode = "%"
         if (self.flag in "+-0"): self.sprintfCode += self.flag
         if (self.siz): self.sprintfCode += "%d" % (self.siz)
@@ -178,7 +276,7 @@ class StatItem:
             self.sprintfCode += dft if (dft!='t') else 's'  # times are strings...
         else:
             assert False, "Bad fmtCode '%s' in:\n" % (self.fmtCode) + self.tostring()
-        print("Created format item:\n" + self.tostring())
+        warning1("Created format item:\n" + self.tostring())
 
     def tostring(self) -> str:
         buf = "From '%s':\n" % (self.pctString or "-none-")
@@ -486,7 +584,7 @@ if __name__ == "__main__":
             "--color",  # Don't default. See below.
             help='Colorize the output.')
         parser.add_argument(
-            "--quiet", "-q",      action='store_true',
+            "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
             "--outputFormat", "--output-format", "--oformat", "-o",
@@ -497,17 +595,21 @@ if __name__ == "__main__":
             "--statFormat", "-s", type=str, default=statFormat0,
             help='stat-like percent-codes to determine output format.')
         parser.add_argument(
+            "--namedStatFormat", "-s", type=str, default=None,
+            choices=statFormats.keys(),
+            help='Use one of the predefined stat formats, instead of specifying --statFormat.')
+        parser.add_argument(
             "--timeFormat", "-t", type=str, default=timeFormat0,
             help='strftime-like percent-codes to determine time output format.')
         parser.add_argument(
-            "--verbose", "-v",    action='count',       default=0,
+            "--verbose", "-v", action='count', default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
             "--version", action='version', version=__version__,
             help='Display version information, then exit.')
 
         parser.add_argument(
-            'files',             type=str,
+            'files', type=str,
             nargs=argparse.REMAINDER,
             help='Path(s) to input file(s)')
 
@@ -516,6 +618,9 @@ if __name__ == "__main__":
             args0.color = ("USE_COLOR" in os.environ and sys.stderr.isatty())
         #lg.setColors(args0.color)
         #if (args0.verbose): lg.setVerbose(args0.verbose)
+        if (args.namedStatFormat):
+            args.statFormat = statFormats[args.namedStatFormat]
+            
         return(args0)
 
     ###########################################################################
@@ -523,11 +628,11 @@ if __name__ == "__main__":
     args = processOptions()
 
     if (not args.quiet):
-        warn(0, "Stat format spec is: '%s'" % (args.statFormat))
+        warning0("Stat format spec is: '%s'" % (args.statFormat))
     ps = PowerStat(args.statFormat, args.timeFormat)
 
     if (len(args.files) == 0):
-        warn(0, "stat.py: No files specified....")
+        warning0("stat.py: No files specified....")
         sys.exit()
     for f0 in args.files:
         print(ps.format(f0))

@@ -75,6 +75,8 @@ Possibly allow .lt. etc; certainly allow Unicode symbols.
 * token accumulator: repeatable option, but you can either do `-x foo -x bar`,
 or `-x "foo bar"`, or mix the two.
 * string with \\-codes expanded
+* -exec support: takes a command (test -x), and '{}' fill-in. Maybe adds a standard
+arg to redefine the '{}' string.
 
 ==Expressions?==
 
@@ -196,6 +198,9 @@ def t_hInt(s:str):
     raise ValueError(genericMsg % (s))
 
 def t_probability(s):
+    """Floating point number between 0.0 and 1.0.
+    Yeah, I know, roundoff error.
+    """
     try:
         f = float(s)
         if (f>=0.0 and f<=1.0): return f
@@ -232,6 +237,8 @@ def t_slice(s):
 ### Characters
 #
 def t_char(s):
+    """A single, literal Unicode character.
+    """
     try:
         if (len(s) == 1): return s
     except ValueError:
@@ -239,6 +246,8 @@ def t_char(s):
     raise ValueError(genericMsg % (s))
 
 def t_ascii_char(s):
+    """A single Unicode character, not including NUL.
+    """
     try:
         assert len(s) == 1 and ord(s)>0 and ord(s)<256
         return s
@@ -247,7 +256,11 @@ def t_ascii_char(s):
     raise ValueError(genericMsg % (s))
 
 def t_uchar(s):
-    """A single Unicode character, literal, or as hex/dec/oct code point, or U+xxxx.
+    """A single Unicode character, specified as any of: 
+        * a literal (a shell may already expand some \\-codes before we see them)
+        * a hex/dec/oct code point
+        * U+xxxx
+        * TODO: an HTML entity name
     Ick. Single digit is ambiguous. Take it as literal.
     """
     if (len(s)==1): return s                        # Literal single char
@@ -269,14 +282,17 @@ def t_uchar(s):
     raise ValueError(genericMsg % (s))              # Fail
 
 
-### Normalized strings (this means that the string is normalized before storing,
-# not that a non-normalized string from the user is rejected).
+### Normalized strings. This means that the string is normalized before storing,
+# not that a non-normalized string from the user is rejected.
 #
 def t_ustring(s):
     return s.upper()
 
 def t_lstring(s):
     return s.lower()
+
+def t_tstring(s):
+    return s.title()
 
 def t_NFC(s):
     return normalize("NFC", s)
@@ -299,9 +315,8 @@ def checkX(expr, s):  ### Regex checking feature
     if (re.match(expr, s, flags=re.UNICODE)): return s
     raise ValueError(genericMsg % (s))
 
-def t_identifier(s):
-    return checkX(r"[.\w][-_.:\w]*$", s)
-
+# Following only allowe complete date and/or time, not arbitrary shortenings.
+#
 dateX = r"\d\d\d\d-[01]\d-[0-3]\d$"
 timeX = r"[012]\d:[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[-+]\d\d:\d\d)?$"
 
@@ -328,6 +343,10 @@ def x_NMTOKEN(s):
     if (s[0].isdigit()): raise ValueError(genericMsg % (s))
     return checkX(r"[.\w][-_.:\w]*$", s)
 
+def x_QNAME(s):
+    if (s[0].isdigit()): raise ValueError(genericMsg % (s))
+    return checkX(r"[.\w][-_.:\w]*$", s)
+
 
 ### Python stuff
 #
@@ -349,7 +368,9 @@ pythonReservedWords = frozenset([
 ])
 
 def p_keyword(s):
-    if (s in pythonReservedWords): return s
+    import keyword
+    if (keyword.iskeyword(s)): return s
+    #if (s in pythonReservedWords): return s
     raise ValueError(genericMsg % (s))
 
 def p_identifier(s):
@@ -422,7 +443,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
         conflict_handler        = "error",
         add_help                = True,
 
-        # Additions
+        # Additions (see the --help)
         ignoreCase              = True,
         hyphenConvention        = "gnu",  # cf prefix_chars
         negationPrefix          = "no-",
@@ -562,6 +583,13 @@ class ArgumentParserPP(argparse.ArgumentParser):
         dest        = None,
         choices     = None
         ):
+        """Add the given argument, with a set of `choices`. In addition, add each
+        choice as a separate argumnt of its own, that just sets this one.
+        
+        This has the side-effect that you can give them regardless of case,
+        and/or as minimum-unique abbreviations.
+        The caller is responsible for avoiding conflicts.
+        """
         self.add_argument(
             "--"+basename, type=type,
             default=default,
@@ -576,7 +604,6 @@ class ArgumentParserPP(argparse.ArgumentParser):
                 help=("Shorthand for '--%s %s'." % (basename, c)),
                 dest=dest or basename
                 )
-
 
     def add_entailment(self, name1, name2, value2):
         """Store the fact that setting one option, forces another one.
@@ -614,38 +641,38 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--color",  # Don't default. See below.
+            "--color", # Don't default. See below.
             help="Colorize the output.")
         parser.add_argument(
-            "--iencoding",        type=str, metavar="E", default="utf-8",
+            "--iencoding", type=str, metavar="E", default="utf-8",
             help="Assume this character set for input files. Default: utf-8.")
         parser.add_argument(
             "--ignoreCase", "-i", action="store_true",
             help="Disregard case distinctions.")
         parser.add_argument(
-            "--oencoding",        type=str, metavar="E",
+            "--oencoding", type=str, metavar="E",
             help="Use this character set for output files.")
         parser.add_argument(
-            "--quiet", "-q",      action="store_true",
+            "--quiet", "-q", action="store_true",
             help="Suppress most messages.")
         parser.add_argument(
-            "--recursive",        action="store_true",
+            "--recursive", action="store_true",
             help="Descend into subdirectories.")
         parser.add_argument(
-            "--tickInterval",     type=t_anyInt, metavar="N", default=10000,
+            "--tickInterval", type=t_anyInt, metavar="N", default=10000,
             help="Report progress every n records.")
         parser.add_argument(
-            "--unicode",          action="store_const",  dest="iencoding",
+            "--unicode", action="store_const", dest="iencoding",
             const="utf8", help="Assume utf-8 for input files.")
         parser.add_argument(
-            "--verbose", "-v",    action="count",       default=0,
+            "--verbose", "-v", action="count", default=0,
             help="Add more messages (repeatable).")
         parser.add_argument(
             "--version", action="version", version=__version__,
             help="Display version information, then exit.")
 
         parser.add_argument(
-            "files",             type=str,
+            "files", type=str,
             nargs=argparse.REMAINDER,
             help="Path(s) to input file(s)")
 

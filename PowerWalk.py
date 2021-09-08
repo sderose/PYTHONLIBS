@@ -759,6 +759,10 @@ Maybe just pass back the container handle? Or they can poke at the path.
 
 * Possibly a stat-like "%" option for output? See `FileInfo` class.
 
+* Option to get the entire stream with no events
+** Or to get that, but with some in-band wrapper around each input file, that says it's
+starting and ending, and gives path, inode, etc.
+
 
 =Related commands=
 
