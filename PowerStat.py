@@ -6,7 +6,7 @@
 from __future__ import print_function
 import sys
 import os
-from os import stat as osstat  # See lsanc.py for example
+#from os import stat as osstat  # See lsanc.py for example
 #import codecs
 import stat
 import math
@@ -39,6 +39,8 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
+[UNFINISHED]
+
 Do pretty much what *nix `stat` does, but from and for Python. This also adds
 access to a variety of other file information accessible via the Python `stat`
 interface, using an extension of the usul `stat -f` %-string, to accept names
@@ -70,7 +72,7 @@ They start with "%", but have a load of fields, mostly optional:
 * Optional flags: [#+-0] for affect leading zeros, signs, left-alignment, etc.
 * size (digits)
 * precision ("." + digits)    
-* fmt [DOUXFS] for decimal, octal, unsigned decimal, hex, float, or string.
+* fmtCode [DOUXFS] for decimal, octal, unsigned decimal, hex, float, or string.
 For some fields, like 'u' for user, the S form is a name, and the H form is the id.
 S for dates uses `strftime` formats.
 * sub [HML] only applies to p, d, r, and T (for p, it gets weird)
@@ -105,6 +107,8 @@ S for dates uses `strftime` formats.
 
 =Known bugs and Limitations=
 
+Unfinished.
+
 Does not catch and report %-codes that violate the syntax rules. They're just
 ignored.
 
@@ -116,6 +120,8 @@ Finish `--outputFormat`.
 * 2020-11-23: Written by Steven J. DeRose.
 * 2021-06-03: More work on parsing/mapping `stat`-style format specs.
 * 2021-08-31: Add --namedStatFormats.
+* 2021-09-15: Fix bug calculating format() %-strings when fmtCode omitted.
+
 
 ==Rights=
 
@@ -144,7 +150,7 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 
 
 ###############################################################################
-# Provide some useful formats
+# Provide some useful pre-defined formats
 #
 #    -@    Display extended attribute keys and sizes in long (-l) output.
 #    -e    Print the Access Control List (ACL) associated with the file, if present.
@@ -181,19 +187,19 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 #    -p    Write a slash (`/') after each filename if that file is a directory.
 #    -%    Distinguish dataless files and directories with a '%' character.
 #
-# ******* The mnemonics used are based on the `stat` command (q.v).
+# ******* The mnemonics used below are based on `ls` options (q.v).
 #
 permBits = "%SHp%SMp%SLp"
 statFormats = {
-    # 0----+----1----+----2----+----3----+----4----+----5----+----6----+----7
-    # -rwxr-xr-x  1 sderose  staff    21K Jul 13 13:35 BlockFormatter.py
+        # 0----+----1----+----2----+----3----+----4----+----5----+----6----+----7
     "ls_l":    "-" + permBits + "  %8su %8sg %6ds %12sm %sn",
-    # -rwxr-xr-x  1 staff    21K Jul 13 13:35 BlockFormatter.py
+        # -rwxr-xr-x  1 sderose  staff    21K Jul 13 13:35 BlockFormatter.py
     "ls_g":    "-" + permBits + "  %8sg %6ds %12sm %sn",
-    # BlockFormatter.py
+        # -rwxr-xr-x  1 staff    21K Jul 13 13:35 BlockFormatter.py
     "ls":      "%sn",
-    # BlockFormatter.py*
-    "ls_F":    ""
+        # BlockFormatter.py
+    #"ls_F":    ""
+        # BlockFormatter.py*
 }
 
 ###############################################################################
@@ -222,33 +228,55 @@ class StatItem:
     There are also specials like %[nt%@].
     """
 
-
     # Map each chosen datum (see `stat`) to the sprintf field type it defaults to.
     defaultFmtCodes = {
-        #code:  ( sprintfType, datumType )
-        "d": ( "s", str ),       # Device upon which file resides.
-        "i": ( "d", Unsigned ),  # file's inode number.
-        "p": ( "s", str ),       # File type and permissions.
-        "l": ( "d", Unsigned ),  # Number of hard links to file.
-        "u": ( "d", Unsigned ),  # User id of file's owner
-        "g": ( "d", Unsigned ),  # Group ID of file's owner.
-        "r": ( "d", Unsigned ),  # Device number for character/block device special files.
-        "a": ( "t", Epoch ),     # access time
-        "m": ( "t", Epoch ),     # mod time
-        "c": ( "t", Epoch ),     # creation time
-        "B": ( "t", Epoch ),     # inode birth time
-        "z": ( "d", Unsigned ),  # The size of file in bytes.
-        "b": ( "d", Unsigned ),  # Number of blocks allocated for file.
-        "k": ( "d", Unsigned ),  # Optimal file system I/O operation block size.
-        "f": ( "?", str ),       # User defined flags for file.
-        "v": ( "d", Unsigned ),  # Inode generation number.
-        # The following are not in struct stat:
+        # The first few are not in struct stat:
+        #datum code actual-type
         "N": ( "s", str ),       # The name of the file.
         "T": ( "s", str ),       # Flag as in ls -F, or more descriptive if 'H' given.
         "Y": ( "s", str ),       # The target of a symbolic link.
         "Z": ( "s", str ),       # ``major,minor'' from rdev field for char/block special; else size
+        #code:  ( sprintfType, datumType )
+        "B": ( "t", Epoch ),     # inode birth time
+        "a": ( "t", Epoch ),     # access time
+        "b": ( "d", Unsigned ),  # Number of blocks allocated for file.
+        "c": ( "t", Epoch ),     # creation time
+        "d": ( "s", str ),       # Device upon which file resides.
+        "f": ( "?", str ),       # User defined flags for file.
+        "g": ( "d", Unsigned ),  # Group ID of file's owner.
+        "i": ( "d", Unsigned ),  # file's inode number.
+        "k": ( "d", Unsigned ),  # Optimal file system I/O operation block size.
+        "l": ( "d", Unsigned ),  # Number of hard links to file.
+        "m": ( "t", Epoch ),     # mod time
+        "p": ( "s", str ),       # File type and permissions.
+        "r": ( "d", Unsigned ),  # Device number for character/block device special files.
+        "u": ( "d", Unsigned ),  # User id of file's owner
+        "v": ( "d", Unsigned ),  # Inode generation number.
+        "z": ( "d", Unsigned ),  # The size of file in bytes.
     }
 
+    @staticmethod
+    def getItemRegex():
+        """Set up regex to parse a single %... item spec from the format string.
+        This captures all the parts into named capture buffers.
+        """
+        flag    = r'(?P<flag>[#+-0 ])?'         # sign, padding, justify,...
+        siz     = r'(?P<siz>\d)?'
+        prc     = r'(?P<prc>\.\d+)?'            # only for time fields
+        fmtCode = r'(?P<fmtCode>[DOUXFS])?'     # dec, oct, udec, hex, float, str
+        sub     = r'(?P<sub>[HLM])?'            # which part for pdrT
+        datum   = r'(?P<datum>[BNTYZabcdfgiklmpruvz])'
+
+        # Consistency check
+        datumsInTable = "".join(sorted(StatItem.defaultFmtCodes.keys()))
+        if (not datum.endswith(datumsInTable+'])')):
+            fatal("datum regex '%s'\n   does not match keys [%s]" %
+                (datum, datumsInTable))
+
+        # datum += r'|{<?P<datumName>\w+)'
+        itemExpr = '%' + flag + siz + prc + fmtCode + sub + datum + "|%(?P<esc>[nt%@])"
+        return re.compile(itemExpr)
+        
     def __init__(self, mat:re.Match):
         assert isinstance(mat, re.Match)
         self.mat         = mat  # Should go away?
@@ -256,42 +284,49 @@ class StatItem:
         self.startOffset = mat.start(0)
         self.endOffset   = mat.end(0)
         self.esc         = mat.group('esc') or False
-        self.flag        = mat.group('flag') or ''   # [#+-0 ]?
-        self.siz         = self.intCap(mat, 'siz')    # min field width
-        self.prc         = mat.group('prc') or ''    # .precision
-        self.fmtCode     = mat.group('fmt') or ''    # [DOUXFS]?
-        # decimal, octal, hex, float, string.
-        self.subCode     = mat.group('sub') or ''    # [HML]?
-        self.datum       = mat.group('datum')        # field specifier char
-        self.typ         = None                      # As from defaultFmtCodes (?)
+        self.flag        = mat.group('flag') or ''     # [#+-0 ]?
+        self.siz         = self.intCap(mat, 'siz')     # min field width
+        self.prc         = mat.group('prc') or ''      # .precision
+        self.fmtCode     = mat.group('fmtCode') or ''  # [DOUXFS]?
+        # decimal, octal, unsigned decimal, hex, float (only a/m/c timespecs), string.
+        self.subCode     = mat.group('sub') or ''      # [HML]?
+        self.datum       = mat.group('datum')          # field specifier char
+        self.typ         = None                        # As from defaultFmtCodes (?)
         
         self.sprintfCode = "%"
         if (self.flag in "+-0"): self.sprintfCode += self.flag
-        if (self.siz): self.sprintfCode += "%d" % (self.siz)
+        if (self.siz): self.sprintfCode += str(self.siz)
         if (self.prc): self.sprintfCode += self.prc
-        if (self.fmtCode in "DOUXFS"):
-            self.sprintfCode += self.fmtCode.lower()
-        elif (self.fmtCode == ''):
+
+        if (self.fmtCode is None or self.fmtCode == ''):
             dft, self.typ = self.defaultFmtCodes[self.datum]
-            self.sprintfCode += dft if (dft!='t') else 's'  # times are strings...
+            warning1("fmtCode empty, dft '%s' typ '%s'." % (dft, self.typ))
+            if (dft!='t'): self.sprintfCode += dft
+            else: self.sprintfCode += 's'  # times are strings...
+        elif (self.fmtCode in "DOUXFS"):
+            self.sprintfCode += self.fmtCode.lower()
+            warning1("fmtCode '%s' in DOUXFS '%s'." % (self.fmtCode, self.fmtCode.lower()))
         else:
-            assert False, "Bad fmtCode '%s' in:\n" % (self.fmtCode) + self.tostring()
-        warning1("Created format item:\n" + self.tostring())
+            assert False, "Bad fmtCode '%s' in:\n%s" % (self.fmtCode, self.tostring())
+        warning1("Created format item: '%s'\n%s" % (self.sprintfCode, self.tostring()))
 
     def tostring(self) -> str:
         buf = "From '%s':\n" % (self.pctString or "-none-")
-        for k in [ 'esc', 'flag', 'siz', 'prc', 'fmt', 'sub', 'datum' ]:
-            buf += "    '%s': '%s'\n" % (k, self.mat.group(k) or "-none-")
+        for k in [ 'esc', 'flag', 'siz', 'prc', 'fmtCode', 'sub', 'datum' ]:
+            buf += "      %-8s = '%s'\n" % (k, self.mat.group(k) or "-none-")
         buf += "    Derived format() code: '%s'." % (self.sprintfCode)
         return buf
 
     @staticmethod
     def intCap(mat:re.Match, captureName:str, default:int=0) -> int:
+        """Retrieve the named capture group from the match object, but cast to int.
+        If it's not there, return the default.
+        """
         try:
             return int(mat.group(captureName))
-        except ValueError as e:
+        except ValueError:
             return int(default)
-        except TypeError as e:
+        except TypeError:
             return int(default)
 
     def munge(self, st:os.stat_result):  # TODO: FIX, divide parse/store from format
@@ -323,9 +358,9 @@ class StatItem:
         if self.mat.group('siz'): flag = self.mat.group('siz')
         prc = ''
         if self.mat.group('prc'): flag = self.mat.group('prc')
-        if self.mat.group('fmt'):
-            if (self.mat.group('fmt') == 'Y'): fmtCode = 's'
-            else: fmtCode = self.mat.group('fmt').lower()
+        if self.mat.group('fmtCode'):
+            if (self.mat.group('fmtCode') == 'Y'): fmtCode = 's'
+            else: fmtCode = self.mat.group('fmtCode').lower()
         sub = ''
         if self.mat.group('sub'):
             if (datumCode not in 'pdrT'): raise ValueError(
@@ -334,26 +369,27 @@ class StatItem:
             else:
                 flag = self.mat.group('sub')
 
-        datumValue = self.getDatum(st)
+        datumValue = self.getDatumValue(st)
 
-        fmt = "%" + flag + siz + prc + fmtCode
-        val = fmt % (datumValue)
-        if (self.mat.group('fmt') == 'Y'): val = ' -> ' + val
+        pctCode = "%" + flag + siz + prc + fmtCode
+        val = pctCode % (datumValue)
+        if (self.mat.group('fmtCode') == 'Y'): val = ' -> ' + val
         return val
 
     def formatItem(self, st:os.stat_result, theTimeFormat:str=None) -> str:
         """This gets the raw datum given its code and subcode, and then formats
         it as requested.
+        This may raise ValueError, as for a bad sprintfCode.
         """
-        datum = self.getDatum(st)
+        datum = self.getDatumValue(st)
         if (self.typ == Epoch):
             return self.formatTime(datum, theTimeFormat)
         if (self.typ == Unsigned):
             return self.sprintfCode % (datum)
         else:
             return self.sprintfCode % (datum)
-
-    def getDatum(self, st:os.stat_result) -> Any:
+                
+    def getDatumValue(self, st:os.stat_result) -> Any:
         """This gets the raw datum in raw form, given its code and subcode.
         """
         # Cases that use 'sub' code
@@ -394,7 +430,7 @@ class StatItem:
                 "Unrecognized d self.subCode '%s'." % (self.subCode))
 
         # Datetimes (returned as epoch times
-        # (stat has a -t [fmt] option, which passes these through strftime)
+        # (stat has a -t [format] option, which passes these through strftime)
         elif (self.datum in 'amcB'):
             if   (self.datum == 'a'):           # access time
                 tim = st[stat.ST_ATIME]
@@ -497,37 +533,30 @@ class StatItem:
         return time.strftime(f, epochTime)
 
 
-
 ###############################################################################
 #
 class PowerStat:
     """Extract and format info much like 'stat'.
     A format item is like:
-        % flag? space? size? prec? fmt? sub? datum
+        % flag? space? size? prec? fmtCode? sub? datum
 
     There's a lot in stat that still isn't accessible this way. Perhaps
     Add datum field like {statName}', to just use any name python stat knows?
     (see https://docs.python.org/3/library/stat.html)
     """
-    flag    = r'(?P<flag>[#+-0 ])?'     # sign, padding, justify,...
-    siz     = r'(?P<siz>\d)?'
-    prc     = r'(?P<prc>\.\d+)?'        # only for time fields
-    fmt     = r'(?P<fmt>[DOUXFS])?'     # dec, oct, udec, hex, float, str
-    sub     = r'(?P<sub>[HLM])?'        # which part for pdrT
-    datum   = r'(?P<datum>[diplugramcBzbkfvNTYZ])'
-    # datum += r'|{<?P<datumName>\w+)'
-
-    itemExpr = re.compile('%' + flag + siz + prc + fmt + sub + datum +
-        "|%(?P<esc>[nt%@])")
-
+    
     def __init__(self, statFormat:str=None, timeFormat:str=None):
         """Parse a `stat -f` argument into an array of literals and %-items.
         """
+        self.itemExpr = StatItem.getItemRegex()
         self.statFormat = statFormat
         self.theItems = []  # A mix of StatItems and literal strs
         lastEnd = 0
-        for mat in re.finditer(PowerStat.itemExpr, statFormat):
-            if (mat.start() > lastEnd):
+        for mat in re.finditer(self.itemExpr, statFormat):
+            if (not mat.group('datum') and not mat.group('esc')):
+                fatal("Could not parse format item '%s' after column %d." % 
+                    (statFormat, lastEnd))
+            if (mat.start() > lastEnd):  # Save inter-item literal text
                 self.theItems.append(statFormat[lastEnd:mat.start()])
             # We save the entire match object, with named captures:
             self.theItems.append(StatItem(mat))
@@ -549,13 +578,17 @@ class PowerStat:
             if (isinstance(thisItem, str)):
                 buf += thisItem
             elif (isinstance(thisItem, StatItem)):
-                buf += "%s" % thisItem.formatItem(st, theTimeFormat=args.timeFormat)
+                try:
+                    buf += "%s" % thisItem.formatItem(st, theTimeFormat=args.timeFormat)
+                except ValueError as e:
+                    fatal("format error for item, derived sprintf code '%s':\n    %s\n%s" %
+                        (thisItem.sprintfCode, thisItem.tostring(), e))
             else:
                 assert False, "theItems[%d] is of type %s." % (i, type(thisItem))
         return buf
 
     @staticmethod
-    def getDatumByName(st:os.stat_result, datumName:str):
+    def getDatumValueByName(st:os.stat_result, datumName:str):
         try:
             return st.__getitem__[datumName]
         except KeyError:
@@ -566,6 +599,7 @@ class PowerStat:
 # Main
 #
 if __name__ == "__main__":
+    # Default formats
     statFormat0 = "-%Hu%Mu%Lu%Hg%Mg%Lg%Ho%Mo%Lo  %8su %8sg %6ds %12sm %sn"
     timeFormat0 = "%Y-%m-%dT%H:%M:%S %Z"
     import argparse
@@ -595,7 +629,7 @@ if __name__ == "__main__":
             "--statFormat", "-s", type=str, default=statFormat0,
             help='stat-like percent-codes to determine output format.')
         parser.add_argument(
-            "--namedStatFormat", "-s", type=str, default=None,
+            "--namedStatFormat", type=str, default=None,
             choices=statFormats.keys(),
             help='Use one of the predefined stat formats, instead of specifying --statFormat.')
         parser.add_argument(
@@ -618,8 +652,8 @@ if __name__ == "__main__":
             args0.color = ("USE_COLOR" in os.environ and sys.stderr.isatty())
         #lg.setColors(args0.color)
         #if (args0.verbose): lg.setVerbose(args0.verbose)
-        if (args.namedStatFormat):
-            args.statFormat = statFormats[args.namedStatFormat]
+        if (args0.namedStatFormat):
+            args0.statFormat = statFormats[args0.namedStatFormat]
             
         return(args0)
 
