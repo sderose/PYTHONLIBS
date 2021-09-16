@@ -66,8 +66,6 @@ statistics, color, and a simpler (although much less flexible) structure:
 A nearly identical `sjdUtils.pl` is also available for Perl.
 
 
-=for nobody ================================================================
-
 =Methods=
 
 ==General methods==
@@ -567,7 +565,7 @@ Write unit tests and fix several bugs. Add HNumber 'base' arg.
 
 Copyright 2011, Steven J. DeRose. This work is licensed under a Creative Commons
 Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+this license, see [http://creativecommons.org/licenses/by-sa/3.0/].
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github/com/sderose].

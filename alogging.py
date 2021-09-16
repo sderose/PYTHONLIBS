@@ -91,7 +91,7 @@ message parameter, just for flexibility (probably should change to allow any
 number).
 
 `vMsg()` is meant for
-verbose or informational messages `eMsg()` is for errors,
+verbose or informational messages `eMsg()` (now deprecated, use `error()`) is for errors,
 while `hMsg` is for headings. They have different formatting
 characteristics, which can be changed independently.
 
@@ -445,7 +445,7 @@ main program ends). For example:
     for rec in open(foo, 'r').readline():
         recnum += 1
         if (len(rec) > 999):
-            lg.eMsg("Line %d too long (%d characters)." % (recnum, len(rec)),
+            lg.error("Line %d too long (%d characters)." % (recnum, len(rec)),
                     stat="Too long")
     lg.setOption('plineWidth', 45)  # Allow space for long stat names
     lg.showStats()
@@ -459,7 +459,7 @@ for defining subtypes of errers, or attaching small data to them. The
 example above could be modified to keep count of all the specific
 excessive record-lengths, by changing the ''eMsg'' call to:
 
-    lg.eMsg("Line %d too long (%d characters)." % (recnum, len(rec)),
+    lg.error("Line %d too long (%d characters)." % (recnum, len(rec)),
             stat="Too long/%d" % (len(rec))
 
 In addition to the `stat` parameter on various messaging methods, there
@@ -570,7 +570,7 @@ Such messages get a blank line before, and a distinctive color or prefix.
 * ''eMsg(self, level, msg1, msg2, color=None)''
 
 Shorthand to issue such a message, with ''msgType'' 'e' (error).
-Error messages with a negative level cause termination.
+Error messages with a negative level cause termination (deprecated, use `error()`).
 
 * B<rMsg(self, level, color=None, width=79)
 
@@ -1221,7 +1221,6 @@ class ALogger:
     def eMsg(self, verbose:int, m1:str, m2:str="", color:str=None, stat:str=""):
         """A variant of ''Msg''(), to issue an 'error' (msgType 'e') message.
         """
-
         self.errorCount += 1
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
@@ -1785,7 +1784,7 @@ if __name__ == "__main__":
     lg.vMsg(0, "A vMsg message, indented.")
     lg.MsgPop()
     lg.vMsg(0, "A vMsg message, back to no indent.")
-    lg.eMsg(0, "An eMsg message")
+    lg.error("An eMsg message")
 
     lg.bumpStat('infoStat', 100)
     lg.showStats()
