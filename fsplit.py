@@ -8,7 +8,8 @@
 import sys
 import argparse
 import re
-from typing import Dict, Any
+from collections import namedtuple
+from typing import Dict, Any, Union
 
 __metadata__ = {
     'title'        : "fsplit.py",
@@ -90,7 +91,7 @@ If you prefer, you can pass the format options directly to `fsplit()`:
 
 Or you can operate at the file level, using any of these:
 
-* DictReader(f, fieldnames=None, restkey=None, restval=None, dialect=None)
+* DictReader(f, fieldNames=None, restkey=None, restval=None, dialect=None)
 
 `f` must be an open file handler or other readable. Usage is just like
 the corresponding class in `csv`:
@@ -103,12 +104,12 @@ the corresponding class in `csv`:
 
 fieldname can be read via a header record, and/or specified to the constructor.
 
-* DictWriter(f, fieldnames, restval='', extrasaction='raise', dialect=None)
+* DictWriter(f, fieldNames, restval='', extrasaction='raise', dialect=None)
 
     import fsplit
     with codecs.open('names.csv', 'w', encoding='utf-8') as csvfile:
-        fieldnames = ['first_name', 'last_name']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        fieldNames = ['first_name', 'last_name']
+        writer = csv.DictWriter(csvfile, fieldNames=fieldNames)
         writer.writeheader()
         writer.writerow({'first_name': 'Baked', 'last_name': 'Beans'})
         writer.writerow({'first_name': 'Lovely', 'last_name': 'Spam'})
@@ -331,7 +332,7 @@ Probably should add a way to specify other acceptable values, like "0",
 "0.0", "1E-200000", "#F", r'^\\s*$', or "False".
 I have added a `boolCaster()` function for this, but not connected it.
 
-fieldnames passed to DictReader should probably be allowed to override any
+fieldNames passed to DictReader should probably be allowed to override any
 read from a header record. But currently they're compared and an exception
 is raised if they don't match.
 
@@ -366,6 +367,9 @@ throw an exception on the blank lines, so the user can tell?
     ** SQL INSERT statements
 
 * Sub/alternate class for fixed column widths?
+
+* Support name:type in header record, with appropriate type checking and casting.
+(Maybe also "!" to indicate required?)
 
 
 =History=
@@ -568,13 +572,52 @@ class DialectX:
 
 
 ###############################################################################
+# TODO: Integrate this tiny schema-ish feature for type-checking.
+#
+FieldInfo = namedtuple('FieldInfo', [ 'n', 'name', 'type', 'default', 'required' ])
+    
+class FieldSchema(list):
+    """Keep track of the known fields, with optional names, types, defaults.
+    See also Homogeneous.py.
+    """
+    def __init__(self):
+        super(FieldSchema, self).__init__()
+    
+    def getFieldInfo(self, fieldSpec:Union[int:str]) -> FieldInfo:
+        if (isinstance(fieldSpec, int)): return self[fieldSpec]
+        for fi in self:
+            if (fi.name == fieldSpec): return fi
+        raise KeyError("Cannot find field %s." % (fieldSpec))
+        
+    def isValueOk(self, fieldSpec:Union[int:str], val:Any) -> bool:
+        fi = self.getFieldInfo(fieldSpec)
+        if (val is None): return (not fi.required)
+        return (isinstance(val, fi.type))
+        
+    def getValidValue(self, fieldSpec:Union[int:str], value):
+        """Check the value passed in. If it's ok for this field, return it.
+        Otherwise:
+            * If it's None, return the default if available, or else None.
+            * If no type was specified, just return the value as is.
+            * If it's castable to the desired type, cast it and return that.
+            * Raise ValueError.
+        """
+        fi = self.getFieldInfo(fieldSpec)
+        if (value is None):
+            return fi.default
+        if (fi.type is None):
+            return value
+        return fi.typ(value)
+        
+
+###############################################################################
 #
 class DictReader:
     """Modelled after Python 'csv' package.
     """
     def __init__(self,
         f,                  # file handle, File object, etc.
-        fieldnames=None,    # iterable of names (None->use header rec)
+        fieldNames=None,    # iterable of names (None->use header rec)
         restkey=None,       # store any extras as list under this key
         restval=None,       # default any missing fields to this value
         dialect=None,       #
@@ -583,13 +626,14 @@ class DictReader:
         ):
         self.f          = f
         self.recnum     = 0
-        self.fieldnames = fieldnames or []
+        self.fieldNames = fieldNames or []
         self.restkey    = restkey
         self.restval    = restval
         self.dialect    = dialect
 
         self.line_num   = 0
-        self.fieldnamesFromHeader = []
+        self.fieldInfos = []
+        self.fieldNamesFromHeader = []
 
         # TODO: set up the kwargs
 
@@ -613,13 +657,7 @@ class DictReader:
                 pass
             rec = priorParts + rec
             if (self.line_num==0 and self.dialect.header):
-                self.line_num += 1
-                self.fieldnamesFromHeader = fsplit(rec, self.dialect)
-                if (self.fieldnames and
-                    self.fieldnamesFromHeader != self.fieldnames):
-                    raise ValueError("Header does not match " +
-                        "dialect fieldnames:\n    %s\n    %s" %
-                        (self.fieldnames != self.fieldnamesFromHeader))
+                self.readHeader(rec)
             else:
                 try:
                     fields = fsplit(rec, self.dialect)
@@ -628,11 +666,44 @@ class DictReader:
                     continue
                 fieldDict = {}
                 for fNum, fd in fields:
-                    fieldDict[self.fieldnames[fNum]] = fd
+                    fieldDict[self.fieldNames[fNum]] = fd
                 return fieldDict
         return None  # EOF
 
+    def readHeader(self, rec:str):
+        from pydoc import locate  # see https://stackoverflow.com/questions/11775460/
+        self.line_num += 1
+        self.fieldNamesFromHeader = []
+        self.fieldInfos = []
+        for fnum, hfield in enumerate(fsplit(rec, self.dialect)):
+            hfield = hfield.strip()
+            ftype = fdefault = frequired = None
+            if hfield.endswith("!"):
+                frequired = True
+                hfield = hfield[0:-1]
+            mat = re.match(r"([^:]+)(:[^=]+)?(=.*)?$", hfield)
+            if (not mat):
+                fname = hfield
+            else:
+                fname = mat.group(1)
+                ftype = None
+                if (mat.group(2)):
+                    ftype = locate(mat.group(2))
+                    if (ftype is None): 
+                        raise ValueError("Could not locate type named '%s'." % (mat.group(2)))
+                fdefault = None         
+                if mat.group(3): fdefault = mat.group(3)
+            fi = FieldInfo(fnum, fname, ftype, fdefault, frequired)
+            self.fieldNamesFromHeader = fname
+            self.fieldInfos = fi
+            
+        if (self.fieldNames and
+            self.fieldNamesFromHeader != self.fieldNames):
+            raise ValueError("Header does not match " +
+                "expected fieldNames:\n    %s\n    %s" %
+                (str(self.fieldNames), str(self.fieldNamesFromHeader)))
 
+    
 ###############################################################################
 # Thrown when parsing a line and it ends mid-quote, iff the dialect
 # says that's ok. Caller should catch it, append next line, and call again.
@@ -664,9 +735,9 @@ def reader(csvfile, **formatParams):
 #
 class DictWriter:
     """Like 'writer' but takes dicts, and writes their members in the
-    order specified by 'fieldnames'.
+    order specified by 'fieldNames'.
 
-    When using 'writerow()', if 'fieldnames':
+    When using 'writerow()', if 'fieldNames':
         is None: fields are written in alphabetical order.
         mentions a field that is not known, it is written as "".
         mentions a field that is missing, it is written as ""
@@ -685,7 +756,7 @@ class DictWriter:
     def __init__(self,
         f,
         #*args1,
-        fieldnames:list=None,
+        fieldNames:list=None,
         fieldformats:list=None,
         restval:str='',
         extrasaction:str='raise',
@@ -694,15 +765,15 @@ class DictWriter:
         #**kwds1
         ):
         self.f            = f
-        self.fieldnames   = fieldnames
+        self.fieldNames   = fieldNames
         self.restval      = restval
         self.extrasaction = extrasaction
         self.dialect      = dialects[dialect]
         self.disp_None    = disp_None
-        if (fieldnames):
-            if (not isinstance(fieldnames, list)):
-                raise ValueError("fieldnames must be a list.")
-            if (fieldformats and not len(fieldnames) == len(fieldformats)):
+        if (fieldNames):
+            if (not isinstance(fieldNames, list)):
+                raise ValueError("fieldNames must be a list.")
+            if (fieldformats and not len(fieldNames) == len(fieldformats)):
                 raise ValueError("")
         if (fieldformats):
             for f in fieldformats:
@@ -710,7 +781,7 @@ class DictWriter:
                     raise ValueError("Unparseable fieldFormat '%s'." % (f))
 
     def writeheader(self) -> None:
-        self.writerow(self.fieldnames)
+        self.writerow(self.fieldNames)
 
     def writerows(self, rows:list) -> int:
         rnum = 0
@@ -722,11 +793,11 @@ class DictWriter:
     def writerow(self, row:dict) -> None:
         nDelims = len(self.dialect.delimiter)
         buf = ""
-        if (self.fieldnames is None):
-            self.fieldnames = sorted(row.keys())
-        for i, fname in enumerate(self.fieldnames):
+        if (self.fieldNames is None):
+            self.fieldNames = sorted(row.keys())
+        for i, fname in enumerate(self.fieldNames):
             thisDelim = self.dialect.delimiter[ i % nDelims ]
-            #fname = self.fieldnames[fnum]
+            #fname = self.fieldNames[fnum]
             fval = row[fname] if fname in row else ""
             formattedVal = self.formatOneField(fval)
             buf += formattedVal + thisDelim
@@ -788,8 +859,8 @@ def writer(csvfile, **formatParams):
     staticDialect = DialectX(**formatParams)
     staticFile = csvfile
 
-def writeheader(fieldnames:list) -> None:
-    writerow(fieldnames)
+def writeheader(fieldNames:list) -> None:
+    writerow(fieldNames)
 
 def writerow(row:list) -> None:
     nDelims = len(staticDialect.delimiter)

@@ -1146,11 +1146,11 @@ class PowerWalk:
         "followWeblocs"       : PWDisp,
         "hidden"              : bool,
         "ignorables"          : bool,
-        "maxDepth"            : int,
-        "maxFiles"            : int,
-        "maxSize"             : int,
-        "minDepth"            : int,
-        "minSize"             : int,
+        "maxDepth"            : int,            # TODO -> find-style?
+        "maxFiles"            : int,            # TODO -> find-style?
+        "maxSize"             : int,            # TODO -> find-style?
+        "minDepth"            : int,            # TODO -> find-style?
+        "minSize"             : int,            # TODO -> find-style?
         "mode"                : str,
         "notify"              : bool,
         "open"                : bool,
@@ -1180,6 +1180,10 @@ class PowerWalk:
 
         self.travState = None  # Used during traversal (not thread-safe!) TO DO
 
+        # Datatypes for most options. A few are added algorithmically, such as
+        # --newer[Bcma][aBcm].
+        # Options specific to the command are not included here.
+        #
         self.options = {
             "excludeExtensions"   : "",
             "excludeNames"        : "",
@@ -1682,7 +1686,7 @@ class PowerWalk:
             for ancPWFrame in self.travState:
                 if (ancPWFrame.inode != newInode): continue
                 self.travState.bump("errors")
-                warn(0, "Circular directory tree at %s. Skipped." % (path))
+                warn(0, "Directory 'tree' has cyclic link at %s. Skipped." % (path))
                 return False
         return self.dirPassesFilters(path, theStat, trav)
 

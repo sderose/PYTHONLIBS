@@ -34,7 +34,7 @@ descr = """
 
 ReadAny.py [options] [files]
 
-B<UNFINISHED>
+'''UNFINISHED'''
 
 Transparently read files whether they are zip, gzip, or plain.
 Can do recursive directory traversal, and include/exclude
@@ -48,47 +48,41 @@ Also maintains counts of records and of each category of file-system item.
 
 =Methods=
 
-The usual File methods are also supported: I<open>() (a no-op), I<close>(),
-I<seek>(), I<tell>(), I<isatty>(), I<read>(), I<readline>().
+The usual File methods are also supported: ''open''() (a no-op), ''close''(),
+''seek''(), ''tell''(), ''isatty''(), ''read''(), ''readline''().
 
-=over
-
-* B<ReadAny(files, recursive=0, binaries=0, halt="ALL", backups=0, hiddens=0, links=0, verbose=0)>
+* '''ReadAny(files, recursive=0, binaries=0, halt="ALL", backups=0, hiddens=0, links=0, verbose=0)'''
 
 Constructor.
 
-=over
-
-* I<files> is an array of paths, such as from a typical command line.
+** ''files'' is an array of paths, such as from a typical command line.
 If the array is empty, STDIN is used (but will not be uncompressed!)
 
-* I<recursive> makes the read proceed down through sub-directories.
+** ''recursive'' makes the read proceed down through sub-directories.
 
-* I<binaries> includes binary files other than zips and gzips (those two
+** ''binaries'' includes binary files other than zips and gzips (those two
 kinds are transparently opened and their contents decompressed, regardless
 of this setting).
 UNFINISHED
 
-* I<hiddens> includes files whose names, or any of whose ancestor
+** ''hiddens'' includes files whose names, or any of whose ancestor
 directories names, start with ".".
 
-* I<halt> determines whether a user interrupt (^C) should
-stop nothing (C<IGNORE>),
-stop just the current file (C<FILE>), or
-stop everything (C<ALL>).
-C<ALL> is the default.
+** ''halt'' determines whether a user interrupt (^C) should
+stop nothing (`IGNORE`),
+stop just the current file (`FILE`), or
+stop everything (`ALL`).
+`ALL` is the default.
 UNFINISHED
 
-* I<backups> determines whether to include files which appear to
+** ''backups'' determines whether to include files which appear to
 be backups: namely, with names ending "~" or ".bak" or "#".
 
-* I<verbose> specifies the messaging level (default: 0).
+** ''verbose'' specifies the messaging level (default: 0).
 
-=back
+* nextItem
 
-=item B<nextItem>
-
-Returns an C<OpenItem> object representing the next file-system item,
+Returns an `OpenItem` object representing the next file-system item,
 whether it is something you want or not. That is, this stops at all
 readable files,
 directories even if you aren't going to recurse into them,
@@ -97,57 +91,51 @@ backups even if you aren't going to read them, etc.
 Seldom needed (though if you're cloning a whole directory tree or something,
 you may want to stop at all the directories as you go.
 
-=item B<nextFile>
+* nextFile
 
 Open the next file, and pass back a file-handle to it.
 Collections are transparently opened; such as directories,
 zip, gzip, and eventually tar files, etc.
-All the "leaf" files support C<readline>() directly
-(see the Python C<zipfile> and C<gzip> packages).
-I<nextFile> will force any current I<readable> file to be closed,
+All the "leaf" files support `readline`() directly
+(see the Python `zipfile` and `gzip` packages).
+''nextFile'' will force any current ''readable'' file to be closed,
 whether or not they have been completely read (or course, it won't force
 a directory to close until all its descendants have been handled, if
 you're recursing.
 
-Returns C<None> when there are no more files to get to.
+Returns `None` when there are no more files to get to.
 
-=item B<readline>
+* readline
 
-=item B<readAll(openCB, recordCB, closeCB)>
+* readAll(openCB, recordCB, closeCB)
 
 Do all the reading, but via callbacks instead of pulling a file or record
 at a time. The callbacks are:
 
-=over
-
-* I<openCB(path, fh, type)>
+* ''openCB(path, fh, type)''
 
 If provided, called when each file it opened (not including directories
 or files that are missing or skipped, such as backups).
 
-* I<recordCB(string, path, recnum, totalRecords)>
+** ''recordCB(string, path, recnum, totalRecords)''
 
 If this callback is not defined, the file will not even be read by this
 package. If this callback is defined, it will be called for each record
 of each input file; if it returns -1 the file will be closed (see
-I<closeCB>) and the next file started; if -2, all files will be closed.
+''closeCB'') and the next file started; if -2, all files will be closed.
 
-* I<closeCB(path, fh, type, totalRecordsInFile, totalRecords)>
+** ''closeCB(path, fh, type, totalRecordsInFile, totalRecords)''
 
 If provided, called just before the item is closed.
-
-=back
-
-=back
 
 
 =Related Commands=
 
-C<zcat> -- unzips and cats a file.
+`zcat` -- unzips and cats a file.
 
-C<less> -- clever enough to unzip things by itself.
+`less` -- clever enough to unzip things by itself.
 
-This package ised by C<selectNgrams.py> and C<calculateMI.py>.
+This package ised by `selectNgrams.py` and `calculateMI.py`.
 
 
 =Known bugs and limitations=
@@ -174,6 +162,7 @@ globalChange, body, randomRecords.
 * 2013-06-20: Rough out rest of usual File methods.
 * 2018-06-01: Attach codecs.
 * 2020-08-27: New layout.
+* 2021-09-17: Doc cleanup.
 
 
 =Rights=

@@ -45,11 +45,11 @@ of a filename, it will use some text of its own as a test.
 
 There are several tokenizers included:
 
-* The I<SimpleTokenizer> class is quick and should be adequate for
+* The ''SimpleTokenizer'' class is quick and should be adequate for
 many uses. It drops soft/optional hyphens, normalizes Unicode (accents,
 ligatures, etc.), then applyies a few regexes to insert
 extra spaces (such as before the apostrophe of contractions, around emdashes, after opening punctuation, etc.), and then splits on space-runs.
-It offers an option to use I<TokensEN.py> for contractions, but
+It offers an option to use ''TokensEN.py'' for contractions, but
 otherwise applies a simplified rule for them.
 
 This is the easiest to use, for example:
@@ -62,24 +62,24 @@ This is the easiest to use, for example:
 
 It provides a few keyword options on the constructor:
 
-**B<normalize> -- What Unicode normalization to apply.
+**'''normalize''' -- What Unicode normalization to apply.
 
 Default: 'NFKD' (others are 'NFC', 'NFD', and 'NFKC').
 
-**B<breakHyphens> -- Whether to split hyphenated words. Default: False.
+**'''breakHyphens''' -- Whether to split hyphenated words. Default: False.
 
-**B<fancyContractions> -- Whether to use the I<TokensEN> package
+**'''fancyContractions''' -- Whether to use the ''TokensEN'' package
 to handle contractions, or just some local regexes. Default: False.
 
-**B<verbose> -- Whether to print steps of progress. Default: False.
+**'''verbose''' -- Whether to print steps of progress. Default: False.
 
-* I<NLTKTokenizerPlus> applies the NLTK tokenizer, then
+* ''NLTKTokenizerPlus'' applies the NLTK tokenizer, then
 makes a few adjustments. Usage is the same as just shown,
 just substitute "NLTKTokenizerPlus".
 
-* I<HeavyTokenizer> provides a variety of useful but complex steps, and
+* ''HeavyTokenizer'' provides a variety of useful but complex steps, and
 can do a lot of manipulation to help when gathering lexicostatistics. Usage is the same as just shown, just substitute "HeavyTokenizer". However, you'll
-probably want to use I<setOption>() to pick exactly what behaviors you want.
+probably want to use ''setOption''() to pick exactly what behaviors you want.
 
 ==Details on the HeavyTokenizer==
 
@@ -96,7 +96,7 @@ dashes (soft, em, etc.), spaces (non-breaking, m-width, etc.), etc.
 
 * Filter out or merge particular tokens (for example, sometimes you
 might want only alphabetic tokens, or no punctuation; or want a "cover"
-token such as "99" to represent I<all> numbers; etc.) This is especially
+token such as "99" to represent ''all'' numbers; etc.) This is especially
 useful when developing lexica from corpora.
 
 * Generate the actual tokenized result.
@@ -154,7 +154,7 @@ options, so you can easily winnow a list down to just what you want.
 There are several steps to the process of tokenizing, with the options
 applicable to each described in order below.
 
-Option names appear in B<BOLD>, and values in I<ITALIC> below.
+Option names appear in '''BOLD''', and values in ''ITALIC'' below.
 The type of value expected is shown in (parentheses): either (boolean), (int),
 or (disp), unless otherwise described.
 
@@ -164,12 +164,12 @@ or (disp), unless otherwise described.
 These options all begin with "X_" and all take (boolean) values,
 for whether to expand them to a literal character.
 
-* B<X_BACKSLASH> -- A lot of cases are covered.
+* '''X_BACKSLASH''' -- A lot of cases are covered.
 
-* B<X_URI> -- %-escapes as used in URIs.
-Not to be confused with the B<T_URI> option for tokenizing (see below).
+* '''X_URI''' -- %-escapes as used in URIs.
+Not to be confused with the '''T_URI''' option for tokenizing (see below).
 
-* B<X_ENTITY> -- Covers HTML and XML named entities and
+* '''X_ENTITY''' -- Covers HTML and XML named entities and
 numeric character references (assuming the caller didn't already parse and
 expand them).
 
@@ -178,11 +178,11 @@ expand them).
 
 These options are distinguished by being named in Title_Case with underscores
 (following the Perl convention for Unicode character class names).
- See L<http://unicode.org/reports/tr44/tr44-4.html#General_Category_Values>.
+ See [http://unicode.org/reports/tr44/tr44-4.html#General_Category_Values].
 
 This all assumes that the data is already Unicode, so be careful of CP1252.
 
-* B<Ascii_Only> (boolean) -- a special case.
+* '''Ascii_Only''' (boolean) -- a special case.
 Discards all non-ASCII characters, and turns control characters (such as
 CR, LF, FF, VT, and TAB) to space. If you specify this, you should not specify
 other character set normalization options.
@@ -204,20 +204,20 @@ All other character set normalization options are of type (disp):
   "strip"     -- Decompose (NFKD) and then strip any diacritics
   "decompose" -- Decompose (NFKD) into component characters
 
-I<Letter> and its subcategories default to C<keep>; all other
-character categories default to C<unify> (see below for the
+''Letter'' and its subcategories default to `keep`; all other
+character categories default to `unify` (see below for the
 meaning of "unify" for each case).
 
-B<Note>: A character may have multiple decompositions, or may be
+'''Note''': A character may have multiple decompositions, or may be
 undecomposable. The resulting string will also be in Compatibility decomposition
-(see L<http://unicode.org/reports/tr15/>) and
+(see [http://unicode.org/reports/tr15/]) and
 Unicode's Canonical Ordering Behavior. Compatibility decomposition combines
 stylistic variations such as font, breaking, cursive, circled, width,
-rotation, superscript, squared, fractions, I<some> ligatures
+rotation, superscript, squared, fractions, ''some'' ligatures
 (for example ff but not oe), and pairs like angstrong vs. A with ring,
 ohm vs omega, long s vs. s.
 
-C<#unify> changes each character of the given class
+`#unify` changes each character of the given class
 to one particular ASCII character to represent the class (this is useful for finding
 interesting patterns of use):
 
@@ -267,60 +267,60 @@ interesting patterns of use):
   Private_Use             unifies to "?"
   Unassigned              unifies to "?"
 
-C<unify> can also be used for the Non-word token options (see below); in that
-case, each option has a particular value to which matching I<tokens> unify.
+`unify` can also be used for the Non-word token options (see below); in that
+case, each option has a particular value to which matching ''tokens'' unify.
 
-Setting the option for a cover category (such as I<Letter>) is merely shorthand for
+Setting the option for a cover category (such as ''Letter'') is merely shorthand for
 setting all its subcategories to that value. Some or all subcategories can
-still be reset afterward, but any I<earlier> setting for a subcategory
+still be reset afterward, but any ''earlier'' setting for a subcategory
 is discarded when you set its cover category.
 
-To get a list of the category options run C<Tokenizer.pm -list>.
+To get a list of the category options run `Tokenizer.pm -list`.
 
 The following character set normalization options can also be used
 (but are not Unicode General Categories):
 
-* B<Accent> --
-These are related to Unicode B<Nonspacing_Mark>,
+* '''Accent''' --
+These are related to Unicode '''Nonspacing_Mark''',
 but that also would include vowel marks, which this doesn't.
-I<#decompose> and I<strip> are important value for this option:
+''#decompose'' and ''strip'' are important value for this option:
 the format splits a composed letter+diacritic or similar combination
 into its component parts; the latter discards the diacritic instead.
-I<#delete> discards the whole accent+letter combination (?).
-B<Note>: There is a separate Unicode property called "Diacritic",
+''#delete'' discards the whole accent+letter combination (?).
+'''Note''': There is a separate Unicode property called "Diacritic",
 but it isn't available here yet.
 
-* B<Control_0> -- The C0 control characters.
+* '''Control_0''' -- The C0 control characters.
 That is, the usual ones from \\x00 to \\x1F.
-This option only matters if I<Control> is set to C<keep>.
+This option only matters if ''Control'' is set to `keep`.
 
-* B<Control_1> -- The C1 control characters.
+* '''Control_1''' -- The C1 control characters.
 That is, the "upper half" ones from \\x80 to \\x9F.
-B<Note>: These are graphical characters in the common Windows(r) character
+'''Note''': These are graphical characters in the common Windows(r) character
 set known as "CP1252", but not in Unicode or most other sets.
-This option only matters if I<Control> is set to C<keep>.
+This option only matters if ''Control'' is set to `keep`.
 
-* B<Digit> -- characters 0-9 -- Cf Unicode B<Number>, which is broader.
+* '''Digit''' -- characters 0-9 -- Cf Unicode '''Number''', which is broader.
 
-* B<Ligature> characters -- This also includes titlecase and digraph
-characters. B<Note>: Some Unicode ligatures, particular in Greek, may also
+* '''Ligature''' characters -- This also includes titlecase and digraph
+characters. '''Note''': Some Unicode ligatures, particular in Greek, may also
 be involved in accent normalization.
-See also L<http://en.wikipedia.org/wiki/Typographic_ligature>
-B<(not yet supported)>
+See also [http://en.wikipedia.org/wiki/Typographic_ligature]
+'''(not yet supported)'''
 
-* B<Fullwidth> --
-See L<http://en.wikipedia.org/wiki/Halfwidth_and_fullwidth_forms>
-B<(not yet supported)>
+* '''Fullwidth''' --
+See [http://en.wikipedia.org/wiki/Halfwidth_and_fullwidth_forms]
+'''(not yet supported)'''
 
-* B<Math> -- Unicode includes many variants of the entire Latin
+* '''Math''' -- Unicode includes many variants of the entire Latin
 alphabet, such as script, sans serif, and others.
-These are in the Unicode B<Math> general category.
-B<(not yet supported)>
+These are in the Unicode '''Math''' general category.
+'''(not yet supported)'''
 
-* B<Nbsp> -- The non-breaking space character, U+00A0. This
+* '''Nbsp''' -- The non-breaking space character, U+00A0. This
 defaults to being changed to a regular space.
 
-* B<Soft_Hyphen> -- The soft (optional) hyphen characters,
+* '''Soft_Hyphen''' -- The soft (optional) hyphen characters,
 U+00AD and U+1806. These default to being deleted.
 
 
@@ -328,12 +328,12 @@ U+00AD and U+1806. These default to being deleted.
 
 These options are all (boolean).
 
-* B<N_CHAR> Reduce runs of >= N of the same
+* '''N_CHAR''' Reduce runs of >= N of the same
 word-character in a row, to just N occurrences. This is for things like
 "aaaaaaaarrrrrrrrrgggggggghhhhhh". However, it does not yet cover things
 like "hahahaha".
 
-* B<N_SPACE> Reduce runs of >= N white-space characters
+* '''N_SPACE''' Reduce runs of >= N white-space characters
 (not necessarily all the same) to just N.
 
 
@@ -343,38 +343,38 @@ This step can tweak various kinds of non-word tokens, such as
 numbers, URIs, etc. The options are of type (disp), but the
 only meaningful settings are "keep", "delete", "space", and "unify".
 
-* B<T_TIME> tokens, such as "6:24 pm".
+* '''T_TIME''' tokens, such as "6:24 pm".
 
-* B<T_DATE> tokens, such as "2012-08-22" or "2012 BCE".
+* '''T_DATE''' tokens, such as "2012-08-22" or "2012 BCE".
 Month names and abbreviations are not yet supported.
 
-* B<T_FRACTION> (including Unicode fraction characters if they
+* '''T_FRACTION''' (including Unicode fraction characters if they
 were not already normalized).
 
-* B<T_NUMBER> tokens, including signed or unsigned integers, reals,
+* '''T_NUMBER''' tokens, including signed or unsigned integers, reals,
 and exponential notation (however, fractions are dealt with separately).
 This does not include spelled-out numbers such as "five hundred".
 (not yet supported)
 
-* B<T_CURRENCY> tokens, consisting of a currency symbol and a number,
+* '''T_CURRENCY''' tokens, consisting of a currency symbol and a number,
 such as $1, $29.95, etc.
 
-* B<T_EMOTICON> items
+* '''T_EMOTICON''' items
 
-* B<T_HASHTAG> items as in Twitter (#ibm)
+* '''T_HASHTAG''' items as in Twitter (#ibm)
 
-* B<T_USER> items as in Twitter (@john)
+* '''T_USER''' items as in Twitter (@john)
 
-* B<T_EMAIL> addresses
+* '''T_EMAIL''' addresses
 
-* B<T_URI> items (see also the B<X_URI> unescaping option earlier)
+* '''T_URI''' items (see also the '''X_URI''' unescaping option earlier)
 
 
 ==4: Split tokens==
 
 As a first approximation, text can be broken at each white-space character(s),
-at all individual C<characters>, or C<none> at all. The choice depends on the
-I<TOKENTYPE> option. There is a host of other rules for various cases.
+at all individual `characters`, or `none` at all. The choice depends on the
+''TOKENTYPE'' option. There is a host of other rules for various cases.
 
 Then leading and trailing punctuation are broken off.
 This prevents leaving parentheses, commas, quotes, etc. attached to words.
@@ -390,62 +390,62 @@ However, the script is not smart (at least, yet) about special cases such as:
   house(s)
 
 This needs some adjustments re. which punctuation is allowed on which
-end.  Harder problems include plural genitives: "The three I<dogs'> tails."
+end.  Harder problems include plural genitives: "The three ''dogs''' tails."
 and abbreviations versus sentence-ends.
 
 A few special cases are controlled by these ("S_") options, such as
 re-mapping contractions and breaking up hyphenated words (by inserting
 extra spaces).
 
-* B<S_CONTRACTION> can be set to "unify" in order to
+* '''S_CONTRACTION''' can be set to "unify" in order to
 expand most English contractions. For example:
 won't, ain't, we'll, we'd, we're, we'll, somebody'd,
 y'all, let's, gonna, cannot.
 Not very useful for non-English cases like "dell'" or "c'est".
 (see also POS/multitagTokens).
 
-* B<S_HYPHENATED> break at hyphens, making the hyphen a separate
-token. (Doesn't deal with soft hyphens or other B<Format> characters.
+* '''S_HYPHENATED''' break at hyphens, making the hyphen a separate
+token. (Doesn't deal with soft hyphens or other '''Format''' characters.
 
-* B<S_GENITIVE> break "'s" to a separate token. This does not actually
+* '''S_GENITIVE''' break "'s" to a separate token. This does not actually
 catch all genitives, even in English (and, many "'s" cases in English
 can be either genitives or contractions of "is".
-B<(not yet supported)>
+'''(not yet supported)'''
 
 
 ==6: Filter out unwanted tokens ("words" mode only)==
 
-These options are all (boolean) except for B<F_MINLENGTH> and B<F_MAXLENGTH>.
+These options are all (boolean) except for '''F_MINLENGTH''' and '''F_MAXLENGTH'''.
 For Boolean filter options, the default is off, which means the tokens
 are not discarded.
 
-* B<F_MINLENGTH> (int) -- Discard all tokens shorter than this.
+* '''F_MINLENGTH''' (int) -- Discard all tokens shorter than this.
 
-* B<F_MAXLENGTH> (int) -- Discard all tokens longer than this.
+* '''F_MAXLENGTH''' (int) -- Discard all tokens longer than this.
 
-* B<F_SPACE> (boolean) -- can be used to delete all white-space items.
+* '''F_SPACE''' (boolean) -- can be used to delete all white-space items.
 
 * Filter by case and special-character pattern
 Each of the following (disjoint) categories
-can be controlled separately (see also I<--ignoreCase>, I<--Letter>, etc.):
+can be controlled separately (see also ''--ignoreCase'', ''--Letter'', etc.):
 
-** B<F_UPPER> (boolean) -- remove words with only capital or caseless letters
+** '''F_UPPER''' (boolean) -- remove words with only capital or caseless letters
 
-** B<F_LOWER> (boolean) -- remove words with only lower case or caseless letters
+** '''F_LOWER''' (boolean) -- remove words with only lower case or caseless letters
 
-** B<F_TITLE> (boolean) -- remove words with only an initial capital or titlecase
+** '''F_TITLE''' (boolean) -- remove words with only an initial capital or titlecase
 letter, followed by only lower case or caseless letters.
 
-** B<F_MIXED> (boolean) -- remove words with at least two capital and/or
+** '''F_MIXED''' (boolean) -- remove words with at least two capital and/or
 titlecase letters, along with any number of lower case or caseless letters.
 
-** B<F_ALNUM> (boolean) -- remove words that contain both digits and
+** '''F_ALNUM''' (boolean) -- remove words that contain both digits and
 letters.
 
-** B<F_PUNCT> (boolean) -- remove words that contain both punctuation and
+** '''F_PUNCT''' (boolean) -- remove words that contain both punctuation and
 letters. However, hyphens, apostrophes, and periods do no count.
 
-* Tokens in any specified B<F_DICT> list. B<F_MINLENGTH> I<4>
+* Tokens in any specified '''F_DICT''' list. '''F_MINLENGTH''' ''4''
 (see above) can serve as a passable substitute for a dictionary of
 function words.
 
@@ -566,7 +566,7 @@ Adding these to the lexicon typically means they are accepted as real words
 even when they didn't come from expading a contraction (and most tokenizers
 don't pass along any signal of where the contractions were).
 
-* One I<advantage> of merely splitting, is that a few cases are ambiguous:
+* One ''advantage'' of merely splitting, is that a few cases are ambiguous:
 "'s" can repreent either "is" or "was", while "'re" can represent either
 "are" or "were" and
 "'d" can represent "would", "had", or possibly "did".
@@ -611,38 +611,38 @@ hyphens (or, if they thought of it, Unicode em dash) into a single hyphen.
 
 =Methods=
 
-* B<new>(tokenType)
+* '''new'''(tokenType)
 
-Instantiate the tokenizer, and set it up for the I<tokenTYpe> to be
-either B<characters> or B<words>.
+Instantiate the tokenizer, and set it up for the ''tokenTYpe'' to be
+either '''characters''' or '''words'''.
 
-* B<addOptionsToGetoptLongArg(hashRef,prefix)>
+* '''addOptionsToGetoptLongArg(hashRef,prefix)'''
 
-Add the options for this package to I<hashRef>, in the form expected by
-C<argparse>. If I<prefix> is provided, add it to the beginning of each
+Add the options for this package to ''hashRef'', in the form expected by
+`argparse`. If ''prefix'' is provided, add it to the beginning of each
 option name (to avoid name conflicts). All the options for this package
 are distinct even ignoring case, so callers may ignore or regard case
 for options as desired.
 
-* B<setOption>(name,value)
+* '''setOption'''(name,value)
 
 Change the value of the named option.
 Option names are case-sensitive (but see previous method).
 
-B<Note>: Setting the option for a Unicode cover category
-(such as B<Letter> rather than B<Uppercase_Letter>), is merely shorthand for
+'''Note''': Setting the option for a Unicode cover category
+(such as '''Letter''' rather than '''Uppercase_Letter'''), is merely shorthand for
 setting all its subcategories to that value
 (subcategories can still be reset afterward).
 
-* B<getOption>(name)
+* '''getOption'''(name)
 
 Return the present value of the named option.
 Option names are case-sensitive.
 
-* B<tokenize>(string)
+* '''tokenize'''(string)
 
-Break I<string> into tokens according to the settings in effect, and return
-a reference to an array of them. B<Note>: This method uses several other
+Break ''string'' into tokens according to the settings in effect, and return
+a reference to an array of them. '''Note''': This method uses several other
 internal methods; they can be invoked separately is desired, but are not
 documented fully here; the methods are as shown below (`s` is a string to
 handle):
@@ -665,8 +665,8 @@ handle):
 
 ==Other==
 Not all options are finished. For example:
-I<Ligature, Math, Fullwidth, S_GENITIVE,> etc.
-I<T_NUMBER> is disabled for the moment.
+''Ligature, Math, Fullwidth, S_GENITIVE,'' etc.
+''T_NUMBER'' is disabled for the moment.
 Titlecase characters, etc.
 Some of this can be done in a pre-pass with:
 
@@ -679,7 +679,7 @@ Can't distinguish single vs. double quotes while unifying variants.
 
 Abbreviations, acronyms, and other cases with word-final punctuation
 are a little wonky: "U.S." loses the final ".".
-Acronyms with periods I<and> spaces aren't caught at all.
+Acronyms with periods ''and'' spaces aren't caught at all.
 Acronyms aren't allowed within Names Entity References.
 
 W/ testTokenizer defaults, turns B&O into 9/9&O ... into \\.\\.\\. doesn't
@@ -687,7 +687,7 @@ separate }. Default unifies URIs, emails, and some (?) numerics.  Doesn't do @us
 Probably should move Unification out of Tokenizer?
 
 Processing XML/HTML with default options, ends up splitting the SGML delimiters
-apart from their constructs. Use C<dropXMLtags> is necessary first.
+apart from their constructs. Use `dropXMLtags` is necessary first.
 
 
 =Related commands and data=
@@ -695,12 +695,12 @@ apart from their constructs. Use C<dropXMLtags> is necessary first.
 This Python program is mostly a port of a much earlier Perl one, which is also
 available.
 
-The C<TokensEN.py> package gives access to list of English tokens that are
+The `TokensEN.py` package gives access to list of English tokens that are
 especially useful in tokenizing, such as abbreviations (for splitting the "."),
 contractions (for distinguishing them from possessives), personal titles,
 week and month names
-C<vocab>, C<ngrams>, C<normalizeSpace>, C<SimplifyUnicode>,
-C<volsunga>, C<findNERcandidates>,....
+`vocab`, `ngrams`, `normalizeSpace`, `SimplifyUnicode`,
+`volsunga`, `findNERcandidates`,....
 
 There is some test data inline, and more extensive data at
 [https://github.com/sderose/Data/NLPFormatSamples/blob/master/TokenizerTestData.txt].
@@ -771,6 +771,7 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 
 =Options=
 """
+
 
 # Unicode "general categories", available via unicodedata.category(c)
 # https://stackoverflow.com/questions/1832893/
