@@ -88,12 +88,12 @@ by a callback. But this really needs lazy evaluation -- you can only evaluate
 Issues:
     * case and regex comparison
     * case for `choices` values
+    * support case-ignore and unique-abbrevs for enums (see `LooseDict.py`)
     * set operations
     * date/time facilities
     * check identifiers at parsetime, but eval later?
     * indicate which are per-file evals?
     * date differences like recency
-    * support case-ignore and unique-abbrevs for enums (see `LooseDict.py`)
 
     --include = "(type='d' and size>12E+6 and (ext in [ 'foo', 'bar' ]))"
 
@@ -317,8 +317,12 @@ def checkX(expr, s):  ### Regex checking feature
 
 # Following only allowe complete date and/or time, not arbitrary shortenings.
 #
-dateX = r"\d\d\d\d-[01]\d-[0-3]\d$"
-timeX = r"[012]\d:[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[-+]\d\d:\d\d)?$"
+dateX = re.compile(r"\d\d\d\d-[01]\d-[0-3]\d" + "$")
+timeX = re.compile(r"[012]\d:[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[-+]\d\d:\d\d)?" + "$")
+
+# These allow optional parts
+#datePX = re.compile(r"(\d\d\d\d)(-[01]\d)?(-[0-3]\d)?" + "$")
+#timePX = re.compile(r"([012]\d)(:[0-5]\d)?((:[0-5]\d)(\.\d+))?)?(Z|[-+]\d\d:\d\d)?" + "$")
 
 def t_date_8601(s):
     return checkX(dateX, s)
