@@ -9,7 +9,7 @@ import sys
 import re
 import codecs
 from enum import Enum
-from typing import List, IO
+from typing import List, IO, Callable
 import xml.dom, xml.dom.minidom
 from xml.dom.minidom import Node, NamedNodeMap
 
@@ -923,50 +923,45 @@ def argType(s):
 def outerHTML(self:Node, indent:str="    "):
     """
     """
-    from io import StringIO
-    buf = StringIO()
-    if (indent==""): self.toxml(buf)
-    else: self.toprettyxml(buf, indent="    ")
-    return buf.getvalue()
+    if (True):
+        #from io import StringIO
+        #buf = StringIO()
+        buf = self.getStartTag() + self.innerHTML(indent=indent) + self.getEndTag()
+        return buf
+    else:
+        buf = self.toprettyxml(indent=indent)
+        return buf.getvalue()
     #t = self.getStartTag() + self.innerHTML() + self.getEndTag()
     #return t
 
-def innerHTML(self:Node, cOptions=None):
+def innerHTML(self:Node, cOptions=None, indent:str="    ", depth:int=0):
     """Could also use outerHTML and then strip the ends.
     """
+    ind = "" if (not indent) else ("\n" + indent*depth)
     t = ""
     for curNode in self.childNodes:
         ty = curNode.nodeType
         if (ty == Node.TEXT_NODE):
             t += curNode.nodeValue
-            break
-        elif (ty == Node.ELEMENT_NODE):
-            t += curNode.getStartTag() +  curNode.innerHTML() + curNode.getEndTag()
-            break
-        elif (ty == Node.CDATA_SECTION_NODE):
-            t += "<![CDATA[%s]]>" % (escapeCDATA(curNode.textContent))
-            break
-        elif (ty == Node.ENTITY_REFERENCE_NODE):
-            break
-        elif (ty == Node.ENTITY_NODE):
-            break
-        elif (ty == Node.PROCESSING_INSTRUCTION_NODE):
-            t += "<?%s?>" % (curNode.textContent)
-            break
-        elif (ty == Node.COMMENT_NODE):
-            t += "<!--%s-->" % (curNode.textContent)
-            break
-        elif (ty == Node.DOCUMENT_NODE or ty == Node.DOCUMENT_FRAGMENT_NODE):
+        elif (ty==Node.DOCUMENT_NODE or ty==Node.DOCUMENT_FRAGMENT_NODE or ty==Node.ELEMENT_NODE):
             t += curNode.getStartTag()
             for ch in (curNode.childNodes):
-                t += ch.innerHTML
+                t += ch.innerHTML(cOptions=cOptions, depth=depth+1)
             t += curNode.getEndTag()
-            break
+        elif (ty == Node.CDATA_SECTION_NODE):
+            t += "<![CDATA[%s]]>" % (escapeCDATA(curNode.data))
+        elif (ty == Node.ENTITY_REFERENCE_NODE):
+            pass
+        elif (ty == Node.ENTITY_NODE):
+            pass
+        elif (ty == Node.PROCESSING_INSTRUCTION_NODE):
+            t += ind + "<?%s?>" % (curNode.data)
+        elif (ty == Node.COMMENT_NODE):
+            t += ind + "<!--%s-->" % (curNode.data)
         elif (ty == Node.DOCUMENT_TYPE_NODE):
-            t += "<!DOCTYPE %s>" % (curNode.textContent)
-            break
+            t += "<!DOCTYPE %s>" % (curNode.data)
         elif (ty == Node.NOTATION_NODE):
-            break
+            pass
         #elif (ty == Node.ATTRIBUTE_NODE):
         #    (done by Node.ELEMENT_NODE)
         else:
@@ -1485,7 +1480,7 @@ def XPointerInterpret(self:Node,  xp) -> Node:
 ###############################################################################
 # @TODO UPDATE TO MATCH AJICSS.js
 #
-def nodeMatches(self:Node, nodeName="*", attrs:dict=None) -> bool:
+def nodeMatches(self:Node, nodeName:str="*", attrs:dict=None) -> bool:
     """Check if a node matches the supported selection constraints.
     Used by all the selectAXIS() methods.
 
@@ -1550,7 +1545,7 @@ def nodeMatches(self:Node, nodeName="*", attrs:dict=None) -> bool:
     return True
 
 
-def getInheritedAttribute(self:Node, aname):
+def getInheritedAttribute(self:Node, aname:str) -> str:
     """Search upward to find an assignment to an attribute, and return the
     nearest non-empty one (or None if none is found).
     This is similar to the defined semantics of xml:lang.
@@ -1562,14 +1557,14 @@ def getInheritedAttribute(self:Node, aname):
         cur = cur.parentNode
     return None
 
-def getEscapedAttribute(self:Node, aname, quoteChar='"'):
+def getEscapedAttribute(self:Node, aname:str, quoteChar:str='"') -> str:
     """Retrieve the value of a named attribute, and return it after escaping
     any occurrences of the `quoteChar` (usually double quote).
     """
     avalue = self.getAttribute(aname)
     return escapeXmlAttribute(avalue, quoteChar='"')
 
-def getCompoundAttribute(self:Node, name, sep='#', keepMissing:bool=False):  ### Not DOM
+def getCompoundAttribute(self:Node, name:str, sep:str='#', keepMissing:bool=False) -> str:  ### Not DOM
     """Return the concatenation of the values of the named attribute,
     from all ancestors (and self). Separate them with 'sep'.
     This facilitates a notion of compound keys (or hierarchical IDs).
@@ -1603,7 +1598,7 @@ def getStartTag(self:Node, sortAttributes:bool=False, discards:list=None) -> str
         buf += ' %s="%s"' % (a, self.getEscapedAttribute(a))
     return "<%s%s>" % (self.nodeName, buf)
 
-def getEndTag(self:Node, appendAttr='id'):
+def getEndTag(self:Node, appendAttr:str='id') -> str:
     """Generate a normal end tag for the given element.
     @param appendAttr: If set, and the given element has an attribute with
     this name, put that attribute as a comment following the end-tag. This
@@ -1615,15 +1610,15 @@ def getEndTag(self:Node, appendAttr='id'):
         buf += '<!-- id="%s" -->' % (self.getAttribute(appendAttr))
     return buf
 
-def getPI(self:Node):
+def getPI(self:Node) -> str:
     assert self.nodeType == Node.PROCESSING_INSTRUCTION_NODE
     return "<?%s %s?>" % (self.target, self.data)
     
-def getComment(self:Node):
+def getComment(self:Node) -> str:
     assert self.nodeType == Node.COMMENT_NODE
     return "<!--%s -->" % (self.data)
     
-def getEscapedAttributeList(self:Node, sortAttributes=False, quoteChar='"'):
+def getEscapedAttributeList(self:Node, sortAttributes:bool=False, quoteChar:str='"') -> str:
     """Assemble the entire attribute list, escaped as needed to write out as XML.
     TODO: At least for canonical XML, put namespace attrs first.
     """
@@ -1707,7 +1702,7 @@ def renameByTagName(root, oldName, newName) -> None:
     for t in root.getElementsByTagName(oldName):
         t.nodeName = newName
 
-def forceTagCase(root, upper=False, attributesToo:bool=False):
+def forceTagCase(root, upper:bool=False, attributesToo:bool=False) -> None:
     """Force all element (and optionally attribute) names in a subtree,
     to lower (or upper) case.
     """
@@ -1722,7 +1717,7 @@ def forceTagCase(root, upper=False, attributesToo:bool=False):
                     t.setAttribute(a.toupper(), v)
     return
 
-def getAllDescendants(root, excludeTypes=None, includeTypes=None):
+def getAllDescendants(root, excludeTypes:list=None, includeTypes:list=None):
     """Get a list of all descendants of the given node, in document order.
     @param excludeTypes: A list of nodeTypes to exclude (such as TEXT_NODE).
         Descendants of skipped nodes will still be traversed.
@@ -1740,7 +1735,7 @@ def getAllDescendants(root, excludeTypes=None, includeTypes=None):
 ###############################################################################
 # Tabular structure support
 #
-def getColumn(self:Node, onlyChild="tbody", colNum:int=1, colSpanAttr:str=None) -> list:
+def getColumn(self:Node, onlyChild:str="tbody", colNum:int=1, colSpanAttr:str=None) -> list:
     """Called on the root of table-like structure, return a list of
     the colNum-th child element of each child element. That should amount
     to the colNum-th column.
@@ -1782,7 +1777,7 @@ def eliminateSpans(self:Node, rowSpanAttr:str="rowspan", colSpanAttr:str="colspa
     """
     raise Exception("Unimplemented")
 
-def hasSubTable(self:Node, tableTag="table"):
+def hasSubTable(self:Node, tableTag:str="table"):
     st = self.getDescendant(tableTag)
     return (st is not None)
 
@@ -1909,7 +1904,7 @@ def promoteChildren(self:Node):
         cur = cont
     parent.removeChild(self)
 
-def moveChildToAttribute(root:Node, pname:str, chname:str, aname:str, onDup="skip"):
+def moveChildToAttribute(root:Node, pname:str, chname:str, aname:str, onDup:str="skip"):
     """Within the subtree under `root`, check all elements named `ename` that
     have a child of type `chname`, and move the content of that child onto
     attribute `aname` of the parent. The child element is deleted.
@@ -1955,7 +1950,7 @@ def findNonAttributable(root:Node, pname:str, chname:str, aname:str):
 
 ###############################################################################
 #
-def eachNodeCB(self:Node, callbackA=None, callbackB=None, depth=1):
+def eachNodeCB(self:Node, callbackA:Callable=None, callbackB:Callable=None, depth:int=1):
     """Traverse a subtree given its root, and call separate callbacks before
     and after traversing each subtree. Callbacks might, for example,
     respectively generate the start- and end-tags for elements, and generate
@@ -2000,7 +1995,7 @@ def eachNode(self:Node, wsn:bool=True, attributeNodes:bool=True, depth:int=1):
                 yield chEvent
     return
 
-def reversedEachNode(self:Node, wsn:bool=True, depth=1):
+def reversedEachNode(self:Node, wsn:bool=True, depth:int=1):
     """Generate all descendant nodes in reverse order
     @param wsn: If False, skip white-space-only nodes.
     """
@@ -2014,7 +2009,7 @@ def reversedEachNode(self:Node, wsn:bool=True, depth=1):
         yield self
     return
 
-def eachTextNode(self:Node, wsn:bool=True, depth=1):
+def eachTextNode(self:Node, wsn:bool=True, depth:int=1):
     """Generate all descendant text nodes.
     @param wsn: If False, skip white-space-only nodes.
     """
@@ -2028,7 +2023,7 @@ def eachTextNode(self:Node, wsn:bool=True, depth=1):
                 yield chEvent
     return
 
-def eachElement(self:Node, etype=None, depth=1):
+def eachElement(self:Node, etype:str=None, depth:int=1):
     """Generate all element node descendants, optionally limiting to one type.
     """
     if (not (self)): return
@@ -2052,7 +2047,7 @@ def generateNodes(self:Node):
         yield ch.generateNodes()
     return
 
-def generateSaxEvents(self:Node, handlers=None):
+def generateSaxEvents(self:Node, handlers:dict=None):
     handlerNames = [
         'XmlDeclHandler',
         'StartElementHandler',
@@ -2099,7 +2094,7 @@ def genSax(self:Node, handlers):
 
 ###############################################################################
 #
-def collectAllText(self:Node, delim=" ", depth=1):
+def collectAllText(self:Node, delim:str=" ", depth:int=1):
     """Cat together all descendant text nodes, optionally with separators
     between. See also innerText(), collectAllXml().
     @todo: Option to collect only *directly* contained textnodes?
@@ -2251,7 +2246,7 @@ CollectorOptionsNames = [
 ]
 CollectorOptionsDef = namedtuple('CollectorOptions', CollectorOptionsNames)
 
-def ind(cOptions, depth, name="", isStart:bool=True, isEnd:bool=False):
+def ind(cOptions, depth:int, name:str="", isStart:bool=True, isEnd:bool=False):
     """Generate any needed linebreak + indentation. Should only be called
     for things that expect that (e.g., maybe not text).
     """
@@ -2270,7 +2265,7 @@ def ind(cOptions, depth, name="", isStart:bool=True, isEnd:bool=False):
 
     return pre + (cOptions.indentString * max(0, depth-2)) + post
 
-def addArgsForCollectorOptions(parser, prefix=""):
+def addArgsForCollectorOptions(parser, prefix:str=""):
     for optName in CollectorOptionsNames:
         oname = "--%s%s" % (prefix, optName)
         if (optName in [ 'delim', 'indentString', 'lineBreak', 'emptyForm' ]):
@@ -2279,7 +2274,7 @@ def addArgsForCollectorOptions(parser, prefix=""):
             parser.add_argument(oname, action='store_true')
     return
 
-def collectAllXml2r(self:Node, cOptions, depth=1):
+def collectAllXml2r(self:Node, cOptions, depth:int=1):
     """The recursive part of collectAllXml2().
     """
     #sys.stderr.write("%scollectAllXml22 on a %s.\n" % (" " * depth, type(self)))
@@ -2644,7 +2639,7 @@ class Emitter:
     """Used by collectallXml, etc. to transmit data to any of several targets.
     This allows the same code to write to a file, a buffer, or whatever.
     """
-    def __init__(self, where, arg=None):
+    def __init__(self, where:str, arg:str=None):
         self.where       = where
         self.lastChar    = ""
         self.fh          = None
@@ -2746,7 +2741,7 @@ class BS4Features:
             yield node.data
 
     @staticmethod
-    def stripped_strings(node:Node, normSpace=False, allUnicode:bool=False):
+    def stripped_strings(node:Node, normSpace:bool=False, allUnicode:bool=False):
         """Generate the series of all text node descendants as strings,
         but with leading and trailing space stripped. Also, skip any text
         nodes that are white-space-only.
@@ -2761,8 +2756,8 @@ class BS4Features:
             if (ss): yield ss
 
     @staticmethod
-    def find_all(node:Node, name, attrs=None, recursive:bool=True, string=None,
-        limit=0, class_=None, **kwargs):
+    def find_all(node:Node, name, attrs:dict=None, recursive:bool=True, string:str=None,
+        limit:int=0, class_=None, **kwargs):
         """
         @param name: Can take a string, regex, list, fn, or True.
         @param attrs: A dict of attrs, match them all.
@@ -2799,7 +2794,7 @@ class BS4Features:
 
 
     @staticmethod
-    def BSfind_matcher(node:Node, name, attrs=None, string=None, class_=None, **kwargs):
+    def BSfind_matcher(node:Node, name:str, attrs:dict=None, string:str=None, class_=None, **kwargs):
         """Approximate the semantics of filtering params for BS4 find_all() etc.
         """
         if (name and not node.match(name)): return False
