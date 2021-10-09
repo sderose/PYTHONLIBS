@@ -557,13 +557,13 @@ class StrBuf(str):
         """
         return str(self).__hash__()
 
-    def __setitem__(self, st:int, fin:int, s:str):
-        """Support splicing operations
-        """
-        self.delete(st, fin)
-        self.insert(st, s)
-        pnum0, offset0 = self.findCharN(st)
-        pnum1, offset1 = self.findCharN(fin)
+    #def __setitem__(self, st:int, fin:int, s:str):
+    #    """Support splicing operations
+    #    """
+    #    self.delete(st, fin)
+    #    self.insert(st, s)
+    #    pnum0, offset0 = self.findCharN(st)
+    #    pnum1, offset1 = self.findCharN(fin)
 
     def __getitem__(self, sl) -> str:
         """Slice out a substring or a single character.
@@ -725,17 +725,17 @@ class StrBuf(str):
     def zfill(self, n:int, inplace:bool=True):
         return self.ljust(n, padchar="0", inplace=inplace)
         
-    def ljust(self, n:int, padchar:str=" ", inplace:bool=True):
+    def ljust(self, n:int, padchar:str=" ", inplace:bool=True):  # TODO: inplace
         needed = n - len(self)
         if (needed > 0): self += padchar * needed
         return self
         
-    def rjust(self, n:int, padchar:str=" ", inplace:bool=True):
+    def rjust(self, n:int, padchar:str=" ", inplace:bool=True):  # TODO: i
         needed = n - len(self)
         if (needed > 0): self.insert(0, padchar * needed)
         return self
         
-    def center(self, n:int, padchar:str=" ", inplace:bool=True):
+    def center(self, n:int, padchar:str=" ", inplace:bool=True):  # TODO: i
         needed = n - len(self)
         if (needed > 0):
             self.insert(0, padchar * math.floor(needed/2.0))
