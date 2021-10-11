@@ -8,7 +8,10 @@
 #
 #pylint: disable=W0212
 #
-import sys, re, codecs
+import sys
+import re
+import os
+import codecs
 import argparse
 #import html
 
@@ -30,7 +33,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2013-04-18",
-    "modified"     : "2020-08-22",
+    "modified"     : "2020-10-08",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/",
 }
@@ -64,6 +67,8 @@ Unindented lines are wrapped with preceding lines, except:
 * when the previous lines looks like a heading, horizontal rule, etc; or
 * when the current line start with a markdown-like block markup such as [*=\\d].
 
+If you set environment variable "BF_ENABLE", it will use ANSI terminal escapes
+to emphasize headings.
 
 ==BlockFormatter(argparse.HelpFormatter)==
 
@@ -164,7 +169,7 @@ This is the lowest level of my formatters: it only outputs a single, monospace
 font, with no support for color, bold, etc.
 
 One step up is `BlockFormatterPlus`, which adds:
-* support for ANSI terminal basic color and effects (by integrating
+* more general support for ANSI terminal basic color and effects (by integrating
 my `ColorManager.py` package (q.v.)), and
 font variation via Unicode's alternate Latin alphabets
 (see my `mathAlphanumerics.py` package). This provides
@@ -183,7 +188,7 @@ My `argparsePP.py` add various other features to argparse, such as
 alternative hyphenation conventions; reversible boolean; and many more types.
 
 My `markdown2Xml.py` converts various kinds of Markdown to various XML
-schemas, including of course HTML.
+schemas, HTML, etc.
 
 My `pod2markdown.py` converts Perl "POD" to Markdown.
 
@@ -191,7 +196,7 @@ My `pod2markdown.py` converts Perl "POD" to Markdown.
 =Known bugs and limitations=
 
 * It seems that the API in `argparse` for formatting
-(such as it is), is not considered "public" -- so attempts to subclass it
+is not considered "public" -- so attempts like this to subclass it
 could break any time. See [https://stackoverflow.com/questions/29484443].
 But it also does not seem to change much.
 
@@ -201,7 +206,7 @@ variants much better, for what I think are very good reasons.
 
 * Does not support MarkDown per se's "Two spaces at the end of a line
 produces a line break." I think using impossible-to-see markup that
-some editors will freely delete, is a non-starter.
+some editors will quietly delete is a non-starter.
 
 
 =To Do=
@@ -237,12 +242,14 @@ Thanks to Anthon van der Neut for help on integrating with `argparse`. Also:
 2014-2015: Written by Steven J. DeRose, along with `MarkupHelpFormatter`.
 They were together in `MarkupHelpFormatter.py`.
 
-2020-03-04: I split this class out to a separate file, and improved it a bit,
+2020-03-04: I split this class out to a separate file and improved it a bit,
 for example indenting non-first lines of indented blocks, expanding tabs,
 adding the various options.
 
 2020-08-22: Improve handling of MarkDown-like lines. Simplify wrapping.
 Refactor entity/escape/tab handling.
+
+2020-10-08ff: Add `ansify()` for simple emphasis.
 
 
 =Options=
@@ -281,7 +288,8 @@ def makeVis(s):
     """Turn control characters into Unicode Control Pictures.
     TODO: Make wrapping treat these as breakable?
     """
-    return re.sub(r"([\x01-\x0F\x11-\x1F])", toPix, s)  # NOT NEWLINE!
+    return re.sub(r"([\x01-\x0F\x11-\x1F])",  # NOT NEWLINE!
+        lambda mat: chr(0x2400 + ord(mat.group(1))), s)
 
 def toPix(mat):
     """Make control chars and space visible.
@@ -299,6 +307,50 @@ def uescapes(s):
     """
     return re.sub(r"\\u([0-9a-f][0-9a-f][0-9a-f][0-9a-f])",
         lambda mat: unichr(int(mat.group(1), 16)), s, re.I)
+
+
+##############################################################################
+# (for more complete support see ColorManager.py)
+#
+ansiCodes = {
+    "bold":      ( u"\x1B[1m", u"\x1B[22m" ),  # TODO Check off-code?
+    "faint":     ( u"\x1B[2m", u"\x1B[0m" ),
+    "italic":    ( u"\x1B[3m", u"\x1B[0m" ),  # (rare)
+    "underline": ( u"\x1B[4m", u"\x1B[0m" ),  # aka 'ul'
+    "blink":     ( u"\x1B[5m", u"\x1B[0m" ),
+    "fblink":    ( u"\x1B[6m", u"\x1B[0m" ),  # aka 'fastblink'   (rare)
+    "reverse":   ( u"\x1B[7m", u"\x1B[0m" ),  # aka 'inverse'
+    "concealed": ( u"\x1B[8m", u"\x1B[0m" ),  # aka 'invisible' or 'hidden'
+    "strike":    ( u"\x1B[9m", u"\x1B[0m" ),  # aka 'strikethru' or 'strikethrough'
+    "plain":     ( u"\x1B[0m", u"\x1B[0m" ),  # (can be used to express "no special effect")
+    "inverse":   ( u"\x1B[7m", u"\x1B[27m" ),
+    
+    #
+    "black":     ( u"\x1B[30m", u"\x1B[m" ),
+    "red":       ( u"\x1B[31m", u"\x1B[m" ),
+    "green":     ( u"\x1B[32m", u"\x1B[m" ),
+    "yellow":    ( u"\x1B[33m", u"\x1B[m" ),
+    "blue":      ( u"\x1B[34m", u"\x1B[m" ),
+    "magenta":   ( u"\x1B[35m", u"\x1B[m" ),
+    "cyan":      ( u"\x1B[36m", u"\x1B[m" ),
+    "white":     ( u"\x1B[37m", u"\x1B[m" ),
+}
+
+def effect(mat, effectName):
+    return ansiCodes[effectName][0] + mat.group() + ansiCodes[effectName][1]
+    
+def ansify(blockText):
+    """Turn typical markdown into itself + ANSI effects.
+    This doesn't drop the delimiters. If it did, it would have to happen before
+    line-breaking, and line-breaking would need to be careful to step around escapes.
+    """
+    t = blockText
+    t = re.sub(r"(`[^`]+`)",      lambda foo: effect(foo, "bold"), t)      # `command`
+    t = re.sub(r"(^[=#].*$)",     lambda foo: effect(foo, "inverse"), t)   # =heading=
+    t = re.sub(r"(\[[^\]\n]+\])", lambda foo: effect(foo, "blue"), t)      # [link]
+    t = re.sub(r"('''[^']+''')",  lambda foo: effect(foo, "magenta"), t)   # '''italic'''
+    #t = re.sub(r"( ''[^']+'' )",    lambda foo: effect(foo, "bold"), t)      # ''bold''
+    return t
 
 
 ##############################################################################
@@ -372,11 +424,12 @@ class BlockFormatter(argparse.HelpFormatter):
 
         # Divide at blank lines line breaks to keep
         if (BlockFormatter._options["externalParser"]):
-            from markdown2Xml import markdown2Xml
-            mdx = markdown2Xml()
-            recs = re.split(r"\n", text)
-            blocksObjs = mdx.linesToBlocks(recs)
-            blockTexts = [ bl.text for bl in blocksObjs ]
+            #from markdown2Xml import markdown2Xml  # From my XML/CONVERT
+            #mdx = markdown2Xml()
+            #recs = re.split(r"\n", text)
+            #blocksObjs = mdx.linesToBlocks(recs)
+            #blocks = [ bl.text for bl in blocksObjs ]
+            assert False
         else:
             blocks = BlockFormatter.makeBlocks(text)
 
@@ -402,6 +455,9 @@ class BlockFormatter(argparse.HelpFormatter):
             if (istring and withNewlines.startswith(" "*hang)):
                 withNewlines = withNewlines[hang:]  # Un-hang first line
 
+            if ("BF_ENABLE" in os.environ):
+                withNewlines = ansify(withNewlines)
+            
             blocks[i] = withNewlines
         vMsg(2, "\n******* FORMATTING DONE *******\n")
         return "\n".join(blocks)
@@ -452,6 +508,7 @@ class BlockFormatter(argparse.HelpFormatter):
                     blocks[-1] += t
                     blockType = "PARA"
             #print("+%s: %s" % (blockType, blocks[-1]))
+            assert blockType in blockTypes
         return blocks
 
     @staticmethod
@@ -484,7 +541,7 @@ class BlockFormatter(argparse.HelpFormatter):
         for x in re.finditer(
             r"\s*(\S.{,%d}(?=[-/\s]))" % (width-indentString-2),
             item, re.MULTILINE):
-            print("Wrap trial: '%s'" % (x.group(1)))
+            #print("Wrap trial: '%s'" % (x.group(1)))
             lines.append(indentString + x.group(1))
         return "\n".join(lines)
 
@@ -521,6 +578,9 @@ if __name__ == "__main__":
         parser.add_argument(
             "--oencoding", type=str, metavar="E",
             help="Use this character set for output files.")
+        parser.add_argument(
+            "--page", "--less", "--more", action="store_true",
+            help="Send the output to `less` instead of just stdout.")
         parser.add_argument(
             "--quiet", "-q", action="store_true",
             help="Suppress most messages.")
@@ -591,7 +651,11 @@ if __name__ == "__main__":
             sys.exit()
 
         hf = BlockFormatter(None)
-        print(hf._format_text(testText))
-
-    vMsg(0, "*** DONE ***")
-    sys.exit()
+        if (args.page):
+            from subprocess import check_output
+            tmpfile = "/tmp/BlockFormatter.txt"
+            with codecs.open(tmpfile, "wb", encoding="utf-8") as ofh:
+                ofh.write(testText)
+            check_output([ "less", tmpfile])
+        else:
+            print(hf._format_text(testText))
