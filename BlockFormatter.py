@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
 # BlockFormatter: Upgrade for Python argparse help formatting.
+# 2013-04-18: Written by Steven J. DeRose.
 #
 # This is "Level" 1, which wraps lines to fit a given width, but retains
 # blank lines and line-breaks before MarkDown-ish lists, tables, headings, etc.
@@ -14,6 +15,7 @@ import os
 import codecs
 import argparse
 #import html
+from typing import Tuple, Dict, Any
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -33,7 +35,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2013-04-18",
-    "modified"     : "2020-10-08",
+    "modified"     : "2021-11-12",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/",
 }
@@ -251,6 +253,8 @@ Refactor entity/escape/tab handling.
 
 2020-10-08ff: Add `ansify()` for simple emphasis.
 
+2021-11-12: mypy checks.
+
 
 =Options=
 """
@@ -276,15 +280,15 @@ specialChars = {
     "lt": "<", "gt": ">", "apos": "'", "quo": '"', "amp": "&",
 }
 
-def hMsg(level, msg):
+def hMsg(level, msg:str):
     if (BlockFormatter._options["verbose"]>=level):
         sys.stderr.write("\n*******" + msg+"\n")
 
-def vMsg(level, msg):
+def vMsg(level, msg:str):
     if (BlockFormatter._options["verbose"]>=level):
         sys.stderr.write(msg+"\n")
 
-def makeVis(s):
+def makeVis(s:str):
     """Turn control characters into Unicode Control Pictures.
     TODO: Make wrapping treat these as breakable?
     """
@@ -296,13 +300,13 @@ def toPix(mat):
     """
     return unichr(0x2400 + ord(mat.group(1)))
 
-def xescapes(s):
+def xescapes(s:str):
     """Replace \\x escapes (but doesn't notice if the \\ is itself escaped).
     """
     return re.sub(r"\\x([0-9a-f][0-9a-f])",
         lambda mat: unichr(int(mat.group(1), 16)), s, re.I)
 
-def uescapes(s):
+def uescapes(s:str):
     """Replace \\u escapes (but doesn't notice if the \\ is itself escaped).
     """
     return re.sub(r"\\u([0-9a-f][0-9a-f][0-9a-f][0-9a-f])",
@@ -336,10 +340,10 @@ ansiCodes = {
     "white":     ( u"\x1B[37m", u"\x1B[m" ),
 }
 
-def effect(mat, effectName):
+def effect(mat, effectName:str) -> str:
     return ansiCodes[effectName][0] + mat.group() + ansiCodes[effectName][1]
     
-def ansify(blockText):
+def ansify(blockText:str) -> str:
     """Turn typical markdown into itself + ANSI effects.
     This doesn't drop the delimiters. If it did, it would have to happen before
     line-breaking, and line-breaking would need to be careful to step around escapes.
@@ -397,7 +401,7 @@ class BlockFormatter(argparse.HelpFormatter):
                 wrap(para, width)
                     _fill_text(self, text, width, indent)
     """
-    _options = {
+    _options:Dict[str, Any] = {
         "verbose":     0,         # Extra messages?
         "showInvis":   False,     # Replace invisible chars
         "tabStops":    4,         # Expand tabs per this interval
@@ -411,7 +415,10 @@ class BlockFormatter(argparse.HelpFormatter):
         "externalParser": None,
     }
 
-    def _fill_text(self, text, width, indent):
+    def __init__(self, prog=None):
+        super(BlockFormatter, self).__init__(prog)
+        
+    def _fill_text(self, text:str, width:int, indent:str) -> str:
         """Override the aggressive line-filler, to do these things:
             * Retain blank lines
             * Keep newline before line-initial [*#] (probably list items)
@@ -420,7 +427,7 @@ class BlockFormatter(argparse.HelpFormatter):
         NOTE: "indent" expects a string, not a number of columns.
         """
         #print("_fill_text called for %d chars." % (len(text)))
-        hang = BlockFormatter._options["hangIndent"]
+        hang = int(BlockFormatter._options["hangIndent"])
 
         # Divide at blank lines line breaks to keep
         if (BlockFormatter._options["externalParser"]):
@@ -463,7 +470,7 @@ class BlockFormatter(argparse.HelpFormatter):
         return "\n".join(blocks)
 
     @staticmethod
-    def makeBlocks(text):
+    def makeBlocks(text:str) -> list:
         """Parse the input line by line and:
             * discard comments
             * combine each wrappable group of lines into one
@@ -512,7 +519,7 @@ class BlockFormatter(argparse.HelpFormatter):
         return blocks
 
     @staticmethod
-    def doSpecialChars(item):
+    def doSpecialChars(item:str) -> Tuple[str, str]:
         """Expand tabs, escapes, entities, etc.
         Return the expanded text, but with leading indent separate
         TODO: Switch to markdown2Xml.InlineMapper class.
@@ -534,12 +541,12 @@ class BlockFormatter(argparse.HelpFormatter):
         return item, indentString
 
     @staticmethod
-    def _alt_fill(item, width, indentString):
+    def _alt_fill(item:str, width:int, indentString:str) -> str:
         """In case _fill_text changes or goes away....
         """
         lines = []
         for x in re.finditer(
-            r"\s*(\S.{,%d}(?=[-/\s]))" % (width-indentString-2),
+            r"\s*(\S.{,%d}(?=[-/\s]))" % (width-len(indentString)-2),
             item, re.MULTILINE):
             #print("Wrap trial: '%s'" % (x.group(1)))
             lines.append(indentString + x.group(1))

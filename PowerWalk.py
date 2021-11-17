@@ -5,18 +5,19 @@
 #
 #pylint: disable=W0212,W0603
 #
-from __future__ import print_function
-import sys, os
+import sys
+import os
 import argparse
 import re
 import random
 import urllib
+import stat
 from collections import namedtuple, defaultdict
-from os.path import getatime, getctime, getmtime, getsize, splitext, stat
+from os.path import getatime, getctime, getmtime, getsize, splitext
 from enum import Enum
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 assert sys.version_info[0] >= 3
 
@@ -1023,7 +1024,7 @@ class TraversalState(list):
         * Otherwise stack it, return the PWFrame, then pop it.
         ==> Iff this returns a PWFrame the caller should yield it.
     """
-    def openContainer(self, path:str, fh:object, inode:int=0) -> PWFrame:
+    def openContainer(self, path:str, fh:object, inode:int=0) -> Union[PWFrame, None]:
         """Create and push a stack frame for the thing we found.
         Files that are filtered out don't even get here. But for containers,
         we mightgenerate events or excpetions (see options['containers')
@@ -1056,7 +1057,7 @@ class TraversalState(list):
         self.bump("leafs")
         return thePWFrame
 
-    def handleIgnorable(self, path:str) -> PWFrame:
+    def handleIgnorable(self, path:str) -> Union[PWFrame, None]:
         """Called for an ignorable item:
             * If caller doesn't want them, return None
             * If called wants them as exceptions, raise one then return None
@@ -1075,7 +1076,7 @@ class TraversalState(list):
             return PWFrame(path, None, PWType.IGNORE, inode=0)
 
     def handleError(self, path:str, message:str="Item Error",
-        errorType:PWType=PWType.ERROR) -> PWFrame:
+        errorType:PWType=PWType.ERROR) -> Union[PWFrame, None]:
         """Called for missing, unopenable, etc.
         """
         warn(1, "handleError: %s" % (path))
@@ -1090,7 +1091,7 @@ class TraversalState(list):
         else:
             return PWFrame(path, None, errorType, inode=0)
 
-    def closeContainer(self) -> PWFrame:
+    def closeContainer(self) -> Union[PWFrame, None]:
         """Called at the end of any node, whether container or leaf.
         For leafs, don't yield a separate event, just pop the stack.
         """
@@ -1120,7 +1121,7 @@ class PowerWalk:
     to add them to argparse: addOptionsToArgparse().
     """
 
-    __optionTypes = {
+    __optionTypes:Dict[str, Any] = {
 
         # Name filtering
         "excludeExtensions"   : "REGEX",
@@ -1519,7 +1520,7 @@ class PowerWalk:
             raise Finished()
         return
 
-    def ttraverse(self, path:str, trav:TraversalState) -> None:
+    def ttraverse(self, path:str, trav:TraversalState) -> Union[PWFrame, None]:
         """Recurse as needed.
         @param path: The path as accumulated down any recursion.
         """
@@ -1787,13 +1788,13 @@ class PowerWalk:
         elif (ty=="s"):                             # socket
             if (not stat.S_ISSOCK(mode)): return False
 
-        # Python ones that go beyond "find -type"
-        elif (ty=="D"):                             # DOOR
-            if (not stat.S_ISDOOR(mode)): return False
+        # Python ones that go beyond "find -type" -- but mypy complains,
+        # and I'm not sure yet what the issue is with those and the S_IF analogs.
+            if (not theStat.S_IFDOOR): return False
         elif (ty=="P"):                             # PORT
-            if (not stat.S_ISPORT(mode)): return False
+            if (not theStat.S_IFPORT): return False
         elif (ty=="W"):                             # whiteout
-            if (not stat.S_ISWHT(mode)): return False
+            if (not theStat.S_IFWHT): return False
 
         else:
             warn(0, "Unknown -type value '%s'." % (ty))
@@ -1876,7 +1877,7 @@ class PowerWalk:
         """
         warn(1, "makeActions for arg '%s'." % (perm))
         try:
-            return int(perm, 8)
+            return [ int(perm, 8) ]
         except ValueError:
             pass
 
@@ -1978,7 +1979,7 @@ class PowerWalk:
         if (not mat):
             raise ValueError("Can't find URL in %s." % (path))
         buf = io.StringIO()
-        buf.write(check_output([ "curl", mat.group(1)]))
+        buf.write(str(check_output([ "curl", mat.group(1)])))
         return buf
 
 
@@ -2043,7 +2044,7 @@ def isGenerated(name:str) -> bool:
         if (re.search(ge, b)): return(True)
     return(False)
 
-def getGitStatus(path:str) -> str:
+def getGitStatus(path:str) -> Union[str, None]:
     """See what sort of git state we're in (see `git status --help` for -s):
         ' ' = unmodified
         M = modified
@@ -2064,8 +2065,8 @@ def getGitStatus(path:str) -> str:
         buf = check_output(tokens)
     except CalledProcessError:
         return "0"
-    if str(buf[0]) in " MADRCU?!": return buf[1]
-    warn(0, "Unknown code '%s' from git status -s '%s'." % (path))
+    if str(buf[0]) in " MADRCU?!": return str(buf[1])
+    warn(0, "Unknown code '%s' from git status -s '%s'." % (str(buf[0]), path))
     return None
 
 def getFileInfo(path:str) -> str:
@@ -2252,7 +2253,9 @@ if __name__ == "__main__":
         except re.error as e:
             sys.stderr.write("Failed quoting '%s' with '%s'...'%s'.\n    %s" %
                 (f, op, cl, e))
-    def slashFunc(mat):
+            sys.exit()
+            
+    def slashFunc(mat) -> str:
         return "\\" + mat.group(1)
 
 
@@ -2282,7 +2285,7 @@ if __name__ == "__main__":
         powerstat = PowerStat.PowerStat(args.statFormat)
 
     leafNum = 0
-    whatCounts = defaultdict(int)
+    whatCounts:defaultdict = defaultdict(int)
     for path0, fh0, what0 in pw.traverse():
         if (args.count):
             whatCounts[what0] += 1

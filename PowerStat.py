@@ -3,7 +3,6 @@
 # PowerStat.py: A Python clone+lib (more or less) of 'stat'.
 # 2020-11-23: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 #from os import stat as osstat  # See lsanc.py for example
@@ -11,7 +10,7 @@ import os
 import stat
 import math
 import time
-from typing import Any
+from typing import Any, Dict, Union
 import re
 #from functools import partial
 
@@ -190,7 +189,7 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 # ******* The mnemonics used below are based on `ls` options (q.v).
 #
 permBits = "%SHp%SMp%SLp"
-statFormats = {
+statFormats:Dict[str, str] = {
         # 0----+----1----+----2----+----3----+----4----+----5----+----6----+----7
     "ls_l":    "-" + permBits + "  %8su %8sg %6ds %12sm %sn",
         # -rwxr-xr-x  1 sderose  staff    21K Jul 13 13:35 BlockFormatter.py
@@ -391,6 +390,8 @@ class StatItem:
                 
     def getDatumValue(self, st:os.stat_result) -> Any:
         """This gets the raw datum in raw form, given its code and subcode.
+        
+        TODO: Fill in the remaining stat_result references.
         """
         # Cases that use 'sub' code
         if (self.datum == 'p'):                 # type and perm
@@ -410,7 +411,7 @@ class StatItem:
                 "Unrecognized d self.subCode '%s'." % (self.subCode))
 
         elif (self.datum == 'r'):               # dev # for device special ***
-            assert (st.IFBLK or st.IFCHR)
+            assert (st[stat.S_IFBLK] or st[stat.S_IFCHR])
             dev = st[stat.ST_DEV]
             if   (self.subCode == 'H'):              # major number
                 return dev
@@ -420,12 +421,11 @@ class StatItem:
                 "Unrecognized r self.subCode '%s'." % (self.subCode))
 
         elif (self.datum == 'T'):               # file type like ls -F   ***
-            dev = st.ST_XXX
             # TODO: if (self.fmtCode == 's'): actual file type
             if   (self.subCode == 'H'):              # long form
-                return dev
+                return self.getFlag(st, shortName=False)
             elif (self.subCode == 'L'):              # single-char self.flag
-                return dev
+                return self.getFlag(st, shortName=True)
             else: raise ValueError(
                 "Unrecognized d self.subCode '%s'." % (self.subCode))
 
@@ -454,28 +454,47 @@ class StatItem:
         elif (self.datum == 'z'):               # self.size in bytes
             return st[stat.ST_SIZE]
 
-        elif (self.datum == 'b'):               # num blocks             ***
-            return st.ST_XXX
-        elif (self.datum == 'k'):               # optimal blockself.size ***
-            return st.ST_XXX
-        elif (self.datum == 'v'):               # inode generation num   ***
-            return st.ST_XXX
+        #elif (self.datum == 'b'):               # num blocks             ***
+        #    return st.ST_XXX
+        #elif (self.datum == 'k'):               # optimal blockself.size ***
+        #    return st.ST_XXX
+        #elif (self.datum == 'v'):               # inode generation num   ***
+        #    return st.ST_XXX
 
         # Other
-        elif (self.datum == 'f'):               # user self.flags        ***
-            return st.ST_XXX
+        #elif (self.datum == 'f'):               # user self.flags        ***
+        #    return st.ST_XXX
 
         # Not actually from 'stat' struct (likewise 'T')
-        elif (self.datum == 'N'):               # file name              ***
-            # TODO: if (self.fmtCode == 's'): actual file name
-            return st.ST_XXX
-        elif (self.datum == 'Y'):               # symlink target         ***
-            return st.ST_XXX
-        elif (self.datum == 'Z'):               # rdev major,minor or self.size ***
-            return st.ST_XXX
+        #elif (self.datum == 'N'):               # file name              ***
+        #    # TODO: if (self.fmtCode == 's'): actual file name
+        #    return st[stat.ST_XXX]
+        #elif (self.datum == 'Y'):               # symlink target         ***
+        #    return st[stat.ST_XXX]
+        #elif (self.datum == 'Z'):               # rdev major,minor or self.size ***
+        #    return st[stat.ST_XXX]
         else:
             raise ValueError("Unrecognized datum code '%s'." % (self.datum))
 
+    @staticmethod
+    def getFlag(st, shortName:bool=True) -> str:
+        """Return the same character flag that "ls -F" would append to this item,
+        or the long form of it.
+        TODO: Find and add the non-short names that it wants....
+        """
+        mode = st.st_mode
+        if (stat.S_ISDIR(mode)):  return "/" if (shortName) else "/"
+        # TODO: Which executagble bit(s) does ls -F actually report?
+        if (stat.S_ISLNK(mode)):  return "@" if (shortName) else "@"  # symbolic link
+        if (stat.S_ISSOCK(mode)): return "=" if (shortName) else "="  # after each socket
+        if (stat.S_ISFIFO(mode)): return "|" if (shortName) else "|"  # FIFO
+        # TODO: Is this not supported on MacOS or something?
+        #if (stat.S_ISWHT(mode)):  return "%" if (shortName) else "%"  # whiteout
+        if (st.S_IFWHT):  return "%" if (shortName) else "%"  # whiteout
+        if (st.S_IXUSR or st.S_IXGRP or st.S_IXOTH): 
+            return "*" if (shortName) else "*"
+        return ""
+        
     @staticmethod
     def doPermissionBits(st:os.stat_result, subCode:str, fmtCode:str):
         """Python 3.3 adds stat.filemode(mode), to gen the 10-char string.
@@ -483,35 +502,35 @@ class StatItem:
         if  (subCode == 'H'):
             permFlags = ''
             if (fmtCode == 's'):  # User permission bits
-                permFlags += 'r' if (st.S_IRUSR) else '-'
-                permFlags += 'w' if (st.S_IWUSR) else '-'
-                permFlags += 'x' if (st.S_IXUSR) else '-'
+                permFlags += 'r' if (st[stat.S_IRUSR]) else '-'
+                permFlags += 'w' if (st[stat.S_IWUSR]) else '-'
+                permFlags += 'x' if (st[stat.S_IXUSR]) else '-'
             else:
                 permFlags = 'TYP'
                 return permFlags
         elif (subCode == 'M'):
             permFlags = ''
             if (fmtCode == 's'):  # Group bits
-                permFlags += 'r' if (st.S_IRGRP) else '-'
-                permFlags += 'w' if (st.S_IWGRP) else '-'
-                permFlags += 'x' if (st.S_IXGRP) else '-'
+                permFlags += 'r' if (st[stat.S_IRGRP]) else '-'
+                permFlags += 'w' if (st[stat.S_IWGRP]) else '-'
+                permFlags += 'x' if (st[stat.S_IXGRP]) else '-'
             else: # TODO ???
-                permFlags += 'u' if (st.S_ISUID) else '-'
-                permFlags += 'g' if (st.S_ISGID) else '-'
-                permFlags += 's' if (st.S_ISVTX) else '-'
+                permFlags += 'u' if (st[stat.S_ISUID]) else '-'
+                permFlags += 'g' if (st[stat.S_ISGID]) else '-'
+                permFlags += 's' if (st[stat.S_ISVTX]) else '-'
             return permFlags
         elif (subCode == 'L'):
             permFlags = ''
             if (fmtCode == 's'):  # Other bits
-                permFlags += 'r' if (st.S_IROTH) else '-'
-                permFlags += 'w' if (st.S_IWOTH) else '-'
-                permFlags += 'x' if (st.S_IXOTH) else '-'
+                permFlags += 'r' if (st[stat.S_IROTH]) else '-'
+                permFlags += 'w' if (st[stat.S_IWOTH]) else '-'
+                permFlags += 'x' if (st[stat.S_IXOTH]) else '-'
             else:
                 permFlags = 'UGO'  # TODO ???
             return permFlags
         else: raise ValueError(
             "Unrecognized p subCode '%s'." % (subCode))
-        return st.ST_XXX
+        return None  #st.ST_XXX
 
     @staticmethod
     def readableSize(n:int) -> str:
