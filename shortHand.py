@@ -3,6 +3,8 @@
 # Experiment with defining Unicode shorthand for Python.
 # Mostly, you can do it if the Unicode you want is identifier chars, but not operators.
 #
+import math
+
 IOTA = ι = enumerate
 #NOT = ¬ = not
 #AND = ⋀ = and
@@ -29,7 +31,7 @@ TAU = τ = math.tau
 EPSILON = ε = math.e
 EULER = ℇ = 0.5772156649015328606065120900824024310421
 PLANK = ℎ = 6.62607004E-34
-PHI = φ = math.phi
+PHI = φ = 1.6180338  # math.phi
 
 #CROSSPRODUCT = ⨯ =
 #DOTPRODUCT = ⋅ =
@@ -46,14 +48,14 @@ PHI = φ = math.phi
 # "NOT" versions
 
 #ISCLOSE = ≅ = math.isclose
-NOTCLOSE = ≇ = lambda x, y: not math.isclose(x,y)
-IS = ≡ = is
+#NOTCLOSE = ≇ = lambda x, y: not math.isclose(x,y)
+#IS = ≡ = is
 #ISNOT = ≢ =
 
-|x|, ceil, floor
-reversed?
-push/pop/shift/append/insert
-location(s) of
+# |x|, ceil, floor
+# reversed?
+# push/pop/shift/append/insert
+# location(s) of
 
 """
 U+02336  ⌶  APL FUNCTIONAL SYMBOL I-BEAM

@@ -583,18 +583,18 @@ class FieldSchema(list):
     def __init__(self):
         super(FieldSchema, self).__init__()
 
-    def getFieldInfo(self, fieldSpec:Union[int:str]) -> FieldInfo:
+    def getFieldInfo(self, fieldSpec:Union[int, str]) -> FieldInfo:
         if (isinstance(fieldSpec, int)): return self[fieldSpec]
         for fi in self:
             if (fi.name == fieldSpec): return fi
         raise KeyError("Cannot find field %s." % (fieldSpec))
 
-    def isValueOk(self, fieldSpec:Union[int:str], val:Any) -> bool:
+    def isValueOk(self, fieldSpec:Union[int, str], val:Any) -> bool:
         fi = self.getFieldInfo(fieldSpec)
         if (val is None): return (not fi.required)
         return (isinstance(val, fi.type))
 
-    def getValidValue(self, fieldSpec:Union[int:str], value):
+    def getValidValue(self, fieldSpec:Union[int, str], value):
         """Check the value passed in. If it's ok for this field, return it.
         Otherwise:
             * If it's None, return the default if available, or else None.
