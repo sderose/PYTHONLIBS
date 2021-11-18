@@ -10,14 +10,15 @@ import re
 import codecs
 from enum import Enum
 from typing import List, IO, Callable, Any, Union, Match
-import xml.dom, xml.dom.minidom
+import xml.dom
+import xml.dom.minidom
 from xml.dom.minidom import Node, NamedNodeMap, Element
 
 PY3 = sys.version_info[0] == 3
 if PY3:
     from html.entities import codepoint2name, name2codepoint
     def unichr(n): return chr(n)
-    def cmp(a, b): return  ((a > b) - (a < b))
+    def cmp(a, b): return ((a > b) - (a < b))
 
 __metadata__ = {
     'title'        : "DomExtensions.py",
@@ -144,7 +145,7 @@ Several values have special meanings:
 
     if ("*" in myNode)...
     if ("#text" in myNode)...
-    
+
 To avoid ambiguity, the values including element type name as well as these
 special names, are chere alled "kinds" of nodes.
 
@@ -634,7 +635,7 @@ actually checks for `isinstance(arg, int)`, so `myNode["1"]` will not work.
 For canonical XML, make getEscapedAttributeList() put namespace attrs first,
 and escape CR and all > in content.
 
-* Update to use/provide whatwg DOM features like 
+* Update to use/provide whatwg DOM features like
 NodeIterator and TreeWalker [https://dom.spec.whatwg.org/#nodeiterator]
 and NodeFilters (latter is there as enum), DOMTokenList,...?
 
@@ -766,7 +767,7 @@ def isNMTokenPlus(s:str) -> bool:
     if (isXmlName(s)): return True
     if (s in [ "*", "#text", "#comment", "#cdata", "#pi" ]): return True
     return False
-    
+
 _regexType = type(re.compile(r'a*'))
 _xmlSpaceExpr = r"[ \t\n\r]+"
 
@@ -784,7 +785,7 @@ class HIERARCHY_REQUEST_ERR(Exception):
     pass
 
 
-class NodeFilter(Enum):  
+class NodeFilter(Enum):
     """
     See https://dom.spec.whatwg.org/#callbackdef-nodefilter
     """
@@ -1349,7 +1350,7 @@ def getFQGI(self:Node, sep:str="/") -> Union[str, list]:
     while (cur):
         flist.insert(0, self.nodeName)
         cur = cur.parentNode
-    if (sep): 
+    if (sep):
         return sep.join(flist)
     return flist
 
@@ -1465,8 +1466,8 @@ def XPointerCompare(self:Node, xp1, xp2):
         raise ValueError("Invalid XPointer cseq: '%s'." % (xp1))
     if (not re.match(r'\d+(/\d+)*$', xp2)):
         raise ValueError("Invalid XPointer cseq: '%s'." % (xp2))
-    t1 =  re.split(r'/', xp1)
-    t2 =  re.split(r'/', xp2)
+    t1 = re.split(r'/', xp1)
+    t2 = re.split(r'/', xp2)
     i = 0
     while (i<len(t1) and i<len(t2)):
         if (t1[i] < t2[i]): return -1
@@ -1595,7 +1596,7 @@ def getCompoundAttribute(self:Node, name:NMToken, sep:str='#', keepMissing:bool=
     return None
 
 def getAttributeAs(self:Node, name:NMToken, typ:type, default:Any) -> Any:
-    """Get the attribute, and cast/convert it to the specified type. 
+    """Get the attribute, and cast/convert it to the specified type.
     If not present, return the default. If present but the wrong type, raise ValueError.
     If typ is specified as list, the attribute is split on whitespace, but the
         separate tokens are just returned as-is.
@@ -1609,20 +1610,20 @@ def getAttributeAs(self:Node, name:NMToken, typ:type, default:Any) -> Any:
     else:
         castVal = typ(val)
     return castVal
-    
+
 def getStartTag(self:Node, sortAttributes:bool=False, discards:list=None) -> str:
     """Generate a start tag for the given element.
     @param sortAttributes: Put the attributes in alphanetical order, as for Canonical XML.
     @param discards: Don't include any attributes whose names are given here.
     """
     assert self.nodeType == Node.ELEMENT_NODE
-    assert (sortAttributes==False)
+    assert (not sortAttributes)
     anames = []
     for a, _v in (self.attributes.items()):
         if (discards and a in discards): continue
         anames.append(a)
     if (sortAttributes): anames = sorted(anames)
-    
+
     buf = ""
     for a in (anames):
         buf += ' %s="%s"' % (a, self.getEscapedAttribute(a))
@@ -1643,11 +1644,11 @@ def getEndTag(self:Node, appendAttr:str='id') -> str:
 def getPI(self:Node) -> str:
     assert self.nodeType == Node.PROCESSING_INSTRUCTION_NODE
     return "<?%s %s?>" % (self.target, self.data)
-    
+
 def getComment(self:Node) -> str:
     assert self.nodeType == Node.COMMENT_NODE
     return "<!--%s -->" % (self.data)
-    
+
 def getEscapedAttributeList(self:Node, sortAttributes:bool=False, quoteChar:str='"') -> str:
     """Assemble the entire attribute list, escaped as needed to write out as XML.
     TODO: At least for canonical XML, put namespace attrs first.
@@ -1660,7 +1661,7 @@ def getEscapedAttributeList(self:Node, sortAttributes:bool=False, quoteChar:str=
     if (sortAttributes): anames = sorted(anames)
     for aname in anames:
         avalue = self.getEscapedAttribute(aname, quoteChar=quoteChar)
-        if (quoteChar == "'"): buf +=  "%s='%s'" % (aname, avalue)
+        if (quoteChar == "'"): buf += "%s='%s'" % (aname, avalue)
         else: buf += ' %s="%s"' % (aname, avalue)
     return buf
 
@@ -1708,17 +1709,18 @@ def removeNodesByTagName(self:Node, nodeName:NMToken) -> int:
         ct += 1
     return ct
 
-def removeNodesByNodeType(self:Node, nodeType) -> int:
+def removeNodesByNodeType(self:Node, nodeType:str) -> int:
     """Remove all nodes of a given nodeType, such as PIs, comments, namespace nodes....
     TODO: Not sure if this iteration will be happy if deleting elements....
     """
+    ct = 0
     for node in self.eachNode():
         if (node.nodeType != nodeType): continue
         node.parent.removeChild(node)
         ct += 1
     return ct
 
-def untagNodesByTagName(root, nodeName:NMToken) -> None:
+def untagNodesByTagName(root:Node, nodeName:NMToken) -> None:
     """Find all elements of a given element type, and remove them, leaving their
     descendants otherwise intact.
     """
@@ -1726,13 +1728,13 @@ def untagNodesByTagName(root, nodeName:NMToken) -> None:
         tn = root.getDocument.createTextNode(t.innerText())
         t.parentNode.replaceChild(t, tn)
 
-def renameByTagName(root, oldName:NMToken, newName:NMToken) -> None:
+def renameByTagName(root:Node, oldName:NMToken, newName:NMToken) -> None:
     """Change the name for all elements of a given element type name.
     """
     for t in root.getElementsByTagName(oldName):
         t.nodeName = newName
 
-def forceTagCase(root, upper:bool=False, attributesToo:bool=False) -> None:
+def forceTagCase(root:Node, upper:bool=False, attributesToo:bool=False) -> None:
     """Force all element (and optionally attribute) names in a subtree,
     to lower (or upper) case.
     """
@@ -1747,7 +1749,7 @@ def forceTagCase(root, upper:bool=False, attributesToo:bool=False) -> None:
                     t.setAttribute(a.toupper(), v)
     return
 
-def getAllDescendants(root, excludeTypes:list=None, includeTypes:list=None):
+def getAllDescendants(root:Node, excludeTypes:list=None, includeTypes:list=None):
     """Get a list of all descendants of the given node, in document order.
     @param excludeTypes: A list of nodeTypes to exclude (such as TEXT_NODE).
         Descendants of skipped nodes will still be traversed.
@@ -1974,7 +1976,6 @@ def findNonAttributable(root:Node, pname:NMToken, chname:NMToken, aname:NMToken)
         attrs = ch.getsAttribute()
         if (attrs and len(attrs)>0): return node
         if (ch.getElements("*")): return node
-        nDone += 1
     return None
 
 
@@ -2011,16 +2012,16 @@ def eachNode(self:Node, wsn:bool=True, attributeNodes:bool=True, depth:int=1) ->
     """
     if (not self): return
     yield self
-    
+
     # TODO Check, this isn't quite how to iterate through attribute *nodes*
     if (attributeNodes and self.attributes):
         for attrNode in self.attributes:
             yield attrNode
-                
+
     if (self.hasChildNodes()):
         for ch in self.childNodes:
             if (not wsn and ch.nodeType==Node.TEXT_NODE and
-                self.nodeValue.strip() == ''): continue 
+                self.nodeValue.strip() == ''): continue
             for chEvent in eachNode(ch, depth=depth+1):
                 yield chEvent
     return
@@ -2028,7 +2029,7 @@ def eachNode(self:Node, wsn:bool=True, attributeNodes:bool=True, depth:int=1) ->
 def reversedEachNode(self:Node, wsn:bool=True, depth:int=1) -> Node:
     """Generate all descendant nodes in reverse order.
     @param wsn: If False, skip white-space-only nodes.
-    
+
     TODO: Change??? Unlike eachNode(), this *always* skips attribute nodes.
     """
     if (not (self)): return
@@ -2454,10 +2455,10 @@ def collectAllXml(
 fhGlobal = None  # TODO Unglobalize this, probably via partial functions.
 
 def export(
-    self:Node, 
-    someElement:Element, 
-    fh:IO, 
-    includeXmlDecl:bool=True, 
+    self:Node,
+    someElement:Element,
+    fh:IO,
+    includeXmlDecl:bool=True,
     includeDoctype:bool=False
     ) -> None:
     """Write the whole thing to some file.
@@ -2752,7 +2753,7 @@ class DomIndex(dict):
             if (node.nodeType==Node.ELEMENT_NODE):
                 key = node.getAttribute(aname)
                 if (key):
-                    if (key in self and duplicates==False):
+                    if (key in self and not duplicates):
                         raise IndexError("Duplicate key '%s'." % (key))
                     else:
                         self[key] = node
@@ -3218,7 +3219,7 @@ if __name__ == "__main__":
         buf0 = str(check_output([ "grep", "-E", "^(class| *def )", __file__ ]))
         print(re.sub(r"\\n", "\n", buf0))
         sys.exit()
-        
+
     warn(0, "Patching extensions onto xml.dom.minidom.Node...")
     DomExtensions.patchDOM()
     # Of course it doesn't have the method, until we've patched it in....

@@ -575,25 +575,25 @@ class DialectX:
 # TODO: Integrate this tiny schema-ish feature for type-checking.
 #
 FieldInfo = namedtuple('FieldInfo', [ 'n', 'name', 'type', 'default', 'required' ])
-    
+
 class FieldSchema(list):
     """Keep track of the known fields, with optional names, types, defaults.
     See also Homogeneous.py.
     """
     def __init__(self):
         super(FieldSchema, self).__init__()
-    
+
     def getFieldInfo(self, fieldSpec:Union[int:str]) -> FieldInfo:
         if (isinstance(fieldSpec, int)): return self[fieldSpec]
         for fi in self:
             if (fi.name == fieldSpec): return fi
         raise KeyError("Cannot find field %s." % (fieldSpec))
-        
+
     def isValueOk(self, fieldSpec:Union[int:str], val:Any) -> bool:
         fi = self.getFieldInfo(fieldSpec)
         if (val is None): return (not fi.required)
         return (isinstance(val, fi.type))
-        
+
     def getValidValue(self, fieldSpec:Union[int:str], value):
         """Check the value passed in. If it's ok for this field, return it.
         Otherwise:
@@ -608,7 +608,7 @@ class FieldSchema(list):
         if (fi.type is None):
             return value
         return fi.typ(value)
-        
+
 
 ###############################################################################
 #
@@ -689,21 +689,21 @@ class DictReader:
                 ftype = None
                 if (mat.group(2)):
                     ftype = locate(mat.group(2))
-                    if (ftype is None): 
+                    if (ftype is None):
                         raise ValueError("Could not locate type named '%s'." % (mat.group(2)))
-                fdefault = None         
+                fdefault = None
                 if mat.group(3): fdefault = mat.group(3)
             fi = FieldInfo(fnum, fname, ftype, fdefault, frequired)
             self.fieldNamesFromHeader = fname
             self.fieldInfos = fi
-            
+
         if (self.fieldNames and
             self.fieldNamesFromHeader != self.fieldNames):
             raise ValueError("Header does not match " +
                 "expected fieldNames:\n    %s\n    %s" %
                 (str(self.fieldNames), str(self.fieldNamesFromHeader)))
 
-    
+
 ###############################################################################
 # Thrown when parsing a line and it ends mid-quote, iff the dialect
 # says that's ok. Caller should catch it, append next line, and call again.
@@ -812,40 +812,40 @@ class DictWriter:
 
     def formatScalar(self, obj) -> str:  # From alogging.py
         ty = type(obj)
-        if (obj is                             None):
+        if (obj is None):
             return self.disp_None
-        elif (isinstance(obj,                  str)):
+        elif (isinstance(obj, str)):
             return '"%s"' % (obj)
-        elif (isinstance(obj,                  bytearray)):
+        elif (isinstance(obj, bytearray)):
             return 'b"%s"' % (obj)
-        #elif (isinstance(obj,                  buffer)):
+        #elif (isinstance(obj, buffer)):
         #    return '"%s"' % (obj)
-        #elif (isinstance(obj,                  storage)):
+        #elif (isinstance(obj, storage)):
         #    return "%s" % (obj)
 
-        elif (isinstance(obj,                  bool)):
+        elif (isinstance(obj, bool)):
             if (obj): return "True"
             return "False"
 
-        elif (isinstance(obj,                  int)):
+        elif (isinstance(obj, int)):
             return "%8d" % (obj)
-        elif (isinstance(obj,                  float)):
+        elif (isinstance(obj, float)):
             return "%12.4f" % (obj)
-        elif (isinstance(obj,                  complex)):
+        elif (isinstance(obj, complex)):
             return "%s" % (obj)
 
-        elif (isinstance(obj,                  dict)):
+        elif (isinstance(obj, dict)):
             return "{|%d|}" % (len(obj))
-        elif (isinstance(obj,                  list)):
+        elif (isinstance(obj, list)):
             return "[|%d|]" % (len(obj))
-        elif (isinstance(obj,                  tuple)):
+        elif (isinstance(obj, tuple)):
             return "(|%d|)" % (len(obj))
-        elif (isinstance(obj,                  set)):
+        elif (isinstance(obj, set)):
             return "[set |%d|]" % (len(obj))
-        elif (isinstance(obj,                  frozenset)):
+        elif (isinstance(obj, frozenset)):
             return "[frset |%d|]" % (len(obj))
 
-        elif (isinstance(obj,                  object)):
+        elif (isinstance(obj, object)):
             return "[%s |%d|]" % (ty, len(obj))
         return "[???] %s" % (obj)
         # end formatScalar

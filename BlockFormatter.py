@@ -328,7 +328,7 @@ ansiCodes = {
     "strike":    ( u"\x1B[9m", u"\x1B[0m" ),  # aka 'strikethru' or 'strikethrough'
     "plain":     ( u"\x1B[0m", u"\x1B[0m" ),  # (can be used to express "no special effect")
     "inverse":   ( u"\x1B[7m", u"\x1B[27m" ),
-    
+
     #
     "black":     ( u"\x1B[30m", u"\x1B[m" ),
     "red":       ( u"\x1B[31m", u"\x1B[m" ),
@@ -342,7 +342,7 @@ ansiCodes = {
 
 def effect(mat, effectName:str) -> str:
     return ansiCodes[effectName][0] + mat.group() + ansiCodes[effectName][1]
-    
+
 def ansify(blockText:str) -> str:
     """Turn typical markdown into itself + ANSI effects.
     This doesn't drop the delimiters. If it did, it would have to happen before
@@ -417,7 +417,7 @@ class BlockFormatter(argparse.HelpFormatter):
 
     def __init__(self, prog=None):
         super(BlockFormatter, self).__init__(prog)
-        
+
     def _fill_text(self, text:str, width:int, indent:str) -> str:
         """Override the aggressive line-filler, to do these things:
             * Retain blank lines
@@ -464,7 +464,7 @@ class BlockFormatter(argparse.HelpFormatter):
 
             if ("BF_ENABLE" in os.environ):
                 withNewlines = ansify(withNewlines)
-            
+
             blocks[i] = withNewlines
         vMsg(2, "\n******* FORMATTING DONE *******\n")
         return "\n".join(blocks)

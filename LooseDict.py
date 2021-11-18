@@ -207,7 +207,7 @@ class LooseDict(dict):
             skeys = self.keys()
         else:
             skeys = sorted(self.keys(), key=self.getNormKey, reverse=reverse)
-        for kk in skeys:  yield kk, self[kk]
+        for kk in skeys: yield kk, self[kk]
         return None
 
     def __iter__(self):
@@ -292,7 +292,7 @@ class normdict(dict):
             self.normalizer = lambda x: re.sub(r'\s+', ' ', x.split())
         else:
             self.normalizer = None
-            
+
         self.sorter     = sorter
         self.keyType    = keyType
         self.valueType  = valueType

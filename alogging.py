@@ -11,9 +11,7 @@ import re
 import logging
 import inspect
 from collections import defaultdict
-from typing import Iterable
-#import time
-#import string
+from typing import Iterable, Dict, Any
 
 # Need this to do formatRec() right for it:
 try:
@@ -21,13 +19,14 @@ try:
 except ImportError:
     class NamedNodeMap(list): pass  # Just get it out of the way...
 
+# "PYunicode" is a type that we can use in either Python 2 or 3.
+#
 PY3 = sys.version_info[0] == 3
 if PY3:
     def unichr(n): return chr(n)
-    def unicode(s, encoding='utf-8', errors='strict'):
-        return str(s, encoding, errors)
-    basestring = str
-    unicode = str
+    PYunicode = str
+else:
+    PYunicode = unicode  # noqa: F821  #pylint: disable=E0602
 
 __metadata__ = {
     'title'        : "alogging.py",
@@ -1022,14 +1021,14 @@ class ALogger:
             'indent'    : 1,
         }
         theType = self.msgTypes[msgType]
-        if (color  is not None): theType['color']   = color
+        if (color is not None):   theType['color']   = color
         if (nLevels is not None): theType['nLevels'] = nLevels
-        if (func   is not None): theType['func']    = func
-        if (prefix is not None): theType['prefix']  = prefix
-        if (infix  is not None): theType['infix']   = infix
-        if (suffix is not None): theType['suffix']  = suffix
-        if (escape is not None): theType['escape']  = escape
-        if (indent is not None): theType['indent']  = indent
+        if (func is not None):    theType['func']    = func
+        if (prefix is not None):  theType['prefix']  = prefix
+        if (infix is not None):   theType['infix']   = infix
+        if (suffix is not None):  theType['suffix']  = suffix
+        if (escape is not None):  theType['escape']  = escape
+        if (indent is not None):  theType['indent']  = indent
         return(1)
 
     def getMsgDefs(self):
@@ -1306,18 +1305,18 @@ class ALogger:
 
         (on,off) = self.getPickedColorString(color, msgType)
 
-        if (PY3 or isinstance(m1, unicode)):
+        if (isinstance(m1, PYunicode)):
             um1 = m1
         else:
             try:
-                um1 = unicode(m1, encoding='latin-1')
+                um1 = m1.decode(encoding='latin-1')
             except UnicodeDecodeError:
                 um1 = re.sub(r'[\x80-\xFF]', self.options['badChar'], m1)
-        if (PY3 or isinstance(m2, unicode)):
+        if (PY3 or isinstance(m2, PYunicode)):  # noga: F821
             um2 = m2
         else:
             try:
-                um2 = unicode(m2, encoding='latin-1')
+                um2 = m2.decode(encoding='latin-1')
             except UnicodeDecodeError:
                 um2 = re.sub(r'[\x80-\xFF]', self.options['badChar'], m2)
 
@@ -1429,7 +1428,7 @@ class ALogger:
         for k in sorted(self.msgStats.keys()):
             if (onlyMatching and not re.search(onlyMatching, k)):
                 continue
-            if (descriptions!=None and k in descriptions):
+            if (descriptions and k in descriptions):
                 label = descriptions[k]
             else:
                 label = k
@@ -1457,7 +1456,7 @@ class ALogger:
             self.lg.info("    (no stats logged)")
 
     def pline(self, label:str, n:int, denom:float=None, dotfill:int=0, fillchar:str='.',
-        width:int=None, quiet:bool=False):
+        width:int=None, quiet:bool=False) -> str:
         """Display via ''vMsg''(), with ''label'' padded to ''width'' columns,
         (default: `plineWidth` option). ''n'' is justified according to type.
             With ''dotfill'', every ''dotfill'''th line will pad ''label''
@@ -1475,7 +1474,7 @@ class ALogger:
             valueField = "%10s" % (n)
         else:
             try:
-                valueField = unicode(n)
+                valueField = chr(n)
             except UnicodeDecodeError:
                 valueField = self.showInvisibles(n)
 
@@ -1502,7 +1501,7 @@ class ALogger:
     # dir() can be wrong, e.g., if the object has a custom __getattr__.
     # Does not seem to work for Cython objects such as in Spacy.
     #
-    def dirMain(self, obj, includeCallables:bool=False):
+    def dirMain(self, obj, includeCallables:bool=False) -> Dict:
         tdict = {}
         for k in dir(obj):
             if (k.startswith("__") or k == "_"): continue
@@ -1546,7 +1545,7 @@ class ALogger:
     def formatRec(self,
         obj,                      # Data to format
         **kwargs                  # Options
-        ):
+        ) -> str:
         """Format a pretty wide range of data structures for pretty-printing.
         Based on a similar PHP tool I built with ccel.org.
 
@@ -1561,14 +1560,14 @@ class ALogger:
         for k, v in kwargs.items():
             if (k not in options):
                 raise KeyError("Bad formatRec() option '%s'." % (k))
-            if (type(v) != type(options[k])):
+            if (not isinstance(v, type(options[k]))):
                 raise ValueError("Expected type %s, not %s, for formatRec option '%s'." %
                     (type(options[k]), type(v), k))
             options[k] = v
 
         return self.formatRec_R(obj, options=options, depth=0)
 
-    def formatRec_R(self, obj, options, depth):
+    def formatRec_R(self, obj:Any, options:Dict, depth:int) -> str:
         """The real (recursive) formatter.
         """
         #print("In formatRec_R, depth %d, maxDepth %d." % (depth, options['maxDepth']))
@@ -1591,8 +1590,7 @@ class ALogger:
             buf += ind + "Callable '%s()'" % (nm)
 
         # If a scalar is in some aggregates, the aggregate adds ind and \n.
-        elif (type(obj) in [ bool, int, float, complex, str, unicode ] or
-            isinstance(obj, (bool, int, float, complex, basestring))): # SCALARS
+        elif (isinstance(obj, (bool, int, float, complex, str))):   # SCALARS
             buf += self.formatScalar(obj)
 
         elif (isinstance(obj, dict)):                               # DICT
@@ -1698,7 +1696,7 @@ class ALogger:
         return buf
         # end formatRec_R
 
-    def skipIt(self, thing, nm, options):
+    def skipIt(self, thing:Any, nm:str, options:Dict) -> bool:
         """Called for members of objects (and dicts?), return True if we
         should skip this member due to name, being callable, etc.
         If the 'specials' option is set, we keep callable and __s; but
@@ -1710,52 +1708,49 @@ class ALogger:
         if (isinstance(nm, str) and nm.startswith('__')): return True
         return False
 
-    def quote(self, s:str, addQuotes:bool=False):
+    def quote(self, s:str, addQuotes:bool=False) -> str:
         if (not addQuotes): return s
         return '"' + re.sub(r'"', '\\"', s) + '"'
 
-    def formatScalar(self, obj):
+    def formatScalar(self, obj) -> str:
         """Return a formatted version of a scalar variable. If passed an
         aggregate, format its length instead.
         """
         ty = type(obj)
-        if (obj is                             None):
+        if (obj is None):
             return self.disp_None
-        elif (isinstance(obj,                  str) or
-            isinstance(obj,                    basestring)):
+        elif (isinstance(obj, (str, PYunicode))):
             return '"%s"' % (obj)
-        elif (isinstance(obj,                  unicode)):
-            return 'u"%s"' % (obj)
-        elif (isinstance(obj,                  bytearray)):
+        elif (isinstance(obj, bytearray)):
             return 'b"%s"' % (obj)
-        #elif (isinstance(obj,                  buffer)):
+        #elif (isinstance(obj, buffer)):
         #    return '"%s"' % (obj)
-        #elif (isinstance(obj,                  storage)):
+        #elif (isinstance(obj, storage)):
         #    return "%s" % (obj)
 
-        elif (isinstance(obj,                  bool)):
+        elif (isinstance(obj, bool)):
             if (obj): return "True"
             return "False"
 
-        elif (isinstance(obj,                  int)):
+        elif (isinstance(obj, int)):
             return "%8d" % (obj)
-        elif (isinstance(obj,                  float)):
+        elif (isinstance(obj, float)):
             return "%12.4f" % (obj)
-        elif (isinstance(obj,                  complex)):
+        elif (isinstance(obj, complex)):
             return "%s" % (obj)
 
-        elif (isinstance(obj,                  dict)):
+        elif (isinstance(obj, dict)):
             return "{|%d|}" % (len(obj))
-        elif (isinstance(obj,                  list)):
+        elif (isinstance(obj, list)):
             return "[|%d|]" % (len(obj))
-        elif (isinstance(obj,                  tuple)):
+        elif (isinstance(obj, tuple)):
             return "(|%d|)" % (len(obj))
-        elif (isinstance(obj,                  set)):
+        elif (isinstance(obj, set)):
             return "[set |%d|]" % (len(obj))
-        elif (isinstance(obj,                  frozenset)):
+        elif (isinstance(obj, frozenset)):
             return "[frset |%d|]" % (len(obj))
 
-        elif (isinstance(obj,                  object)):
+        elif (isinstance(obj, object)):
             return "[%s |%d|]" % (ty, len(obj))
         return "[???] %s" % (obj)
         # end formatScalar

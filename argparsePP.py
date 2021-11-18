@@ -5,7 +5,8 @@
 #
 #pylint: disable=W0613, W0212, W0622, W0123
 #
-import sys, os
+import sys
+import os
 import re
 import argparse
 import subprocess
@@ -256,7 +257,7 @@ def t_ascii_char(s):
     raise ValueError(genericMsg % (s))
 
 def t_uchar(s):
-    """A single Unicode character, specified as any of: 
+    """A single Unicode character, specified as any of:
         * a literal (a shell may already expand some \\-codes before we see them)
         * a hex/dec/oct code point
         * U+xxxx
@@ -475,7 +476,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
         self.entailments        = {}
 
         super(ArgumentParserPP, self).__init__(
-            prog                =    prog,
+            prog                = prog,
             usage               = usage,
             description         = description,
             epilog              = epilog,
@@ -503,13 +504,13 @@ class ArgumentParserPP(argparse.ArgumentParser):
         dest        = None
         ):
         basename = names[0].strip(" \t-_")
-        if (self.showDefaults and default!=None):
-            if (help==None): help=""
+        if (self.showDefaults and default is not None):
+            if (help is None): help=""
             help += " Default: " + str(default)
-        if (metavar==None):
+        if (metavar is None):
             metavar = basename.upper()
             if (self.shortMetavars):  metavar = metavar[0:1]
-        if (dest==None): dest = re.sub("-", "_", basename)
+        if (dest is None): dest = re.sub("-", "_", basename)
 
         # For gnu style, always add "-" synonym for "--" form
         if (names[0].startswith("--") and self.gnuStyle):
@@ -589,7 +590,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
         ):
         """Add the given argument, with a set of `choices`. In addition, add each
         choice as a separate argumnt of its own, that just sets this one.
-        
+
         This has the side-effect that you can give them regardless of case,
         and/or as minimum-unique abbreviations.
         The caller is responsible for avoiding conflicts.
@@ -681,7 +682,7 @@ if __name__ == "__main__":
             help="Path(s) to input file(s)")
 
         args0 = parser.parse_args()
-        if (args0.color == None):
+        if (args0.color is None):
             args0.color = ("USE_COLOR" in os.environ and sys.stderr.isatty())
         #lg.setColors(args0.color)
         #if (args0.verbose): lg.setVerbose(args0.verbose)

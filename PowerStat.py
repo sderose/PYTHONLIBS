@@ -10,7 +10,7 @@ import os
 import stat
 import math
 import time
-from typing import Any, Dict, Union
+from typing import Any, Dict  #, Union
 import re
 #from functools import partial
 
@@ -70,7 +70,7 @@ They start with "%", but have a load of fields, mostly optional:
 
 * Optional flags: [#+-0] for affect leading zeros, signs, left-alignment, etc.
 * size (digits)
-* precision ("." + digits)    
+* precision ("." + digits)
 * fmtCode [DOUXFS] for decimal, octal, unsigned decimal, hex, float, or string.
 For some fields, like 'u' for user, the S form is a name, and the H form is the id.
 S for dates uses `strftime` formats.
@@ -97,7 +97,7 @@ S for dates uses `strftime` formats.
 ==Examples==
 
 * %uS  gets user name as a string
-    
+
 
 =Related Commands=
 
@@ -275,7 +275,7 @@ class StatItem:
         # datum += r'|{<?P<datumName>\w+)'
         itemExpr = '%' + flag + siz + prc + fmtCode + sub + datum + "|%(?P<esc>[nt%@])"
         return re.compile(itemExpr)
-        
+
     def __init__(self, mat:re.Match):
         assert isinstance(mat, re.Match)
         self.mat         = mat  # Should go away?
@@ -291,7 +291,7 @@ class StatItem:
         self.subCode     = mat.group('sub') or ''      # [HML]?
         self.datum       = mat.group('datum')          # field specifier char
         self.typ         = None                        # As from defaultFmtCodes (?)
-        
+
         self.sprintfCode = "%"
         if (self.flag in "+-0"): self.sprintfCode += self.flag
         if (self.siz): self.sprintfCode += str(self.siz)
@@ -333,12 +333,11 @@ class StatItem:
         """
         if (self.mat.group('esc')):
             k = self.mat.group('esc')[1]
-            if   (k == 'n'): return('\n')
+            if (k == 'n'): return('\n')
             elif (k == 't'): return('\t')
             elif (k == '%'): return('%')
             elif (k == '@'): return('@')
-            else: raise ValueError(
-                "Unrecognized escape '%s'." % (self.mat.group('esc')))
+            else: raise ValueError("Unrecognized escape '%s'." % (self.mat.group('esc')))
 
         if (self.mat.group('datumName')):
             fmtCode = 's'
@@ -387,10 +386,10 @@ class StatItem:
             return self.sprintfCode % (datum)
         else:
             return self.sprintfCode % (datum)
-                
+
     def getDatumValue(self, st:os.stat_result) -> Any:
         """This gets the raw datum in raw form, given its code and subcode.
-        
+
         TODO: Fill in the remaining stat_result references.
         """
         # Cases that use 'sub' code
@@ -401,7 +400,7 @@ class StatItem:
             # TODO: if (self.fmtCode == 's'): actual device name
             # d gives a 4-byte int, where high order byte is major, low minor.
             dev = st[stat.ST_DEV]
-            if   (self.subCode == 'H'):              # major number
+            if (self.subCode == 'H'):                # major number
                 return str(dev >> 24)
             elif (self.subCode == 'L'):              # minor number
                 return dev & 0xFF
@@ -410,10 +409,10 @@ class StatItem:
             else: raise ValueError(
                 "Unrecognized d self.subCode '%s'." % (self.subCode))
 
-        elif (self.datum == 'r'):               # dev # for device special ***
+        elif (self.datum == 'r'):                    # dev # for device special ***
             assert (st[stat.S_IFBLK] or st[stat.S_IFCHR])
             dev = st[stat.ST_DEV]
-            if   (self.subCode == 'H'):              # major number
+            if (self.subCode == 'H'):                # major number
                 return dev
             elif (self.subCode == 'L'):              # minor number
                 return dev
@@ -422,7 +421,7 @@ class StatItem:
 
         elif (self.datum == 'T'):               # file type like ls -F   ***
             # TODO: if (self.fmtCode == 's'): actual file type
-            if   (self.subCode == 'H'):              # long form
+            if (self.subCode == 'H'):                # long form
                 return self.getFlag(st, shortName=False)
             elif (self.subCode == 'L'):              # single-char self.flag
                 return self.getFlag(st, shortName=True)
@@ -432,7 +431,7 @@ class StatItem:
         # Datetimes (returned as epoch times
         # (stat has a -t [format] option, which passes these through strftime)
         elif (self.datum in 'amcB'):
-            if   (self.datum == 'a'):           # access time
+            if (self.datum == 'a'):             # access time
                 tim = st[stat.ST_ATIME]
             elif (self.datum == 'm'):           # mod time
                 tim = st[stat.ST_MTIME]
@@ -491,10 +490,10 @@ class StatItem:
         # TODO: Is this not supported on MacOS or something?
         #if (stat.S_ISWHT(mode)):  return "%" if (shortName) else "%"  # whiteout
         if (st.S_IFWHT):  return "%" if (shortName) else "%"  # whiteout
-        if (st.S_IXUSR or st.S_IXGRP or st.S_IXOTH): 
+        if (st.S_IXUSR or st.S_IXGRP or st.S_IXOTH):
             return "*" if (shortName) else "*"
         return ""
-        
+
     @staticmethod
     def doPermissionBits(st:os.stat_result, subCode:str, fmtCode:str):
         """Python 3.3 adds stat.filemode(mode), to gen the 10-char string.
@@ -563,7 +562,7 @@ class PowerStat:
     Add datum field like {statName}', to just use any name python stat knows?
     (see https://docs.python.org/3/library/stat.html)
     """
-    
+
     def __init__(self, statFormat:str=None, timeFormat:str=None):
         """Parse a `stat -f` argument into an array of literals and %-items.
         """
@@ -573,7 +572,7 @@ class PowerStat:
         lastEnd = 0
         for mat in re.finditer(self.itemExpr, statFormat):
             if (not mat.group('datum') and not mat.group('esc')):
-                fatal("Could not parse format item '%s' after column %d." % 
+                fatal("Could not parse format item '%s' after column %d." %
                     (statFormat, lastEnd))
             if (mat.start() > lastEnd):  # Save inter-item literal text
                 self.theItems.append(statFormat[lastEnd:mat.start()])
@@ -667,13 +666,13 @@ if __name__ == "__main__":
             help='Path(s) to input file(s)')
 
         args0 = parser.parse_args()
-        if (args0.color == None):
+        if (args0.color is None):
             args0.color = ("USE_COLOR" in os.environ and sys.stderr.isatty())
         #lg.setColors(args0.color)
         #if (args0.verbose): lg.setVerbose(args0.verbose)
         if (args0.namedStatFormat):
             args0.statFormat = statFormats[args0.namedStatFormat]
-            
+
         return(args0)
 
     ###########################################################################

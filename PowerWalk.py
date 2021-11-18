@@ -2254,7 +2254,7 @@ if __name__ == "__main__":
             sys.stderr.write("Failed quoting '%s' with '%s'...'%s'.\n    %s" %
                 (f, op, cl, e))
             sys.exit()
-            
+
     def slashFunc(mat) -> str:
         return "\\" + mat.group(1)
 

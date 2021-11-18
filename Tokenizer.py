@@ -839,7 +839,7 @@ unicodeSpaces = [
     0x303F,  # "IDEOGRAPHIC HALF FILL SPACE",
 ]
 
-unicodeDashes =  [
+unicodeDashes = [
     0x002D,  # "HYPHEN-MINUS",
     0x058A,  # "ARMENIAN HYPHEN",
     0x1B60,  # "BALINESE PAMENENG (line-breaking hyphen)",
@@ -947,36 +947,36 @@ else:
 
 
 lexemeTypes = {
-    "lower":	[ "lower", r"[a-z]+" ],
-    "upper":	[ "upper", r"[A-Z]+" ],
-    "title":	[ "title", r"[A-Z][a-z]+" ],
-    "mixed":	[ "mixed", r"\w+" ],
+    "lower": [ "lower", r"[a-z]+" ],
+    "upper": [ "upper", r"[A-Z]+" ],
+    "title": [ "title", r"[A-Z][a-z]+" ],
+    "mixed": [ "mixed", r"\w+" ],
 }
 
 
 # Reserved set of option values, to specify for how to map char classes.
 # Use numbers for faster tests in map().
 #
-DT_KEEP		      = "KEEP"
-DT_UNIFY		    = "UNIFY"
-DT_DELETE		    = "DELETE"
-DT_SPACE		    = "SPACE"
-DT_STRIP		    = "STRIP"
-DT_VALUE		    = "VALUE"
-DT_UPPER		    = "UPPER"
-DT_LOWER		    = "LOWER"
-DT_DECOMPOSE		= "DECOMPOSE"
+DT_KEEP             = "KEEP"
+DT_UNIFY            = "UNIFY"
+DT_DELETE           = "DELETE"
+DT_SPACE            = "SPACE"
+DT_STRIP            = "STRIP"
+DT_VALUE            = "VALUE"
+DT_UPPER            = "UPPER"
+DT_LOWER            = "LOWER"
+DT_DECOMPOSE        = "DECOMPOSE"
 
 dispTypes = {
     # Keyword:       ( DT_NAME,      map?, whichClasses),
-    DT_KEEP:         ( DT_KEEP, 		 False, "*" ),
-    DT_UNIFY:        ( DT_UNIFY,		 True,  "*" ),
-    DT_DELETE:       ( DT_DELETE,		 True,  "*" ),
-    DT_SPACE:        ( DT_SPACE,		 True,  "*" ),
-    DT_STRIP:        ( DT_STRIP,		 True,  "Letter" ),
-    DT_VALUE:        ( DT_VALUE,		 True,  "Number" ),
-    DT_UPPER:        ( DT_UPPER,		 False, "Letter" ),
-    DT_LOWER:        ( DT_LOWER,		 False, "Letter" ),
+    DT_KEEP:         ( DT_KEEP,          False, "*" ),
+    DT_UNIFY:        ( DT_UNIFY,         True,  "*" ),
+    DT_DELETE:       ( DT_DELETE,        True,  "*" ),
+    DT_SPACE:        ( DT_SPACE,         True,  "*" ),
+    DT_STRIP:        ( DT_STRIP,         True,  "Letter" ),
+    DT_VALUE:        ( DT_VALUE,         True,  "Number" ),
+    DT_UPPER:        ( DT_UPPER,         False, "Letter" ),
+    DT_LOWER:        ( DT_LOWER,         False, "Letter" ),
     DT_DECOMPOSE:    ( DT_DECOMPOSE, False, "Letter" ),
 }
 
@@ -1687,23 +1687,23 @@ class HeavyTokenizer:
         try:
             if (dl[0] == DT_KEEP):                  # keep
                 return
-            if (dl[0] == DT_UNIFY):	                # unify
+            if (dl[0] == DT_UNIFY):                 # unify
                 s = re.sub(cregex, norm, s)
-            elif (dl[0] == DT_DELETE):	            # delete
+            elif (dl[0] == DT_DELETE):              # delete
                 s = re.sub(cregex, "", s)
-            elif (dl[0] == DT_SPACE):	              # space
+            elif (dl[0] == DT_SPACE):               # space
                 s = re.sub(cregex, " ", s)
-            elif (dl[0] == DT_STRIP):	              # strip
+            elif (dl[0] == DT_STRIP):               # strip
                 s = re.sub(r"(%s)" % (cregex), strip_diacritics, s)
-            elif (dl[0] == DT_VALUE):	              # value
+            elif (dl[0] == DT_VALUE):               # value
                 s = re.sub(r"(%s)" % (cregex), get_value, s)
-            elif (dl[0] == DT_UPPER):	              # upper
+            elif (dl[0] == DT_UPPER):               # upper
                 s = s.upper()
                 # OR: s = re.sub(r"(%s)" % (cregex), "\U\\1\E", s)
-            elif (dl[0] == DT_LOWER):	              # lower
+            elif (dl[0] == DT_LOWER):               # lower
                 s = s.lower()
                 # OR: s = re.sub(r"(%s)" % (cregex), "\L\\1\E", s)
-            elif (dl[0] == DT_DECOMPOSE):	          # decompose
+            elif (dl[0] == DT_DECOMPOSE):           # decompose
                 s = unicodedata.normalize("NFKD", s)
             else:
                 die("map: bad (disp) value '%d' (=%s)\n" % (optValue, dl))

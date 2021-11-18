@@ -33,7 +33,7 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
-This defines a subclass of xml.minidom.Node, which add a __getitem__() method that
+This defines a subclass of xml.minidom.Node, which adds a `__getitem__()` method that
 lets you get child nodes of all kinds (elements, comments, pis, attributes, text nodes)
 with the usual Python [] notation.
 
@@ -47,7 +47,7 @@ Like Python [] in general, this implementation accepts up to 3 values inside the
 For regular lists, the third argument specifies a "step", which allows you, for example,
 to get every other item from a list:
     x[1:01:2]
-    
+
 Slicing with 1, 2, or 3 integer arguments can be done Here, selecting among the
 childNodes of the given Node. But in addition, the last item can be a string.
 That string is used to specify just what nodes you are selecting from. For example:
@@ -74,9 +74,9 @@ nodeType will be retrieved.
 
 In all cases except attributes (which cannot be repeated on a single element),
 the one or two preceding integers pick from the chsen category of child nodes, in
-the usual Python fashion. With attributes, the integers (if present) choose among the 
+the usual Python fashion. With attributes, the integers (if present) choose among the
 space-separated tokens within the attribute value.
-  
+
 Some additional examples:
     myElement['p':2]     get the 3rd 'p' child
     myElement[2:'p']     get 3rd child if it's a 'p'
@@ -106,7 +106,24 @@ Balisage Series on Markup Technologies, vol. 13.
 * Perhaps allow passing in a regex for the string arg?
 * Perhaps restrict the string arg to last position only?
 
+
 =History=
+
+* 2010-01-10: DomExtensions.py original.
+* 2021-07-21: Extracted from DomExtensions.py (q.v.).
+
+
+=Rights=
+
+Copyright 2010-01-10 by Steven J. DeRose. This work is licensed under a Creative
+Commons Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see [http://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
+
+
+=Options=
 """
 
 
@@ -125,7 +142,7 @@ class PyNode(Node):
     xmlName = nameStartChar + nameChar + '*'
 
     @staticmethod
-    def isXmlName(s:str) -> bool: 
+    def isXmlName(s:str) -> bool:
         if (s is None): return False
         #print("types: expr %s, s %s." % (type(PyNode.xmlName), type(s)))
         if (re.match(PyNode.xmlName, s, re.UNICODE)): return True
@@ -141,7 +158,7 @@ class PyNode(Node):
 
     def __init__(self, *args9, **kwargs):
         super(PyNode, self).__init__(self, *args9, **kwargs)
-        
+
     def __getitem__(self:Node, n1:int, n2:int=None, n3:str=None) -> List:
         """Access nodes via Python list notation.
         """
@@ -266,6 +283,7 @@ if __name__ == "__main__":
         args0 = parser.parse_args()
         return args0
 
+
     ###########################################################################
     #
     args = processOptions()
@@ -281,7 +299,7 @@ if __name__ == "__main__":
     body = theDocEl.createElement("body")
     theDocEl.appendChild(body)
     print("body element nodeName is '%s'." % (body.nodeName))
-    
+
     nParas = 10
     for i in range(nParas):
         e = theDocEl.createElement("p")
@@ -294,7 +312,5 @@ if __name__ == "__main__":
     for i in range(0,nParas,2):
         print("ch %d: type '%s'" % (i, body[i].nodeName))
         print("    id: %s" % (body[i]["@id"]))
-        
-    
-    warn(0, "Done.")
 
+    warn(0, "Done.")

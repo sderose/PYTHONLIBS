@@ -369,16 +369,16 @@ macRomanData = {
 # TODO: Move to separate test process
 for i in sorted(macRomanData.keys()):
     ucp, ent, nam = macRomanData[i]
-    if (i<128 or i>255): 
+    if (i<128 or i>255):
         raise ValueError("macRomanData[%04x]: key out of range." % (i))
     if (ucp is None):
         continue
-    if (ucp < 0XA0 or ucp > 0xFB02): 
+    if (ucp < 0XA0 or ucp > 0xFB02):
         raise ValueError("macRomanData[%04x]: Unicode equivalent %04x out of range." % (i, ucp))
     if (ent):
         cpOfEntity = name2codepoint[ent]
-        if (cpOfEntity != ucp): 
-            raise ValueError("macRomanData[%04x]: entity '%s' maps to %04x which is '%s', not %04x." % 
+        if (cpOfEntity != ucp):
+            raise ValueError("macRomanData[%04x]: entity '%s' maps to %04x which is '%s', not %04x." %
                 (i, ent, cpOfEntity, codepoint2name[cpOfEntity], ucp))
     if (not re.match(r"[- A-Z0-9]{5,}$", nam)):
         raise ValueError("macRomanData[%04x]: bad name '%s'." % (i, nam))
@@ -1460,9 +1460,10 @@ if (nidx != 1637):
     sys.exit()
 
 
-def script_cat(codepoint:int):
-    """ For the unicode character chr return a tuple (Scriptname, Category).
-    Sadly, unicodedata does not have script or block (does have category).
+def script_cat(codepoint:int) -> (str, str):
+    """ For the given unicode character, return a tuple (Scriptname, Category).
+    Sadly, unicodedata does not have script or block (it does have category).
+    So we do a binary search in codepoint space.
     See https://stackoverflow.com/questions/9868792/
     """
     l = 0
@@ -1480,16 +1481,16 @@ def script_cat(codepoint:int):
                 script_data["categoryAbbrs"][script_data["idx"][m][3]])
     return "Unknown", "??"
 
-def myCodepoint2name(n:int):
+def myCodepoint2name(n:int) -> str:
     if (not isinstance(n, int)): n = ord(n)
     return unicodedata.name(unichr(n))
 
-def myCodepoint2script(n:int):
+def myCodepoint2script(n:int) -> str:
     if (not isinstance(n, int)): n = ord(n)
     a, _ = script_cat(n)
     return a
 
-def myCodepoint2category(n:int):
+def myCodepoint2category(n:int) -> str:
     if (not isinstance(n, int)): n = ord(n)
     _, a = script_cat(n)
     return a
@@ -1646,11 +1647,11 @@ charProperties = {
     "ISMIRROR":       ( '?', 'P', "Is part of a mirror pair?", ),
     #"MIRROROF":
 
-    "DECOMP":      	  ( str, 'P', "decomp", ),
-    "NFC":         	  ( str, 'P', "NFC", ),
-    "NFKC":        	  ( str, 'P', "NFKC", ),
-    "NFD":         	  ( str, 'P', "NFD", ),
-    "NFKD":        	  ( str, 'P', "NFKD", ),
+    "DECOMP":         ( str, 'P', "decomp", ),
+    "NFC":            ( str, 'P', "NFC", ),
+    "NFKC":           ( str, 'P', "NFKC", ),
+    "NFD":            ( str, 'P', "NFD", ),
+    "NFKD":           ( str, 'P', "NFKD", ),
 
     # Alternate representations
     "URI":            ( str, 'F', "uri", ),
@@ -1769,7 +1770,7 @@ def makeDisplay(n:int, full=True) -> str:
     except ValueError as e:
         sys.stderr.write("%s" % (e))
         return "???"
-    
+
     try:
         msg = "\n".join([
             fmtline("Unicode Name",     charInfo["UNAME" ]),
@@ -1874,7 +1875,7 @@ def getPlaneName(pnum:int) -> str:
     elif (pnum == 15): pname = "Supplementary Private Use Area A"
     elif (pnum == 14): pname = "Supplementary Special-purpose"
     elif (pnum >=  3): pname = "Unassigned"
-    else             : pname = "-UNKNOWN-"
+    else: pname = "-UNKNOWN-"
     return pname
 
 # See https://stackoverflow.com/questions/243831/
@@ -1927,14 +1928,14 @@ def getCodePoint(cspec) -> int:
         return ord(urlunquote(uspec))
     if (re.match(r"(\\x[\dA_F][\dA-F])+$", uspec, re.I)):  # UTF8
         uriForm = re.sub(r"\\x", "%", uspec)
-        return ord(urlunquote(uspec))
+        return ord(urlunquote(uriForm))
     if (uspec in C0Mnemonics):                             # MNEMONIC
         return C0Mnemonics.index(uspec)
     if (uspec in C1Mnemonics):
         return C1Mnemonics.index(uspec) + 0x80
     try:                                                   # UNAME
         uspec2 = re.sub(r"_", " ", uspec)                  # UNORM
-        n = unicodedata.lookup(uspec)
+        n = unicodedata.lookup(uspec2)
         return n
     except KeyError:
         pass
@@ -2012,7 +2013,7 @@ if __name__ == "__main__":
             if (not categ.startswith(args.category)): continue
             try:
                 nam = unicodedata.name(c0)
-            except ValueError as e:
+            except ValueError:
                 if (args.verbose): sys.stderr.write(
                     u"No name for char '%s' (U+%05x)\n" % (c0, codePoint))
                 continue

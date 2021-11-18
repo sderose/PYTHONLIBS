@@ -3,9 +3,9 @@
 # ReadAny.py: Read plain/zip/gzip files, directories, etc.
 # 2013-03-22: Written by Steven J. DeRose.
 #
-from __future__ import print_function
-#import string
-import sys, re, os
+import sys
+import re
+import os
 import codecs
 import zipfile
 import gzip

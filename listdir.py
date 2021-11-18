@@ -4,7 +4,8 @@
 # 2020-12-09: Written by Steven J. DeRose.
 #
 from __future__ import print_function
-import sys, os
+import sys
+import os
 
 __metadata__ = {
     'title'        : "listdir.py",
@@ -152,4 +153,3 @@ if __name__ == "__main__":
         for p0 in listdir(path0, abspaths=args.abs, dirs=args.dirs,
             exts=args.exts, hidden=args.hidden):
             print("    " + p0)
-

@@ -6,9 +6,11 @@
 # Code to run when using python interctively, to import a lot and create example
 # instances of various types.
 # Run with:
-#     python -i -m interactive 
+#     python -i -m interactive
 #
-#pylint: disable=W0611
+#pylint: disable=W0611,W0212
+# flake8: noqa
+# fmt:off
 #
 __metadata__ = {
     "title"        : "interactive",
@@ -93,19 +95,19 @@ def show():
         if (isinstance(thing, (type, typing._GenericAlias, typing._SpecialForm))):
             continue
         print("    %-12s %-30s %s" % (gkey, type(thing).__name__, thing))
-    
+
 class myClass(dict):
     myClassVar = 1
-    
+
     def __init__(self):
         super(myClass, self).__init__()
         self.i = 1
-        
+
 
 print("Vars: c, f, i j k, l, d, t, NT theNT, myClass")
 print("Ready. Use 'show()' to see available vars.")
 
-if (False):
+if (sys.argv[-1] == "-h"):
     print("""
 interactive.py
 

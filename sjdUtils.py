@@ -17,11 +17,11 @@ from alogging import ALogger
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
 if PY2:
-    string_types = basestring
+    string_types = basestring # noqa: F821
 else:
     string_types = str
     def xrange(x): return iter(range(x))
-    def cmp(a, b): return  ((a > b) - (a < b))
+    def cmp(a, b): return ((a > b) - (a < b))
     def unichr(n): return chr(n)
     def unicode(s, encoding='utf-8', errors='strict'):
         return str(s, encoding, errors)
@@ -586,6 +586,7 @@ def className(obj):
 #    from builtins import chr
 #
 
+
 ###############################################################################
 # Useful sets of Unicode characters
 #
@@ -724,8 +725,8 @@ class sjdUtils:
         self.uncoloredLen = None
 
         self.options = {
-            "colorEnabled"   : 0,                # Using terminal color?
-            "loremText"      : (                 # Traditional filler text
+            "colorEnabled": 0,   # Using terminal color?
+            "loremText": (       # Traditional filler text
             u"Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do "
             + u"eiusmod tempor incididunt ut labore et dolore magna aliqua. "
             + u"Ut enim ad minim veniam, quis nostrud exercitation ullamco "
@@ -740,7 +741,7 @@ class sjdUtils:
 
         # See loremText(type='r'), below.
         #
-        self.letterFreqsTotal = 0            # setUtilsOption() sets this.
+        self.letterFreqsTotal = 0  # setUtilsOption() sets this.
         self.setUtilsOption("letterFreqs", [ # Rough, from Wikipedia
             ('e',   12702),
             (' ',   17000), # Estimate for non-word chars
@@ -900,14 +901,14 @@ class sjdUtils:
     # Also inline-block:
     #   "del", "iframe", "ins", "map", "object", "script", "button",
     htmlInlineElements = [
-        "a",       "abbr",    "acronym", "b",       "bdo",     "big",
-        "cite",    "code",    "dfn",     "em",      "i",       "img",
-        "input",   "kbd",     "label",   "legend",  "optgroup","option",
-        "select",  "textarea","q",       "s",       "small",   "span",
-        "strike",  "strong",  "sub",     "sup",     "tt",      "var",
-        "applet",  "center",  "dir",     "font",    "samp",    "strike",
-        "address", "area",    "audio",   "bm",      "details", "command",
-        "datalist","font",    "u",
+        "a",        "abbr",     "acronym", "b",       "bdo",      "big",
+        "cite",     "code",     "dfn",     "em",      "i",        "img",
+        "input",    "kbd",      "label",   "legend",  "optgroup", "option",
+        "select",   "textarea", "q",       "s",       "small",    "span",
+        "strike",   "strong",   "sub",     "sup",     "tt",       "var",
+        "applet",   "center",   "dir",     "font",    "samp",     "strike",
+        "address",  "area",     "audio",   "bm",      "details",  "command",
+        "datalist", "font",     "u",
     ]
 
     def indentXml(
@@ -1077,7 +1078,7 @@ class sjdUtils:
             else:
                 triple = sepChar + triple
             buf = triple + buf
-            s =  s[0:len(s)-3]
+            s = s[0:len(s)-3]
         buf = s + buf
         if (quoteChar): s = quoteChar[0] + s + quoteChar[-1]
         needed = width - len(buf)
@@ -1086,7 +1087,7 @@ class sjdUtils:
             needed -= 1
         return(buf)
 
-    def align(self,mylist,delim=',',stripTrail=True,maxLen=None,padChar=' '):
+    def align(self, mylist, delim=',', stripTrail=True, maxLen=None, padChar=' '):
         """Pad sub-items (of the members of 'mylist'), to line them up.
         @todo: ignore delim if in quotes, or backslashed?
         @todo: Avoid quoting in all-numeric columns.
@@ -1172,7 +1173,7 @@ class sjdUtils:
         """
         if (curly):
             if (escape):
-                re.sub(r'('+unichr(0x201c)+unichr(0x201d)+r')',escape+'\\1',s)
+                re.sub(r'('+unichr(0x201c)+unichr(0x201d)+r')', escape+'\\1', s)
             s = unichr(0x201c) + s + unichr(0x201d)
         else:
             if (escape):
@@ -1222,7 +1223,7 @@ class sjdUtils:
             print("getUTF8: UnicodeDecodeError in '%s': %s" % (c, e))
         return(u)
 
-    def makePrintable (self, c, mode="DFT", spaceAs=None, lfAs=None):
+    def makePrintable(self, c, mode="DFT", spaceAs=None, lfAs=None):
         spaceChar = " "
         if (spaceAs and spaceAs in spaceCodes):
             spaceChar = spaceCodes[spaceAs]
@@ -1235,18 +1236,18 @@ class sjdUtils:
 
         if (mode == "DFT"):  # cf unbackslash()
             if (c in char2escape): buf = char2escape[c]
-            elif (o ==    10): buf = lfChar
-            elif (o <=    31): buf = "\\x%02x" % (o)
-            elif (o ==    32): buf = spaceChar
-            elif (o <=   126): buf = c
-            elif (o ==   127): buf = "\\x%02x" % (o)
-            elif (o <=   255): buf = "\\x%02x" % (o)
-            else:              buf = "\\x{%x}" % (o)
+            elif (o == 10): buf = lfChar
+            elif (o <= 31): buf = "\\x%02x" % (o)
+            elif (o == 32): buf = spaceChar
+            elif (o <= 126): buf = c
+            elif (o == 127): buf = "\\x%02x" % (o)
+            elif (o <= 255): buf = "\\x%02x" % (o)
+            else: buf = "\\x{%x}" % (o)
         else:
             print("makePrintable mode '%s' unsupported." % (mode))
         return buf
 
-    def showControls(self,  s, space=unichr(0x2422), lf=unichr(0x240A)):
+    def showControls(self, s, space=unichr(0x2422), lf=unichr(0x240A)):
         """Convert control characters into Unicode "control pictures".
         Space lets you choose U+2422 = bSlash, U+2423 = underbar, U+2420 = SP.
         LF lets you choose U+240a = LF, U+2424 = NL.
@@ -1344,9 +1345,9 @@ class sjdUtils:
         strip the same characters off start and end of a string.
         """
         if (s is None): return("")
-        s = re.sub(r'\s+',' ', s)
-        s = re.sub(r'^ ','', s)
-        s = re.sub(r' $','', s)
+        s = re.sub(r'\s+', ' ', s)
+        s = re.sub(r'^ ', '', s)
+        s = re.sub(r' $', '', s)
         return(s)
 
     def expandXml(self, s):  # aka unescape or expandEntities
@@ -1591,7 +1592,7 @@ class sjdUtils:
         token = ""
         gotEscape = False
         for ch in st:
-            if (gotEscape == True):
+            if (gotEscape):
                 token += ch
                 gotEscape = False
             elif (ch == esc):

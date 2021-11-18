@@ -3,10 +3,10 @@
 # Record.py: A cross between namedtuple and dict.
 # Written 2018-06-09 by Steven J. DeRose (nee `DictTuple`).
 #
-from __future__ import print_function
+import re
 from collections import namedtuple
 from enum import Enum
-import re
+from typing import Union, Any, Dict
 
 __metadata__ = {
     'title'        : "Record.py",
@@ -494,7 +494,7 @@ class RecordDef():
 
         if (value is None):                # Vaue None, is that ok?
             return fi.nil
-        if   (fi.subs == SubsValues.CAST):
+        if (fi.subs == SubsValues.CAST):
             try:
                 _ = fi.typ(value)
             except ValueError:
@@ -521,13 +521,9 @@ class Record(dict):
         * the data to fill in:
             * a list: checks and fills the fields in order
             * a dict: checks and fills the fields by name
-            * None:   check and fill the fields with default or None
+            * None: check and fill the fields with default or None
     """
-    def __init__(
-        self,
-        dfn:RecordDef,
-        data=None
-        ):
+    def __init__(self, dfn:RecordDef, data:Union[list, dict, None]=None):
         super(Record, self).__init__()
 
         if (not isinstance(dfn, RecordDef)):
@@ -552,12 +548,12 @@ class Record(dict):
             fieldName = self.dfn.fields[i]
             self[fieldName] = d
 
-    def setFromDict(self, data):
+    def setFromDict(self, data:Dict):
         for k, v in enumerate(data):
             fieldName = self.dfn.fieldInfos[k]
             self[fieldName] = v
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key:str, value:Any):
         """Actually store a value, type-checking it on the way.
         See https://stackoverflow.com/questions/2060972/
         """

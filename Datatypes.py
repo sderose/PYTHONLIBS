@@ -5,8 +5,8 @@
 #
 #pylint: disable=W0703
 #
-from __future__ import print_function
-import sys, re
+import sys
+import re
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -235,22 +235,22 @@ class Datatypes:
     See: [https://www.w3.org/TR/xmlschema-2/] ("Datatypes Second Edition")
     """
 
-    ASCII_NMSTART = r'[_.A-Z]'
-    ASCII_NMCHAR  = r'[-_.:\w]'
-    ASCII_NAME = ASCII_NMSTART + ASCII_NMCHAR + "*"
+    ASCII_NMSTART     = r'[_.A-Z]'
+    ASCII_NMCHAR      = r'[-_.:\w]'
+    ASCII_NAME        = ASCII_NMSTART + ASCII_NMCHAR + "*"
 
-    xmlChar          = u"[\t\n\r\x20-\uD7FF\uE000-\uFFFD]"
-        #"\x{00010000}-\x{0010FFFF}"
-    xmlSpace         = r"[\t\n\r\x20]"
+    xmlChar           = u"[\t\n\r\x20-\uD7FF\uE000-\uFFFD]"
+    #"\x{00010000}-\x{0010FFFF}"
+    xmlSpace          = r"[\t\n\r\x20]"
     xmlNameStartCharList = (
         u":A-Z_a-z\xc0-\xd6\xd8-\xf6\xf8-\u02ff\u0370-\u037d\u037f-\u1fff" +
         u"\u200c\u200d\u2070-\u218f\u2c00-\u2fef" +
-        u"\u3001-\ud7ff\uf900-\ufdcf" + u"\ufdf0-\ufffd")
+        u"\u3001-\ud7ff\uf900-\ufdcf" + u"\ufdf0-\ufffd"
         #"\x{00010000}-\x{000effff}"
-    xmlNameCharList = (r"-.0-9\u00b7\\u0300-\u036f\u203f-\u2040" +
-        xmlNameStartCharList)
-    xmlNameStartChar      = r'[' +xmlNameStartCharList+ r']'
-    xmlNameChar           = r'[' +xmlNameCharList+ r']'
+    )
+    xmlNameCharList   = (r"-.0-9\u00b7\\u0300-\u036f\u203f-\u2040" + xmlNameStartCharList)
+    xmlNameStartChar  = r'[' +xmlNameStartCharList+ r']'
+    xmlNameChar       = r'[' +xmlNameCharList+ r']'
 
     NAME = xmlNameStartChar + xmlNameChar + "*"
     year = r'\d\d\d\d'
@@ -268,8 +268,8 @@ class Datatypes:
     expt = r'([eE][-+]?\d+)?'
     flo  = '('+mant+expt+')'+r'|INF|-INF|NaN'
 
-    uri = r'[a-zA-Z0-9-_.+!*,();\/?:\=&%]+'
-    xd  = r'[0-9a-fA-F]'
+    uri  = r'[a-zA-Z0-9-_.+!*,();\/?:\=&%]+'
+    xd   = r'[0-9a-fA-F]'
 
     __DatatypeData__ = {
         # name:              (regex,             min,  max,  pyType),

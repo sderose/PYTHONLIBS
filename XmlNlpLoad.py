@@ -49,18 +49,18 @@ class XmlNlpLoad:
     """
 
     def __init__(self):
-        self.runTidyFirst =     False
+        self.runTidyFirst    =  False
         self.noSpaceElements =  None
-        self.dropElements =     None
-        self.untagElements =    None
-        self.mergeElements =    None
-        self.selectElements =   None
-        self.justText =         False
+        self.dropElements    =  None
+        self.untagElements   =  None
+        self.mergeElements   =  None
+        self.selectElements  =  None
+        self.justText        =  False
 
-        self.thePath     = None
-        self.theFH       = None
-        self.theEncoding = 'utf-8'
-        self.theDOM      = None
+        self.thePath         = None
+        self.theFH           = None
+        self.theEncoding     = 'utf-8'
+        self.theDOM          = None
 
     def setHTMLConventions(self):
         inlines = (" a abbr acronym b bdo big cite code dfn em i img input " +

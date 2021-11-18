@@ -296,10 +296,9 @@ class SimplifyUnicode:
 
     ###########################################################################
     #
-    def setOption (self, oname, v):
+    def setOption(self, oname, v):
         if (not oname or oname not in self.options):
-            raise ValueError(
-                "Bad option name passed to simplifyUicode.setOption.")
+            raise ValueError("Bad option name passed to simplifyUicode.setOption.")
         if (oname in [ "--accents", "--ligatures", "--maths",
             "--numbers", "--subs", "--supers", ]):
             if (v in SimplifyUnicode.dispChoices):
