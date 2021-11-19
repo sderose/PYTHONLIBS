@@ -136,15 +136,15 @@ to have numeric values, such as pi and Euler's constant. do not.
 NFD and NFKD, but shown as code points for the individual characters.
 
 * '''Normalizations''': Unicode defines 4 different "normalized" forms
-(they are availabe in Python via C<unicodedata.normalize(form, [which])>),
+(they are availabe in Python via `unicodedata.normalize(form, [which])`),
 for [which] in 'NFC', 'NFD', 'NFKC', or 'NFKD'
-(see L<https://docs.python.org/2/library/unicodedata.html>:
+(see [https://docs.python.org/2/library/unicodedata.html]:
 The forms with "K" use compatibility equivalence: certain characters are
 unified with other characters.
 For example, U+2160 (ROMAN NUMERAL ONE) and U+0049
 (LATIN CAPITAL LETTER I).
 
-Compatibility composition does I<not> merge characters such as uppercase
+Compatibility composition does ''not'' merge characters such as uppercase
 English A and Greek alpha, or even soft hyphen. However, forms NKFC and
 NFKD do normalize non-breaking space to regular space.
 
@@ -184,6 +184,7 @@ Add actual names for C0 control chars (not just mnemonics).
 or other troublesome ones.
 * 2021-07-23: Add MacRoman from Perl `chr`, display it when applicable, and provide
 --nomac to suppress.
+
 
 =Options=
 """

@@ -329,7 +329,7 @@ Options can also be set later using `setOption` (see below).
 
 ==getOption(self, name)==
 
-Return the value of an available option (see I<setOption>).
+Return the value of an available option (see ''setOption'').
 
 ==isBackup(path) [static]==
 
@@ -344,13 +344,13 @@ quite a few naming conventions, but surely not all (for example, OS conventions 
 * match r'^(backup|copy) (\\(?\\d+\\)? )?of'
 
 * match r'\\b(backup|copy|bak)\\b' (but in these cases a warning is
-issued unless I<--quiet> is in effect).
+issued unless ''--quiet'' is in effect).
 
 * Mac OS X "Duplicate" does `foo.txt` -> `foo copy.txt` -> `foo copy 2.txt`
 
 * emacs backups append '~' or '~\\d+~' to the filename
 For relevant emacs settings, see
-L<https://stackoverflow.com/questions/151945/>).
+[https://stackoverflow.com/questions/151945]).
 
 * emacs auto-save files put '#' at start and end of filename (but
 are usually deleted when you exit).
@@ -437,20 +437,20 @@ explicitly to the option value.
 * "backups": Include `.bak` and similar files? Default: False.
 
 * "excludeExtensions": Regex for item extensions not to allow. Default: ''.
-See also I<includeExtensions>. As with `grep` and many other
+See also ''includeExtensions''. As with `grep` and many other
 tools, exclusions override inclusions if both apply to the same file.
 The "or" operator ("|") is allowed in the regex, which is an easy
 way to exclude (or include) multiple extensions.
 
 * "excludeFileInfos": Regex for `file` command results not to allow. Default: ''.
-See also I<includeFileInfos>.
+See also ''includeFileInfos''.
 
 * "excludeNames": Regex for item basenames not to allow. Default: ''.
 This matches against the names ''without'' any extension.
-See also I<includeNames>.
+See also ''includeNames''.
 
 * "excludePaths": Regex for paths not to allow. Default: ''.
-See also I<includePaths>.
+See also ''includePaths''.
 
 * "hidden": Include hidden (.-initial) files '''and''' directories.
 This option differs from most other file selection options, in that it
@@ -461,7 +461,7 @@ ignored directories are '''entirely''' skipped -- their descendants are not
 traversed, examined, or counted.
 
 * "includeExtensions": Regex for (only) item extensions to allow. Default: ''.
-See also I<excludeExtensions>.
+See also ''excludeExtensions''.
 
 * "includeFileInfos": Regex to match what the *nix `file` command (q.v.) says
 about the file. For example, some versions of `file` return descriptions like:
@@ -476,7 +476,7 @@ about the file. For example, some versions of `file` return descriptions like:
 
 * "includeNames": Regex for (only) item basenames to allow. Default: ''.
 This matches against the names ''without'' any extension.
-See also I<excludeNames>.
+See also ''excludeNames''.
 
 
 ===Container and similar options===
@@ -2351,3 +2351,4 @@ if __name__ == "__main__":
 
     if (args.stats):
         warn(0, pw.travState.getStats(showZeroes=True))
+

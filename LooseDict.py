@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # LooseDict.py: Enhance dict to handle case-ignorant or similar lookups.
 # 2018-09-04: Written by Steven J. DeRose.
@@ -51,7 +51,7 @@ For example, you can get the normalized form of a key:
 would print 'foobar'.
 
 For any non-normalized key, you can find what (possibly different)
-key was last used to store data under the same B<normalized> key. For example:
+key was last used to store data under the same '''normalized''' key. For example:
 
     myDict['fooBar'] = 2
     myDict['FoobaR'] = 4
@@ -60,7 +60,7 @@ key was last used to store data under the same B<normalized> key. For example:
 would print 'FoobaR', since all these arguments normalized to the same
 normKey ('foobar').
 
-Note that entries must still be unique with respect to their I<normalized>
+Note that entries must still be unique with respect to their ''normalized''
 form. If you do:
 
     myDict = LooseDict()
@@ -76,8 +76,8 @@ The dict will have just one entry, whose normkey is 'foobar', realKey is 'FOOBAR
     keylist = myDict.keys()
 
 will get you the real (not normalized) keys. You can of course normalize
-individually using `getNormKey()`. I<iteritems>() is a Python 2 thing; the
-underlying I<__iteritems__>() is implemented directly in this class,
+individually using `getNormKey()`. ''iteritems''() is a Python 2 thing; the
+underlying ''__iteritems__''() is implemented directly in this class,
 however, so is available even in Python 3.
 
 `__cmp__` uses the regular `dict` method, so compares on the basis of real
@@ -93,7 +93,7 @@ real key normalizes to that same normalized value.
 * 'clear' and 'copy' have no notable differences.
 
 * 'keys' and 'iteritems' should also work fine.
-Both return the I<real> keys,
+Both return the ''real'' keys,
 not the normalized form (of course, you can convert using 'getNormKey').
 `iteritems`() also can be passed `sortNorm=True` to get
 pairs in order of normalized keys (or reversed order if you also pass
@@ -421,3 +421,4 @@ if __name__ == "__main__":
 
     if (not args.quiet):
         sys.stderr.write("Done.\n")
+

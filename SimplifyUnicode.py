@@ -40,102 +40,102 @@ This module maps many classes of Unicode characters to more basic ones.
 For example, it can strip accents; normalize spaces, dashes, or quotes;
 fiddle with ligatures, math characters; and so on.
 
-B<Note>: This is documentation for the library. There is also a shell
-command C<simplifyUnicode>, which exposes the options (see under
-L<setOption>(), below), and runs files through as needed.
+'''Note''': This is documentation for the library. There is also a shell
+command `simplifyUnicode`, which exposes the options (see under
+[setOption](), below), and runs files through as needed.
 
 (Python version)
 
-==What to do with I<accents>, I<ligatures>, I<maths>, I<super>, I<sub>.==
+==What to do with ''accents'', ''ligatures'', ''maths'', ''super'', ''sub''.==
 
 Most options are simply left off or turned on. However, several options
 provide more flexibility for how the relevant characters are treated:
 
-* I<unchanged> -- leave as-is.
+* ''unchanged'' -- leave as-is.
 
-* I<split> -- expand the character to its separate component parts
-(not generally applicable to I<--maths>)
+* ''split'' -- expand the character to its separate component parts
+(not generally applicable to ''--maths'')
 
-* I<join> -- combine when possible -- for example, turn 'fi' into
+* ''join'' -- combine when possible -- for example, turn 'fi' into
 a ligature, 'a' plus acute accent to the combined character, etc.
 
-* I<unaccent> -- remove any accent or special property, making the
+* ''unaccent'' -- remove any accent or special property, making the
 character "plain" (usually it becomes a single ASCII character).
 
-* I<space> -- replace the affected character by a space.
+* ''space'' -- replace the affected character by a space.
 
-* I<delete> -- delete  the affected character entirely.
+* ''delete'' -- delete  the affected character entirely.
 
-* I<markup> -- where possible, replace the special property of an
+* ''markup'' -- where possible, replace the special property of an
 affected character by markup. For example, a mathematical bold "G" will
 be turned into a regular "G" inside <b>...</b>.
 
 
 =Methods=
 
-* B<__init__({options})>
-The constructor. Any of the options listed below under I<setOption>(), can
+* '''__init__({options})'''
+The constructor. Any of the options listed below under ''setOption''(), can
 also be set via the constructor.
 
-* b<string = su.simplify(string)>
+* '''string = su.simplify(string)'''
 Simplifies the Unicode string according to the current options.
 
-* B<setOption(name,value)>
+* '''setOption(name,value)'''
 Use this method to configure just what kinds of characters will be
 normalized:
 
-** B<accents> I<disp>
+** '''accents''' ''disp''
 
-Handle accents and other diacritics according to I<disp> (see above).
+Handle accents and other diacritics according to ''disp'' (see above).
 
-** B<bQuotes>
+** '''bQuotes'''
 Normalize backquote to apostrophe.
 
-** B<dashes>
+** '''dashes'''
 Turn em dash, en dash, hyphen, etc. to hyphen.
 
-** B<dquotes>
+** '''dquotes'''
 Turn many kinds of double quotes to double-quote.
 
-** B<entities>
+** '''entities'''
 Turn XML numeric and predefined references
 into literal Unicode characters.
 
-** B<halfWidths>
+** '''halfWidths'''
 Normalize halfwidth characters to normal width.
 
-** B<ligatureDomain>
-Whether I<ligatures> does only the basics, or all.
+** '''ligatureDomain'''
+Whether ''ligatures'' does only the basics, or all.
 
-** B<ligatures>
+** '''ligatures'''
 Turn ligatures to some form:
 join, split, deleted, space, unchanged.
 
-** B<maths>
+** '''maths'''
 Normalize alternate math Latin alphabets to ASCII.
 
-** B<numbers>
+** '''numbers'''
 Normalize alternate forms of numbers to ASCII.
 
-** B<quotes>
-Shorthand for I<bquotes squotes dquotes>.
+** '''quotes'''
+Shorthand for ''bquotes squotes dquotes''.
 
-** B<spaces>
+** '''spaces'''
 Normalize various whitespace chars to ASCII space.
 
-** B<squotes>
+** '''squotes'''
 Turn many kinds of single quotes to apostrophe.
 
-** B<uriEscapes>
+** '''uriEscapes'''
 Resolve URI %-escapes.
 
 
 =Related Commands=
 
-C<simplifyUnicode> is a command-line interface to this package.
+`simplifyUnicode` is a command-line interface to this package.
 
 Lists of characters in certain classes (ligatures, dashes, etc.) can be
-obtained, including in the form of Perl or other code, with C<ord>.
+obtained, including in the form of Perl or other code, with `ord`.
 For example:
 
     ord --listFormat python --find 'ligature'
@@ -369,7 +369,6 @@ class SimplifyUnicode:
             lambda x: unichr(int(x.group[1],16)), rec)
         return(rec)
 
-
     def handle_Diacritics(self, rec):
         ac = self.options['accents']
         if (ac == "split"):
@@ -392,7 +391,6 @@ class SimplifyUnicode:
             # unchanged
             pass
         return(rec)
-
 
     def handle_Ligatures(self, ligatures):
         s = ""
@@ -419,10 +417,9 @@ class SimplifyUnicode:
             pass
         return(s)
 
-
-    # This is for mathematical variants on A-Z, not math symbols in general.
-    #
     def handle_Maths(self, rec):
+        """This is for mathematical variants on A-Z, not math symbols in general.
+        """
         buf = ""
         for i in (range(0,len(rec))):
             c = rec[i,i]
@@ -474,21 +471,21 @@ class SimplifyUnicode:
             u'\u2027' + # hyphenation point
             u'\u2043' + # hyphen bullet
             u'\u2053' + # swung dash
-            #u'\u21E0' .	# LEFTWARDS DASHED ARROW
-            #u'\u21E1' .	# UPWARDS DASHED ARROW
-            #u'\u21E2' .	# RIGHTWARDS DASHED ARROW
-            #u'\u21E3' .	# DOWNWARDS DASHED ARROW
+            #u'\u21E0' + # LEFTWARDS DASHED ARROW
+            #u'\u21E1' + # UPWARDS DASHED ARROW
+            #u'\u21E2' + # RIGHTWARDS DASHED ARROW
+            #u'\u21E3' + # DOWNWARDS DASHED ARROW
             u'\u229d' + # circled dash
             u'\u2448' + # ocr dash
 
             # Box-drawing dashes
             #
-            #u'\u2504' .	# ... LIGHT TRIPLE DASH HORIZONTAL
-            #u'\u2505' .	# ... HEAVY TRIPLE DASH HORIZONTAL
-            #u'\u2508' .	# ... LIGHT QUADRUPLE DASH HORIZONTAL
-            #u'\u2509' .	# ... HEAVY QUADRUPLE DASH HORIZONTAL
-            #u'\u254C' .	# ... LIGHT DOUBLE DASH HORIZONTAL
-            #u'\u254D' .	# ... HEAVY DOUBLE DASH HORIZONTAL
+            #u'\u2504' + # ... LIGHT TRIPLE DASH HORIZONTAL
+            #u'\u2505' + # ... HEAVY TRIPLE DASH HORIZONTAL
+            #u'\u2508' + # ... LIGHT QUADRUPLE DASH HORIZONTAL
+            #u'\u2509' + # ... HEAVY QUADRUPLE DASH HORIZONTAL
+            #u'\u254C' + # ... LIGHT DOUBLE DASH HORIZONTAL
+            #u'\u254D' + # ... HEAVY DOUBLE DASH HORIZONTAL
 
             u'\u2e17' + # double oblique hyphen
             u'\u2E1A' + # HYPHEN WITH DIAERESIS
@@ -774,36 +771,36 @@ class SimplifyUnicode:
             mathStarts[k].append(st + form + en)
 
         # FIX:
-        #     U+ff41	FULLWIDTH LATIN SMALL LETTER A
+        #     U+ff41    FULLWIDTH LATIN SMALL LETTER A
         #
         #     U+1d6a4:  dotless i, j
-        #     U+1d6a8	MATHEMATICAL BOLD CAPITAL ALPHA
-        #     U+1d6c2	MATHEMATICAL BOLD SMALL ALPHA
-        #     U+1d6e2	MATHEMATICAL ITALIC CAPITAL ALPHA
-        #     U+1d6fc	MATHEMATICAL ITALIC SMALL ALPHA
-        #     U+1d71c	MATHEMATICAL BOLD ITALIC CAPITAL ALPHA
-        #     U+1d736	MATHEMATICAL BOLD ITALIC SMALL ALPHA
-        #     U+1d756	MATHEMATICAL SANS-SERIF BOLD CAPITAL ALPHA
-        #     U+1d770	MATHEMATICAL SANS-SERIF BOLD SMALL ALPHA
-        #     U+1d790	MATHEMATICAL SANS-SERIF BOLD ITALIC CAPITAL ALPHA
-        #     U+1d7aa	MATHEMATICAL SANS-SERIF BOLD ITALIC SMALL ALPHA
+        #     U+1d6a8   MATHEMATICAL BOLD CAPITAL ALPHA
+        #     U+1d6c2   MATHEMATICAL BOLD SMALL ALPHA
+        #     U+1d6e2   MATHEMATICAL ITALIC CAPITAL ALPHA
+        #     U+1d6fc   MATHEMATICAL ITALIC SMALL ALPHA
+        #     U+1d71c   MATHEMATICAL BOLD ITALIC CAPITAL ALPHA
+        #     U+1d736   MATHEMATICAL BOLD ITALIC SMALL ALPHA
+        #     U+1d756   MATHEMATICAL SANS-SERIF BOLD CAPITAL ALPHA
+        #     U+1d770   MATHEMATICAL SANS-SERIF BOLD SMALL ALPHA
+        #     U+1d790   MATHEMATICAL SANS-SERIF BOLD ITALIC CAPITAL ALPHA
+        #     U+1d7aa   MATHEMATICAL SANS-SERIF BOLD ITALIC SMALL ALPHA
         #
-        #     U+1d7ce	MATHEMATICAL BOLD DIGIT ZERO
-        #     U+1d7d8	MATHEMATICAL DOUBLE-STRUCK DIGIT ZERO
-        #     U+1d7e2	MATHEMATICAL SANS-SERIF DIGIT ZERO
-        #     U+1d7ec	MATHEMATICAL SANS-SERIF BOLD DIGIT ZERO
-        #     U+1d7f6	MATHEMATICAL MONOSPACE DIGIT ZERO
+        #     U+1d7ce   MATHEMATICAL BOLD DIGIT ZERO
+        #     U+1d7d8   MATHEMATICAL DOUBLE-STRUCK DIGIT ZERO
+        #     U+1d7e2   MATHEMATICAL SANS-SERIF DIGIT ZERO
+        #     U+1d7ec   MATHEMATICAL SANS-SERIF BOLD DIGIT ZERO
+        #     U+1d7f6   MATHEMATICAL MONOSPACE DIGIT ZERO
         #
-        #     U+2460	CIRCLED DIGIT ONE
-        #     U+2469	CIRCLED NUMBER TEN
-        #     U+24ea	CIRCLED DIGIT ZERO
-        #     U+24eb	NEGATIVE CIRCLED NUMBER ELEVEN
-        #     U+24f5	DOUBLE CIRCLED DIGIT ONE
-        #     U+2776	DINGBAT NEGATIVE CIRCLED DIGIT ONE
-        #     U+2780	DINGBAT CIRCLED SANS-SERIF DIGIT ONE
-        #     U+278a	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT ONE
-        #     U+3248	CIRCLED NUMBER TEN ON BLACK SQUARE
-        #     U+3251	CIRCLED NUMBER TWENTY ONE
+        #     U+2460    CIRCLED DIGIT ONE
+        #     U+2469    CIRCLED NUMBER TEN
+        #     U+24ea    CIRCLED DIGIT ZERO
+        #     U+24eb    NEGATIVE CIRCLED NUMBER ELEVEN
+        #     U+24f5    DOUBLE CIRCLED DIGIT ONE
+        #     U+2776    DINGBAT NEGATIVE CIRCLED DIGIT ONE
+        #     U+2780    DINGBAT CIRCLED SANS-SERIF DIGIT ONE
+        #     U+278a    DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT ONE
+        #     U+3248    CIRCLED NUMBER TEN ON BLACK SQUARE
+        #     U+3251    CIRCLED NUMBER TWENTY ONE
 
         return mathStarts
 
@@ -847,3 +844,4 @@ class SimplifyUnicode:
         x = (r'\s+WITH\s.*$', '', sname)
         x = (r'\s+SMALL\s+CAPITAL\s.*$', " SMALLCAP ", sname)
         return(sname)
+

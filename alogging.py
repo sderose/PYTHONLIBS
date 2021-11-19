@@ -236,7 +236,7 @@ many *nix programs, but opposite from Python `logging` levels.
 Return the current verbosity level (see ''setVerbose'').
 This is just shorthand for ''getOption("verbose")''.
 
-* B<findCaller(self)
+* '''findCaller(self)
 
 Returns the name of the function or method that called ''findCaller''().
 
@@ -266,31 +266,31 @@ values are filled in to such format strings via ''%(name)''.
 This is only useful if you also set a format
 string that includes references to them. These names are defined by default:
 
-* B<info(self, msg, *args, **kwargs)
+* '''info(self, msg, *args, **kwargs)'''
 
 Issues an informational message, like Python `logging`.
 
-* B<warning(self, msg, *args, **kwargs)
+* '''warning(self, msg, *args, **kwargs)'''
 
 Issues a warning message, like Python `logging`.
 
-* B<error(self, msg, *args, **kwargs)
+* '''error(self, msg, *args, **kwargs)'''
 
 Issues an error message, like Python `logging`.
 
-* B<critical(self, msg, *args, **kwargs)
+* '''critical(self, msg, *args, **kwargs)'''
 
 Issues an critical error message, like Python `logging`.
 
-* B<debug(self, msg, *args, **kwargs)
+* '''debug(self, msg, *args, **kwargs)'''
 
 Issues a debugging message, like Python `logging`.
 
-* B<log(self, level, msg, *args, **kwargs)
+* '''log(self, level, msg, *args, **kwargs)'''
 
 Issues an otherwise unspecified log message, like Python `logging`.
 
-* B<exception(self, msg, *args, **kwargs)
+* '''exception(self, msg, *args, **kwargs)'''
 
 Issues an exception message, like Python `logging`.
 
@@ -355,7 +355,7 @@ and indentation whitespace) and ''m1''.
 ** If ''escape'' is True, passes ''m1'' and ''m2'' through ''showInvisibles'',
 which turns control characters, whitespace, etc. to visible representations.
 
-** If ''nLevels'' > 0, appends that many levels of stack-trace information.
+** If ''nLevels'' ''' 0, appends that many levels of stack-trace information.
 
 ** Displays the resulting message. It goes to STDERR by default,
 but to STDOUT if the ''stdout'' option is set.
@@ -486,7 +486,7 @@ Set the given stat to the given ''value''.
 
 Return the value of the given stat.
 
-* B<showStats(self, zeros=False, descriptions=None, dotfill=0, fillchar='.', onlyMatching='', lists='len')
+* '''showStats(self, zeros=False, descriptions=None, dotfill=0, fillchar='.', onlyMatching='', lists='len')
 
 Display all the accumulated statistics,
 each with its name and then its value.
@@ -546,7 +546,7 @@ any 'info' messages through); to 1 (for messages that also require at least
 ''-v'' on the command line); to 2 (for messages that also require at least
 ''-v -v'' on the command line); and so on.
 
-To set the degree of verbosity, use ''setVerbose(n)''. Calling this with n>0
+To set the degree of verbosity, use ''setVerbose(n)''. Calling this with n'''0
 will test that Logger.isEnabledFor(20) is True; if not, it will call
 Logger.setLevel(20) so that these messages have a chance to get through.
 This means that getting such messages also forces you to get warnings,
@@ -571,7 +571,7 @@ Such messages get a blank line before, and a distinctive color or prefix.
 Shorthand to issue such a message, with ''msgType'' 'e' (error).
 Error messages with a negative level cause termination (deprecated, use `error()`).
 
-* B<rMsg(self, level, color=None, width=79)
+* '''rMsg(self, level, color=None, width=79)
 
 Produces a (possibly colored) horizontal rule of the given ''width''.
 
@@ -600,7 +600,7 @@ Return the current message indentation depth (see ''MsgPush'').
 
 ==Option control methods==
 
-* B<setOption(name, value)
+* '''setOption(name, value)'''
 
 Sets the named option (see below) to the specified value.
 
@@ -704,7 +704,7 @@ Seems to be a problem with `maxItems`, and with suppressing callables in `format
     drop versions of this package from `Volsunga
     drop any redundant code from sjdUtils
     drop prefix/infix/suffix
-    warn(0 ->w0...), etc.
+    warn(0 -'''w0...), etc.
     drop stat arg
     vMsg->i...
     eMsg->e...
@@ -1239,14 +1239,14 @@ class ALogger:
     # Messages of various kinds (sync with Perl version)
     def Msg(self, msgType, m1:str, m2:str="",
         color:str=None, escape:str=None, stat:str=None, verbose:int=0):
-        """Issue a message of the given ''msgType'' (see I<defineMsgType).
+        """Issue a message of the given ''msgType'' (see ''defineMsgType).
         See also the wrappers ''hMsg''(), ''vMsg''(), and ''hMsg''().
 
         Checks ''verbose'' against the value of the 'verbose' option; if that
         option has actually been set, ''and'' is lower, return without display.
         Otherwise, call Logger's ''info''() to actually issue the message.
 
-        * ''msgType'' Mnemonic 'type' of the message, per defineMsgType>().
+        * ''msgType'' Mnemonic 'type' of the message, per defineMsgType''().
 
         * ''message1'' Text to display, in the color specified by ''color''
         or for the message type.
@@ -1352,7 +1352,7 @@ class ALogger:
     #
     def defineStat(self, stat:str):
         """Create a new statistic. Optional, because stats are quietly created
-        as needed. However, I<setOption('noMoreStats', True) prevents this.
+        as needed. However, ''setOption('noMoreStats', True) prevents this.
         """
         self.msgStats[stat] = 0
 
@@ -1456,7 +1456,7 @@ class ALogger:
             self.lg.info("    (no stats logged)")
 
     def pline(self, label:str, n:int, denom:float=None, dotfill:int=0, fillchar:str='.',
-        width:int=None, quiet:bool=False) -> str:
+        width:int=None, quiet:bool=False) -'' str:
         """Display via ''vMsg''(), with ''label'' padded to ''width'' columns,
         (default: `plineWidth` option). ''n'' is justified according to type.
             With ''dotfill'', every ''dotfill'''th line will pad ''label''
@@ -1783,3 +1783,4 @@ if __name__ == "__main__":
 
     lg.bumpStat('infoStat', 100)
     lg.showStats()
+

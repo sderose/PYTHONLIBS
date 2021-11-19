@@ -9,7 +9,7 @@ import sys
 import argparse
 import re
 from collections import namedtuple
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, IO
 
 __metadata__ = {
     'title'        : "fsplit.py",
@@ -754,7 +754,7 @@ class DictWriter:
     _formatRegex = r'%-?\d+(\.\d+)[dxobsfg]'
 
     def __init__(self,
-        f,
+        f:IO,
         #*args1,
         fieldNames:list=None,
         fieldformats:list=None,
@@ -776,9 +776,9 @@ class DictWriter:
             if (fieldformats and not len(fieldNames) == len(fieldformats)):
                 raise ValueError("")
         if (fieldformats):
-            for f in fieldformats:
-                if (not re.match(DictWriter._formatRegex, f)):
-                    raise ValueError("Unparseable fieldFormat '%s'." % (f))
+            for ff in fieldformats:
+                if (not re.match(DictWriter._formatRegex, ff)):
+                    raise ValueError("Unparseable fieldFormat '%s'." % (ff))
 
     def writeheader(self) -> None:
         self.writerow(self.fieldNames)

@@ -64,7 +64,7 @@ subscript brackets: `myNode[...]`, do:
 
     DomExtensions.enableBrackets(toPatch=xml.dom.minidom.Node)
 
-See L<#Using [] notation>, below, for the details. In short, you can say things
+See [##Using \[\] notation], below, for the details. In short, you can say things
 like myNode[0], myNode["p":3:5], myNode["@id"], and so on.
 
 In either case, just use the methods as if they had been on Node and its many
@@ -531,8 +531,6 @@ that way yuet.
 
 (not yet implemented)
 
-=over
-
 * '''buildIndex'''(attributeName)
 
 Return a hash table in which each
@@ -542,12 +540,8 @@ This is similar to the XSLT 'key' feature.
 
 * '''find'''(value)
 
-=back
-
 
 ==Character stuff (internal methods)==
-
-=over
 
 * '''escapeXmlAttribute'''(string, quoteChar='"')
 
@@ -604,8 +598,6 @@ does not include ZERO WIDTH SPACE U+200b).
 
 Like `normalizeSpace`, but only remove leading and trailing whitespace.
 Internal whitespace is left unchanged.
-
-=back
 
 
 =Known bugs and limitations=

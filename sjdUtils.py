@@ -428,7 +428,7 @@ Its methods
 are also patched in to `sjdUtils.py`, so when color is enabled you can just
 call them as if they were methods of `sjdUtils.py` itself.
 
-The color names available are defined in F<bingit/SHELL/colorNames.pod>,
+The color names available are defined in `bingit/SHELL/colorNames.pod`,
 which supercedes anything in specific scripts (although they ''should'' match).
 
 A dictionary of the usable names is in `colorStrings`; a printable
