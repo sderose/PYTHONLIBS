@@ -1456,7 +1456,7 @@ class ALogger:
             self.lg.info("    (no stats logged)")
 
     def pline(self, label:str, n:int, denom:float=None, dotfill:int=0, fillchar:str='.',
-        width:int=None, quiet:bool=False) -'' str:
+        width:int=None, quiet:bool=False) -> str:
         """Display via ''vMsg''(), with ''label'' padded to ''width'' columns,
         (default: `plineWidth` option). ''n'' is justified according to type.
             With ''dotfill'', every ''dotfill'''th line will pad ''label''
