@@ -112,6 +112,41 @@ S for dates uses `strftime` formats.
 
 *nix `stat`, `lstat`, `strftime`.
 
+*nix `stat` has a "-r" ("raw") option, with output like:
+    16777221 1152921500312764962 0120755 1 0 0 0 11 1577865600 1577865600 1577865600 1577865600 4096 0 557056 [path]
+    
+This option is also available here. `man stat` (at least on MacOS) does not explain
+the format. It is all decimal fields except for the third field, which is octal
+(as usual for permissions bits). The fields in order represent (afaict):
+
+        st.ST_DEV
+        st.ST_INO
+        st.mode
+        st.ST_NLINK
+        st.ST_UID
+        st.ST_GID
+        ?????
+        st.ST_SIZE
+        st.ST_ATIME
+        st.ST_MTIME
+        st.ST_CTIME
+        st.st_birthtime
+        st.st_blksize
+        st.st_blocks
+        st.st_rdev
+        path
+
+Other fields may exist on various OSes, for example:       
+        st.st_atime_ns
+        st.st_mtime_ns
+        st.st_ctime_ns
+        st.st_flag
+        st.st_gen
+        st.st_fstype
+        st.st_rsize
+        st.st_creator
+        st.st_type
+
 
 =To Do=
 
@@ -125,6 +160,10 @@ S for dates uses `strftime` formats.
 =Known bugs and Limitations=
 
 Unfinished.
+
+stat sometimes returns a mode greater than 0x7777. Not sure what the
+extra bits are for, yet. But they're stripped with -x so the output matches
+`stat -x`, and then (if present) reported on a separate line.
 
 Does not catch and report %-codes that violate the syntax rules. They're just
 ignored.
@@ -667,6 +706,73 @@ class PowerStat:
             return None
 
 
+linuxFormat = """File: "%s"
+  Size: %-12s         FileType: %s
+  Mode: (%04o/%10s)         Uid: (%5d/ %s)  Gid: (%5d/ %s)
+Device: %s   Inode: %-10d Links: %d
+Access: %s
+Modify: %s
+Change: %s"""
+
+def getLinuxFormat(path, st:os.stat_result) -> str:
+    if (args.human): sizeStr = StatItem.readableFileSize(st[stat.ST_SIZE])
+    else: sizeStr = "%s" % (st[stat.ST_SIZE])
+    
+    buf = linuxFormat % (
+        path,
+        sizeStr, StatItem.readableFileType(md, st),
+        mdLow, stat.filemode(md), 
+        st[stat.ST_UID], StatItem.readableUserId(st[stat.ST_UID]),
+        st[stat.ST_GID], StatItem.readableGroupId(st[stat.ST_GID]),
+        st[stat.ST_DEV], st[stat.ST_INO], st[stat.ST_NLINK],
+        StatItem.epochTimeToAsctime(st[stat.ST_ATIME]),
+        StatItem.epochTimeToAsctime(st[stat.ST_MTIME]),
+        StatItem.epochTimeToAsctime(st[stat.ST_CTIME])
+    )
+    return buf
+
+# Based on what I see in MacOS Big Sur.
+# It just space-separates decimal fields, no fixed widths. Octal for mode, though.
+rawWidths = "8 6 %s 2 3 2 1 4 10 10 10 10 4 0 5"
+#rawFormat = re.sub(r"(\d+)", "%\\1d", rawWidths) + " %s"
+rawFormat = re.sub(r"(\d+)", "%d", rawWidths) + " %s"
+#print(rawFormat)
+
+def getRawFormat(path:str, st:os.stat_result) -> str:
+    #print(type(st))
+    #for k in dir(st):
+    #    if (k.startswith("__")): continue
+    #    print("    %-16s -- %s" % (k, getattr(st, k)))
+    
+    modeStr = "%06o" % (st.st_mode)
+    buf = rawFormat % (
+        st[stat.ST_DEV], 
+        st[stat.ST_INO],
+        modeStr,
+        st[stat.ST_NLINK],
+        st[stat.ST_UID], 
+        st[stat.ST_GID], 
+        0,  # ?????
+        st[stat.ST_SIZE],
+        st[stat.ST_ATIME],    # Also st_atime_ns, etc?
+        st[stat.ST_MTIME],
+        st[stat.ST_CTIME],
+
+        st.st_birthtime,      # FreeBSD and Mac -- No ST_ alias
+        st.st_blksize,        # No ST_ alias
+        st.st_blocks,         # No ST_ alias  # TODO Could be swapped w/ rdev?
+        st.st_rdev,           # No ST_ alias
+        
+        #st.st_flag,          # No ST_ alias
+        #st.st_gen,           # FreeBSD?
+        #st.st_fstype,        # Solaris
+        #st.st_rsize,         # Mac -- No ST_ alias
+        #st.st_creator,       # Mac -- No ST_ alias
+        #st.st_type,          # Mac -- No ST_ alias
+        path
+    )
+    return buf
+
 ###############################################################################
 # Main
 #
@@ -710,7 +816,9 @@ if __name__ == "__main__":
         parser.add_argument(
             "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
-        # "", "-r", action='store_true',
+        parser.add_argument(
+            "--raw", "-r", action='store_true',
+            help="Display raw information, as decimal int fields.")
         parser.add_argument(
             "--statFormat", "--stat-format", "-s", type=str, default=statFormat0,
             help='stat-like percent-codes to determine output format.')
@@ -755,37 +863,23 @@ if __name__ == "__main__":
     if (len(args.files) == 0):
         warning0("stat.py: No files specified....")
         sys.exit()
+    f0 = ""
     for f0 in args.files:
         try:
             st0 = os.stat(f0)
             md:int = st0.st_mode
+            mdHigh = md & 0o7777
+            mdLow = md | 0o7777
         except IOError as e0:
             sys.stderr.write("Error statting '%s':\n    %s" % (f0, e0))
+            continue
             
         buf0 = ""
         if (args.x):
-            linuxFormat = """File: "%s"
-  Size: %-12s         FileType: %s
-  Mode: (%04o/%10s)         Uid: (%5d/ %s)  Gid: (%5d/ %s)
-Device: %s   Inode: %-10d Links: %d
-Access: %s
-Modify: %s
-Change: %s"""
-            fsize = st0[stat.ST_SIZE]
-            if (args.human): sizeStr = StatItem.readableFileSize(st0[stat.ST_SIZE])
-            else: sizeStr = "%s" % (st0[stat.ST_SIZE])
-            
-            buf0 = linuxFormat % (
-                f0,
-                sizeStr, StatItem.readableFileType(md, st0),
-                md, stat.filemode(md), 
-                st0[stat.ST_UID], StatItem.readableUserId(st0[stat.ST_UID]),
-                st0[stat.ST_GID], StatItem.readableGroupId(st0[stat.ST_GID]),
-                st0[stat.ST_DEV], st0[stat.ST_INO], st0[stat.ST_NLINK],
-                StatItem.epochTimeToAsctime(st0[stat.ST_ATIME]),
-                StatItem.epochTimeToAsctime(st0[stat.ST_MTIME]),
-                StatItem.epochTimeToAsctime(st0[stat.ST_CTIME])
-            )
+            buf0 = getLinuxFormat(f0, st0)
+        elif (args.raw):
+            buf0 = getRawFormat(f0, st0)
         else:
             buf0 = ps.format(f0)
         print(buf0, end=ender)
+        if (mdHigh): print("    *** mode has high bit(s): %5x ***" % (md))

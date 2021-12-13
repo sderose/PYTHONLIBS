@@ -1503,7 +1503,7 @@ class ALogger:
         for k in dir(obj):
             if (k.startswith("__") or k == "_"): continue
             try:
-                if (not includeCallables and callable(getattr(dir, k))):
+                if (not includeCallables and callable(getattr(dir, k))):  # TODO dir? -> obj?
                     continue
                 val = getattr(dir, k)
             except AttributeError:
