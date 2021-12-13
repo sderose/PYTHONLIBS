@@ -672,6 +672,7 @@ Integrate PowerStat for output formatting.
 * Rsync-like option: but just use system cp, and only if newer/differentSize....
 * With --copy or --sync, construct isomorphic tree instead of copying all to
 a single target (limit to one input dir?).
+* way to colorize files by variuos criteria (say, 'file' to differentiate Perl vs. Python)
 
 ==Filter / file selection options==
 
@@ -1609,7 +1610,6 @@ class PowerWalk:
                 tsf = trav.handleIgnorable(path)
                 if (tsf): yield tsf
             else:
-                #warn(1, "gzip file '%s'." % (path), stat='gzip file')
                 fh2 = gzip.open(path, mode=self.options['mode'],
                     encoding=self.options['encoding'])
                 tsf = trav.openContainer(path, fh=None, inode=theStat.st_ino)

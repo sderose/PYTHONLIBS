@@ -12,6 +12,8 @@ import math
 import time
 from typing import Any, Dict  #, Union
 import re
+import pwd
+import grp
 #from functools import partial
 
 PY3 = sys.version_info[0] == 3
@@ -45,7 +47,14 @@ access to a variety of other file information accessible via the Python `stat`
 interface, using an extension of the usul `stat -f` %-string, to accept names
 rather than just single letters to specify the datum desired.
 
-==Usage==
+==Usage as Command==
+
+    PowerStat.py [file]
+    
+This will do the same thing as `stat [file]'. Except it isn't right yet.
+It does have `-x` to display a more readable form.
+
+==Usage as Library==
 
     import PowerStat
     statFormat = "-%Hu%Mu%Lu%Hg%Mg%Lg%Ho%Mo%Lo  %8su %8sg %6ds %12sm %sn"
@@ -104,6 +113,15 @@ S for dates uses `strftime` formats.
 *nix `stat`, `lstat`, `strftime`.
 
 
+=To Do=
+
+* Get defailt output format into sync with `stat` command.
+* Add `-l' to output like `ls -lT` (like stat).
+* Add `-L` to use stat() instead of lstat()
+* Sync up with rest of `stat` options: -F -q -r -s.
+* Split device number in -x to match `stat`.
+
+
 =Known bugs and Limitations=
 
 Unfinished.
@@ -120,7 +138,7 @@ Finish `--outputFormat`.
 * 2021-06-03: More work on parsing/mapping `stat`-style format specs.
 * 2021-08-31: Add --namedStatFormats.
 * 2021-09-15: Fix bug calculating format() %-strings when fmtCode omitted.
-
+* 2021-12-13: Add -n, -x like `stat`, --human; placeholders for some more.
 
 ==Rights=
 
@@ -150,6 +168,8 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 
 ###############################################################################
 # Provide some useful pre-defined formats
+#
+# *** Where are these from? `ls'?
 #
 #    -@    Display extended attribute keys and sizes in long (-l) output.
 #    -e    Print the Access Control List (ACL) associated with the file, if present.
@@ -446,7 +466,7 @@ class StatItem:
             return st[stat.ST_INO]
         elif (self.datum == 'l'):               # hard link count
             return st[stat.ST_NLINK]
-        elif (self.datum == 'u'):               # owner uid
+        elif (self.datum == 'u'):               # owner uid / user id
             return st[stat.ST_UID]
         elif (self.datum == 'g'):               # group id
             return st[stat.ST_GID]
@@ -513,7 +533,7 @@ class StatItem:
                 permFlags += 'r' if (st[stat.S_IRGRP]) else '-'
                 permFlags += 'w' if (st[stat.S_IWGRP]) else '-'
                 permFlags += 'x' if (st[stat.S_IXGRP]) else '-'
-            else: # TODO ???
+            else: # TODO ??? permissions subCodes?
                 permFlags += 'u' if (st[stat.S_ISUID]) else '-'
                 permFlags += 'g' if (st[stat.S_ISGID]) else '-'
                 permFlags += 's' if (st[stat.S_ISVTX]) else '-'
@@ -525,15 +545,15 @@ class StatItem:
                 permFlags += 'w' if (st[stat.S_IWOTH]) else '-'
                 permFlags += 'x' if (st[stat.S_IXOTH]) else '-'
             else:
-                permFlags = 'UGO'  # TODO ???
+                permFlags = 'UGO'  # TODO ??? more permissions flags
             return permFlags
         else: raise ValueError(
             "Unrecognized p subCode '%s'." % (subCode))
         return None  #st.ST_XXX
 
     @staticmethod
-    def readableSize(n:int) -> str:
-        """Make a readable size like many -H options.
+    def readableFileSize(n:int) -> str:
+        """Make a readable size like many -H options (or here, --human).
         """
         suffixes = " KMGTP"
         rank = int(math.log(n, 1000))
@@ -546,11 +566,45 @@ class StatItem:
         return buf
 
     @staticmethod
-    def formatTime(epochTime, f:str=None) -> str:
+    def readableFileType(mode:int, st:os.stat_result=None) -> str:
+        """Generate a keyword for the kind of thing.
+        """
+        if (stat.S_ISBLK(mode)):  return "Block special"
+        if (stat.S_ISCHR(mode)):  return "Character special"
+        if (stat.S_ISDIR(mode)):  return "Directory"
+        if (stat.S_ISDOOR(mode)): return "Door"
+        if (stat.S_ISFIFO(mode)): return "FIFO"
+        if (stat.S_ISLNK(mode)):  return "Symlink"
+        if (stat.S_ISPORT(mode)): return "Port"
+        if (stat.S_ISSOCK(mode)): return "Socket"
+        if (stat.S_ISWHT(mode)):  return "Whiteout"
+        if (stat.S_ISREG(mode)):  return "Rgular file"
+        raise ValueError("Could not identify type of file '%s'." % (st.__name__))
+        
+    @staticmethod
+    def readableUserId(uid:int) -> str:
+        """Numeric to string user id.
+        """
+        return pwd.getpwuid(uid).pw_name
+
+    @staticmethod
+    def readableGroupId(gid:int) -> str:
+        """Numeric to string group id.
+        """
+        return grp.getgrgid(gid).gr_name
+
+    @staticmethod
+    def formatTime(epochTime:int, f:str=None) -> str:
         if (f is None): f = "%a, %d %b %Y %H:%M:%S %Z"
         return time.strftime(f, epochTime)
 
-
+    @staticmethod
+    def epochTimeToAsctime(epochTime:int, local:bool=False) -> str:
+        if (local): structTime = time.localtime(epochTime)
+        else: structTime = time.gmtime(epochTime)
+        return time.asctime(structTime)
+        
+        
 ###############################################################################
 #
 class PowerStat:
@@ -635,23 +689,34 @@ if __name__ == "__main__":
         parser.add_argument(
             "--color",  # Don't default. See below.
             help='Colorize the output.')
+        # "flags", "-f", action='store_true',
         parser.add_argument(
-            "--quiet", "-q", action='store_true',
-            help='Suppress most messages.')
-        parser.add_argument(
-            "--outputFormat", "--output-format", "--oformat", "-o",
+            "--format", "-f", "--outputFormat", "--output-format", "--oformat", 
             type=str, default="plain",
             choices = [ "plain", "html", "xsv", "csv", "tsv" ],
             help='Record/field syntax for output.')
         parser.add_argument(
-            "--statFormat", "-s", type=str, default=statFormat0,
-            help='stat-like percent-codes to determine output format.')
+            "--human", "-H", action='store_true',
+            help='Show file size in human-readable form (KMGTP suffixes).')
+        # "ls-format", "-l", action='store_true',
+        # "link-per-se", "-L", action='store_true',
         parser.add_argument(
-            "--namedStatFormat", type=str, default=None,
+            "--namedStatFormat", "--named-stat-format", type=str, default=None,
             choices=statFormats.keys(),
             help='Use one of the predefined stat formats, instead of specifying --statFormat.')
         parser.add_argument(
-            "--timeFormat", "-t", type=str, default=timeFormat0,
+            "--no-newline", "-n", action='store_true',
+            help='Do not force a newline to appear at the end of each piece of output.')
+        parser.add_argument(
+            "--quiet", "-q", action='store_true',
+            help='Suppress most messages.')
+        # "", "-r", action='store_true',
+        parser.add_argument(
+            "--statFormat", "--stat-format", "-s", type=str, default=statFormat0,
+            help='stat-like percent-codes to determine output format.')
+        # "", "-s", action='store_true',
+        parser.add_argument(
+            "--timeFormat", "--time-format", "-t", type=str, default=timeFormat0,
             help='strftime-like percent-codes to determine time output format.')
         parser.add_argument(
             "--verbose", "-v", action='count', default=0,
@@ -659,7 +724,10 @@ if __name__ == "__main__":
         parser.add_argument(
             "--version", action='version', version=__version__,
             help='Display version information, then exit.')
-
+        parser.add_argument(
+            "-x", action='store_true',
+            help="Output a more readable, but old, Linux-y format.")
+        
         parser.add_argument(
             'files', type=str,
             nargs=argparse.REMAINDER,
@@ -678,7 +746,8 @@ if __name__ == "__main__":
     ###########################################################################
     #
     args = processOptions()
-
+    ender = "" if (args.no_newline) else "\n"
+    
     if (not args.quiet):
         warning0("Stat format spec is: '%s'" % (args.statFormat))
     ps = PowerStat(args.statFormat, args.timeFormat)
@@ -687,4 +756,36 @@ if __name__ == "__main__":
         warning0("stat.py: No files specified....")
         sys.exit()
     for f0 in args.files:
-        print(ps.format(f0))
+        try:
+            st0 = os.stat(f0)
+            md:int = st0.st_mode
+        except IOError as e0:
+            sys.stderr.write("Error statting '%s':\n    %s" % (f0, e0))
+            
+        buf0 = ""
+        if (args.x):
+            linuxFormat = """File: "%s"
+  Size: %-12s         FileType: %s
+  Mode: (%04o/%10s)         Uid: (%5d/ %s)  Gid: (%5d/ %s)
+Device: %s   Inode: %-10d Links: %d
+Access: %s
+Modify: %s
+Change: %s"""
+            fsize = st0[stat.ST_SIZE]
+            if (args.human): sizeStr = StatItem.readableFileSize(st0[stat.ST_SIZE])
+            else: sizeStr = "%s" % (st0[stat.ST_SIZE])
+            
+            buf0 = linuxFormat % (
+                f0,
+                sizeStr, StatItem.readableFileType(md, st0),
+                md, stat.filemode(md), 
+                st0[stat.ST_UID], StatItem.readableUserId(st0[stat.ST_UID]),
+                st0[stat.ST_GID], StatItem.readableGroupId(st0[stat.ST_GID]),
+                st0[stat.ST_DEV], st0[stat.ST_INO], st0[stat.ST_NLINK],
+                StatItem.epochTimeToAsctime(st0[stat.ST_ATIME]),
+                StatItem.epochTimeToAsctime(st0[stat.ST_MTIME]),
+                StatItem.epochTimeToAsctime(st0[stat.ST_CTIME])
+            )
+        else:
+            buf0 = ps.format(f0)
+        print(buf0, end=ender)

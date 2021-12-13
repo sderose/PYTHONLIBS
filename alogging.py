@@ -697,6 +697,8 @@ Seems to be a problem with `maxItems`, and with suppressing callables in `format
 
 =To do=
 
+* I don't really like that "stats" part, probably discard it.
+
 * Sync to Py logger:
     rename file to aLogger
     drop 'direct' option
@@ -727,6 +729,7 @@ Just make a dict of types, mapping to their formatter functions.
 
 * Option to get rid of "INFO:root:" prefix from logging package.
 
+* Consider switching to "logv = lambda lvl, msg: info(msg) if lvl<=args.verbose else None"
 
 =History=
 
@@ -1147,12 +1150,6 @@ class ALogger:
         self.log(3, self.headPrefix + msg, **kwargs)
     def heading4(self, msg, **kwargs):
         self.log(4, self.headPrefix + msg, **kwargs)
-
-    def error0(self, msg, **kwargs): self.log(0, msg, **kwargs)
-    def error1(self, msg, **kwargs): self.log(1, msg, **kwargs)
-    def error2(self, msg, **kwargs): self.log(2, msg, **kwargs)
-    def error3(self, msg, **kwargs): self.log(3, msg, **kwargs)
-    def error4(self, msg, **kwargs): self.log(4, msg, **kwargs)
 
     def directMsg(self, msg, **kwargs):
         """Pretty much everything ends up here.
