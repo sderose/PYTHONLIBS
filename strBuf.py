@@ -137,6 +137,9 @@ deletion makes a chunkm small enough to coalesce with neighbors, and do so.
     rsplit
     split
 
+Add __getstate__() and __setstate__() for pickle. Should it save just the raw string,
+or keep the partitioning information, too?
+
 
 =History=
 
@@ -352,6 +355,8 @@ class StrBuf(str):
     ###
     def append(self, s:str):
         """Add at end of string.
+        Yes, I know that regular Python strings do not have append() or extend(),
+        despite being iterable and being just like lists in some respects.
         """
         slen = len(s)
         pnum = len(self.parts) - 1

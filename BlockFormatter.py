@@ -7,7 +7,7 @@
 # blank lines and line-breaks before MarkDown-ish lists, tables, headings, etc.
 # It does no colorizing, fonts, etc.
 #
-#pylint: disable=W0212
+#pylint: disable=W0212,W1406
 #
 import sys
 import re
@@ -213,6 +213,7 @@ some editors will quietly delete is a non-starter.
 
 =To Do=
 
+* Hook up _alt_fill for line-wrapping to allow U+200B ZERO WIDTH SPACE.
 * Handle backslashed line-initials.
 * Finish support for command-line setting of options.
 * Long tokens such as URIs should be able to break at slashes, etc.
@@ -261,33 +262,44 @@ Refactor entity/escape/tab handling.
 
 
 ##############################################################################
+# There are more Unicode chars that can go here....
 #
 esc = chr(27)
-specialChars = {
+quoteChars = {
     "lsquo":   unichr(0x2018), "rsquo":   unichr(0x2019),
     "ldquo":   unichr(0x201C), "rdquo":   unichr(0x201D),
     "lsaquo":  unichr(0x2039), "rsaquo":  unichr(0x203A),
     "ldaquo":  unichr(0x00AB), "rdaquo":  unichr(0x00BB),
-
+}
+dashChars = {
     "endash":  unichr(0x2013), "emdash":  unichr(0x2014),
     "shy":     unichr(0x00AD), "hypoint": unichr(0x2027),
     "hyminus": unichr(0x002D),
-
+}
+spaceChars = {
     "ensp":    unichr(0x2002), "emsp":    unichr(0x2003),
     "thinsp":  unichr(0x2009), "hairsp":  unichr(0x200A),
     "zerosp":  unichr(0x200B), "nbsp":    unichr(0x00A0),
-
-    "lt": "<", "gt": ">", "apos": "'", "quo": '"', "amp": "&",
+}
+specialChars = {
+    "lt":      "<",            "gt":      ">", 
+    "apos":    "'",            "quo":     '"',
+    "amp":     "&",            "hellip":  unichr(0x2026),
 }
 
-def hMsg(level, msg:str):
-    if (BlockFormatter._options["verbose"]>=level):
-        sys.stderr.write("\n*******" + msg+"\n")
+specialChars.update(quoteChars)
+specialChars.update(dashChars)
+specialChars.update(spaceChars)
+breakableExpr = r"[-\s%s]" % (specialChars)
 
-def vMsg(level, msg:str):
-    if (BlockFormatter._options["verbose"]>=level):
-        sys.stderr.write(msg+"\n")
-
+def warning0(msg:str):
+    if (msg.startswith("====")): sys.stderr.write("\n" + "="*79 + "\n")
+    sys.stderr.write(msg+"\n")
+def warning1(msg:str):
+    if (BlockFormatter._options["verbose"]>=1): warning0(msg)
+def warning2(msg:str):
+    if (BlockFormatter._options["verbose"]>=2): warning0(msg)
+    
 def makeVis(s:str):
     """Turn control characters into Unicode Control Pictures.
     TODO: Make wrapping treat these as breakable?
@@ -441,7 +453,7 @@ class BlockFormatter(argparse.HelpFormatter):
             blocks = BlockFormatter.makeBlocks(text)
 
         for i in range(len(blocks)):
-            vMsg(2, "\n******* BLOCK %d (len %d): //%s//" %
+            warning2("\n******* BLOCK %d (len %d): //%s//" %
                 (i, len(blocks[i]), blocks[i]))
             item, istring = BlockFormatter.doSpecialChars(blocks[i])
 
@@ -466,7 +478,7 @@ class BlockFormatter(argparse.HelpFormatter):
                 withNewlines = ansify(withNewlines)
 
             blocks[i] = withNewlines
-        vMsg(2, "\n******* FORMATTING DONE *******\n")
+        warning2("\n******* FORMATTING DONE *******\n")
         return "\n".join(blocks)
 
     @staticmethod
@@ -543,11 +555,15 @@ class BlockFormatter(argparse.HelpFormatter):
     @staticmethod
     def _alt_fill(item:str, width:int, indentString:str) -> str:
         """In case _fill_text changes or goes away....
+        The splitting regex forces a break at the longest non-space token
+        smaller than line width (minus indent).
+        Python \\s does not include U+200b, ZERO WIDTH SPACE and some other.
+        TODO: factor out our substitution for \\s, and add more variant spaces.
         """
         lines = []
-        for x in re.finditer(
-            r"\s*(\S.{,%d}(?=[-/\s]))" % (width-len(indentString)-2),
-            item, re.MULTILINE):
+        tokenExpr = r"%s*(\S.{,%d}(?=%s))" % (
+            breakableExpr, width-len(indentString)-2, breakableExpr)
+        for x in re.finditer(tokenExpr, item, re.MULTILINE):
             #print("Wrap trial: '%s'" % (x.group(1)))
             lines.append(indentString + x.group(1))
         return "\n".join(lines)
@@ -637,14 +653,14 @@ if __name__ == "__main__":
 
     if (len(args.files) == 0):
         tfile = "/tmp/BlockFormatter.md"
-        vMsg(0, "No files specified, copying own help text to %s" % (tfile))
+        warning0("No files specified, copying own help text to %s" % (tfile))
         fh = codecs.open(tfile, "wb", encoding=args.iencoding)
         fh.write(descr)
         fh.close()
         args.files.append(tfile)
 
     for path0 in args.files:
-        vMsg(0, "\n******* Starting test file '%s'" % (path0))
+        warning0("\n******* Starting test file '%s'" % (path0))
         fh0 = codecs.open(path0, "rb", encoding=args.iencoding)
         testText = fh0.read()
         if (args.split):

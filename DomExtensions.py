@@ -12,13 +12,15 @@ from enum import Enum
 from typing import List, IO, Callable, Any, Union, Match
 import xml.dom
 import xml.dom.minidom
-from xml.dom.minidom import Node, NamedNodeMap, Element
+from xml.dom.minidom import Node, NamedNodeMap, Element, Document
+import logging as lg
 
 PY3 = sys.version_info[0] == 3
 if PY3:
     from html.entities import codepoint2name, name2codepoint
     def unichr(n): return chr(n)
     def cmp(a, b): return ((a > b) - (a < b))
+
 
 __metadata__ = {
     'title'        : "DomExtensions.py",
@@ -38,16 +40,43 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
-An XML-manipulation package that sits on top of a DOM implementation
+An XML-manipulation package that sits on top of a generic DOM implementation
 and provides a lot of higher-level methods, and more Pythonic syntax.
 
 Or you may want to just take __getitem__, which lets you navigate DOM
 trees very much like nested Python dicts and lists (see below for
-details).
+details):   myRoot[4][2][3:"p"]...
 
-This and the other additions are intended to provide more Pythonic
-bindings of DOM functionality, as well as features to let you use
-DOM much more similarly to using XPath, XPtr, etc.
+This package also provides access along all of the XPath axes, so you can
+easily get the n-th ancestor, descendant, preceding nodes (which are different
+from preceding *sibling* nodes, also available), etc. Or iterate along an axis
+in either direction.
+
+It provides many "geometric" operations in the tree, such as
+locating the left or right "branch", determing the sequence of nodeNames down to
+a node, determining the child number of a node among its siblings (counting
+text nodes or not), 
+comparing node order, containment, and some support for ranges (which also
+can be in semi-precedence and other relationships). And it can map back and
+forth a node plus optional local offset, to and from global text offsets.
+
+It provides "bulk" operations such as removing all white-space-only nodes,
+removing or renaming all instances of attributes or elements, and much more.
+
+It also provides operations inspired by other work. It can generate and 
+interpretg XPointers; do what I see as the more useful BS4 "find" operations
+and a variety of CSS selectors;
+generate equivalent SAX event sequences from any subtree; etc.
+
+This is intended to achieve a few basic things:
+
+* provide more Pythonic bindings of DOM functionality
+* save people from repeatedly implementing commonly-needed XML operations
+* let people use operations they may be familiar with when coming to XML and DOM
+from a variety of related milieux.
+
+Comments are welcome, as are bug reports.
+There is also a Perl version of this, though sometimes it falls behind this one.
 
 
 ==Usage==
@@ -55,7 +84,7 @@ DOM much more similarly to using XPath, XPtr, etc.
 You can use ''patchDOM''() to monkey-patch these routines into a class
 (default: ''xml.dom.minidom.Node''):
 
-    import DomExtensions
+    from DomExtensions import DomExtensions
     import xml.dom
     DomExtensions.patchDom(toPatch=xml.dom.minidom.Node)
 
@@ -64,7 +93,7 @@ subscript brackets: `myNode[...]`, do:
 
     DomExtensions.enableBrackets(toPatch=xml.dom.minidom.Node)
 
-See [##Using \[\] notation], below, for the details. In short, you can say things
+See [##Using \\[\\] notation], below, for the details. In short, you can say things
 like myNode[0], myNode["p":3:5], myNode["@id"], and so on.
 
 In either case, just use the methods as if they had been on Node and its many
@@ -705,7 +734,9 @@ Generate SAX.
 * 2021-07-08: Add some methods omitted from patchDom(). Add checking for such.
 Type-hinting. Proof and sort patchDom list vs. reality.
 * 2021-07-20: Fix eachNode to do attribute nodes, too. Add removeNodesByNodeType().
-
+* 2022-01-27: Fix various annoying bugs with NodeTypes Enum. Remember that the Document
+element is really an element. Improve handling for bool and for multi-token values
+in getAttributeAs(). Turn off default of appending id comment in getEndTag().
 
 =Rights=
 
@@ -731,15 +762,15 @@ Balisage Series on Markup Technologies, vol. 13 (2014).
 ###############################################################################
 #
 # This excludes colon (":"), since we want to distinguish QNames.
-nameStartChar = str(u"[_A-Za-z" +
-    u"\u00C0-\u00D6" + u"\u00D8-\u00F6" + u"\u00F8-\u02FF" +
-    u"\u0370-\u037D" + u"\u037F-\u1FFF" + u"\u200C-\u200D" +
-    u"\u2070-\u218F" + u"\u2C00-\u2FEF" + u"\u3001-\uD7FF" +
-    u"\uF900-\uFDCF" + u"\uFDF0-\uFFFD" +
-    u"\u10000-\uEFFFF" +
-    ']')
+nameStartChar = str("[_A-Za-z" +
+    "\u00C0-\u00D6" + "\u00D8-\u00F6" + "\u00F8-\u02FF" +
+    "\u0370-\u037D" + "\u037F-\u1FFF" + "\u200C-\u200D" +
+    "\u2070-\u218F" + "\u2C00-\u2FEF" + "\u3001-\uD7FF" +
+    "\uF900-\uFDCF" + "\uFDF0-\uFFFD" +
+    "\u10000-\uEFFFF" +
+    "]")
 nameChar  = re.sub(
-    u'^\\[', u'[-.0-9\u00B7\u0300-\u036F\u203F-\u2040', nameStartChar)
+    "^\\[", "[-.0-9\u00B7\u0300-\u036F\u203F-\u2040", nameStartChar)
 xmlName = nameStartChar + nameChar + '*'
 
 NMToken = str       # An XML name token (mainly for type hint readability)
@@ -894,8 +925,8 @@ def DEcontains(self:Node, nodeName:NMTokenPlus) -> bool:
         return False
 
 def nameOfNodeType(self:Node):
-    nt = self.nodeType
-    return NodeTypes[nt]
+    nt = NodeTypes(self.nodeType)
+    return nt.name
 
 def _getChildNodesByName_(self:Node, nodeKind:NMTokenPlus) -> list:
     """Return a list of this node's children of a given kind..
@@ -936,13 +967,17 @@ def argType(someArg:Union[str, int]) -> int:
 ###############################################################################
 # Methods to make minidom (or whatever) look like JS DOM.
 #
-def outerHTML(self:Node, indent:str="    ") -> str:
+def outerHTML(self:Node, indent:str="    ", breakEndTags:bool=False) -> str:
     """
     """
     if (True):
         #from io import StringIO
         #buf = StringIO()
-        buf = self.getStartTag() + self.innerHTML(indent=indent) + self.getEndTag()
+        buf = (
+            self.getStartTag() + 
+            self.innerHTML(indent=indent, breakEndTags=breakEndTags) + 
+            self.getEndTag()
+        )
         return buf
     else:
         buf = self.toprettyxml(indent=indent)
@@ -950,8 +985,8 @@ def outerHTML(self:Node, indent:str="    ") -> str:
     #t = self.getStartTag() + self.innerHTML() + self.getEndTag()
     #return t
 
-def innerHTML(self:Node, cOptions=None, indent:str="    ", depth:int=0) -> str:
-    """Could also use outerHTML and then strip the ends.
+def innerHTML(self:Node, cOptions=None, indent:str="    ", breakEndTags:bool=False, depth:int=0) -> str:
+    """Collect the subtree, possibly pretty-printing as we go.
     """
     indentString = "" if (not indent) else ("\n" + indent*depth)
     t = ""
@@ -959,10 +994,13 @@ def innerHTML(self:Node, cOptions=None, indent:str="    ", depth:int=0) -> str:
         ty = curNode.nodeType
         if (ty == Node.TEXT_NODE):
             t += curNode.nodeValue
-        elif (ty==Node.DOCUMENT_NODE or ty==Node.DOCUMENT_FRAGMENT_NODE or ty==Node.ELEMENT_NODE):
-            t += curNode.getStartTag()
+        elif (ty==Node.DOCUMENT_NODE or 
+              ty==Node.DOCUMENT_FRAGMENT_NODE or 
+              ty==Node.ELEMENT_NODE):
+            t += indentString + curNode.getStartTag()
             for ch in (curNode.childNodes):
                 t += ch.innerHTML(cOptions=cOptions, depth=depth+1)
+            if (breakEndTags): t += indentString
             t += curNode.getEndTag()
         elif (ty == Node.CDATA_SECTION_NODE):
             t += "<![CDATA[%s]]>" % (escapeCDATA(curNode.data))
@@ -1035,7 +1073,7 @@ def NNM_getitem(self:NamedNodeMap, which):
 # Methods for finding the nth node along a given axis, that has a given
 # element type and/or attribute/value.
 #
-# TODO: Support negative to go from end.
+# TODO: Support negative to go from end in remaining cases.
 #
 def selectSelf(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
     if (self.nodeMatches(nodeName, attrs)):
@@ -1438,10 +1476,10 @@ def compareDocumentPosition(self:Node, other:Node):
     """
     return self.XPointerCompare(self.getXPointer(), other.getXPointer())
 
-def getXPointerToNode(self:Node, idAttrName:str="id") -> str:
+def getXPointerToNode(self:Node, idAttrName:NMToken="id") -> str:
     """Get a simple XPointer to the node, as a string.
-    If `idAttrName` is given, the XPointer will use that as an ID, and
-    use child sequence numbers from there down. This is much more robust.
+    If `idAttrName` is not empty (it defaults to "id"), the XPointer will use that 
+    as an ID, and use child sequence numbers from there down. This is much more robust.
     """
     f = ""
     cur = self
@@ -1587,64 +1625,88 @@ def getCompoundAttribute(self:Node, name:NMToken, sep:str='#', keepMissing:bool=
         cur = cur.parentNode
     return None
 
-def getAttributeAs(self:Node, name:NMToken, typ:type, default:Any) -> Any:
+__falseBooleanValues__ = [ "", "0", "F", "false" ]  # nil? #F? FALSE? False?
+
+def getAttributeAs(
+    self:Node, 
+    name:NMToken, 
+    typ:type, 
+    default:Any,
+    nilOK:bool=False,
+    split:bool=False
+    ) -> Any:
     """Get the attribute, and cast/convert it to the specified type.
-    If not present, return the default. If present but the wrong type, raise ValueError.
-    If typ is specified as list, the attribute is split on whitespace, but the
-        separate tokens are just returned as-is.
-    TODO: Should define and support types for:
-        NMTOKEN(S), NUMTOKEN(S), etc. Maybe something for bool?
+    If not present at all, or if present as "" and 'nilOK' is set, return the default.
+    If present but the wrong type, raise ValueError (boolean casts are more permissive).
+    If 'split' is set, the attribute is split on whitespace, the pieces are then cast,
+        and a list is returned.
+    TODO: Should define and support NMTOKEN, NUMTOKEN, etc.
+    TODO: add arg to specify True and False strings for boolean?
     """
     val = self.getAttribute(name)
     if (val is None): return default
-    if (typ == list):
-        castVal = re.split(_xmlSpaceExpr, val.strip())
+    if (val == "" and nilOK): return default
+    if (not split):
+        if (typ == bool):
+            castVal = val.strip() not in __falseBooleanValues__
+        else:
+            castVal = typ(val)
+        return castVal
     else:
-        castVal = typ(val)
-    return castVal
+        parts = re.split(_xmlSpaceExpr, val.strip())
+        castVals = []
+        for part in parts:
+            if (typ == bool):
+                castVal = part.strip() not in __falseBooleanValues__
+            else:
+                castVal = typ(part)
+            castVals.append(castVal)
+        return castVals
 
 def getStartTag(self:Node, sortAttributes:bool=False, discards:list=None) -> str:
     """Generate a start tag for the given element.
     @param sortAttributes: Put the attributes in alphanetical order, as for Canonical XML.
     @param discards: Don't include any attributes whose names are given here.
     """
-    assert self.nodeType == Node.ELEMENT_NODE
+    assert self.nodeType==Node.ELEMENT_NODE, "We're at a %s, not an element." % (self.nameOfNodeType())
     assert (not sortAttributes)
     anames = []
-    for a, _v in (self.attributes.items()):
-        if (discards and a in discards): continue
-        anames.append(a)
-    if (sortAttributes): anames = sorted(anames)
+    if (self.attributes):
+        for a, _v in (self.attributes.items()):
+            if (discards and a in discards): continue
+            anames.append(a)
+        if (sortAttributes): anames = sorted(anames)
 
     buf = ""
     for a in (anames):
         buf += ' %s="%s"' % (a, self.getEscapedAttribute(a))
     return "<%s%s>" % (self.nodeName, buf)
 
-def getEndTag(self:Node, appendAttr:str='id') -> str:
+def getEndTag(self:Node, appendAttr:NMToken=None) -> str:
     """Generate a normal end tag for the given element.
     @param appendAttr: If set, and the given element has an attribute with
     this name, put that attribute as a comment following the end-tag. This
-    is handy when editing, esp. for large or deep documents.
+    can be handy to add @id, to help when editing.
     """
-    assert self.nodeType == Node.ELEMENT_NODE
+    assert self.nodeType==Node.ELEMENT_NODE, "We're at a %s, not an element." % (self.nameOfNodeType())
     buf = "</%s>" % (self.nodeName)
     if (appendAttr and self.getAttribute(appendAttr)):
         buf += '<!-- id="%s" -->' % (self.getAttribute(appendAttr))
     return buf
 
 def getPI(self:Node) -> str:
-    assert self.nodeType == Node.PROCESSING_INSTRUCTION_NODE
+    assert self.nodeType==Node.PROCESSING_INSTRUCTION_NODE
     return "<?%s %s?>" % (self.target, self.data)
 
 def getComment(self:Node) -> str:
-    assert self.nodeType == Node.COMMENT_NODE
+    assert self.nodeType==Node.COMMENT_NODE
     return "<!--%s -->" % (self.data)
 
 def getEscapedAttributeList(self:Node, sortAttributes:bool=False, quoteChar:str='"') -> str:
     """Assemble the entire attribute list, escaped as needed to write out as XML.
     TODO: At least for canonical XML, put namespace attrs first.
     """
+    assert self.nodeType==Node.ELEMENT_NODE, "We're at a %s, not an element." % (self.nameOfNodeType())
     buf = ""
     if (not (self)): return None
     alist = self.attributes
@@ -1661,6 +1723,7 @@ def addAttributeToken(self:Node, attrName:NMToken, token:str, duplicates:bool=Fa
     """Make sure the attribute includes the specified token.
     @return: True if it was actually add (that is, it wasn't there before).
     """
+    assert self.nodeType==Node.ELEMENT_NODE, "We're at a %s, not an element." % (self.nameOfNodeType())
     attrValue = self.getAttribute(attrName)
     if re.match(r"\b%s\b" % (token), attrValue): return False
     self.setAttribute(attrName, attrValue + token)
@@ -1670,6 +1733,7 @@ def removeAttributeToken(self:Node, attrName:NMToken, token:str) -> bool:
     """Delete an attribute value token if present.
     @return: True if it was actually there before being removed.
     """
+    assert self.nodeType==Node.ELEMENT_NODE, "We're at a %s, not an element." % (self.nameOfNodeType())
     attrValue = self.getAttribute(attrName)
     attrValue2 = re.sub(r"\b%s\b" % (token), "", attrValue)
     if (attrValue2 != attrValue):
@@ -2048,17 +2112,38 @@ def eachTextNode(self:Node, wsn:bool=True, depth:int=1) -> Node:
                 yield chEvent
     return
 
-def eachElement(self:Node, etype:str=None, depth:int=1) -> Element:
+def eachElement(self:Node, etype:NMToken=None, depth:int=1) -> Element:
     """Generate all element node descendants, optionally limiting to one type.
     """
     if (not (self)): return
     if (self.nodeType==Node.ELEMENT_NODE):
         if (not etype or self.nodeName == etype): yield self
     if (self.hasChildNodes()):
-        #print ("Recursing for child nodes at level %s." % (depth+1))
         for ch in self.childNodes:
             for chEvent in eachElement(ch, etype=None, depth=depth+1):
                 yield chEvent
+    return
+
+def eachAttribute(self:Node, etype:NMToken=None, aname:NMToken=None, depth:int=1) -> tuple:
+    """Generate all attributes in a given subtree, optionallyt limiting to one
+    attribute name and/or one element type.
+    @return a 2-tuple of an element node, and the name of one of its attributes.
+    TODO: Should this return attrNodes per se?
+    """
+    if (not (self)): return
+    if (self.nodeType==Node.ELEMENT_NODE):
+        if (not etype or self.nodeName == etype):
+            if (aname):
+                if (self.hasAttribute(aname)):
+                    yield self, aname
+            else:
+                if (self.attributes):
+                    for a, _v in self.attributes.items():
+                        yield self, a
+    if (self.hasChildNodes()):
+        for ch in self.childNodes:
+            for chNode, chAname in eachAttribute(ch, etype=None, depth=depth+1):
+                yield chNode, chAname
     return
 
 # TODO: eachComment, eachPI, eachCDATA?
@@ -2167,7 +2252,7 @@ def collectAllXml2(self:Node,
     breakStarts:bool=True,        # Break before start tags
     canonical:bool=False,         # Generate Canonical XML
     delim:str=" ",                # put between text nodes
-    emitter=None,                 # What Emitter object to use
+    emitter:Callable=None,        # What Emitter object to use
     emptyForm:str="HTML",         # Which syntax to use for empty elements: HTML, XML, SGML, NONE
     indentString:str='    ',      # Repeat this to indent ("" not to)
     indentText:bool=False,        # Break/indent before text nodes
@@ -2612,8 +2697,8 @@ def escapeASCII(s:str, width:int=4, base:int=16, htmlNames:bool=True) -> str:
     return s
 
 def nukeNonXmlChars(s:str) -> str:
-    """Remove the C0 control characters not allowed in XML. Unassigned
-    Unicode characters higher up, are left unchanged.
+    """Remove the C0 control characters not allowed in XML.
+    Unassigned Unicode characters higher up are left unchanged.
     """
     return re.sub("[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(s))
 
@@ -2876,24 +2961,39 @@ class BS4Features:
 ###############################################################################
 #
 class NodeTypes(Enum):
-    """Much more Pythonic than just constants as in DOM. For example, you
-    can get the name, and they're actually a type so you can test membership.
+    """Much more Pythonic than just constants as in generic DOM. For example,
+    you can use nodeType.name to get the string name, like "ELEMENT_NODE",
+    and they're actually a type so you can test membership.
     """
-    NO_NODE:            0  # Added non-associating value.
-    ELEMENT_NODE:       1
-    ATTRIBUTE_NODE:     2
-    TEXT_NODE:          3
-    CDATA_SECTION_NODE: 4
-    ENTITY_REFERENCE_NODE: 5  # Removed in DOM4.
-    ENTITY_NODE:        6     # Removed in DOM4.
-    PROCESSING_INSTRUCTION_NODE: 7
-    COMMENT_NODE:       8
-    DOCUMENT_NODE:      9
-    DOCUMENT_TYPE_NODE: 10
-    DOCUMENT_FRAGMENT_NODE: 11
-    NOTATION_NODE:      12    # Removed in DOM4.
+    NO_NODE                     = 0  # Added non-associating value.
+    ELEMENT_NODE                = 1
+    ATTRIBUTE_NODE              = 2
+    TEXT_NODE                   = 3
+    CDATA_SECTION_NODE          = 4
+    ENTITY_REFERENCE_NODE       = 5  # Removed in DOM4.
+    ENTITY_NODE                 = 6  # Removed in DOM4.
+    PROCESSING_INSTRUCTION_NODE = 7
+    COMMENT_NODE                = 8
+    DOCUMENT_NODE               = 9
+    DOCUMENT_TYPE_NODE          = 10
+    DOCUMENT_FRAGMENT_NODE      = 11
+    NOTATION_NODE               = 12 # Removed in DOM4.
 
-
+    @staticmethod
+    def fromint(n:int):
+        try:
+            return NodeTypes(n)
+        except ValueError:
+            return NodeTypes.NO_NODE
+            
+    @staticmethod
+    def isCore(node:Node) -> bool:
+        nt = NodeTypes.fromint(node.nodeType)
+        return (nt in
+            [ NodeTypes.ELEMENT_NODE,
+              NodeTypes.TEXT_NODE, NodeTypes.CDATA_SECTION_NODE ])
+        
+        
 ###############################################################################
 #
 class DomExtensions:
@@ -2928,14 +3028,15 @@ class DomExtensions:
         toPatch.__contains__ = DEcontains
 
     @staticmethod
-    def patchDOM(toPatch=Node, getItem:bool=True) -> None:
+    def patchDOM(classes=None, getItem:bool=True) -> None:
         """Some people capitalize acronyms.
+        @param classes: Pass either a class, or a list of them (or default).
         """
-        DomExtensions.patchDom(toPatch=toPatch, getItem=getItem)
+        DomExtensions.patchDom(classes=classes, getItem=getItem)
 
     @staticmethod
     def patchDom(
-        toPatch=Node,             # What class to monkey-patch
+        classes=None,             # What class(es) to monkey-patch
         getItem:bool=True,        # Include the __getitem__ mod?
         axisSelects:bool=True,    # Include axis selectors?
         synonyms:bool=False,      # preceding/previous, following/next
@@ -2945,169 +3046,177 @@ class DomExtensions:
         """Monkey-patch the extension methods into a given class.
         See also patchDomAuto(), following.
         """
-        testCase = getattr(toPatch, "selectAncestor", None)
-        if (testCase and callable(testCase)): return
+        if (not classes):
+            classes = [ Node, Document, Element ]
+        elif (not isinstance(classes, list)):
+            classes = [ classes ]
+        lg.info("====To patch: ")
+        for toPatch in classes:
+            lg.info("*** Patching class %s ***\n" % (toPatch))
+            testCase = getattr(toPatch, "selectAncestor", None)
+            if (testCase and callable(testCase)): return
 
-        if (getItem):
-            toPatch.__getItem__ = DEgetitem
-            toPatch.__contains__ = DEcontains
+            if (getItem):
+                toPatch.__getItem__ = DEgetitem
+                toPatch.__contains__ = DEcontains
 
-        if (namedNodeMap):
-            DomExtensions.patchNamedNodeMap()
+            if (namedNodeMap):
+                DomExtensions.patchNamedNodeMap()
 
-        toPatch.nameOfNodeType          = nameOfNodeType
+            toPatch.nameOfNodeType          = nameOfNodeType
 
-        toPatch.outerHTML               = outerHTML
-        toPatch.innerHTML               = innerHTML
-        toPatch.outerXML                = outerXML
-        toPatch.innerXML                = innerXML
-        toPatch.innerText               = innerText
+            toPatch.outerHTML               = outerHTML
+            toPatch.innerHTML               = innerHTML
+            toPatch.outerXML                = outerXML
+            toPatch.innerXML                = innerXML
+            toPatch.innerText               = innerText
 
-        if (axisSelects):
-            # SELF
-            toPatch.selectSelf              = selectSelf
+            if (axisSelects):
+                # SELF
+                toPatch.selectSelf              = selectSelf
 
-            # ANCESTOR, A-O-S, CHILD, DESC
-            toPatch.selectAncestor          = selectAncestor
-            toPatch.selectAncestorOrSelf    = selectAncestorOrSelf
-            toPatch.selectChild             = selectChild
-            toPatch.selectDescendant        = selectDescendant
-            #toPatch.selectDescendantR       = selectDescendantR
+                # ANCESTOR, A-O-S, CHILD, DESC
+                toPatch.selectAncestor          = selectAncestor
+                toPatch.selectAncestorOrSelf    = selectAncestorOrSelf
+                toPatch.selectChild             = selectChild
+                toPatch.selectDescendant        = selectDescendant
+                #toPatch.selectDescendantR       = selectDescendantR
 
-            # PRECEDING, FOLLOWING
-            toPatch.selectPreceding         = selectPreceding
-            toPatch.getPreceding            = getPreceding
-            toPatch.selectPrevious          = selectPreceding
-            toPatch.getPrecedingAbsolute    = getPrecedingAbsolute
-            toPatch.selectFollowing         = selectFollowing
-            toPatch.getFollowing            = getFollowing
-            toPatch.getFollowingAbsolute    = getFollowingAbsolute
+                # PRECEDING, FOLLOWING
+                toPatch.selectPreceding         = selectPreceding
+                toPatch.getPreceding            = getPreceding
+                toPatch.selectPrevious          = selectPreceding
+                toPatch.getPrecedingAbsolute    = getPrecedingAbsolute
+                toPatch.selectFollowing         = selectFollowing
+                toPatch.getFollowing            = getFollowing
+                toPatch.getFollowingAbsolute    = getFollowingAbsolute
 
-            # SIBLINGS
-            toPatch.selectPrecedingSibling  = selectPrecedingSibling
-            toPatch.getPrecedingSibling     = getPrecedingSibling
-            toPatch.selectFollowingSibling  = selectFollowingSibling
-            toPatch.getFollowingSibling     = getFollowingSibling
+                # SIBLINGS
+                toPatch.selectPrecedingSibling  = selectPrecedingSibling
+                toPatch.getPrecedingSibling     = getPrecedingSibling
+                toPatch.selectFollowingSibling  = selectFollowingSibling
+                toPatch.getFollowingSibling     = getFollowingSibling
 
-            if (synonyms):
-                toPatch.getPrevious             = getPreceding
-                toPatch.previous                = getPreceding
-                toPatch.selectNext              = selectFollowing
-                toPatch.getNext                 = getFollowing
-                toPatch.next                    = getFollowing
-                toPatch.selectPreviousSibling   = selectPrecedingSibling
-                toPatch.getPreviousSibling      = getPrecedingSibling
-                toPatch.selectNextSibling       = selectFollowingSibling
-                toPatch.getNextSibling          = getFollowingSibling
-                toPatch.tostring                = toPatch.toString  # More Pythonic
+                if (synonyms):
+                    toPatch.getPrevious             = getPreceding
+                    toPatch.previous                = getPreceding
+                    toPatch.selectNext              = selectFollowing
+                    toPatch.getNext                 = getFollowing
+                    toPatch.next                    = getFollowing
+                    toPatch.selectPreviousSibling   = selectPrecedingSibling
+                    toPatch.getPreviousSibling      = getPrecedingSibling
+                    toPatch.selectNextSibling       = selectFollowingSibling
+                    toPatch.getNextSibling          = getFollowingSibling
+                    toPatch.tostring                = toPatch.toString  # More Pythonic
 
-        toPatch.getLeastCommonAncestor  = getLeastCommonAncestor
-        toPatch.getLeftBranch           = getLeftBranch
-        toPatch.getRightBranch          = getRightBranch
-        toPatch.getFirstChild           = getFirstChild
-        toPatch.getLastChild            = getLastChild
-        toPatch.getNChildNodes          = getNChildNodes
-        toPatch.getChildNumber          = getChildNumber
-        toPatch.getDepth                = getDepth
-        toPatch.getMyIndex              = getMyIndex
-        toPatch.getFQGI                 = getFQGI
+            toPatch.getLeastCommonAncestor  = getLeastCommonAncestor
+            toPatch.getLeftBranch           = getLeftBranch
+            toPatch.getRightBranch          = getRightBranch
+            toPatch.getFirstChild           = getFirstChild
+            toPatch.getLastChild            = getLastChild
+            toPatch.getNChildNodes          = getNChildNodes
+            toPatch.getChildNumber          = getChildNumber
+            toPatch.getDepth                = getDepth
+            toPatch.getMyIndex              = getMyIndex
+            toPatch.getFQGI                 = getFQGI
 
-        # Positional
-        toPatch.isWithinType            = isWithinType
-        toPatch.isDescendantOf          = isDescendantOf
-        toPatch.isWithin                = isWithin
-        toPatch.getContentType          = getContentType
+            # Positional
+            toPatch.isWithinType            = isWithinType
+            toPatch.isDescendantOf          = isDescendantOf
+            toPatch.isWithin                = isWithin
+            toPatch.getContentType          = getContentType
 
-        cmpMethod = getattr(toPatch, "compareDocumentPosition", None)
-        if (not cmpMethod):
-            toPatch.compareDocumentPosition = compareDocumentPosition
+            cmpMethod = getattr(toPatch, "compareDocumentPosition", None)
+            if (not cmpMethod):
+                toPatch.compareDocumentPosition = compareDocumentPosition
 
-        # XPointer
-        if (xptr):
-            toPatch.getXPointer         = getXPointer
-            toPatch.findTextByOffset    = findTextByOffset
-            toPatch.getXPointerToNode   = getXPointerToNode
-            toPatch.XPointerCompare     = XPointerCompare
-            toPatch.XPointerInterpret   = XPointerInterpret
+            # XPointer
+            if (xptr):
+                toPatch.getXPointer         = getXPointer
+                toPatch.findTextByOffset    = findTextByOffset
+                toPatch.getXPointerToNode   = getXPointerToNode
+                toPatch.XPointerCompare     = XPointerCompare
+                toPatch.XPointerInterpret   = XPointerInterpret
 
-        toPatch.nodeMatches             = nodeMatches
+            toPatch.nodeMatches             = nodeMatches
 
-        # Attributes
-        toPatch.getInheritedAttribute   = getInheritedAttribute
-        toPatch.getEscapedAttribute     = getEscapedAttribute
-        toPatch.getCompoundAttribute    = getCompoundAttribute
-        toPatch.getAttributeAs          = getAttributeAs
-        # Tags
-        toPatch.getStartTag             = getStartTag
-        toPatch.getEndTag               = getEndTag
-        toPatch.getEscapedAttributeList = getEscapedAttributeList
-        toPatch.addAttributeToken       = addAttributeToken
+            # Attributes
+            toPatch.getInheritedAttribute   = getInheritedAttribute
+            toPatch.getEscapedAttribute     = getEscapedAttribute
+            toPatch.getCompoundAttribute    = getCompoundAttribute
+            toPatch.getAttributeAs          = getAttributeAs
+            # Tags
+            toPatch.getStartTag             = getStartTag
+            toPatch.getEndTag               = getEndTag
+            toPatch.getEscapedAttributeList = getEscapedAttributeList
+            toPatch.addAttributeToken       = addAttributeToken
 
-        toPatch.removeAttributeToken    = removeAttributeToken
+            toPatch.removeAttributeToken    = removeAttributeToken
 
-        # Global changes
-        toPatch.removeWhiteSpaceNodes   = removeWhiteSpaceNodes
-        toPatch.removeNodesByTagName    = removeNodesByTagName
-        toPatch.removeNodesByNodeType   = removeNodesByNodeType
-        toPatch.untagNodesByTagName     = untagNodesByTagName
-        toPatch.renameByTagName         = renameByTagName
-        toPatch.forceTagCase            = forceTagCase
+            # Global changes
+            toPatch.removeWhiteSpaceNodes   = removeWhiteSpaceNodes
+            toPatch.removeNodesByTagName    = removeNodesByTagName
+            toPatch.removeNodesByNodeType   = removeNodesByNodeType
+            toPatch.untagNodesByTagName     = untagNodesByTagName
+            toPatch.renameByTagName         = renameByTagName
+            toPatch.forceTagCase            = forceTagCase
 
-        toPatch.getAllDescendants       = getAllDescendants
+            toPatch.getAllDescendants       = getAllDescendants
 
-        # TABLES
-        toPatch.getColumn               = getColumn
-        toPatch.getCellOfRow            = getCellOfRow
-        toPatch.transpose               = transpose
-        toPatch.eliminateSpans          = eliminateSpans
-        toPatch.hasSubTable             = hasSubTable
+            # TABLES
+            toPatch.getColumn               = getColumn
+            toPatch.getCellOfRow            = getCellOfRow
+            toPatch.transpose               = transpose
+            toPatch.eliminateSpans          = eliminateSpans
+            toPatch.hasSubTable             = hasSubTable
 
-        toPatch.normalizeAllSpace       = normalizeAllSpace
-        toPatch.normalize               = normalize
+            toPatch.normalizeAllSpace       = normalizeAllSpace
+            toPatch.normalize               = normalize
 
-        # Local changes
-        toPatch.insertPrecedingSibling  = insertPrecedingSibling
-        toPatch.insertFollowingSibling  = insertFollowingSibling
-        toPatch.insertParent            = insertParent
-        toPatch.mergeWithFollowingSibling = mergeWithFollowingSibling
-        toPatch.mergeWithPrecedingSibling = mergeWithPrecedingSibling
-        toPatch.groupSiblings           = groupSiblings
-        toPatch.promoteChildren         = promoteChildren
-        toPatch.moveChildToAttribute    = moveChildToAttribute
-        toPatch.findNonAttributable     = findNonAttributable
+            # Local changes
+            toPatch.insertPrecedingSibling  = insertPrecedingSibling
+            toPatch.insertFollowingSibling  = insertFollowingSibling
+            toPatch.insertParent            = insertParent
+            toPatch.mergeWithFollowingSibling = mergeWithFollowingSibling
+            toPatch.mergeWithPrecedingSibling = mergeWithPrecedingSibling
+            toPatch.groupSiblings           = groupSiblings
+            toPatch.promoteChildren         = promoteChildren
+            toPatch.moveChildToAttribute    = moveChildToAttribute
+            toPatch.findNonAttributable     = findNonAttributable
 
-        # Traversal
-        toPatch.eachNodeCB              = eachNodeCB
-        toPatch.eachNode                = eachNode
-        toPatch.reversedEachNode        = reversedEachNode
-        toPatch.eachTextNode            = eachTextNode
-        toPatch.eachElement             = eachElement
-        toPatch.generateNodes           = generateNodes
-        toPatch.generateSaxEvents       = generateSaxEvents
+            # Traversal
+            toPatch.eachNodeCB              = eachNodeCB
+            toPatch.eachNode                = eachNode
+            toPatch.reversedEachNode        = reversedEachNode
+            toPatch.eachTextNode            = eachTextNode
+            toPatch.eachElement             = eachElement
+            toPatch.eachAttribute           = eachAttribute
+            toPatch.generateNodes           = generateNodes
+            toPatch.generateSaxEvents       = generateSaxEvents
 
-        # Collect/export
-        toPatch.collectAllText          = collectAllText
-        # getTextNodesIn
-        toPatch.collectAllXml2          = collectAllXml2
-        toPatch.collectAllXml2r         = collectAllXml2r
-        toPatch.collectAllXml           = collectAllXml
-        toPatch.export                  = export
+            # Collect/export
+            toPatch.collectAllText          = collectAllText
+            # getTextNodesIn
+            toPatch.collectAllXml2          = collectAllXml2
+            toPatch.collectAllXml2r         = collectAllXml2r
+            toPatch.collectAllXml           = collectAllXml
+            toPatch.export                  = export
 
-        # Escapers
-        toPatch.escapeXmlAttribute      = escapeXmlAttribute
-        toPatch.escapeXml               = escapeXml
-        toPatch.escapeCDATA             = escapeCDATA
-        toPatch.escapeComment           = escapeComment
-        toPatch.escapePI                = escapePI
-        toPatch.escapeASCII             = escapeASCII
-        toPatch.nukeNonXmlChars         = nukeNonXmlChars
-        toPatch.unescapeXml             = unescapeXml
+            # Escapers
+            toPatch.escapeXmlAttribute      = escapeXmlAttribute
+            toPatch.escapeXml               = escapeXml
+            toPatch.escapeCDATA             = escapeCDATA
+            toPatch.escapeComment           = escapeComment
+            toPatch.escapePI                = escapePI
+            toPatch.escapeASCII             = escapeASCII
+            toPatch.nukeNonXmlChars         = nukeNonXmlChars
+            toPatch.unescapeXml             = unescapeXml
 
-        # Space
-        toPatch.normalizeSpace          = normalizeSpace
-        toPatch.stripSpace              = stripSpace
+            # Space
+            toPatch.normalizeSpace          = normalizeSpace
+            toPatch.stripSpace              = stripSpace
 
-        DomExtensions.checkPatch(toPatch)
+            DomExtensions.checkPatch(toPatch)
         return
 
     @staticmethod
@@ -3170,9 +3279,6 @@ class DomExtensions:
 if __name__ == "__main__":
     import argparse
 
-    def warn(lvl:int, msg:str) -> None:
-        if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
-
     def processOptions() -> argparse.Namespace:
         try:
             from BlockFormatter import BlockFormatter
@@ -3212,19 +3318,19 @@ if __name__ == "__main__":
         print(re.sub(r"\\n", "\n", buf0))
         sys.exit()
 
-    warn(0, "Patching extensions onto xml.dom.minidom.Node...")
+    lg.info("Patching extensions onto xml.dom.minidom.Node...")
     DomExtensions.patchDOM()
     # Of course it doesn't have the method, until we've patched it in....
     #pylint: disable=E1101
     if (callable(Node.getDepth)):
-        warn(0, "Patch succeeded.")
+        lg.info("Patch succeeded.")
     else:
-        warn(0, "Patch failed.")
+        lg.info("Patch failed.")
     #pylint: enable=E1101
 
     if (len(args.files) == 0):
         tfileName = "testDoc.xml"
-        warn(0, "No files specified, trying %s." % (tfileName))
+        lg.warning("No files specified, trying %s." % (tfileName))
         args.files.append(tfileName)
 
     for path0 in args.files:
@@ -3233,4 +3339,4 @@ if __name__ == "__main__":
         fh0.close()
         theDoc = theDOM.renameByTagName('p', 'para')
 
-    warn(0, "Done.")
+    lg.info("Done.")
