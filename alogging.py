@@ -1666,7 +1666,7 @@ class ALogger:
                 buf += ind + "(object of type %s)" % (type(obj).__name__)
             else:
                 try:
-                    stuff = dir(obj).keys()
+                    stuff = dir(obj)
                     #buf += ind
                     if (isinstance(obj, Iterable)): iFlag = " (Iterable)"
                     else: iFlag = ""

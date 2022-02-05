@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# strBuf.py: A mutable string buffer, fast changes even for big strings.
+# StrBuf.py: A mutable string buffer, fast changes even for big strings.
 # 2021-08-03: Written by Steven J. DeRose.
 #
 #pylint: disable=W0221  # To allow added 'inplace' args.
@@ -15,14 +15,14 @@ import math
 from typing import Callable, Iterable  # IO, Dict, List, Union
 
 __metadata__ = {
-    "title"        : "strBuf.py",
+    "title"        : "StrBuf",
     "description"  : "A mutable string buffer, fast changes even for big strings.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2021-08-03",
-    "modified"     : "2021-08-03",
+    "modified"     : "2022-02-05",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -145,6 +145,7 @@ or keep the partitioning information, too?
 =History=
 
 * 2021-08-03ff: Written by Steven J. DeRose.
+* 2022-02-05: Rename strBuf to StrBuf. Lint.
 
 
 =Rights=
