@@ -70,6 +70,7 @@ mutable.
 
 =Related Commands=
 
+See [https://stackoverflow.com/questions/7255655/how-to-subclass-str-in-python].
 
 =Known bugs and Limitations=
 

@@ -649,9 +649,42 @@ list behaviors that I haven't included (yet). Like sorting. Let me know.
 actually checks for `isinstance(arg, int)`, so `myNode["1"]` will not work.
 
 
+=Model simplifications=
+
+In general, I've tried to do a few main things:
+* Reduce the number of constructs you have to think about
+* Replace DOM properties and methods with Python-native equivalents.
+* Add a ton of higher-level utility functions so you don't have to re-invent them.
+These include constructs inspired by XPath, XPointer, TEI, TagML, LMNL, JSON, CSS,
+BS4, etc.
+
+More specifically [https://docs.python.org/3.9/library/operator.html?highlight=operators]
+* childNodes, firstChild, and lastChild are just done with [].
+* the third argument to [] in Pythong, can be used to filter the "eligible"
+items to a particular element type, a particular attribute,
+a category from #text, #pi, #comment, or #cdata, etc. This can be combined
+with indexes, or used alone. The filter "*" means all and only elements.
+* insertBefore and appendChild are just list splicing
+* cloneNode becomes copy
+* compareDocumentPosition becomes <, >, <=, >=, in, and contains. Op for the other? 
+Possibly PEP 465 infix matrix mult operator "@"? or // __floordiv__ or ** for descendant.
+<< and >> for psib/fsib
+* countOF for # of a in b
+* Could overload elem @ "attrname"
+* indexof
+** TODO: should in/contains be direct or indirect?
+* isEqualNode and isSameNode become == and is
+* attributes can be referenced by ["@class"] etc.
+
+Possible additions:
+* += and -= may be mapped to preceding/following sibling n
+* 
+
 =To do=
 
-*** Rename all nodeplus args to 'kind' or 'nodekind'.
+*** In patchDom(), test to make sure we don't overwrite anything already there.
+
+*** Rename all nodeplus args to nodeSel.
 
 For canonical XML, make getEscapedAttributeList() put namespace attrs first,
 and escape CR and all > in content.
@@ -761,104 +794,339 @@ Balisage Series on Markup Technologies, vol. 13 (2014).
 
 ###############################################################################
 #
-# This excludes colon (":"), since we want to distinguish QNames.
-nameStartChar = str("[_A-Za-z" +
-    "\u00C0-\u00D6" + "\u00D8-\u00F6" + "\u00F8-\u02FF" +
-    "\u0370-\u037D" + "\u037F-\u1FFF" + "\u200C-\u200D" +
-    "\u2070-\u218F" + "\u2C00-\u2FEF" + "\u3001-\uD7FF" +
-    "\uF900-\uFDCF" + "\uFDF0-\uFFFD" +
-    "\u10000-\uEFFFF" +
-    "]")
-nameChar  = re.sub(
-    "^\\[", "[-.0-9\u00B7\u0300-\u036F\u203F-\u2040", nameStartChar)
-xmlName = nameStartChar + nameChar + '*'
-
-NMToken = str       # An XML name token (mainly for type hint readability)
-NMTokenPlus = str   # Union(NMToken, "*", "#text", "#comment", "#cdata", "#pi")
-
-def isXmlName(s:str) -> bool:
-    if (re.match(xmlName, s, re.UNICODE)): return True
-    return False
-
-def isXmlQName(s:str) -> bool:
-    """Return True only for namespacePreix + colon + name.
-    """
-    if (re.match(xmlName+":"+xmlName, s, re.UNICODE)): return True
-    return False
-
-def isNMTokenPlus(s:str) -> bool:
-    if (isXmlName(s)): return True
-    if (s in [ "*", "#text", "#comment", "#cdata", "#pi" ]): return True
-    return False
-
 _regexType = type(re.compile(r'a*'))
-_xmlSpaceExpr = r"[ \t\n\r]+"
+    
+class XMLStrings:
 
+    _xmlSpaceExpr = r"[ \t\n\r]+"
+
+    _xmlSpaceChars = " \t\r\n"
+    _xmlSpaceRegex = re.compile("[%s]+" % (_xmlSpaceChars))
+    _xmlSpaceOnlyRegex = re.compile("^[%s]*$" % (_xmlSpaceChars))
+
+
+    # This excludes colon (":"), since we want to distinguish QNames.
+    _nameStartChar = str("[_A-Za-z" +
+        "\u00C0-\u00D6" + "\u00D8-\u00F6" + "\u00F8-\u02FF" +
+        "\u0370-\u037D" + "\u037F-\u1FFF" + "\u200C-\u200D" +
+        "\u2070-\u218F" + "\u2C00-\u2FEF" + "\u3001-\uD7FF" +
+        "\uF900-\uFDCF" + "\uFDF0-\uFFFD" +
+        "\u10000-\uEFFFF" +
+        "]")
+    _nameChar  = re.sub(
+        "^\\[", "[-.0-9\u00B7\u0300-\u036F\u203F-\u2040", _nameStartChar)
+    _justName = _nameStartChar + _nameChar + "*"
+    _xmlName  = r"^%s$" % (_justName)
+    _xmlQName = r"^(%s:)?%s$" % (_xmlName, _xmlName)
+    _xmlPName = r"^(%s:)%s$" % (_xmlName, _xmlName)
+
+    @staticmethod
+    def isXmlName(s:str) -> bool:
+        """Return True for a NON-namespace-prefixed    (aka) local name.
+        """
+        if (re.match(XMLStrings._xmlName, s, re.UNICODE)): return True
+        return False
+
+    @staticmethod
+    def isXmlQName(s:str) -> bool:
+        """Return True for a namespace-prefixed OR unprefixed name.
+        """
+        if (re.match(XMLStrings._xmlQName, s, re.UNICODE)): return True
+        return False
+
+    @staticmethod
+    def isXmlPName(s:str) -> bool:
+        """Return True only for a namespace-prefixed name.
+        """
+        if (re.match(XMLStrings._xmlPName, s, re.UNICODE)): return True
+        return False
+
+    @staticmethod
+    def isNodeKindChoice(s:str) -> bool:
+        """Check whether the token is one of our node kind selector arguments.
+        These don't take qualifiers unless they're element names). This unifies various
+        node types into one space (rather than one for type and one for name). This is
+        almost like DOM nodeType, except attributes are prefixed with "@", and PIs are "#pi".
+            * element:  same as XmlQName
+            * attribute: "@" + XmlName (so you can name attrs and children relative to an elem)
+            * document root:  #document
+            * pi: #PI
+            * comment: #COMMENT
+            * text: #PI (should there also be a non-white-space-only textnode selector?
+            * and we allow "*" to mean any element
+        fragment, namespace, etc. are just special cases of more basic types.
+        """
+        if (XMLStrings.isXmlQName(s)): return True
+        if (s in [ "*", "#text", "#comment", "#cdata", "#pi" ]): return True
+        if (s[0] == "@" and XMLStrings.isXmlName(s[1:])): return True
+        return False
+
+    @staticmethod
+    def isXmlNumber(s:str) -> bool:
+        """Check whether the token is a NUMTOKEN.
+        """
+        return bool(re.match(r"\d+$", s))
+
+
+    ###############################################################################
+    # GENERAL METHODS ON STRINGS
+    #
+    @staticmethod
+    def escapeXmlAttribute(s:str, quoteChar:str='"') -> str:
+        """Turn characters special in (double-quoted) attributes, into char refs.
+        Set to "'" if you prefer single-quoting your attributes, in which case that
+        character will be replaced by a character reference instead.
+        This always uses the predefined XML named special character references.
+        """
+        s = XMLStrings.nukeNonXmlChars(s)
+        s = re.sub(r'&', "&amp;",   s)
+        s = re.sub(r'<', "&lt;",    s)
+        if (quoteChar == '"'): s = re.sub(r'"', "&quot;",  s)
+        else: s = re.sub(r"'", "&apos;",  s)
+        return s
+
+    @staticmethod
+    def escapeXml(s:str, escapeAllGT:bool=False) -> str:
+        """Turn things special in text content, into char refs.
+        This always uses the predefined XML named special character references.
+        """
+        s = XMLStrings.nukeNonXmlChars(s)
+        s = re.sub(r'&',   "&amp;",  s)
+        s = re.sub(r'<',   "&lt;",   s)
+        if (escapeAllGT): s = re.sub(r'>', "&gt;", s)
+        else: s = re.sub(r']]>', "]]&gt;", s)
+        return s
+
+    @staticmethod
+    def escapeCDATA(s:str, replaceWith:str="]]&gt;") -> str:
+        """XML Defines no particular escaping for this, we use char-ref syntax.
+        """
+        s = XMLStrings.nukeNonXmlChars(s)
+        s = re.sub(r']]>', replaceWith, s)
+        return s
+
+    @staticmethod
+    def escapeComment(s:str, replaceWith:str="-&#x002d;") -> str:
+        """XML Defines no particular escaping for this, we use char-ref syntax.
+        """
+        s = XMLStrings.nukeNonXmlChars(s)
+        s = re.sub(r'--', replaceWith, s)
+        return s
+
+    @staticmethod
+    def escapePI(s:str, replaceWith:str="?&gt;") -> str:
+        """XML Defines no particular escaping for this, we use char-ref syntax.
+        """
+        s = XMLStrings.nukeNonXmlChars(s)
+        s = re.sub(r'\?>', replaceWith, s)
+        return s
+
+    @staticmethod
+    def escapeASCII(s:str, width:int=4, base:int=16, htmlNames:bool=True) -> str:
+        """Turn all non-ASCII characters into character references.
+        @param width: zero-pad numbers to at least this many digits.
+        @param base: 10 for decimal, 16 for hexadecimal.
+        @param htmlNames: If True, use HTML 4 named entities when applicable.
+        """
+        # TO DO: What is the right type to use for mat? _sre.SRE_Match ?
+        def escASCIIFunction(mat:Match) -> str:
+            """Turn all non-ASCII chars to character refs.
+            """
+            code = ord(mat.group[1])
+            if (PY3):
+                nonlocal width, base, htmlNames
+            else:
+                # https://stackoverflow.com/questions/3190706/
+                raise ValueError("PY3 dependency: nonlocal.")
+            if (htmlNames and code in codepoint2name):
+                return "&%s;" % (codepoint2name[code])
+            if (base==10):
+                return "&#%*d;" % (width, code)
+            return "&#x%*x;" % (width, code)
+
+        s = XMLStrings.nukeNonXmlChars(s)
+        s = re.sub(r'([^[:ascii:]])r', escASCIIFunction, s)
+        s = XMLStrings.escapeXml(s)
+        return s
+
+    @staticmethod
+    def nukeNonXmlChars(s:str) -> str:
+        """Remove the C0 control characters not allowed in XML.
+        Unassigned Unicode characters higher up are left unchanged.
+        """
+        return re.sub("[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(s))
+
+    @staticmethod
+    def unescapeXml(s:str) -> str:
+        """Escape as needed for XML content: lt, amp, and ]]>.
+        """
+        return re.sub(r'&(#[xX])?(\w+);', XMLStrings.unescapeXmlFunction, s)
+
+    @staticmethod
+    def unescapeXmlFunction(mat:Match) -> str:
+        """Convert HTML entities, and numeric character references, to literal chars.
+        """
+        if (len(mat.group(1)) == 2):
+            return unichr(int(mat.group[2], 16))
+        elif (mat.group(1)):
+            return unichr(int(mat.group[2], 10))
+        elif (mat.group(2) in name2codepoint):
+            return name2codepoint[mat.group(2)]
+        else:
+            raise ValueError("Unrecognized entity: '%s'." % (mat.group(0)))
+
+    @staticmethod
+    def normalizeSpace(s:str, allUnicode:bool=False) -> str:
+        """By default, this only normalizes *XML* whitespace,
+        per the XML spec, section 2.3, grammar rule 3.
+
+        NOTE: Most methods of removing Unicode whitespace in Python do not work
+        for Unicode. See https://stackoverflow.com/questions/1832893/
+
+        U+200B ZERO WIDTH SPACE is left untouched below.
+        """
+        if (allUnicode):
+            s = re.sub(r'(?u)\s+', " ", s, re.UNICODE)
+        else:
+            s = re.sub(XMLStrings._xmlSpaceRegex, " ", s)
+        s = s.strip(' ')
+        return s
+
+    @staticmethod
+    def stripSpace(s:str, allUnicode:bool=False) -> str:
+        """Remove leading and trailing space, but don't touch internal.
+        """
+        if (allUnicode):
+            s = re.sub(r'^(?u)\s+|(?u)\s+$', " ", s, re.UNICODE)
+        else:
+            s = re.sub(r'^%s|%s$' %
+                (XMLStrings._xmlSpaceRegex, XMLStrings._xmlSpaceRegex), "", s)
+        return s
+
+
+###############################################################################
+# A couple fake types, for type-hinting parameters. 
+# Would be nicer but non-trivial to implement these as subclasses of str.
+#
+NMToken = str       # An XML name token (mainly for type hint readability)
+NodeSel = str   # Union(XMLQName, "@"+XMLQName, "*", "#text", "#comment", "#cdata", "#pi")
+
+
+###############################################################################
+#
+class NOT_SUPPORTED_ERR(Exception):
+    pass
+    
+class HIERARCHY_REQUEST_ERR(Exception):
+    """Thrown when requested navigation through the tree cannot be done.
+    """
+    pass
+
+
+###############################################################################
+#
+class Axes(Enum):
+    """A list of the XPath axes. With a bit each, so they can be ORed.
+    That's main to enable an "or self" axis for every other axis (though it
+    seems unlikely for ATTRIBUTE). For other combination, a definition of relative
+    order would be needed. For example, who is the first node along PSIBLING|FSIBLING?
+    Probably document order would be the clearest case. Also, some nodes occur in
+    multiple axes relative to a given starting nodes (CHILD|DESCENDANT, most obviously).
+    For the present, only SELF can be combined with others.
+    
+    Possibly introduce axis-specific prefixes to __getitem__ -- like current "@",
+    but all the others apply only to element targets.
+    """
+    NONE            = 0x000  # 
+    SELF            = 0x001  # .
+    ANCESTOR        = 0x002  # ..
+    CHILD           = 0x004  # /
+    DESCENDANT      = 0x008  # //
+    PSIBLING        = 0x010  # <
+    FSIBLING        = 0x020  # >
+    PRECEDING       = 0x040  # <<
+    FOLLOWING       = 0x080  # >>
+    ATTRIBUTE       = 0x100  # @
+
+    ANCESTOR_SELF   = 0x003  # 
+    DESCENDANT_SELF = 0x009  # 
+    
+    
+###############################################################################
+#
+class NodeSelKind(Enum):
+    """Major classes of arguments for DEgetitem etc.
+    This has two main uses:
+        1: given one of the 3 args to __getitem__, identify it.
+           Often these will be ints, which is why that's here.
+        2: Helping interpret the similar arg to many selection/navigation 
+           methods, e.g., selectChild("#pi", n=1). In that case, the
+           arg can also be a regex, which specifies matching element names.
+
+        Possible additions:
+            '#space' for white-space-only text nodes,
+            '#realtext' for non-white-space-only text nodes,
+            union of text, element, and cdata
+            
+    The model here is:
+        There are BRANCHES and LEAVES.
+        BRANCHES have a name, attribute dict, and child list.
+        ELEMENTS, DOCUMENT, DOC_FRAG are all BRANCHES.
+        All other node types are leaves, and have one data item (usually a string).
+        Attributes are LEAVES, named by "@" plus their usual name, with the value
+        as their data (usually a string).
+    """
+    ARG_NONE      = 0x000  # Failed
+    ARG_INT       = 0x001  # (this is for the non-nodeKind (index) args only)
+    ARG_NAME      = 0x002  # Any QName
+    ARG_REGEX     = 0x004  # A compiled regex, to match vs. element names
+    ARG_ATTR      = 0x008  # @ + QName
+    ARG_STAR      = 0x010  # "*"
+    ARG_TEXT      = 0x020  # #text
+    ARG_PI        = 0x040  # #pi
+    ARG_COMMENT   = 0x080  # #comment
+    ARG_CDATA     = 0x100  # #cdata
+    
+    @staticmethod
+    def getKind(someArg:Union[str, int]) -> 'NodeSelKind':
+        """Categorize one of the arguments to __getitem__().
+        """
+        if (someArg is None): return NodeSelKind.ARG_NONE
+        if (isinstance(someArg, int)): return NodeSelKind.ARG_INT
+
+        if (XMLStrings.isXmlName(someArg)): return NodeSelKind.ARG_NAME
+        if (someArg == "*"): return NodeSelKind.ARG_STAR
+
+        if (someArg[0] == "@" and XMLStrings.isXmlName(someArg[1:])):
+            return NodeSelKind.ARG_ATTR
+        # Next 3 can all be handled by _getListItemsByName_()
+        if (someArg == "#text"):
+            return NodeSelKind.ARG_TEXT
+        if (someArg ==  "#comment"):
+            return NodeSelKind.ARG_COMMENT
+        if (someArg == "#pi"):
+            return NodeSelKind.ARG_PI
+        if (someArg == "#cdata"):
+            return NodeSelKind.ARG_CDATA
+        #if (someArg == ".."): return NodeSelKind.ARG_ANCESTOR
+        raise ValueError("Bad argument type for '%s'." % (someArg))
+
+
+###############################################################################
+# Methods that will be patched onto DOM Node.
+#
 #try:
 #    from BaseDom import BaseDom
 #    BaseDom.usePythonExceptions()
 #except ImportError as e:
 #    sys.stderr.write("DomExtensions: Could not import BaseDom for Exceptions.\n")
-
-class NOT_SUPPORTED_ERR(Exception):
-    pass
-class INDEX_SIZE_ERR(Exception):
-    pass
-class HIERARCHY_REQUEST_ERR(Exception):
-    pass
-
-
-class NodeFilter(Enum):
-    """
-    See https://dom.spec.whatwg.org/#callbackdef-nodefilter
-    """
-    # Constants for acceptNode()
-    FILTER_ACCEPT = 1
-    FILTER_REJECT = 2
-    FILTER_SKIP = 3
-
-    # Constants for whatToShow
-    SHOW_ALL = 0xFFFFFFFF
-    SHOW_ELEMENT = 0x1
-    SHOW_ATTRIBUTE = 0x2
-    SHOW_TEXT = 0x4
-    SHOW_CDATA_SECTION = 0x8
-    SHOW_ENTITY_REFERENCE = 0x10  # legacy
-    SHOW_ENTITY = 0x20 # legacy
-    SHOW_PROCESSING_INSTRUCTION = 0x40
-    SHOW_COMMENT = 0x80
-    SHOW_DOCUMENT = 0x100
-    SHOW_DOCUMENT_TYPE = 0x200
-    SHOW_DOCUMENT_FRAGMENT = 0x400
-    SHOW_NOTATION = 0x800  # legacy
-
-
-###############################################################################
-# Types of arguments, for DEgetitem
 #
-ARG_INT       = 1
-ARG_ATTRIBUTE = 2
-ARG_STAR      = 3
-ARG_RESERVED  = 4
-ARG_NAME      = 5
-
 def DEgetitem(self:Node, n1, n2=None, n3=None) -> List:
     """Access nodes via Python list notation, based on my paper:
       DeRose, Steven J. JSOX: A Justly Simple Objectization for XML:
       Or: How to do better with Python and XML.
       Balisage Series on Markup Technologies, vol. 13 (2014).
       https://doi.org/10.4242/BalisageVol13.DeRose02.
-
-    Also available separately:
-        [https://github.com/sderose/PYTHONLIBS/blob/master/DomGetitem.py]
-
-    TODO: Test support for negatives -- anything missing?
-    TODO: Test cases like [1:] and [:5]
-
-    TODO: Perhaps allow name ".." for ancestor axis?
-    TODO: Perhaps extend [] to support jQuery-style CSS selectors?
-    TODO: Perhaps allow regexes for name?
-    TODO: Perhaps move attrs to setAttr space, access w/ . notation....
 
     For example:
         myElement['p']       get the 1st 'p' child as a scalar
@@ -870,51 +1138,60 @@ def DEgetitem(self:Node, n1, n2=None, n3=None) -> List:
         myElement[2:8:'p']   of the 3rd through 7th children, get the 'p's
         myElement['@class']  get the 'class' attribute's value (no indexes!)
         myElement[1:10:2]    get every other childNode from 1:10.
+
+    TODO: Test support for negatives -- anything missing?
+    TODO: Test cases like [1:] and [:5]
+
+    TODO: Perhaps allow name ".." for ancestor axis?
+    TODO: Perhaps extend [] to support jQuery-style CSS selectors?
+    TODO: Perhaps allow regexes for name?
+    TODO: Perhaps move attrs to setAttr space, access w/ . notation....
     """
-    typ1 = argType(n1)
-    typ2 = argType(n2)
-    typ3 = argType(n3)
+    typ1 = NodeSelKind.getKind(n1)
+    typ2 = NodeSelKind.getKind(n2)
+    typ3 = NodeSelKind.getKind(n3)
     if (n3 is not None): nargs = 3
     elif (n2 is not None): nargs = 2
     else: nargs = 1
 
-    if (typ2==ARG_ATTRIBUTE or typ3==ARG_ATTRIBUTE or
-        (typ1==ARG_ATTRIBUTE and nargs>1)):
+    if (typ2==NodeSelKind.ARG_ATTR or typ3==NodeSelKind.ARG_ATTR or
+        (typ1==NodeSelKind.ARG_ATTR and nargs>1)):
         raise IndexError("No other indexes allowed with @xxx.")
 
     if (nargs==1):
-        if (typ1 == ARG_INT):                              # [0]
+        if (typ1 == NodeSelKind.ARG_INT):                 # [0]
             return self.childNodes[n1]
-        if (typ1 == ARG_ATTRIBUTE):                        # ['@id']
+        if (typ1 == NodeSelKind.ARG_ATTR):                # ['@id']
             return self.attributes.getNamedItem(n1[1:])
         return self._getChildNodesByName_(n1)              # ['p'] ['#text'] ['*']
 
     elif (nargs==2):
-        if (typ1 == ARG_INT):
-            if (typ2 == ARG_INT):                          # [0:2]
+        if (typ1 == NodeSelKind.ARG_INT):
+            if (typ2 == NodeSelKind.ARG_INT):             # [0:2]
                 return self.childNodes[n1:n2]
             return self._getChildNodesByName_(n2)[n1]      # [0:'p']
         else:
-            if (typ2 == ARG_INT):                          # ['x':0]
+            if (typ2 == NodeSelKind.ARG_INT):             # ['x':0]
                 return self._getChildNodesByName_(n1)[n2]
             else:                                          # ['x':'x']
                 raise IndexError("More than one non-int index.")
 
     else:  # nargs==3
-        if (typ1 == ARG_INT and typ2 == ARG_INT):
-            if (typ3 == ARG_INT):                          # [0:5:2]
+        if (typ1 == NodeSelKind.ARG_INT and typ2 == NodeSelKind.ARG_INT):
+            if (typ3 == NodeSelKind.ARG_INT):             # [0:5:2]
                 return self.childNodes[n1:n2:n3]
             else:                                          # [0:5:'p']
                 nodeList = self.childNodes[n1:n2]
                 return self._getListItemsByName_(nodeList, n3)
-        elif (typ2 == ARG_INT and typ3 == ARG_INT):        # ['x':0:1]
+        elif (typ2 == NodeSelKind.ARG_INT and typ3 == NodeSelKind.ARG_INT): # ['x':0:1]
             return self._getChildNodesByName_(n1)[n2:n3]
         else:
             raise IndexError(
                 "No 2 adjacent ints in [%s:%s:%s] for a Node." % (n1, n2, n3))
 
-def DEcontains(self:Node, nodeName:NMTokenPlus) -> bool:
+def DEcontains(self:Node, nodeName:NodeSel) -> bool:
     """Test whether the node has a direct child of the given kind.
+    TODO: Should this (and __in__) test direct or indirect containment?
     """
     if (nodeName[0] == '@'):
         return self.hasAttribute(nodeName)
@@ -924,44 +1201,29 @@ def DEcontains(self:Node, nodeName:NMTokenPlus) -> bool:
         if (nodeName[0] == '#' and nodeName == self.nodeName): return True
         return False
 
+# TODO: Better name for this.
 def nameOfNodeType(self:Node):
     nt = NodeTypes(self.nodeType)
     return nt.name
 
-def _getChildNodesByName_(self:Node, nodeKind:NMTokenPlus) -> list:
+def _getChildNodesByName_(self:Node, nodeSel:NodeSel) -> list:
     """Return a list of this node's children of a given kind..
     """
-    return self._getListItemsByName_(self.childNodes, nodeKind)
+    return self._getListItemsByName_(self.childNodes, nodeSel)
 
-def _getListItemsByName_(self:Node, theList:list, nodeKind:NMTokenPlus) -> list:
+def _getListItemsByName_(self:Node, theList:list, nodeSel:NodeSel) -> list:
     """No attributes or ints here.
     """
-    typ = argType(nodeKind)
-    if (typ not in [ ARG_RESERVED, ARG_STAR, ARG_NAME ]):
+    nk = NodeSelKind.getKind(nodeSel)
+    if (nk not in [ NodeSelKind.ARG_RESERVED, NodeSelKind.ARG_STAR, NodeSelKind.ARG_NAME ]):
         raise IndexError(
-            "Node index '%s' is not reserved, '*', or element type." % (nodeKind))
+            "Node index '%s' is not reserved, '*', or element type." % (nodeSel))
     inodes = []
     for item in theList:
         if (item.nodeType==Node.ELEMENT_NODE and
-            (nodeKind=='*' or item._nodeName==nodeKind)):
+            (nodeSel=='*' or item._nodeName==nodeSel)):
             inodes.append(item)
     return inodes
-
-def argType(someArg:Union[str, int]) -> int:
-    """Categorize one of the arguments to __getitem__().
-    TODO: Switch these to int names instead of strings.
-    """
-    if (isinstance(someArg, int)): return ARG_INT
-
-    # Next 3 can all be handled by _getListItemsByName_()
-    if (someArg in [ "#text", "#comment", "#pi", "#cdata" ]): return ARG_RESERVED
-    if (isXmlName(someArg)): return ARG_NAME
-    if (someArg == "*"): return ARG_STAR
-
-    if (someArg[0] == "@" and isXmlName(someArg[1:])): return ARG_ATTRIBUTE
-    #if (someArg == ".."): return ARG_ANCESTOR
-    if (someArg is None): return None
-    raise IndexError("Bad argument type for '%s'." % (someArg))
 
 
 ###############################################################################
@@ -993,6 +1255,7 @@ def innerHTML(self:Node, cOptions=None, indent:str="    ", breakEndTags:bool=Fal
     for curNode in self.childNodes:
         ty = curNode.nodeType
         if (ty == Node.TEXT_NODE):
+            sys.stderr.write("#TEXT: %s" % (curNode.nodeValue))
             t += curNode.nodeValue
         elif (ty==Node.DOCUMENT_NODE or 
               ty==Node.DOCUMENT_FRAGMENT_NODE or 
@@ -1003,7 +1266,7 @@ def innerHTML(self:Node, cOptions=None, indent:str="    ", breakEndTags:bool=Fal
             if (breakEndTags): t += indentString
             t += curNode.getEndTag()
         elif (ty == Node.CDATA_SECTION_NODE):
-            t += "<![CDATA[%s]]>" % (escapeCDATA(curNode.data))
+            t += "<![CDATA[%s]]>" % (XMLStrings.escapeCDATA(curNode.data))
         elif (ty == Node.ENTITY_REFERENCE_NODE):
             pass
         elif (ty == Node.ENTITY_NODE):
@@ -1035,7 +1298,7 @@ def innerText(self:Node, sep:str='') -> str:
     """
     if (self.nodeType == Node.TEXT_NODE or
         self.nodeType == Node.CDATA_SECTION_NODE):
-        sys.stderr.write(self.nodeValue+"\n")
+        #sys.stderr.write("innerText got '%s'.\n" % (self.nodeValue))
         return self.nodeValue
     if (self.nodeType != Node.ELEMENT_NODE):  # PI, comment
         return ""
@@ -1075,12 +1338,12 @@ def NNM_getitem(self:NamedNodeMap, which):
 #
 # TODO: Support negative to go from end in remaining cases.
 #
-def selectSelf(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectSelf(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     if (self.nodeMatches(nodeName, attrs)):
         if (n==0 or n==-1): return self
     return None
 
-def selectAncestor(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectAncestor(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     """Return the first/nth ancestor that fits the requirements.
     TODO: Support negative n.
     """
@@ -1090,7 +1353,7 @@ def selectAncestor(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None)
     return cur.selectAncestorOrSelf(
         n=n, nodeName=nodeName, attrs=attrs)
 
-def selectAncestorOrSelf(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectAncestorOrSelf(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     """Like selectAncestor(), but the node itself is also considered.
     n=-01 means the outermost one (if no
     other constraints are given, the document element).
@@ -1106,7 +1369,7 @@ def selectAncestorOrSelf(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict
         cur= cur.parentNode
     return None
 
-def selectChild(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectChild(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     """n=-01 means the last one.
     """
     found = 0
@@ -1127,7 +1390,7 @@ def selectChild(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) ->
 
     return None
 
-def selectDescendantOrSelf(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectDescendantOrSelf(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     """TODO: Support negative n.
     """
     if (n<0):
@@ -1137,12 +1400,12 @@ def selectDescendantOrSelf(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:di
         n -= 1
     return selectDescendantR(n, nodeName, attrs)
 
-def selectDescendant(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectDescendant(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     """
     """
     return selectDescendantR(n, nodeName, attrs)
 
-def selectDescendantR(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectDescendantR(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     """
     """
     found = 0
@@ -1164,7 +1427,7 @@ def selectDescendantR(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=No
             cur = cur.getPreceding()
         return None
 
-def selectPreceding(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectPreceding(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     """TODO: Support -n
     """
     if (n < 0):
@@ -1206,7 +1469,7 @@ def getPrecedingAbsolute(self:Node) -> Node:
         cur = cur.parentNode
     return None
 
-def selectFollowing(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectFollowing(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     """As in XPath, does not include descendants.
     See https://stackoverflow.com/questions/44377798/
     TODO: Support -n
@@ -1245,7 +1508,7 @@ def getFollowingAbsolute(self:Node) -> Node:
         cur = cur.parentNode
     return None
 
-def selectPrecedingSibling(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectPrecedingSibling(self:Node, n:int=0, nodeName:NodeSel="", attrs:dict=None) -> Node:
     """TODO: Support -n
     """
     if (n < 0):
@@ -1259,7 +1522,7 @@ def selectPrecedingSibling(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:di
         cur = cur.getPreviousSibling()
     return None
 
-def selectFollowingSibling(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:dict=None) -> Node:
+def selectFollowingSibling(self:Node, n:int=0, nodeSel:NodeSel="", attrs:dict=None) -> Node:
     """TODO: Support -n
     """
     if (n < 0):
@@ -1267,7 +1530,7 @@ def selectFollowingSibling(self:Node, n:int=0, nodeName:NMTokenPlus="", attrs:di
     cur = self.getFollowingSibling()
     found = 0
     while (cur):
-        if (cur.nodeMatches(nodeName, attrs)):
+        if (cur.nodeMatches(nodeSel, attrs)):
             found += 1
             if (found >= n): return cur
         cur = cur.getFollowingSibling()
@@ -1317,43 +1580,45 @@ def getRightBranch(self:Node) -> Node:
     while (cur.lastChild): cur = cur.lastChild
     return cur
 
-def getFirstChild(self:Node, nodeName:NMTokenPlus=None) -> Node:
+def getFirstChild(self:Node, nodeSel:NodeSel=None) -> Node:
+    # TODO: Unify nodeSel
     for ch in self.childNodes:
-        if (ch.nodeName == nodeName): return ch
-        if (nodeName=="*" and ch.nodeType==Node.ELEMENT_NODE): return ch
+        if (ch.nodeName == nodeSel): return ch
+        if (nodeSel=="*" and ch.nodeType==Node.ELEMENT_NODE): return ch
     return None
 
-def getLastChild(self:Node, nodeName:NMTokenPlus=None) -> Node:
+def getLastChild(self:Node, nodeSel:NodeSel=None) -> Node:
     for ch in reversed(self.childNodes):
-        if (ch.nodeName == nodeName): return ch
-        if (nodeName=="*" and ch.nodeType==Node.ELEMENT_NODE): return ch
+        if (ch.nodeName == nodeSel): return ch
+        if (nodeSel=="*" and ch.nodeType==Node.ELEMENT_NODE): return ch
     return None
 
-def getNChildNodes(self:Node, nodeKind:NMTokenPlus=None) -> int:
+def getNChildNodes(self:Node, nodeSel:NodeSel=None) -> int:
     """Return the number of children of the current node.
-    @param nodeKind: If "*", count only elements; If an actual name,
+    @param nodeSel: If "*", count only elements; If an actual name,
     count only element of that name.
     """
-    if (not nodeKind): return len(self.childNodes)
+    if (not nodeSel): return len(self.childNodes)
     n = 0
     for ch in self.childNodes:
-        if (nodeKind is None or
+        if (nodeSel is None or
             (ch.nodeType == Node.ELEMENT_NODE and
-             (nodeKind=='*' or nodeKind==ch.nodeName))): n += 1
+             (nodeSel=='*' or nodeSel==ch.nodeName))): n += 1
     return n
 
-def getChildNumber(self:Node, nodeKind:NMTokenPlus=None) -> int:
+def getChildNumber(self:Node, nodeSel:NodeSel=None) -> int:
     """Return the number of this node among its siblings.
-    @param nodeKind: If specified, only count siblings that are elements of
+    @param nodeSel: If specified, only count siblings that are elements of
     the specified type ('*' for all).
     """
     n = 0
     for ch in self.parentNode.childNodes:
-        if (nodeKind is None or
+        if (nodeSel is None or
             (ch.nodeType == Node.ELEMENT_NODE and
-             (nodeKind=='*' or nodeKind==ch.nodeName))): n += 1
+             (nodeSel=='*' or nodeSel==ch.nodeName))): n += 1
         if (ch==self): return n
     return None
+    
 getMyIndex = getChildNumber
 
 def getDepth(self:Node) -> int:
@@ -1384,16 +1649,17 @@ def getFQGI(self:Node, sep:str="/") -> Union[str, list]:
         return sep.join(flist)
     return flist
 
-def isWithinType(self:Node, nodeName:NMToken) -> bool:
+def isWithinType(self:Node, nodeSel:NodeSel) -> bool:
     """Test whether a node has an ancestor of a specified element type.
     You can do this equally well with selectAncestor().
     """
     cur = self
     while (cur):
-        if (cur.nodeName == nodeName): return True
+        if (cur.nodeName == nodeSel): return True
         cur = cur.parentNode
     return False
 
+# TODO: Patch onto __contains__?
 def isWithin(self:Node, node:Node) -> bool:
     """Test whether some specific node is an ancestor of the given node.
     """
@@ -1471,6 +1737,7 @@ def findTextByOffset(self:Node, textOffset:int=0):
         textSeen += lastLen
     return tnode, lastLen
 
+# TODO: Patch onto < >, cmp()
 def compareDocumentPosition(self:Node, other:Node):
     """Compare two nodes for order.
     """
@@ -1479,7 +1746,7 @@ def compareDocumentPosition(self:Node, other:Node):
 def getXPointerToNode(self:Node, idAttrName:NMToken="id") -> str:
     """Get a simple XPointer to the node, as a string.
     If `idAttrName` is not empty (it defaults to "id"), the XPointer will use that 
-    as an ID, and use child sequence numbers from there down. This is much more robust.
+    as an ID, and use child sequence numbers from there down. This is more robust.
     """
     f = ""
     cur = self
@@ -1488,7 +1755,7 @@ def getXPointerToNode(self:Node, idAttrName:NMToken="id") -> str:
         cur = cur.parentNode
     return f
 
-def XPointerCompare(self:Node, xp1, xp2):
+def XPointerCompare(self:Node, xp1:str, xp2:str) -> int:
     """Compare two purely numeric XPointers for relative order.
     Does not support ones with IDs.
     """
@@ -1506,7 +1773,7 @@ def XPointerCompare(self:Node, xp1, xp2):
     # At least one of them ran out...
     return cmp(len(t1), len(t2))
 
-def XPointerInterpret(self:Node,  xp) -> Node:
+def XPointerInterpret(self:Node, xp:str) -> Node:
     """Given an XPointer string, find the node (if it exists).
     """
     document = self.ownerDocument()
@@ -1524,23 +1791,19 @@ def XPointerInterpret(self:Node,  xp) -> Node:
 
 
 ###############################################################################
-# @TODO UPDATE TO MATCH AJICSS.js
+# TODO UPDATE TO MATCH AJICSS.js
 #
-def nodeMatches(self:Node, nodeKind:NMTokenPlus="*", attrs:dict=None) -> bool:
+def nodeMatches(self:Node, nodeSel:NodeSel="*", attrs:dict=None) -> bool:
     """Check if a node matches the supported selection constraints.
     Used by all the selectAXIS() methods.
 
-    @param nodeKind can be any of the following:
-        A literal node name for an element
-        '*' (the default) for any element
-        '#' plus a DOM nodeType name (can omit '_NODE', or abbreviate)
-        A compiled regex
-
-        Possible additions:
-            An integer DOM nodeType number
-            '#WSOTN' for non-white-space-only text nodes,
-            '#NWSOTN' for anything that's not a WSOTN
-            '#ET' for elements and non-white-space-only text nodes
+    @param nodeSel is as for __getitem__, described under class NodeSelKind.
+        (NOT integers in this case as opposed to for __getitem__).
+        A literal nodeName for an element
+        At attribute name, prefixed with "@"
+        '*' (the default), to match any element, but no non-element
+        '#text', '#pi', '#commend', or '#cdata'
+        A compiled regex, which is matched against element names
 
     @param attrs: a dict of attribute name:value pairs, all of which must match.
     If the value for any attribute in the dict is truly None, then that
@@ -1551,21 +1814,10 @@ def nodeMatches(self:Node, nodeKind:NMTokenPlus="*", attrs:dict=None) -> bool:
     @TODO: Perhaps allow regexes, numeric comparison for numeric values, etc.
     @TODO: Perhaps allow matching against any token(s) of an attribute?
     """
-    if (nodeKind):                                     # check type constraint:
-        if (nodeKind == "*"):
-            if (self.nodeType!=Node.ELEMENT_NODE): return False
-        elif (":" in nodeKind):
-            raise NOT_SUPPORTED_ERR("Namespaces not yet allowed for select...().")
-        else:
-            # Would prefer to test _sre.SRE_Pattern, but that doesn't work.
-            if (type(nodeKind) == _regexType):
-                if (not re.match(nodeKind, self.nodeKind)): return False
-            else:
-                if (self.nodeName != nodeKind): return False
-
+    nsm = self.nodeSelMatches(nodeSel)
+    if (not nsm): return False
+    
     if (not attrs): return True
-    if (self.nodeType == Node.TEXT_NODE): return False
-
     for tgtName, tgtVal in attrs.items:
         if (":" in tgtName):
             raise NOT_SUPPORTED_ERR("Namespaces not yet allowed for select...().")
@@ -1590,6 +1842,31 @@ def nodeMatches(self:Node, nodeKind:NMTokenPlus="*", attrs:dict=None) -> bool:
                 if (attrVal != tgtVal): return False
     return True
 
+def nodeSelMatches(self, nodeSel) -> bool:
+    """Evaluate whether the Node matches *just* the specified nodeSel args.
+    """
+    if (not nodeSel): return True
+    nsk = NodeSelKind.getKind(nodeSel)
+    if (nsk == NodeSelKind.ARG_NAME):
+        return bool(self.nodeType == Node.ELEMENT_NODE and self.nodeName == nodeSel)
+    elif (nsk == NodeSelKind.ARG_REGEX):
+        return (self.nodeType == Node.ELEMENT_NODE and re.search(nodeSel, self.nodeName))
+    elif (nsk == NodeSelKind.ARG_ATTR):
+        return (self.nodeType == Node.ATTRIBUTE_NODE and self.nodeName == nodeSel[1:])
+    elif (nsk == NodeSelKind.ARG_STAR):
+        return (self.nodeType == Node.ELEMENT_NODE)
+    elif (nsk == NodeSelKind.ARG_TEXT):
+        return (self.nodeType == Node.TEXT_NODE)
+    elif (nsk == NodeSelKind.ARG_COMMENT):
+        return (self.nodeType == Node.COMMENT_NODE)
+    elif (nsk == NodeSelKind.ARG_PI):
+        return (self.nodeType == Node.PROCESSING_INSTRUCTION_NODE)
+    elif (nsk == NodeSelKind.ARG_CDATA):
+        return (self.nodeType == Node.CDATA_SECTION_NODE)
+    else:
+        raise KeyError("Unknown NodeSelKind")
+
+
 def getInheritedAttribute(self:Node, aname:NMToken) -> str:
     """Search upward to find an assignment to an attribute, and return the
     nearest non-empty one (or None if none is found).
@@ -1607,7 +1884,7 @@ def getEscapedAttribute(self:Node, aname:NMToken, quoteChar:str='"') -> str:
     any occurrences of the `quoteChar` (usually double quote).
     """
     avalue = self.getAttribute(aname)
-    return escapeXmlAttribute(avalue, quoteChar='"')
+    return XMLStrings.escapeXmlAttribute(avalue, quoteChar='"')
 
 def getCompoundAttribute(self:Node, name:NMToken, sep:str='#', keepMissing:bool=False) -> str:  ### Not DOM
     """Return the concatenation of the values of the named attribute,
@@ -1653,7 +1930,7 @@ def getAttributeAs(
             castVal = typ(val)
         return castVal
     else:
-        parts = re.split(_xmlSpaceExpr, val.strip())
+        parts = re.split(XMLStrings._xmlSpaceExpr, val.strip())
         castVals = []
         for part in parts:
             if (typ == bool):
@@ -1752,7 +2029,7 @@ def removeWhiteSpaceNodesCB(self:Node) -> None:
     """
     if (self.nodeType != Node.TEXT_NODE): return
     t = self.data
-    mat = re.search(xmlSpaceOnlyRegex, t, "")
+    mat = re.search(XMLStrings._xmlSpaceOnlyRegex, t, "")
     if (mat): self.parentNode.removeChild(self)
 
 def removeNodesByTagName(self:Node, nodeName:NMToken) -> int:
@@ -2426,12 +2703,12 @@ def collectAllXml2r(self:Node, cOptions, depth:int=1):
         if (cOptions.indentText): buf = ind(cOptions, depth, "#text")
         if (cOptions.strip): s = self.data.strip()
         else: s = self.data
-        em.emit(buf + escapeXml(s))
+        em.emit(buf + XMLStrings.escapeXml(s))
 
     elif (ntype == Node.CDATA_SECTION_NODE):          # 4 CDATA
         buf = ""
         if (cOptions.indentText): buf = ind(cOptions, depth, "#cdata")
-        em.emit(buf + "<![CDATA[%s]]>" % (escapeCDATA(self.data)))
+        em.emit(buf + "<![CDATA[%s]]>" % (XMLStrings.escapeCDATA(self.data)))
     elif (ntype == Node.ENTITY_REFERENCE_NODE):       # 5
         pass #nop = 1
     elif (ntype == Node.ENTITY_NODE):                 # 6
@@ -2439,7 +2716,7 @@ def collectAllXml2r(self:Node, cOptions, depth:int=1):
     elif (ntype == Node.PROCESSING_INSTRUCTION_NODE): # 7 PI
         buf = ""
         if (cOptions.breakPIs): buf = ind(cOptions, depth, "#pi")
-        em.emit(buf + "<?%s %s?>" % (self.target, escapePI(self.data)))
+        em.emit(buf + "<?%s %s?>" % (self.target, XMLStrings.escapePI(self.data)))
 
     elif (ntype == Node.COMMENT_NODE):                # 8 COMMENT
         buf = ""
@@ -2500,9 +2777,9 @@ def collectAllXml(
     elif (ntype == Node.ATTRIBUTE_NODE):              # 2 ATTR
         raise ValueError("Why are we seeing an attribute node?")
     elif (ntype == Node.TEXT_NODE):                   # 3 TEXT
-        textBuf += escapeXml(self.data)
+        textBuf += XMLStrings.escapeXml(self.data)
     elif (ntype == Node.CDATA_SECTION_NODE):          # 4 CDATA
-        textBuf += escapeXml(self.data)
+        textBuf += XMLStrings.escapeXml(self.data)
     elif (ntype == Node.ENTITY_REFERENCE_NODE):       # 5 ENTITY REF (deprecated)
         pass
     elif (ntype == Node.ENTITY_NODE):                 # 6 ENTITY
@@ -2568,7 +2845,7 @@ def startCB(self:Node):
     elif (typ == Node.ENTITY_NODE):                  # 6
         pass
     elif (typ == Node.PROCESSING_INSTRUCTION_NODE):  # 7
-        buf = "<?%s %s?>" % (self.target, escapePI(self.data))
+        buf = "<?%s %s?>" % (self.target, XMLStrings.escapePI(self.data))
     elif (typ == Node.DOCUMENT_NODE):                # 8
         pass
     elif (typ == Node.DOCUMENT_NODE):                # 9
@@ -2619,134 +2896,6 @@ def endCB(self:Node):
     fhGlobal.write(buf)
 
 # END of DomExtensions definitions
-
-
-###############################################################################
-# GENERAL METHODS ON STRINGS
-#
-def escapeXmlAttribute(s:str, quoteChar:str='"') -> str:
-    """Turn characters special in (double-quoted) attributes, into char refs.
-    Set to "'" if you prefer single-quoting your attributes, in which case that
-    character will be replaced by a character reference instead.
-    This always uses the predefined XML named special character references.
-    """
-    s = nukeNonXmlChars(s)
-    s = re.sub(r'&', "&amp;",   s)
-    s = re.sub(r'<', "&lt;",    s)
-    if (quoteChar == '"'): s = re.sub(r'"', "&quot;",  s)
-    else: s = re.sub(r"'", "&apos;",  s)
-    return s
-
-def escapeXml(s:str, escapeAllGT:bool=False) -> str:
-    """Turn things special in text content, into char refs.
-    This always uses the predefined XML named special character references.
-    """
-    s = nukeNonXmlChars(s)
-    s = re.sub(r'&',   "&amp;",  s)
-    s = re.sub(r'<',   "&lt;",   s)
-    if (escapeAllGT): s = re.sub(r'>', "&gt;", s)
-    else: s = re.sub(r']]>', "]]&gt;", s)
-    return s
-
-def escapeCDATA(s:str, replaceWith:str="]]&gt;") -> str:
-    """XML Defines no particular escaping for this, we use char-ref syntax.
-    """
-    s = nukeNonXmlChars(s)
-    s = re.sub(r']]>', replaceWith, s)
-    return s
-
-def escapeComment(s:str, replaceWith:str="-&#x002d;") -> str:
-    """XML Defines no particular escaping for this, we use char-ref syntax.
-    """
-    s = nukeNonXmlChars(s)
-    s = re.sub(r'--', replaceWith, s)
-    return s
-
-def escapePI(s:str, replaceWith:str="?&gt;") -> str:
-    """XML Defines no particular escaping for this, we use char-ref syntax.
-    """
-    s = nukeNonXmlChars(s)
-    s = re.sub(r'\?>', replaceWith, s)
-    return s
-
-def escapeASCII(s:str, width:int=4, base:int=16, htmlNames:bool=True) -> str:
-    """Turn all non-ASCII characters into character references.
-    @param width: zero-pad numbers to at least this many digits.
-    @param base: 10 for decimal, 16 for hexadecimal.
-    @param htmlNames: If True, use HTML 4 named entities when applicable.
-    """
-    # TO DO: What is the right type to use for mat? _sre.SRE_Match ?
-    def escASCIIFunction(mat:Match) -> str:
-        """Turn all non-ASCII chars to character refs.
-        """
-        code = ord(mat.group[1])
-        if (PY3):
-            nonlocal width, base, htmlNames
-        else:
-            # https://stackoverflow.com/questions/3190706/
-            raise ValueError("PY3 dependency: nonlocal.")
-        if (htmlNames and code in codepoint2name):
-            return "&%s;" % (codepoint2name[code])
-        if (base==10):
-            return "&#%*d;" % (width, code)
-        return "&#x%*x;" % (width, code)
-
-    s = nukeNonXmlChars(s)
-    s = re.sub(r'([^[:ascii:]])r', escASCIIFunction, s)
-    s = escapeXml(s)
-    return s
-
-def nukeNonXmlChars(s:str) -> str:
-    """Remove the C0 control characters not allowed in XML.
-    Unassigned Unicode characters higher up are left unchanged.
-    """
-    return re.sub("[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(s))
-
-def unescapeXml(s:str) -> str:
-    """Escape as needed for XML content: lt, amp, and ]]>.
-    """
-    return re.sub(r'&(#[xX])?(\w+);', unescapeXmlFunction, s)
-
-def unescapeXmlFunction(mat:Match) -> str:
-    """Convert HTML entities, and numeric character references, to literal chars.
-    """
-    if (len(mat.group(1)) == 2):
-        return unichr(int(mat.group[2], 16))
-    elif (mat.group(1)):
-        return unichr(int(mat.group[2], 10))
-    elif (mat.group(2) in name2codepoint):
-        return name2codepoint[mat.group(2)]
-    else:
-        raise ValueError("Unrecognized entity: '%s'." % (mat.group(0)))
-
-xmlSpaceChars = " \t\r\n"
-xmlSpaceRegex = re.compile("[%s]+" % (xmlSpaceChars))
-xmlSpaceOnlyRegex = re.compile("^[%s]*$" % (xmlSpaceChars))
-
-def normalizeSpace(s:str, allUnicode:bool=False) -> str:
-    """By default, this only normalizes *XML* whitespace,
-    per the XML spec, section 2.3, grammar rule 3.
-
-    NOTE: Most methods of removing Unicode whitespace in Python do not work
-    for Unicode. See https://stackoverflow.com/questions/1832893/
-
-    U+200B ZERO WIDTH SPACE is left untouched below.
-    """
-    if (allUnicode):
-        s = re.sub(r'(?u)\s+', " ", s, re.UNICODE)
-    else:
-        s = re.sub(xmlSpaceRegex, " ", s)
-    s = s.strip(' ')
-    return s
-
-def stripSpace(s:str, allUnicode:bool=False) -> str:
-    """Remove leading and trailing space, but don't touch internal.
-    """
-    if (allUnicode):
-        s = re.sub(r'^(?u)\s+|(?u)\s+$', " ", s, re.UNICODE)
-    else:
-        s = re.sub(r'^%s|%s$' % (xmlSpaceRegex, xmlSpaceRegex), "", s)
-    return s
 
 
 ###############################################################################
@@ -2867,9 +3016,9 @@ class BS4Features:
         """
         for node in getAllDescendants(node, includeTypes=[ Node.TEXT_NODE ]):
             if (normSpace):
-                ss = normalizeSpace(node.data, allUnicode=allUnicode)
+                ss = XMLStrings.normalizeSpace(node.data, allUnicode=allUnicode)
             else:
-                ss = stripSpace(node.data, allUnicode=allUnicode)
+                ss = XMLStrings.stripSpace(node.data, allUnicode=allUnicode)
             if (ss): yield ss
 
     @staticmethod
@@ -2908,7 +3057,6 @@ class BS4Features:
                 nFound += 1
                 if (limit and nFound >= limit): return
         return
-
 
     @staticmethod
     def BSfind_matcher(node:Node, name:NMToken, attrs:dict=None, string=None, class_=None, **kwargs):
@@ -3052,7 +3200,7 @@ class DomExtensions:
             classes = [ classes ]
         lg.info("====To patch: ")
         for toPatch in classes:
-            lg.info("*** Patching class %s ***\n" % (toPatch))
+            lg.info("*** Patching class %s ***\n", toPatch)
             testCase = getattr(toPatch, "selectAncestor", None)
             if (testCase and callable(testCase)): return
 
@@ -3202,19 +3350,7 @@ class DomExtensions:
             toPatch.collectAllXml           = collectAllXml
             toPatch.export                  = export
 
-            # Escapers
-            toPatch.escapeXmlAttribute      = escapeXmlAttribute
-            toPatch.escapeXml               = escapeXml
-            toPatch.escapeCDATA             = escapeCDATA
-            toPatch.escapeComment           = escapeComment
-            toPatch.escapePI                = escapePI
-            toPatch.escapeASCII             = escapeASCII
-            toPatch.nukeNonXmlChars         = nukeNonXmlChars
-            toPatch.unescapeXml             = unescapeXml
-
-            # Space
-            toPatch.normalizeSpace          = normalizeSpace
-            toPatch.stripSpace              = stripSpace
+            # Escaping and other string-only functions are not patched in.
 
             DomExtensions.checkPatch(toPatch)
         return
@@ -3250,26 +3386,28 @@ class DomExtensions:
                 if (not axisSelects and v.startswith("select")): continue
                 if (excludes and v in excludes): continue
                 if (not callable(v)): continue
-                if (k in toPatchDir): print("Overriding '%s'." % (k))
+                if (k in toPatchDir): print("******* Overriding '%s'." % (k))
                 toPatch.setAttr(k, v)
                 nAdded += 1
             except AttributeError:
                 print(" %-30s  *** FAILED ***" % (k))
         return nAdded
 
-
     @staticmethod
-    def checkPatch(toPatch) -> int:
+    def checkPatch(classes=None) -> int:
         """Make sure we didn't miss adding anybody.
+        @return Number of errors.
         """
+        if (not classes): classes = [ Node ]
         nMissing = 0
-        inPatch = toPatch.__dict__.keys()
-        for k, v in DomExtensions.__dict__.items():
-            if (not callable(v)): continue
-            if (k.startswith("__")): continue
-            if (k in inPatch): continue
-            sys.stderr.write("Did not get into patch: '%s'." % (k))
-            nMissing += 1
+        for toPatch in classes:
+            inPatch = toPatch.__dict__.keys()
+            for k, v in DomExtensions.__dict__.items():
+                if (not callable(v)): continue
+                if (k.startswith("__")): continue
+                if (k in inPatch): continue
+                sys.stderr.write("Did not get into patch: '%s'." % (k))
+                nMissing += 1
         return nMissing
 
 
@@ -3330,7 +3468,7 @@ if __name__ == "__main__":
 
     if (len(args.files) == 0):
         tfileName = "testDoc.xml"
-        lg.warning("No files specified, trying %s." % (tfileName))
+        lg.warning("No files specified, trying %s.", tfileName)
         args.files.append(tfileName)
 
     for path0 in args.files:

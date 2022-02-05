@@ -105,6 +105,9 @@ Balisage Series on Markup Technologies, vol. 13.
 
 * Perhaps allow passing in a regex for the string arg?
 * Perhaps restrict the string arg to last position only?
+* With no filter arg, should we count or ignore wsn nodes? I'm thinking count, since
+we do have "*" for the other case, and so len() comes out consistent.
+* Should "@" or "@.*" get you all attributes?
 
 
 =History=
@@ -206,6 +209,22 @@ class PyNode(Node):
                 raise IndexError(
                     "No 2 adjacent ints in [%s:%s:%s] for a Node." % (n1, n2, n3))
 
+    def len(self):
+        return len(self.childNodes)
+        
+    def what(self):
+        """Avoid the confusing distinction of nodeType vs. nodeName vs. element type/name,
+        by putting everything into a common space.
+        """
+        if (self.nodeType == Node.ELEMENT_NODE):   return self.nodeName
+        if (self.nodeType == Node.TEXT_NODE):      return "#TEXT"
+        if (self.nodeType == Node.DOCUMENT_NODE):  return "#DOC"
+        if (self.nodeType == Node.ATTRIBUTE_NODE): return "@" + self.nodeName
+        if (self.nodeType == Node.COMMENT_NODE):   return "#COM"
+        if (self.nodeType == Node.CDATA_NODE):     return "#CDATA"
+        if (self.nodeType == Node.PROCESSING_INSTRUCTION_NODE): return "#PI"
+        else: return None
+        
     def DEcontains(self:Node, nodeName:str) -> bool:
         """Test whether the node has a direct child of the given element type.
         """
