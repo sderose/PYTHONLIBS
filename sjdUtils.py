@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # sjdUtils: some generally useful stuff.
 #
@@ -27,7 +27,7 @@ else:
         return str(s, encoding, errors)
 
 __metadata__ = {
-    'title'        : "sjdUtils.py",
+    'title'        : "sjdUtils",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -39,7 +39,7 @@ __metadata__ = {
 }
 __version__ = __metadata__['modified']
 
-descr = u"""
+descr = """
 =Description=
 
 Provide some very basic useful utilities, mostly for escaping, colorizing,
@@ -669,9 +669,9 @@ def strip_accents(s):
                   if unicodedata.category(c) != 'Mn')
 
 #straightenSingles = unicode.maketrans(
-#    ULQuotes+URQuotes, u"'" * (len(ULQuotes)+len(URQuotes)))
+#    ULQuotes+URQuotes, "'" * (len(ULQuotes)+len(URQuotes)))
 #straightenDoubles = unicode.maketrans(
-#    ULQuotes+URQuotes, u'"' * (len(ULQuotes)+len(URQuotes)))
+#    ULQuotes+URQuotes, '"' * (len(ULQuotes)+len(URQuotes)))
 
 
 ###############################################################################
@@ -697,10 +697,8 @@ class sjdUtils:
     Includes pretty-printing XML and JSON, times and dates, lorem text,
     escaping and unescaping special characters, etc.
     """
-    __version__ = "2015-10-21"
-
     def __init__(self, verbose=0, colors=1, logger=None, old=True):
-        self.version        = sjdUtils.__version__
+        self.version        = __version__
         self.localeInfo     = None
         self.htmlp          = None
         self.lg             = logger or ALogger(1)
@@ -727,14 +725,14 @@ class sjdUtils:
         self.options = {
             "colorEnabled": 0,   # Using terminal color?
             "loremText": (       # Traditional filler text
-            u"Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do "
-            + u"eiusmod tempor incididunt ut labore et dolore magna aliqua. "
-            + u"Ut enim ad minim veniam, quis nostrud exercitation ullamco "
-            + u"laboris nisi ut aliquip ex ea commodo consequat. "
-            + u"Duis aute irure dolor in reprehenderit in voluptate "
-            + u"velit esse cillum dolore eu fugiat nulla pariatur. "
-            + u"Excepteur sint occaecat cupidatat non proident, sunt in "
-            + u"culpa qui officia deserunt mollit anim id est laborum."
+            "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do "
+            + "eiusmod tempor incididunt ut labore et dolore magna aliqua. "
+            + "Ut enim ad minim veniam, quis nostrud exercitation ullamco "
+            + "laboris nisi ut aliquip ex ea commodo consequat. "
+            + "Duis aute irure dolor in reprehenderit in voluptate "
+            + "velit esse cillum dolore eu fugiat nulla pariatur. "
+            + "Excepteur sint occaecat cupidatat non proident, sunt in "
+            + "culpa qui officia deserunt mollit anim id est laborum."
             ),
             "letterFreqs" : []
         }
@@ -1331,7 +1329,7 @@ class sjdUtils:
         s = re.sub(r'\?>', target, s)
         return(s)
 
-    def escapeXmlComment(self, s, target=u"\u2014"):
+    def escapeXmlComment(self, s, target="\u2014"):
         """Turns "--" into em dash (U+2014) within s. "--" is not allowed
         inside XML comments. This is not a method defined by XML.
         """
@@ -1623,7 +1621,7 @@ if __name__ == "__main__":
         description=descr)
 
     parser.add_argument(
-        "--version", action='version', version=sjdUtils.__version__,
+        "--version", action='version', version=__version__,
         help='Display version information, then exit.')
     args = parser.parse_args()
     sys.exit()

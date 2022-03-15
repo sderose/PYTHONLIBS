@@ -11,7 +11,7 @@ import re
 from typing import Any, List, Callable
 
 __metadata__ = {
-    'title'        : "LooseDict.py",
+    'title'        : "LooseDict",
     'description'  : "Enhance dict to handle case-ignorant or similar lookups.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

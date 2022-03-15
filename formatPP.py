@@ -9,7 +9,7 @@ import re
 # from string import Formatter
 #
 __metadata__ = {
-    "title"        : "formatPP.py",
+    "title"        : "formatPP",
     "description"  : "Some extensions to Python built-in format().",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

@@ -54,11 +54,12 @@ from time import time, ctime
 import typing
 from typing import IO, Dict, List, Union, Any, Iterable, Callable, Type
 import unicodedata
-import xml, xml.dom, xml.dom.minidom
+import xml
+import xml.dom
+import xml.dom.minidom
 from xml.dom.minidom import Document, Node, Element, Text, NamedNodeMap
 import xml.sax
 from xml.parsers import expat
-
 
 import DomExtensions
 from PowerWalk import PowerWalk, PWType

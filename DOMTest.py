@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# DomTest.py
+# DOMTest.py: Test harness for DOMExtensions, DOMgetitem, etc.
 # 2022-02-02: Written by Steven J. DeRose.
 #
 #pylint: disable=W0511,W0612,W0613
@@ -18,13 +18,13 @@ lg = logging.getLogger("main")
 
 import DomExtensions
 from DomExtensions import DomExtensions as de
-from DomExtensions import XMLStrings
+from DomExtensions import XMLStrings, NodeSelKind
 from xml.dom import minidom
 #from xml.dom.minidom import Document, Node, Element
 
 __metadata__ = {
-    "title"        : "DomTest.py",
-    "description"  : "",
+    "title"        : "DOMTest",
+    "description"  : "Test harness for DOMExtensions, DOMgetitem, etc.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
     "type"         : "http://purl.org/dc/dcmitype/Software",
@@ -41,7 +41,7 @@ descr = """
 
 ==Usage==
 
-    # x = DomTest.py [options] [files]
+    # x = DOMTest.py [options] [files]
 
 Test a DOM implementation, especially my extensions such as:
     * DomExtensions.py
@@ -76,6 +76,7 @@ or [https://github.com/sderose].
 
 =Options=
 """
+
 
 ###############################################################################
 # Some sample data
@@ -246,7 +247,7 @@ def subtest_basics(dom):
     for s, isName, isQName, isNMPlus, isNUM in x:
         assert isName   == XMLStrings.isXmlName(s)
         assert isQName  == XMLStrings.isXmlQName(s)
-        assert isNMPlus == XMLStrings.isNodeChoice(s)  # allows initial [#@] and "*"
+        assert isNMPlus == XMLStrings.isNodeKindChoice(s)  # allows initial [#@] and "*"
         assert isNUM    == XMLStrings.isXmlNumber(s)
             
     for i in range(13):
@@ -262,11 +263,11 @@ def subtest_basics(dom):
         ( '#text',    0,   0,   0,   0,       1 ),
     ]
     for s, isInt, isName, isAttr, isStar, isReserved in x:
-        assert isInt      == DomExtensions.argType(s)
-        assert isName     == DomExtensions.argType(s)
-        assert isAttr     == DomExtensions.argType(s)
-        assert isStar     == DomExtensions.argType(s)
-        assert isReserved == DomExtensions.argType(s)
+        assert isInt      == NodeSelKind.getKind(s)
+        assert isName     == NodeSelKind.getKind(s)
+        assert isAttr     == NodeSelKind.getKind(s)
+        assert isStar     == NodeSelKind.getKind(s)
+        assert isReserved == NodeSelKind.getKind(s)
 
     # On strings
     # TODO: options for ZML escaping, hex/dec/name entities, width, maybe TEX? Ents
@@ -622,9 +623,8 @@ def subtest_tables(doc):
     # x = transpose(doc)
     # x = eliminateSpans(doc, rowSpanAttr="rowspan", colSpanAttr="colspan")
     # x = hasSubTable(doc, tableTag="table")
-    """isNormal hasRowSpan hasColSpan nameColumns
-    toMarkDown to JSON fromMarkDown fromJSON toLaTEX
-    """
+    #isNormal hasRowSpan hasColSpan nameColumns
+    #toMarkDown to JSON fromMarkDown fromJSON toLaTEX
     return nErrors
     
 

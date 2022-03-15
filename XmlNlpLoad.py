@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3  
 #
-# XmlNlpLoad.pm
+# XmlNlpLoad.pm: "Pull text from XML and arrange for NLP tools.
 # 2018-05-07: Written by Steven J. DeRose.
 #
 from __future__ import print_function
@@ -13,7 +13,7 @@ from alogging import ALogger
 lg = ALogger(1)
 
 __metadata__ = {
-    "title"        : "XmlNlpLoad.py",
+    "title"        : "XmlNlpLoad",
     "description"  : "Pull text from XML and arrange for NLP tools.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
@@ -28,6 +28,15 @@ __version__ = __metadata__["modified"]
 
 
 descr = """
+
+[far from finished]
+
+
+=To Do=
+
+* Add DOMExtensions support for untagElements.
+
+
 =History=
 
   2018-05-07, 2018-08-16: Written by Steven J. DeRose.
@@ -95,8 +104,9 @@ class XmlNlpLoad:
             for etype in self.dropElements:
                 theDOM.removeByTagName(etype)
         if (self.untagElements):
-            for etype in self.untagElements:
-                theDOM.untagByTagName(etype)
+            assert False, "untagElements not yet implemented."
+            #for etype in self.untagElements:
+            #    theDOM.untagByTagName(etype)
         if (self.mergeElements):
             for fromType, toType in self.mergeElements.items():
                 theDOM.renameByTagName(fromType, toType)

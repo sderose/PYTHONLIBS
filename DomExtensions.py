@@ -23,7 +23,7 @@ if PY3:
 
 
 __metadata__ = {
-    'title'        : "DomExtensions.py",
+    'title'        : "DomExtensions",
     'description'  : "A bunch of (hopefully) useful additions to the DOM API.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
@@ -737,17 +737,19 @@ speeches, etc.?
 
 =Related commands=
 
-`testDom.py` -- a package of test cases to exercise DOM and this.
+`DOMTableTools.py` -- DOM additions specifically for tables.
 
-`XmlOutput.pm` -- Makes it easy to produce WF XML output. Provides methods
-for escaping data correctly for each relevant context; knows about character
-references, namespaces, and the open-element context; has useful methods for
-inferring open and close tags to keep things in sync.
+`testDom.py` -- a package of test cases to exercise DOM and this.
 
 `BaseDom.py` -- A very simple DOM implementation in pure Python. Mostly for testing.
 
 `Dominus.py` -- a disk-resident DOM implementation that can handle absurdly
 large documents.
+
+`XmlOutput.pm` -- Makes it easy to produce WF XML output. Provides methods
+for escaping data correctly for each relevant context; knows about character
+references, namespaces, and the open-element context; has useful methods for
+inferring open and close tags to keep things in sync.
 
 
 =History=
@@ -1088,7 +1090,7 @@ class NodeSelKind(Enum):
     ARG_CDATA     = 0x100  # #cdata
     
     @staticmethod
-    def getKind(someArg:Union[str, int]) -> 'NodeSelKind':
+    def getKind(someArg:Union[str, int]) -> 'NodeSelKind':  # nee def argType()
         """Categorize one of the arguments to __getitem__().
         """
         if (someArg is None): return NodeSelKind.ARG_NONE

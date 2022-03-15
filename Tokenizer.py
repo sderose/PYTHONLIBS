@@ -1,13 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Tokenizer.pm: Port of my Perl tokenizer.
-# Written by Steven J. DeRose.
+# 2012-08-22: Written by Steven J. DeRose.
+#
 from __future__ import print_function
 import sys
-import regex as re  # Adds support for \p{}
+import regex as re  # Adds support for \p{}. See https://pypi.org/project/regex/
 import codecs
 import unicodedata
 import urllib
+import html
 from html.parser import HTMLParser
 
 def unicode(s, encoding="utf-8", errors="strict"):
@@ -15,23 +17,25 @@ def unicode(s, encoding="utf-8", errors="strict"):
     return s
 
 __metadata__ = {
-    "title"        : "Tokenizer.py",
+    "title"        : "Tokenizer",
     "description"  : "An NLP tokenizer that knows about Unicode.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2012-08-22",
-    "modified"     : "2021-04-09",
+    "modified"     : "2022-03-11",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__["modified"]
 
 
-
 descr = """
-=Usage=
+=Description=
+
+Divide strings into tokens, trying to be sensible about Unicode issues,
+complicated numbers, dates and times, DNA, URLs, emails, contractions, etc.
 
 This is a natural-language tokenizer, intended as a front-end to NLP
 software, particularly lexico-statistical calculators. It's pretty
@@ -48,7 +52,8 @@ There are several tokenizers included:
 * The ''SimpleTokenizer'' class is quick and should be adequate for
 many uses. It drops soft/optional hyphens, normalizes Unicode (accents,
 ligatures, etc.), then applyies a few regexes to insert
-extra spaces (such as before the apostrophe of contractions, around emdashes, after opening punctuation, etc.), and then splits on space-runs.
+extra spaces (such as before the apostrophe of contractions, around emdashes, 
+after opening punctuation, etc.), and then splits on space-runs.
 It offers an option to use ''TokensEN.py'' for contractions, but
 otherwise applies a simplified rule for them.
 
@@ -78,7 +83,8 @@ makes a few adjustments. Usage is the same as just shown,
 just substitute "NLTKTokenizerPlus".
 
 * ''HeavyTokenizer'' provides a variety of useful but complex steps, and
-can do a lot of manipulation to help when gathering lexicostatistics. Usage is the same as just shown, just substitute "HeavyTokenizer". However, you'll
+can do a lot of manipulation to help when gathering lexicostatistics. 
+Usage is the same as just shown, just substitute "HeavyTokenizer". However, you'll
 probably want to use ''setOption''() to pick exactly what behaviors you want.
 
 ==Details on the HeavyTokenizer==
@@ -95,33 +101,32 @@ dashes (soft, em, etc.), spaces (non-breaking, m-width, etc.), etc.
 * Identify many specific types of non-word tokens (numbers, date, URIs, DNA, emoticons,...)
 
 * Filter out or merge particular tokens (for example, sometimes you
-might want only alphabetic tokens, or no punctuation; or want a "cover"
+might want only alphabetic tokens; or no punctuation; or want a "cover"
 token such as "99" to represent ''all'' numbers; etc.) This is especially
 useful when developing lexica from corpora.
 
 * Generate the actual tokenized result.
-
 
 HeavyTokenizer focuses on handling complex Unicode issues well (other than
 word-division in space-less orthographies, which it doesn't attempt).
 
 Some of the features in more detail:
 
-* Character represented in special ways, such as %xx codes used in URIs
+* Character represented in special ways, such as %xx codes used in URIs,
 character references like &quot; or &#65; in HTML and XML, and so on. These are
 very often found in lexical databases, and are often handled incorrectly.
 
 * Less-common characters such as ligatures, accents,
-non-Latin digits, fractions, hyphens and dashes, quotes, and spaces, presentation variants, footnote markers,
-angstrom vs. a-with-ring, etc.
+non-Latin digits, fractions, hyphens and dashes, quotes, and spaces, 
+presentation variants, footnote markers, angstrom vs. a-with-ring, etc.
 
 Very many of the NLP systems I've examined fail on quite common cases such as
 hard spaces, ligatures, curly quotes, soft hyphens, and em-dashes.
-That seems sloppy as well as parochial.
+This is intended not to.
 
-* Many kinds of non-word tokens, such as URIs, Twitter hashtags, userids,
-and jargon; numbers, dates, times, email addresses, etc. NLP systems really
-shouldn't break URIs at every "/" and then try to POS-tag the directory names!
+* Many kinds of non-word tokens, such as URIs, Twitter hashtags and userids,
+and jargon; numbers, dates, times, email addresses, etc. Imho, NLP systems
+shouldn't break URIs at every "/" and then try to POS-tag the directory names.
 
 * Contemporary conventions such as emphasis via special puntuations
 (*word*), or via repeating letters (aaaarrrrrggggghhhhhh, hahahaha).
@@ -138,6 +143,10 @@ in all lower, all upper, title, camel, or other case patterns; numers
 tokens containing special characters, long or short tokens, etc. There are many filtering
 options, so you can easily winnow a list down to just what you want.
 
+* Numerics are, I think, handled better than is typical. You don't need integers listed
+in a lexicon, or to miss ones that aren't. Likewise for floating-point numbers,
+currently, etc. Also decades such as 50's 60s '70s and '80's should just work.
+
 
 =Usage=
 
@@ -151,8 +160,8 @@ options, so you can easily winnow a list down to just what you want.
       for token in (tokens):
           counts[token] += 1
 
-There are several steps to the process of tokenizing, with the options
-applicable to each described in order below.
+There are several steps to the process of tokenizing.
+They are described in order below, with the options applicable to each.
 
 Option names appear in '''BOLD''', and values in ''ITALIC'' below.
 The type of value expected is shown in (parentheses): either (boolean), (int),
@@ -692,6 +701,9 @@ apart from their constructs. Use `dropXMLtags` is necessary first.
 
 =Related commands and data=
 
+This uses the "regex" library [https://pypi.org/project/regex] instead of 
+the built-in Python "re". It adds support for \\p{}. 
+
 This Python program is mostly a port of a much earlier Perl one, which is also
 available.
 
@@ -708,10 +720,6 @@ There is some test data inline, and more extensive data at
 See [https://github.com/sderose/Lexicon.git/blob/master/xsv/contractions.xsv],
 [https://github.com/sderose/Lexicon.git/blob/master/python/abbreviations.py]
 
-=Description=
-
-Divide strings into tokens, trying to be sensible about Unicode issues,
-complicated numbers, dates and times, DNA, URLs, emails, contractions, etc.
 
 =Related Commands=
 
@@ -758,6 +766,7 @@ Ported from Tokenizer.pm (also) by Steven J. DeRose.
 * 2020-03-04: Fixes.
 * 2021-04-09: Clean up. Spell NKFD right. Re-sync versions.
 Clean up handling of `dispTypes`, quotes and general lint.
+* 2022-03-11: Drop Python2. Lint.
 
 
 =Rights=
@@ -768,6 +777,7 @@ this license, see [http://creativecommons.org/licenses/by-sa/3.0].
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github.com/sderose].
+
 
 =Options=
 """
@@ -1034,30 +1044,20 @@ def die(msg):
 #
 class SimpleTokenizer:
     # Add spaces around em-dashes, ellipses
-    splitDashes    = re.compile(
-        r"(--+|\u2014|\uFE58|\.\.\.\.?|\u2026)",
-        re.UNICODE)
+    splitDashes    = re.compile(r"(--+|\u2014|\uFE58|\.\.\.\.?|\u2026)")
 
     # Find leading punctuation marks (not apostrophe?)
-    splitFromStart = re.compile(
-        r"(?<=\s|^)([\"`\p{Pi}\p{Ps}]+)",
-        re.UNICODE)
+    splitFromStart = re.compile(r"(?<=\s|^)([\"`\p{Pi}\p{Ps}]+)")
 
     # Find trailing punctuation marks (not apostrophe?)
     # Careful not to catch ":" in things like "2:30am", "http://".
-    splitFromEnd  = re.compile(
-        r"([\"`:;,.?!\p{Pf}\p{Pe}]+)(?=\s|$)",
-        re.UNICODE)
+    splitFromEnd   = re.compile(r"([\"`:;,.?!\p{Pf}\p{Pe}]+)(?=\s|$)")
 
     # Split up contractions and possessives. See also TokensEN.py.
-    contracted     = re.compile(
-        r"(?<=\w)('(s|d|t|ll|ve|re)?)(?=\s|$)",
-        re.UNICODE)
+    contracted     = re.compile(r"(?<=\w)('(s|d|t|ll|ve|re)?)(?=\s|$)")
 
     # Hyphenated words?
-    hyphens        = re.compile(
-        r"(\w)-(\w)",
-        re.UNICODE)
+    hyphens        = re.compile(r"(\w)-(\w)")
 
     # Insert spaces between all characters, except inside emdash, ellipsis.
     #
@@ -1091,7 +1091,7 @@ class SimpleTokenizer:
 
         # Soft (optional) hyphens just get in the way.
         #
-        s2 = re.sub(u"\u00AD", "", s2)             # soft hyphen
+        s2 = re.sub("\u00AD", "", s2)             # soft hyphen
 
         # Insert spaces to separate various punctuation from words.
         #
@@ -1417,82 +1417,82 @@ class HeavyTokenizer:
         # Doesn't deal with spelled out "one half" etc.
         # (sadly, Unicode lumps these into Number, other).
         fractionChars = "".join([
-            u"\u00BC",   # VULGAR FRACTION ONE QUARTER
-            u"\u00BD",   # VULGAR FRACTION ONE HALF
-            u"\u00BE",   # VULGAR FRACTION THREE QUARTERS
-            u"\u0B72",   # ORIYA FRACTION ONE QUARTER
-            u"\u0B73",   # ORIYA FRACTION ONE HALF
-            u"\u0B74",   # ORIYA FRACTION THREE QUARTERS
-            u"\u0B75",   # ORIYA FRACTION ONE SIXTEENTH
-            u"\u0B76",   # ORIYA FRACTION ONE EIGHTH
-            u"\u0B77",   # ORIYA FRACTION THREE SIXTEENTHS
-            u"\u0C78",   # TELUGU FRACTION DIGIT ZERO FOR ODD POWERS OF FOUR
-            u"\u0C79",   # TELUGU FRACTION DIGIT ONE FOR ODD POWERS OF FOUR
-            u"\u0C7A",   # TELUGU FRACTION DIGIT TWO FOR ODD POWERS OF FOUR
-            u"\u0C7B",   # TELUGU FRACTION DIGIT THREE FOR ODD POWERS OF FOUR
-            u"\u0C7C",   # TELUGU FRACTION DIGIT ONE FOR EVEN POWERS OF FOUR
-            u"\u0C7D",   # TELUGU FRACTION DIGIT TWO FOR EVEN POWERS OF FOUR
-            u"\u0C7E",   # TELUGU FRACTION DIGIT THREE FOR EVEN POWERS OF FOUR
-            u"\u0D73",   # MALAYALAM FRACTION ONE QUARTER
-            u"\u0D74",   # MALAYALAM FRACTION ONE HALF
-            u"\u0D75",   # MALAYALAM FRACTION THREE QUARTERS
-            u"\u2044",   # FRACTION SLASH Sm 0 CS     N
-            u"\u2150",   # VULGAR FRACTION ONE SEVENTH
-            u"\u2151",   # VULGAR FRACTION ONE NINTH
-            u"\u2152",   # VULGAR FRACTION ONE TENTH
-            u"\u2153",   # VULGAR FRACTION ONE THIRD
-            u"\u2154",   # VULGAR FRACTION TWO THIRDS
-            u"\u2155",   # VULGAR FRACTION ONE FIFTH
-            u"\u2156",   # VULGAR FRACTION TWO FIFTHS
-            u"\u2157",   # VULGAR FRACTION THREE FIFTHS
-            u"\u2158",   # VULGAR FRACTION FOUR FIFTHS
-            u"\u2159",   # VULGAR FRACTION ONE SIXTH
-            u"\u215A",   # VULGAR FRACTION FIVE SIXTHS
-            u"\u215B",   # VULGAR FRACTION ONE EIGHTH
-            u"\u215C",   # VULGAR FRACTION THREE EIGHTHS
-            u"\u215D",   # VULGAR FRACTION FIVE EIGHTHS
-            u"\u215E",   # VULGAR FRACTION SEVEN EIGHTHS
-            u"\u215F",   # FRACTION NUMERATOR ONE
-            u"\u2189",   # VULGAR FRACTION ZERO THIRDS
-            u"\u2CFD",   # COPTIC FRACTION ONE HALF
-            u"\uA830",   # NORTH INDIC FRACTION ONE QUARTER
-            u"\uA831",   # NORTH INDIC FRACTION ONE HALF
-            u"\uA832",   # NORTH INDIC FRACTION THREE QUARTERS
-            u"\uA833",   # NORTH INDIC FRACTION ONE SIXTEENTH
-            u"\uA834",   # NORTH INDIC FRACTION ONE EIGHTH
-            u"\uA835",   # NORTH INDIC FRACTION THREE SIXTEENTHS
-            u"\u10E7B",   # RUMI FRACTION ONE HALF
-            u"\u10E7C",   # RUMI FRACTION ONE QUARTER
-            u"\u10E7D",   # RUMI FRACTION ONE THIRD
-            u"\u10E7E",   # RUMI FRACTION TWO THIRDS
+            "\u00BC",   # VULGAR FRACTION ONE QUARTER
+            "\u00BD",   # VULGAR FRACTION ONE HALF
+            "\u00BE",   # VULGAR FRACTION THREE QUARTERS
+            "\u0B72",   # ORIYA FRACTION ONE QUARTER
+            "\u0B73",   # ORIYA FRACTION ONE HALF
+            "\u0B74",   # ORIYA FRACTION THREE QUARTERS
+            "\u0B75",   # ORIYA FRACTION ONE SIXTEENTH
+            "\u0B76",   # ORIYA FRACTION ONE EIGHTH
+            "\u0B77",   # ORIYA FRACTION THREE SIXTEENTHS
+            "\u0C78",   # TELUGU FRACTION DIGIT ZERO FOR ODD POWERS OF FOUR
+            "\u0C79",   # TELUGU FRACTION DIGIT ONE FOR ODD POWERS OF FOUR
+            "\u0C7A",   # TELUGU FRACTION DIGIT TWO FOR ODD POWERS OF FOUR
+            "\u0C7B",   # TELUGU FRACTION DIGIT THREE FOR ODD POWERS OF FOUR
+            "\u0C7C",   # TELUGU FRACTION DIGIT ONE FOR EVEN POWERS OF FOUR
+            "\u0C7D",   # TELUGU FRACTION DIGIT TWO FOR EVEN POWERS OF FOUR
+            "\u0C7E",   # TELUGU FRACTION DIGIT THREE FOR EVEN POWERS OF FOUR
+            "\u0D73",   # MALAYALAM FRACTION ONE QUARTER
+            "\u0D74",   # MALAYALAM FRACTION ONE HALF
+            "\u0D75",   # MALAYALAM FRACTION THREE QUARTERS
+            "\u2044",   # FRACTION SLASH Sm 0 CS     N
+            "\u2150",   # VULGAR FRACTION ONE SEVENTH
+            "\u2151",   # VULGAR FRACTION ONE NINTH
+            "\u2152",   # VULGAR FRACTION ONE TENTH
+            "\u2153",   # VULGAR FRACTION ONE THIRD
+            "\u2154",   # VULGAR FRACTION TWO THIRDS
+            "\u2155",   # VULGAR FRACTION ONE FIFTH
+            "\u2156",   # VULGAR FRACTION TWO FIFTHS
+            "\u2157",   # VULGAR FRACTION THREE FIFTHS
+            "\u2158",   # VULGAR FRACTION FOUR FIFTHS
+            "\u2159",   # VULGAR FRACTION ONE SIXTH
+            "\u215A",   # VULGAR FRACTION FIVE SIXTHS
+            "\u215B",   # VULGAR FRACTION ONE EIGHTH
+            "\u215C",   # VULGAR FRACTION THREE EIGHTHS
+            "\u215D",   # VULGAR FRACTION FIVE EIGHTHS
+            "\u215E",   # VULGAR FRACTION SEVEN EIGHTHS
+            "\u215F",   # FRACTION NUMERATOR ONE
+            "\u2189",   # VULGAR FRACTION ZERO THIRDS
+            "\u2CFD",   # COPTIC FRACTION ONE HALF
+            "\uA830",   # NORTH INDIC FRACTION ONE QUARTER
+            "\uA831",   # NORTH INDIC FRACTION ONE HALF
+            "\uA832",   # NORTH INDIC FRACTION THREE QUARTERS
+            "\uA833",   # NORTH INDIC FRACTION ONE SIXTEENTH
+            "\uA834",   # NORTH INDIC FRACTION ONE EIGHTH
+            "\uA835",   # NORTH INDIC FRACTION THREE SIXTEENTHS
+            "\u10E7B",   # RUMI FRACTION ONE HALF
+            "\u10E7C",   # RUMI FRACTION ONE QUARTER
+            "\u10E7D",   # RUMI FRACTION ONE THIRD
+            "\u10E7E",   # RUMI FRACTION TWO THIRDS
         ])
 
         self.regexes["T_FRACTION"]  = r"\b((\d+-)?\d+\/\d+|[%s])\b" % (fractionChars)
 
         ###################################################### CURRENCY
         currency = "".join([r"$",
-            u"\u00A3",   # pound sign
-            u"\u00A4",   # currency sign
+            "\u00A3",   # pound sign
+            "\u00A4",   # currency sign
             #"\u09F4",   # to U+09F9: Bengali currency numerators/denominator
-            u"\u0E3f",   # Thai bhat
-            u"\u17DB",   # Khmer riel
-            u"\u20A0",   # Euro sign ~~ U+20CF
-            u"\uFFE1",   # fullwidth pound sign
-            u"\uFE69",   # SMALL DOLLAR SIGN
-            u"\uFF04",   # FULLWIDTH DOLLAR SIGN
+            "\u0E3f",   # Thai bhat
+            "\u17DB",   # Khmer riel
+            "\u20A0",   # Euro sign ~~ U+20CF
+            "\uFFE1",   # fullwidth pound sign
+            "\uFE69",   # SMALL DOLLAR SIGN
+            "\uFF04",   # FULLWIDTH DOLLAR SIGN
             #"\u1F4B2",  # HEAVY DOLLAR SIGN
         ])
         self.regexes["T_CURRENCY"]  = r"\b[%s]\d+(\.\d+)?[KMB]?\b" % (currency)
 
         ###################################################### PERCENT, etc.
         pct = "".join(["%",
-            u"\u2030",   # Per Mille Sign
-            u"\u2031",   # Per Ten Thousand Sign
-            u"\u0609",   # Arabic-indic Per Mille Sign
-            u"\u060a",   # Arabic-indic Per Ten Thousand Sign
-            u"\u066a",   # Arabic-indic Percent Sign
-            u"\uFE6A",   # Small Percent Sign
-            u"\uFF05",   # Fullwidth Percent Sign
+            "\u2030",   # Per Mille Sign
+            "\u2031",   # Per Ten Thousand Sign
+            "\u0609",   # Arabic-indic Per Mille Sign
+            "\u060a",   # Arabic-indic Per Ten Thousand Sign
+            "\u066a",   # Arabic-indic Percent Sign
+            "\uFE6A",   # Small Percent Sign
+            "\uFF05",   # Fullwidth Percent Sign
         ])
         self.regexes["T_PERCENT"]   = r"\b\d+(\.\d+)[%s]\b" % (pct)
 
@@ -1554,11 +1554,7 @@ class HeavyTokenizer:
             s = urllib.parse.unquote(s)
 
         if (self.options["X_ENTITY"]):           # &#xFF; &#255; &lt;
-            if (sys.version_info[0] < 3):
-                s = HTMLParser().unescape(s)
-            else:
-                import html
-                s = html.unescape(s)
+            s = html.unescape(s)
 
         return s
 

@@ -24,7 +24,7 @@ from DomExtensions import DomExtensions, XMLStrings
 DomExtensions.patchDom()
 
 __metadata__ = {
-    "title"        : "DOMTableTools.py",
+    "title"        : "DOMTableTools",
     "description"  : "Do fancy table stuff with *ML tables.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
@@ -247,6 +247,8 @@ Key normalizations vs. general HTML tables:
 
 =To do=
 
+Find a way to get pylint to see DomExtensions when subclassing Node to NormTable.
+
 
 =History=
 
@@ -268,17 +270,20 @@ or [https://github.com/sderose].
 
 def log(lvl:int, msg:str) -> None:
     if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
-def warning0(msg:str) -> None: log(0, msg)
-def warning1(msg:str) -> None: log(1, msg)
-def warning2(msg:str) -> None: log(2, msg)
+def info0(msg:str) -> None: log(0, msg)
+def info1(msg:str) -> None: log(1, msg)
+def info2(msg:str) -> None: log(2, msg)
 def error(msg:str) -> None: log(0, msg)
 def fatal(msg:str) -> None: log(0, msg); sys.exit()
 
-
+class UnimplementedError(Exception):
+    pass
+    
+    
 ###############################################################################
 #
-el = Node.ELEMENT_NODE
-at = Node.ATTRIBUTE_NODE
+ELEM = Node.ELEMENT_NODE
+ATTR = Node.ATTRIBUTE_NODE
 
 
 ###############################################################################
@@ -390,13 +395,31 @@ class NormComponents:
 
 ###############################################################################
 #
+class Condition:
+    """A condition such as used by select, join, where-clauses in general.
+    """
+    def __init__(self, expr:str):
+        """Create an interpretable AST from some syntax.
+        """
+        raise UnimplementedError
+
+
+###############################################################################
+#
 class NormTable(Node):
+    """This doesn't see the monkey-patched methods from DomExtensions....
+    """
+    def __init__(self, *args1, **kwargs):
+        self.nestedOk = False
+        super(NormTable, self).__init__(*args1, **kwargs)
+        
     @staticmethod
     def warn(msg):
         if (args.quiet): return
         lg.warning(msg)
 
-    def checkNorm(self, nestedJoinsOk:bool=False):
+    def checkNorm(self, nestedOk:bool=False):
+        self.nestedOk = nestedOk
         errCount = 0
 
         trHead = self.getElementsByTagName("tr")
@@ -496,28 +519,31 @@ class NormTable(Node):
                     n += 1
         return n
 
-    def getColumnNames(self:Node):
+    def getColumnNames(self:Node) -> list:
         colNames = []
         for th in self.getHeadRow().childNodes:
             colNames.append(th.getAttribute("class"))
         return colNames
 
-    def getColumnTypes(self:Node):
+    def getColumnTypes(self:Node) -> list:
         colTypes = []
         for th in self.getHeadRow().childNodes:
             colTypes.append(th.getAttribute("typeName"))
         return colTypes
 
-    def getSchemaName(self:Node):
-        pass
+    def getSchemaName(self:Node) -> str:
+        raise UnimplementedError
 
-    def checkNesting(self:Node):
+    def checkNesting(self:Node) -> int:
+        """Check whether nested tables, if any, obey NormTable restrictions.
+        @return Number of errors found.
+        """
         errCount = 0
         nestedTables = self.getElementsByTagName("table")
-        if (not nestedJoinsOk):
-            if (nestedTables):
-                errCount += 1
-                self.warn("    %d nested tables found." % (len(nestedTables)))
+        if (not nestedTables): return 0
+        if (not self.nestedOk):
+            errCount += 1
+            self.warn("    %d nested tables found." % (len(nestedTables)))
         else:
             for nt in nestedTables:
                 # TODO: Allow WSN
@@ -527,26 +553,32 @@ class NormTable(Node):
         return errCount
 
     def checkKeys(self:Node):
-        pass
+        raise UnimplementedError
 
 
     ###########################################################################
     # Manipulate existing tables toward norm
     #
     def unspan(self:Node):
-        pass
+        raise UnimplementedError
+
     def nukeThead(self:Node):
-        pass
+        raise UnimplementedError
+
     def nukeTfoot(self:Node):
-        pass
+        raise UnimplementedError
+
     def setColumnNames(self:Node, names:List(str)):
-        pass
+        raise UnimplementedError
+
     def unjoin(self:Node):
-        pass
+        raise UnimplementedError
+
     def attrToColumn(self:Node, attrName:str, colName:str, colNum:int):
-        pass
+        raise UnimplementedError
+
     def columnToAttr(self:Node, colName:str, attrName:str):
-        pass
+        raise UnimplementedError
 
 
     ###########################################################################
@@ -572,55 +604,72 @@ class NormTable(Node):
             asc/desc
             empties to start or end
         """
+        raise UnimplementedError
 
+    def moveColumn(self:Node, columnToMove:Union(int, str), target:Union(int, str)):
+        """Move a column, identified by number or @class name, to a new place.
+        """
+        raise UnimplementedError
+        
     def clearCellsByContent(self:Node, expr:str=None, nbIsSpace:bool=True):
         """Clear content of cells
         """
+        raise UnimplementedError
 
     ###########################################################################
     # Edit tables (These should be available as bbedit tools)
     #
-    def transpose(self:Node):
-        pass
-    def InsertColumn(self:Node):
-        pass
-    def DeleteColumn(self:Node):
-        pass
-    def DeleteRow(self:Node):
-        pass
-    def InsertRow(self:Node):
-        pass
-    def CreateTable(self:Node):
-        pass
-    def DeleteTable(self:Node):
-        pass
-    def SetColumn(self:Node):
-        pass
-    def RenameTable(self:Node):
-        pass
-    def RenameColumn(self:Node):
-        pass
+    def transpose(self:'NormTable'):
+        raise UnimplementedError
+    def InsertColumn(self:'NormTable'):
+        raise UnimplementedError
+    def DeleteColumn(self:'NormTable'):
+        raise UnimplementedError
+    def DeleteRow(self:'NormTable'):
+        raise UnimplementedError
+    def InsertRow(self:'NormTable'):
+        raise UnimplementedError
+    def CreateTable(self:'NormTable'):
+        raise UnimplementedError
+    def DeleteTable(self:'NormTable'):
+        raise UnimplementedError
+    def SetColumn(self:'NormTable'):
+        raise UnimplementedError
+    def RenameTable(self:'NormTable'):
+        raise UnimplementedError
+    def RenameColumn(self:'NormTable'):
+        raise UnimplementedError
 
 
     ###########################################################################
     # Do SQL on these
     #
-    def project(self:Node):
-        pass
-    def select(self:Node):
-        pass
-    def union(self:Node):
-        pass
-    def intersection(self:Node):
-        pass
-    def diff(self:Node):
-        pass
-    def symdiff(self:Node):
-        pass
-    def join(self:Node):
-        pass
+    def project(self:'NormTable', columns:list):
+        raise UnimplementedError
+        
+    def select(self:'NormTable'):
+        raise UnimplementedError
+        
+    def union(self:'NormTable'):
+        raise UnimplementedError
+        
+    def intersection(self:'NormTable'):
+        raise UnimplementedError
+        
+    def diff(self:'NormTable'):
+        raise UnimplementedError
+        
+    def symdiff(self:'NormTable'):
+        raise UnimplementedError
+        
+    def join(self:'NormTable', other:'NormTable', selfColumns:list, otherColumns:list, where:Condition):
+        raise UnimplementedError
 
+# Make sure the right methods get monkey-patched onto our subclass?? TODO: Check
+#
+DomExtensions.patchDom(NormTable)
 
+     
 ###############################################################################
 # Main
 #

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # SimplifyUnicode: Compatibility mapping on steroids.
 # 2010-11-19ff: Written by Steven J. DeRose (in Perl)
@@ -13,7 +13,7 @@ except NameError:
 
 
 __metadata__ = {
-    'title'        : "SimplifyUnicode.py",
+    'title'        : "SimplifyUnicode",
     'description'  : "Compatibility mapping on steroids.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
@@ -158,19 +158,19 @@ Does not include alternate mathematical Greek alphabets.
 
 ==Possible additions==
 
-* old italic, gothic, etc. U'10300?
+* old italic, gothic, etc. U+10300?
 * roman numerals, enclosed alphanumerics
-* vertical forms U'fe00
+* vertical forms U+fe00
 * Greek and Cyrillic and Hebrew math variants?
-* ellipsis, punc ligatures U'203c...
-* sup/sub U'2070
-* Halfwidth/fullwidth U'ff00
+* ellipsis, punc ligatures U+203c...
+* sup/sub U+2070
+* Halfwidth/fullwidth U+ff00
 * Non-Latin ligatures.
-* supplemental punct U'
-* Arrows? U'2190, 2799, 27f0, 2900, 2b00
-* letterlike symbols U'2100, fractions,
-* braille U'2800
-* high surrogates U'd800, low surrogates U'dc00
+* supplemental punct
+* Arrows? U+2190, 2799, 27f0, 2900, 2b00
+* letterlike symbols U+2100, fractions,
+* braille U+2800
+* high surrogates U+d800, low surrogates U+dc00
 
 ==Integrate into==
 
@@ -458,114 +458,114 @@ class SimplifyUnicode:
             # Leave out regular hyphen so doesn't mess up regex, and since it's
             # what we normalize *to*.
             #
-            u'\u00ad' + # soft hyphen
-            u'\u058a' + # armenian hyphen
-            u'\u1806' + # mongolian todo soft hyphen
-            u'\u1b60' + # balinese pameneng (line-breaking hyphen)
-            u'\u2010' + # 008208) + hyphen) +        '-',
-            u'\u2011' + # non-breaking hyphen,
-            u'\u2012' + # figure dash
-            u'\u2013' + # 008211) + ndash,         '-',
-            u'\u2014' + # 008212, mdash,         '--',
-            u'\u2015' + # 008213, horbar,        '--',
-            u'\u2027' + # hyphenation point
-            u'\u2043' + # hyphen bullet
-            u'\u2053' + # swung dash
-            #u'\u21E0' + # LEFTWARDS DASHED ARROW
-            #u'\u21E1' + # UPWARDS DASHED ARROW
-            #u'\u21E2' + # RIGHTWARDS DASHED ARROW
-            #u'\u21E3' + # DOWNWARDS DASHED ARROW
-            u'\u229d' + # circled dash
-            u'\u2448' + # ocr dash
+            "\u00ad" + # soft hyphen
+            "\u058a" + # armenian hyphen
+            "\u1806" + # mongolian todo soft hyphen
+            "\u1b60" + # balinese pameneng (line-breaking hyphen)
+            "\u2010" + # 008208) + hyphen) +        '-',
+            "\u2011" + # non-breaking hyphen,
+            "\u2012" + # figure dash
+            "\u2013" + # 008211) + ndash,         '-',
+            "\u2014" + # 008212, mdash,         '--',
+            "\u2015" + # 008213, horbar,        '--',
+            "\u2027" + # hyphenation point
+            "\u2043" + # hyphen bullet
+            "\u2053" + # swung dash
+            #"\u21E0" + # LEFTWARDS DASHED ARROW
+            #"\u21E1" + # UPWARDS DASHED ARROW
+            #"\u21E2" + # RIGHTWARDS DASHED ARROW
+            #"\u21E3" + # DOWNWARDS DASHED ARROW
+            "\u229d" + # circled dash
+            "\u2448" + # ocr dash
 
             # Box-drawing dashes
             #
-            #u'\u2504' + # ... LIGHT TRIPLE DASH HORIZONTAL
-            #u'\u2505' + # ... HEAVY TRIPLE DASH HORIZONTAL
-            #u'\u2508' + # ... LIGHT QUADRUPLE DASH HORIZONTAL
-            #u'\u2509' + # ... HEAVY QUADRUPLE DASH HORIZONTAL
-            #u'\u254C' + # ... LIGHT DOUBLE DASH HORIZONTAL
-            #u'\u254D' + # ... HEAVY DOUBLE DASH HORIZONTAL
+            #"\u2504" + # ... LIGHT TRIPLE DASH HORIZONTAL
+            #"\u2505" + # ... HEAVY TRIPLE DASH HORIZONTAL
+            #"\u2508" + # ... LIGHT QUADRUPLE DASH HORIZONTAL
+            #"\u2509" + # ... HEAVY QUADRUPLE DASH HORIZONTAL
+            #"\u254C" + # ... LIGHT DOUBLE DASH HORIZONTAL
+            #"\u254D" + # ... HEAVY DOUBLE DASH HORIZONTAL
 
-            u'\u2e17' + # double oblique hyphen
-            u'\u2E1A' + # HYPHEN WITH DIAERESIS
-            u'\u301c' + # wave dash
-            u'\u3030' + # wavy dash
-            u'\u30a0' + # katakana-hiragana double hyphen
-            u'\uFE49' + # DASHED OVERLINE
-            u'\uFE4D' + # DASHED LOW LINE
-            u'\uFE58' + # small em dash
-            u'\ufe63' + # small hyphen-minus
-            u'\uff0d' + # fullwidth hyphen-minus
+            "\u2e17" + # double oblique hyphen
+            "\u2E1A" + # HYPHEN WITH DIAERESIS
+            "\u301c" + # wave dash
+            "\u3030" + # wavy dash
+            "\u30a0" + # katakana-hiragana double hyphen
+            "\uFE49" + # DASHED OVERLINE
+            "\uFE4D" + # DASHED LOW LINE
+            "\uFE58" + # small em dash
+            "\ufe63" + # small hyphen-minus
+            "\uff0d" + # fullwidth hyphen-minus
             "")
         return(dashChars)
 
     def setupDQuotes(self):
         dQuoteChars = (
-            u'\u00AB' +   # LEFT-POINTING DOUBLE ANGLE QUOTATION MARK *
-            u'\u00BB' +   # RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK *
-            u'\u201C' +   # LEFT DOUBLE QUOTATION MARK
-            u'\u201D' +   # RIGHT DOUBLE QUOTATION MARK
-            u'\u201E' +   # DOUBLE LOW-9 QUOTATION MARK
-            u'\u201F' +   # DOUBLE HIGH-REVERSED-9 QUOTATION MARK
-            u'\u2358' +   # APL FUNCTIONAL SYMBOL QUOTE UNDERBAR
-            u'\u235E' +   # APL FUNCTIONAL SYMBOL QUOTE QUAD
-            u'\u275D' +   # HEAVY DOUBLE TURNED COMMA QUOTATION MARK ORNAMENT
-            u'\u275E' +   # HEAVY DOUBLE COMMA QUOTATION MARK ORNAMENT
-            u'\u301D' +   # REVERSED DOUBLE PRIME QUOTATION MARK
-            u'\u301E' +   # DOUBLE PRIME QUOTATION MARK
-            u'\u301F' +   # LOW DOUBLE PRIME QUOTATION MARK
+            "\u00AB" +   # LEFT-POINTING DOUBLE ANGLE QUOTATION MARK *
+            "\u00BB" +   # RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK *
+            "\u201C" +   # LEFT DOUBLE QUOTATION MARK
+            "\u201D" +   # RIGHT DOUBLE QUOTATION MARK
+            "\u201E" +   # DOUBLE LOW-9 QUOTATION MARK
+            "\u201F" +   # DOUBLE HIGH-REVERSED-9 QUOTATION MARK
+            "\u2358" +   # APL FUNCTIONAL SYMBOL QUOTE UNDERBAR
+            "\u235E" +   # APL FUNCTIONAL SYMBOL QUOTE QUAD
+            "\u275D" +   # HEAVY DOUBLE TURNED COMMA QUOTATION MARK ORNAMENT
+            "\u275E" +   # HEAVY DOUBLE COMMA QUOTATION MARK ORNAMENT
+            "\u301D" +   # REVERSED DOUBLE PRIME QUOTATION MARK
+            "\u301E" +   # DOUBLE PRIME QUOTATION MARK
+            "\u301F" +   # LOW DOUBLE PRIME QUOTATION MARK
         "")
         return(dQuoteChars)
 
     def setupSQuotes(self):
         sQuoteChars = (
-            u'\u2018' +   # LEFT SINGLE QUOTATION MARK
-            u'\u2019' +   # RIGHT SINGLE QUOTATION MARK
-            u'\u201A' +   # SINGLE LOW-9 QUOTATION MARK
-            u'\u201B' +   # SINGLE HIGH-REVERSED-9 QUOTATION MARK
-            u'\u2039' +   # SINGLE LEFT-POINTING ANGLE QUOTATION MARK
-            u'\u203A' +   # SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
-            u'\u275B' +   # HEAVY SINGLE TURNED COMMA QUOTATION MARK ORNAMENT
-            u'\u275C' +   # HEAVY SINGLE COMMA QUOTATION MARK ORNAMENT
-            u'\u276E' +   # HEAVY LEFT-POINTING ANGLE QUOTATION MARK ORNAMENT
-            u'\u276F' +   # HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT
+            "\u2018" +   # LEFT SINGLE QUOTATION MARK
+            "\u2019" +   # RIGHT SINGLE QUOTATION MARK
+            "\u201A" +   # SINGLE LOW-9 QUOTATION MARK
+            "\u201B" +   # SINGLE HIGH-REVERSED-9 QUOTATION MARK
+            "\u2039" +   # SINGLE LEFT-POINTING ANGLE QUOTATION MARK
+            "\u203A" +   # SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
+            "\u275B" +   # HEAVY SINGLE TURNED COMMA QUOTATION MARK ORNAMENT
+            "\u275C" +   # HEAVY SINGLE COMMA QUOTATION MARK ORNAMENT
+            "\u276E" +   # HEAVY LEFT-POINTING ANGLE QUOTATION MARK ORNAMENT
+            "\u276F" +   # HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT
         "")
         return(sQuoteChars)
 
     def setupSpaces(self):
         spaceChars = (
-            u'\u0009' +    # TAB
-            u'\u000A' +    # LINE FEED
-            u'\u000B' +    # VERTICAL TAB
-            u'\u000C' +    # FORM FEED
-            u'\u000D' +    # CARRIAGE RETURN
-            u'\u0020' +    # SPACE
-            u'\u00A0' +    # NO-BREAK SPACE
+            "\u0009" +    # TAB
+            "\u000A" +    # LINE FEED
+            "\u000B" +    # VERTICAL TAB
+            "\u000C" +    # FORM FEED
+            "\u000D" +    # CARRIAGE RETURN
+            "\u0020" +    # SPACE
+            "\u00A0" +    # NO-BREAK SPACE
 
-            u'\u1680' +    # OGHAM SPACE MARK
+            "\u1680" +    # OGHAM SPACE MARK
 
-            u'\u2002' +    # EN SPACE
-            u'\u2003' +    # EM SPACE
-            u'\u2004' +    # THREE-PER-EM SPACE
-            u'\u2005' +    # FOUR-PER-EM SPACE
-            u'\u2006' +    # SIX-PER-EM SPACE
-            u'\u2007' +    # FIGURE SPACE
-            u'\u2008' +    # PUNCTUATION SPACE
-            u'\u2009' +    # THIN SPACE
-            u'\u200A' +    # HAIR SPACE
-            u'\u200B' +    # ZERO WIDTH SPACE
-            u'\u202F' +    # NARROW NO-BREAK SPACE
-            u'\u205F' +    # MEDIUM MATHEMATICAL SPACE
+            "\u2002" +    # EN SPACE
+            "\u2003" +    # EM SPACE
+            "\u2004" +    # THREE-PER-EM SPACE
+            "\u2005" +    # FOUR-PER-EM SPACE
+            "\u2006" +    # SIX-PER-EM SPACE
+            "\u2007" +    # FIGURE SPACE
+            "\u2008" +    # PUNCTUATION SPACE
+            "\u2009" +    # THIN SPACE
+            "\u200A" +    # HAIR SPACE
+            "\u200B" +    # ZERO WIDTH SPACE
+            "\u202F" +    # NARROW NO-BREAK SPACE
+            "\u205F" +    # MEDIUM MATHEMATICAL SPACE
 
-            u'\u2409' +    # SYMBOL FOR HORIZONTAL TABULATION
-            u'\u240B' +    # SYMBOL FOR VERTICAL TABULATION
-            u'\u2420' +    # SYMBOL FOR SPACE
+            "\u2409" +    # SYMBOL FOR HORIZONTAL TABULATION
+            "\u240B" +    # SYMBOL FOR VERTICAL TABULATION
+            "\u2420" +    # SYMBOL FOR SPACE
 
-            u'\u3000' +    # IDEOGRAPHIC SPACE
-            u'\u303F' +    # IDEOGRAPHIC HALF FILL SPACE
+            "\u3000" +    # IDEOGRAPHIC SPACE
+            "\u303F" +    # IDEOGRAPHIC HALF FILL SPACE
 
-            u'\uFEFF' +    # ZERO WIDTH NO-BREAK SPACE (= byte-order mark)
+            "\uFEFF" +    # ZERO WIDTH NO-BREAK SPACE (= byte-order mark)
         "")
         return(spaceChars)
 
@@ -573,50 +573,50 @@ class SimplifyUnicode:
     #
     def setupLigatures(self):
         self.seq2ligBasic = {
-            u'\ufb00' : 'ff',  # 'LATIN SMALL LIGATURE FF'
-            u'\ufb01' : 'fi',  # 'LATIN SMALL LIGATURE FI'
-            u'\ufb02' : 'fl',  # 'LATIN SMALL LIGATURE FL'
-            u'\ufb03' : 'ffi', # 'LATIN SMALL LIGATURE FFI'
-            u'\ufb04' : 'ffl', # 'LATIN SMALL LIGATURE FFL'
+            "\ufb00" : 'ff',  # 'LATIN SMALL LIGATURE FF'
+            "\ufb01" : 'fi',  # 'LATIN SMALL LIGATURE FI'
+            "\ufb02" : 'fl',  # 'LATIN SMALL LIGATURE FL'
+            "\ufb03" : 'ffi', # 'LATIN SMALL LIGATURE FFI'
+            "\ufb04" : 'ffl', # 'LATIN SMALL LIGATURE FFL'
         }
 
         self.seq2lig = {
             # Latin
-            u'\u0132' : 'IJ',  # 'LATIN CAPITAL LIGATURE IJ'
-            u'\u0133' : 'ij',  # 'LATIN SMALL LIGATURE IJ'
-            u'\u0152' : 'OE',  # 'LATIN CAPITAL LIGATURE OE'
-            u'\u0153' : 'oe',  # 'LATIN SMALL LIGATURE OE'
-            u'\ufb00' : 'ff',  # 'LATIN SMALL LIGATURE FF'
-            u'\ufb01' : 'fi',  # 'LATIN SMALL LIGATURE FI'
-            u'\ufb02' : 'fl',  # 'LATIN SMALL LIGATURE FL'
-            u'\ufb03' : 'ffi', # 'LATIN SMALL LIGATURE FFI'
-            u'\ufb04' : 'ffl', # 'LATIN SMALL LIGATURE FFL'
-            u'\ufb05' : 'st',  # 'LATIN SMALL LIGATURE LONG S T'
-            u'\ufb06' : 'st',  # 'LATIN SMALL LIGATURE ST'
+            "\u0132" : 'IJ',  # 'LATIN CAPITAL LIGATURE IJ'
+            "\u0133" : 'ij',  # 'LATIN SMALL LIGATURE IJ'
+            "\u0152" : 'OE',  # 'LATIN CAPITAL LIGATURE OE'
+            "\u0153" : 'oe',  # 'LATIN SMALL LIGATURE OE'
+            "\ufb00" : 'ff',  # 'LATIN SMALL LIGATURE FF'
+            "\ufb01" : 'fi',  # 'LATIN SMALL LIGATURE FI'
+            "\ufb02" : 'fl',  # 'LATIN SMALL LIGATURE FL'
+            "\ufb03" : 'ffi', # 'LATIN SMALL LIGATURE FFI'
+            "\ufb04" : 'ffl', # 'LATIN SMALL LIGATURE FFL'
+            "\ufb05" : 'st',  # 'LATIN SMALL LIGATURE LONG S T'
+            "\ufb06" : 'st',  # 'LATIN SMALL LIGATURE ST'
 
             # Cyrillic
-            u'\u04a4' : u'\u041d'+u'\u0413',  # 'CAPITAL EN GHE'
-            u'\u04a5' : u'\u043d'+u'\u0433',  # 'SMALL EN GHE'
-            u'\u04b4' : u'\u0422'+u'\u0426',  # 'CAPITAL TE TSE'
-            u'\u04b5' : u'\u0442'+u'\u0446',  # 'SMALL TE TSE'
-            u'\u04d4' : u'\u0410'+u'\u0415',  # 'CAPITAL A IE'
-            u'\u04d5' : u'\u0430'+u'\u0435',  # 'SMALL A IE'
+            "\u04a4" : "\u041d"+"\u0413",  # 'CAPITAL EN GHE'
+            "\u04a5" : "\u043d"+"\u0433",  # 'SMALL EN GHE'
+            "\u04b4" : "\u0422"+"\u0426",  # 'CAPITAL TE TSE'
+            "\u04b5" : "\u0442"+"\u0446",  # 'SMALL TE TSE'
+            "\u04d4" : "\u0410"+"\u0415",  # 'CAPITAL A IE'
+            "\u04d5" : "\u0430"+"\u0435",  # 'SMALL A IE'
 
             # Other ### FIX
-            u'\u0587' : '',  # 'ARMENIAN SMALL LIGATURE ECH YIWN'
-            u'\u05f0' : '',  # 'HEBREW LIGATURE YIDDISH DOUBLE VAV'
-            u'\u05f1' : '',  # 'HEBREW LIGATURE YIDDISH VAV YOD'
-            u'\u05f2' : '',  # 'HEBREW LIGATURE YIDDISH DOUBLE YOD'
-            u'\ua7f9' : '',  # 'MODIFIER LETTER SMALL LIGATURE OE'
-            u'\ufb13' : '',  # 'ARMENIAN SMALL LIGATURE MEN NOW'
-            u'\ufb14' : '',  # 'ARMENIAN SMALL LIGATURE MEN ECH'
-            u'\ufb15' : '',  # 'ARMENIAN SMALL LIGATURE MEN INI'
-            u'\ufb16' : '',  # 'ARMENIAN SMALL LIGATURE VEW NOW'
-            u'\ufb17' : '',  # 'ARMENIAN SMALL LIGATURE MEN XEH'
-            u'\ufb1f' : '',  # 'HEBREW LIGATURE YIDDISH YOD YOD PATAH'
-            u'\ufb4f' : '',  # 'HEBREW LIGATURE ALEF LAMED'
-            u'\ufe20' : '',  # 'COMBINING LIGATURE LEFT HALF'
-            u'\ufe21' : '',  # 'COMBINING LIGATURE RIGHT HALF'
+            "\u0587" : '',  # 'ARMENIAN SMALL LIGATURE ECH YIWN'
+            "\u05f0" : '',  # 'HEBREW LIGATURE YIDDISH DOUBLE VAV'
+            "\u05f1" : '',  # 'HEBREW LIGATURE YIDDISH VAV YOD'
+            "\u05f2" : '',  # 'HEBREW LIGATURE YIDDISH DOUBLE YOD'
+            "\ua7f9" : '',  # 'MODIFIER LETTER SMALL LIGATURE OE'
+            "\ufb13" : '',  # 'ARMENIAN SMALL LIGATURE MEN NOW'
+            "\ufb14" : '',  # 'ARMENIAN SMALL LIGATURE MEN ECH'
+            "\ufb15" : '',  # 'ARMENIAN SMALL LIGATURE MEN INI'
+            "\ufb16" : '',  # 'ARMENIAN SMALL LIGATURE VEW NOW'
+            "\ufb17" : '',  # 'ARMENIAN SMALL LIGATURE MEN XEH'
+            "\ufb1f" : '',  # 'HEBREW LIGATURE YIDDISH YOD YOD PATAH'
+            "\ufb4f" : '',  # 'HEBREW LIGATURE ALEF LAMED'
+            "\ufe20" : '',  # 'COMBINING LIGATURE LEFT HALF'
+            "\ufe21" : '',  # 'COMBINING LIGATURE RIGHT HALF'
         }
 
         self.lig2seqBasic = {}
@@ -636,25 +636,25 @@ class SimplifyUnicode:
 
     def setupSupers(self):
         supers = {
-            u'\u2070' : '0',  # 'SUPERSCRIPT ZERO'
-            u'\u00b9' : '1',  # 'SUPERSCRIPT ONE'
-            u'\u00b2' : '2',  # 'SUPERSCRIPT TWO'
-            u'\u00b3' : '3',  # 'SUPERSCRIPT THREE'
-            u'\u2074' : '4',  # 'SUPERSCRIPT FOUR'
-            u'\u2075' : '5',  # 'SUPERSCRIPT FIVE'
-            u'\u2076' : '6',  # 'SUPERSCRIPT SIX'
-            u'\u2077' : '7',  # 'SUPERSCRIPT SEVEN'
-            u'\u2078' : '8',  # 'SUPERSCRIPT EIGHT'
-            u'\u2079' : '9',  # 'SUPERSCRIPT NINE'
-            u'\u2071' : 'i',  # 'SUPERSCRIPT LATIN SMALL LETTER I'
-            u'\u207f' : 'n',  # 'SUPERSCRIPT LATIN SMALL LETTER N'
-            u'\u207a' : '+',  # 'SUPERSCRIPT PLUS SIGN'
-            u'\u207b' : '-',  # 'SUPERSCRIPT MINUS'
-            u'\u207c' : '=',  # 'SUPERSCRIPT EQUALS SIGN'
-            u'\u207d' : '(',  # 'SUPERSCRIPT LEFT PARENTHESIS'
-            u'\u207e' : ')',  # 'SUPERSCRIPT RIGHT PARENTHESIS'
-            u'\u0670' : u'\u0627', # 'ARABIC LETTER SUPERSCRIPT ALEF'
-            u'\u0711' : u'\u0711', # 'SYRIAC LETTER SUPERSCRIPT ALAPH'
+            "\u2070" : '0',  # 'SUPERSCRIPT ZERO'
+            "\u00b9" : '1',  # 'SUPERSCRIPT ONE'
+            "\u00b2" : '2',  # 'SUPERSCRIPT TWO'
+            "\u00b3" : '3',  # 'SUPERSCRIPT THREE'
+            "\u2074" : '4',  # 'SUPERSCRIPT FOUR'
+            "\u2075" : '5',  # 'SUPERSCRIPT FIVE'
+            "\u2076" : '6',  # 'SUPERSCRIPT SIX'
+            "\u2077" : '7',  # 'SUPERSCRIPT SEVEN'
+            "\u2078" : '8',  # 'SUPERSCRIPT EIGHT'
+            "\u2079" : '9',  # 'SUPERSCRIPT NINE'
+            "\u2071" : 'i',  # 'SUPERSCRIPT LATIN SMALL LETTER I'
+            "\u207f" : 'n',  # 'SUPERSCRIPT LATIN SMALL LETTER N'
+            "\u207a" : '+',  # 'SUPERSCRIPT PLUS SIGN'
+            "\u207b" : '-',  # 'SUPERSCRIPT MINUS'
+            "\u207c" : '=',  # 'SUPERSCRIPT EQUALS SIGN'
+            "\u207d" : '(',  # 'SUPERSCRIPT LEFT PARENTHESIS'
+            "\u207e" : ')',  # 'SUPERSCRIPT RIGHT PARENTHESIS'
+            "\u0670" : "\u0627", # 'ARABIC LETTER SUPERSCRIPT ALEF'
+            "\u0711" : "\u0711", # 'SYRIAC LETTER SUPERSCRIPT ALAPH'
         }
         return(supers)
 
@@ -662,49 +662,49 @@ class SimplifyUnicode:
         subs = {
             # Are the rest of the Latin letters hiding somewhere???
             #     Like: bcdfgqwyz ?
-            u'\u2090' : 'a',  # 'LATIN SUBSCRIPT SMALL LETTER A'
-            u'\u2091' : 'e',  # 'LATIN SUBSCRIPT SMALL LETTER E'
-            u'\u2095' : 'h',  # 'LATIN SUBSCRIPT SMALL LETTER H'
-            u'\u1d62' : 'i',  # 'LATIN SUBSCRIPT SMALL LETTER I'
-            u'\u2c7c' : 'j',  # 'LATIN SUBSCRIPT SMALL LETTER J'
-            u'\u2096' : 'k',  # 'LATIN SUBSCRIPT SMALL LETTER K'
-            u'\u2097' : 'l',  # 'LATIN SUBSCRIPT SMALL LETTER L'
-            u'\u2098' : 'm',  # 'LATIN SUBSCRIPT SMALL LETTER M'
-            u'\u2099' : 'n',  # 'LATIN SUBSCRIPT SMALL LETTER N'
-            u'\u2092' : 'o',  # 'LATIN SUBSCRIPT SMALL LETTER O'
-            u'\u209a' : 'p',  # 'LATIN SUBSCRIPT SMALL LETTER P'
-            u'\u1d63' : 'r',  # 'LATIN SUBSCRIPT SMALL LETTER R'
-            u'\u209b' : 's',  # 'LATIN SUBSCRIPT SMALL LETTER S'
-            u'\u209c' : 't',  # 'LATIN SUBSCRIPT SMALL LETTER T'
-            u'\u1d64' : 'u',  # 'LATIN SUBSCRIPT SMALL LETTER U'
-            u'\u1d65' : 'v',  # 'LATIN SUBSCRIPT SMALL LETTER V'
-            u'\u2093' : 'x',  # 'LATIN SUBSCRIPT SMALL LETTER X'
-            u'\u2094' : u'\u0259',  # 'LATIN SUBSCRIPT SMALL LETTER SCHWA'
+            "\u2090" : 'a',  # 'LATIN SUBSCRIPT SMALL LETTER A'
+            "\u2091" : 'e',  # 'LATIN SUBSCRIPT SMALL LETTER E'
+            "\u2095" : 'h',  # 'LATIN SUBSCRIPT SMALL LETTER H'
+            "\u1d62" : 'i',  # 'LATIN SUBSCRIPT SMALL LETTER I'
+            "\u2c7c" : 'j',  # 'LATIN SUBSCRIPT SMALL LETTER J'
+            "\u2096" : 'k',  # 'LATIN SUBSCRIPT SMALL LETTER K'
+            "\u2097" : 'l',  # 'LATIN SUBSCRIPT SMALL LETTER L'
+            "\u2098" : 'm',  # 'LATIN SUBSCRIPT SMALL LETTER M'
+            "\u2099" : 'n',  # 'LATIN SUBSCRIPT SMALL LETTER N'
+            "\u2092" : 'o',  # 'LATIN SUBSCRIPT SMALL LETTER O'
+            "\u209a" : 'p',  # 'LATIN SUBSCRIPT SMALL LETTER P'
+            "\u1d63" : 'r',  # 'LATIN SUBSCRIPT SMALL LETTER R'
+            "\u209b" : 's',  # 'LATIN SUBSCRIPT SMALL LETTER S'
+            "\u209c" : 't',  # 'LATIN SUBSCRIPT SMALL LETTER T'
+            "\u1d64" : 'u',  # "LATIN SUBSCRIPT SMALL LETTER U"
+            "\u1d65" : 'v',  # 'LATIN SUBSCRIPT SMALL LETTER V'
+            "\u2093" : 'x',  # 'LATIN SUBSCRIPT SMALL LETTER X'
+            "\u2094" : "\u0259",  # 'LATIN SUBSCRIPT SMALL LETTER SCHWA'
 
-            u'\u0656' : u'\u0627',  # 'ARABIC SUBSCRIPT ALEF'
-            u'\u1d66' : u'\u1d66',  # 'GREEK SUBSCRIPT SMALL LETTER BETA'
-            u'\u1d67' : u'\u1d67',  # 'GREEK SUBSCRIPT SMALL LETTER GAMMA'
-            u'\u1d68' : u'\u1d68',  # 'GREEK SUBSCRIPT SMALL LETTER RHO'
-            u'\u1d69' : u'\u1d69',  # 'GREEK SUBSCRIPT SMALL LETTER PHI'
-            u'\u1d6a' : u'\u1d6a',  # 'GREEK SUBSCRIPT SMALL LETTER CHI'
+            "\u0656" : "\u0627",  # 'ARABIC SUBSCRIPT ALEF'
+            "\u1d66" : "\u1d66",  # 'GREEK SUBSCRIPT SMALL LETTER BETA'
+            "\u1d67" : "\u1d67",  # 'GREEK SUBSCRIPT SMALL LETTER GAMMA'
+            "\u1d68" : "\u1d68",  # 'GREEK SUBSCRIPT SMALL LETTER RHO'
+            "\u1d69" : "\u1d69",  # 'GREEK SUBSCRIPT SMALL LETTER PHI'
+            "\u1d6a" : "\u1d6a",  # 'GREEK SUBSCRIPT SMALL LETTER CHI'
 
-            u'\u2080' : '0',  # 'SUBSCRIPT ZERO'
-            u'\u2081' : '1',  # 'SUBSCRIPT ONE'
-            u'\u2082' : '2',  # 'SUBSCRIPT TWO'
-            u'\u2083' : '3',  # 'SUBSCRIPT THREE'
-            u'\u2084' : '4',  # 'SUBSCRIPT FOUR'
-            u'\u2085' : '5',  # 'SUBSCRIPT FIVE'
-            u'\u2086' : '6',  # 'SUBSCRIPT SIX'
-            u'\u2087' : '7',  # 'SUBSCRIPT SEVEN'
-            u'\u2088' : '8',  # 'SUBSCRIPT EIGHT'
-            u'\u2089' : '9',  # 'SUBSCRIPT NINE'
+            "\u2080" : '0',  # 'SUBSCRIPT ZERO'
+            "\u2081" : '1',  # 'SUBSCRIPT ONE'
+            "\u2082" : '2',  # 'SUBSCRIPT TWO'
+            "\u2083" : '3',  # 'SUBSCRIPT THREE'
+            "\u2084" : '4',  # 'SUBSCRIPT FOUR'
+            "\u2085" : '5',  # 'SUBSCRIPT FIVE'
+            "\u2086" : '6',  # 'SUBSCRIPT SIX'
+            "\u2087" : '7',  # 'SUBSCRIPT SEVEN'
+            "\u2088" : '8',  # 'SUBSCRIPT EIGHT'
+            "\u2089" : '9',  # 'SUBSCRIPT NINE'
 
-            u'\u208a' : '+',  # 'SUBSCRIPT PLUS SIGN'
-            # u'\u2a27' : '',  # 'PLUS SIGN WITH SUBSCRIPT TWO'
-            u'\u208b' : '-',  # 'SUBSCRIPT MINUS'
-            u'\u208c' : '=',  # 'SUBSCRIPT EQUALS SIGN'
-            u'\u208d' : '(',  # 'SUBSCRIPT LEFT PARENTHESIS'
-            u'\u208e' : ')',  # 'SUBSCRIPT RIGHT PARENTHESIS'
+            "\u208a" : '+',  # 'SUBSCRIPT PLUS SIGN'
+            # "\u2a27" : '',  # 'PLUS SIGN WITH SUBSCRIPT TWO'
+            "\u208b" : '-',  # 'SUBSCRIPT MINUS'
+            "\u208c" : '=',  # 'SUBSCRIPT EQUALS SIGN'
+            "\u208d" : '(',  # 'SUBSCRIPT LEFT PARENTHESIS'
+            "\u208e" : ')',  # 'SUBSCRIPT RIGHT PARENTHESIS'
         }
         return(subs)
 

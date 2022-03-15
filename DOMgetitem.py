@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # DomGetitem.py: Make xml.dom.minidom.Node and ts subclass much more Pythonic.
 # 2021-07-21: Extracted from DomExtensions.py, where it also is available.
@@ -8,15 +8,17 @@
 import sys
 import re
 #import codecs
-#from enum import Enum
-from typing import List
+from enum import Enum
+from typing import List, Union
 #import xml.dom, xml.dom.minidom
 from xml.dom.minidom import Node, Document  #, NamedNodeMap
 
 #from html.entities import codepoint2name, name2codepoint
 
+from DomExtensions import XMLStrings
+
 __metadata__ = {
-    'title'        : "DomGetitem.py",
+    'title'        : "DomGetitem",
     'description'  : "Make xml.dom.minidom.Node and ts subclass much more Pythonic.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
@@ -132,16 +134,76 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 
 ###############################################################################
 #
+class NodeSelKind(Enum):
+    """Major classes of arguments for DEgetitem etc.
+    This has two main uses:
+        1: given one of the 3 args to __getitem__, identify it.
+           Often these will be ints, which is why that's here.
+        2: Helping interpret the similar arg to many selection/navigation 
+           methods, e.g., selectChild("#pi", n=1). In that case, the
+           arg can also be a regex, which specifies matching element names.
+
+        Possible additions:
+            '#space' for white-space-only text nodes,
+            '#realtext' for non-white-space-only text nodes,
+            union of text, element, and cdata
+            
+    The model here is:
+        There are BRANCHES and LEAVES.
+        BRANCHES have a name, attribute dict, and child list.
+        ELEMENTS, DOCUMENT, DOC_FRAG are all BRANCHES.
+        All other node types are leaves, and have one data item (usually a string).
+        Attributes are LEAVES, named by "@" plus their usual name, with the value
+        as their data (usually a string).
+    """
+    ARG_NONE      = 0x000  # Failed
+    ARG_INT       = 0x001  # (this is for the non-nodeKind (index) args only)
+    ARG_NAME      = 0x002  # Any QName
+    ARG_REGEX     = 0x004  # A compiled regex, to match vs. element names
+    ARG_ATTR      = 0x008  # @ + QName
+    ARG_STAR      = 0x010  # "*"
+    ARG_TEXT      = 0x020  # #text
+    ARG_PI        = 0x040  # #pi
+    ARG_COMMENT   = 0x080  # #comment
+    ARG_CDATA     = 0x100  # #cdata
+    
+    @staticmethod
+    def getKind(someArg:Union[str, int]) -> 'NodeSelKind':  # nee def argType()
+        """Categorize one of the arguments to __getitem__().
+        """
+        if (someArg is None): return NodeSelKind.ARG_NONE
+        if (isinstance(someArg, int)): return NodeSelKind.ARG_INT
+
+        if (XMLStrings.isXmlName(someArg)): return NodeSelKind.ARG_NAME
+        if (someArg == "*"): return NodeSelKind.ARG_STAR
+
+        if (someArg[0] == "@" and XMLStrings.isXmlName(someArg[1:])):
+            return NodeSelKind.ARG_ATTR
+        # Next 3 can all be handled by _getListItemsByName_()
+        if (someArg == "#text"):
+            return NodeSelKind.ARG_TEXT
+        if (someArg ==  "#comment"):
+            return NodeSelKind.ARG_COMMENT
+        if (someArg == "#pi"):
+            return NodeSelKind.ARG_PI
+        if (someArg == "#cdata"):
+            return NodeSelKind.ARG_CDATA
+        #if (someArg == ".."): return NodeSelKind.ARG_ANCESTOR
+        raise ValueError("Bad argument type for '%s'." % (someArg))
+
+
+###############################################################################
+#
 class PyNode(Node):
-    nameStartChar = str(u"[:_A-Za-z" +
-        u"\u00C0-\u00D6" + u"\u00D8-\u00F6" + u"\u00F8-\u02FF" +
-        u"\u0370-\u037D" + u"\u037F-\u1FFF" + u"\u200C-\u200D" +
-        u"\u2070-\u218F" + u"\u2C00-\u2FEF" + u"\u3001-\uD7FF" +
-        u"\uF900-\uFDCF" + u"\uFDF0-\uFFFD" +
-        u"\u10000-\uEFFFF" +
+    nameStartChar = str("[:_A-Za-z" +
+        "\u00C0-\u00D6" + "\u00D8-\u00F6" + "\u00F8-\u02FF" +
+        "\u0370-\u037D" + "\u037F-\u1FFF" + "\u200C-\u200D" +
+        "\u2070-\u218F" + "\u2C00-\u2FEF" + "\u3001-\uD7FF" +
+        "\uF900-\uFDCF" + "\uFDF0-\uFFFD" +
+        "\u10000-\uEFFFF" +
         ']')
     nameChar  = re.sub(
-        u'^\\[', u'[-.0-9\u00B7\u0300-\u036F\u203F-\u2040', nameStartChar)
+        '^\\[', '[-.0-9\u00B7\u0300-\u036F\u203F-\u2040', nameStartChar)
     xmlName = nameStartChar + nameChar + '*'
 
     @staticmethod
@@ -151,24 +213,16 @@ class PyNode(Node):
         if (re.match(PyNode.xmlName, s, re.UNICODE)): return True
         return False
 
-    # Following constants are returned by argType():
-    ARG_NONE      = 0
-    ARG_INT       = 1
-    ARG_ATTRIBUTE = 2
-    ARG_STAR      = 3
-    ARG_RESERVED  = 4
-    ARG_NAME      = 5
-
     def __init__(self, *args9, **kwargs):
         super(PyNode, self).__init__(self, *args9, **kwargs)
 
     def __getitem__(self:Node, n1:int, n2:int=None, n3:str=None) -> List:
         """Access nodes via Python list notation.
         """
-        typ1 = PyNode.argType(n1)
-        typ2 = PyNode.argType(n2)
-        typ3 = PyNode.argType(n3)
-        print("argTypes are %s, %s, %s." % (typ1, typ2, typ3))
+        typ1 = NodeSelKind.getKind(n1)
+        typ2 = NodeSelKind.getKind(n2)
+        typ3 = NodeSelKind.getKind(n3)
+        print("getKinds are %s, %s, %s." % (typ1, typ2, typ3))
         if (n3 is not None): nargs = 3
         elif (n2 is not None): nargs = 2
         else: nargs = 1
@@ -236,21 +290,6 @@ class PyNode(Node):
             if (nodeName[0] == '#' and nodeName == self.nodeName): return True
             return False
 
-    @staticmethod
-    def argType(s:str) -> int:
-        """Categorize one of the arguments to __getitem__().
-        """
-        if (s is None): return PyNode.ARG_NONE
-        if (isinstance(s, int)): return PyNode.ARG_INT  # TODO: Allow float, maybe?
-
-        # Next 3 can all be handled by _getListItemsByName_()
-        if (s in [ "#text", "#comment", "#pi", "#cdata" ]): return PyNode.ARG_RESERVED
-        if (s == "*"): return PyNode.ARG_STAR
-        if (s[0] == "@" and PyNode.isXmlName(s[1:])): return PyNode.ARG_ATTRIBUTE
-        if (PyNode.isXmlName(s)): return PyNode.ARG_NAME
-        #if (s == ".."): return PyNode.ARG_ANCESTOR
-        raise IndexError("Unrecognized argument type for '%s'." % (s))
-
     def _getChildNodesByName_(self:Node, name:str) -> list:
         """Return a list of this node's children of a given element name
         '*' gets all element children, but no pi, comment, text....
@@ -261,7 +300,7 @@ class PyNode(Node):
         """This accepts element type names, #text etc., and "*".
         No attributes or ints here.
         """
-        typ = PyNode.argType(s)
+        typ = NodeSelKind.getKind(s)
         if (typ not in [ PyNode.ARG_RESERVED, PyNode.ARG_STAR, PyNode.ARG_NAME ]):
             raise IndexError(
                 "Node index '%s' is not reserved, '*', or an element type name." % (s))

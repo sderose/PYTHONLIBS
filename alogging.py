@@ -4,6 +4,8 @@
 # Fairly close to Python's Logging package, but adds color and -v stacking.
 # Written 2011-12-09 by Steven J. DeRose
 #
+# pylint: disable=W1406
+#
 from __future__ import print_function
 import sys
 import os
@@ -29,14 +31,14 @@ else:
     PYunicode = unicode  # noqa: F821  #pylint: disable=E0602
 
 __metadata__ = {
-    'title'        : "alogging.py",
+    'title'        : "alogging",
     'description'  : "logging additions, for -v levels, stats, formatting, traceback,...",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2011-12-09",
-    'modified'     : "2020-10-07",
+    'modified'     : "2022-02-17",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -114,29 +116,6 @@ You can control the indentation level of messages with `MsgPush()` and `MsgPop()
 
 Verbosity can be set with `setOption("verbose", n)` or `setVerbose(n)`.
 
-There are many other options as well.
-
-`MsgRule(v=0, color=None, width=79)` prints a horizontal rule.
-
-You can also call the underlying `Msg(self, msgType, ...)` directly, with
-a `msgType` of 'v', 'e', or 'h'.
-
-==defineMsgType(self, msgType, color=None, nLevels=0, func=None,
-prefix=None, infix=None, suffix=None, escape=None, indent=None)==
-
-''Deprecated.''
-Defines a new message type, that you can issue with `Msg(msgType, ...)`.
-Option set various formatting characteristics:
-
-* `color=None` -- see `ColorManager` for naming conventions
-* `nLevels=0` --
-* `func=None` --
-* `prefix=None` --
-* `infix=None` --
-* `suffix=None` --
-* `escape=None` --
-* `indent=None` --
-
 ==formatRec(self, obj, options=None)==
 
 This will fairly nicely format any (?) Python object as an annotated outline.
@@ -146,14 +125,14 @@ For objects, it knows to show their non-callable properties.
 
 `options` should be a dict, which may include:
 * `obj`       -- The data to be displayed.
-* `specials`  -- Display callable and "__"-initial members of objects.
+* `keyWidth`  -- Allow this much room for dict keys, in trying to line things up. Default: 14.
 * `maxDepth`  -- Limit how far down nested collections will be displayed. Default: 3.
 * `maxItems`  -- Limit how many items of lists will be displayed.
-* `showSize`  -- Display len() for collection objects.
-* `quoteKeys` -- Put quotes around the keys of dicts. Default: False
-* `keyWidth`  -- Allow this much room for dict keys, in trying to line things up.
-Default: 14.
+* `maxString` -- Limit number of characters to show for strings.
 * `propWidth` -- Allow this much room for object property names.
+* `quoteKeys` -- Put quotes around the keys of dicts. Default: False
+* `showSize`  -- Display len() for collection objects.
+* `specials`  -- Display callable and "__"-initial members of objects.
 * `stopTypes`  -- A dict of types or typenames, which are to be displayed
 as just present, without all their (non-callable) properties. At the moment,
 these are checked by == on the type and the typename, so subclasses must be
@@ -298,31 +277,18 @@ Issues an exception message, like Python `logging`.
 
 * ''eMsg'' ''(level, message1, message2, color, text, stat)''
 
-Shorthand for ''Msg('e'...)'', meant for error messages.
 Specifying a ''level'' less than 0 is fatal.
 ''Deprecated'', replaced by ''warning''(), ''error''(), and ''fatal''().
 
 * ''hMsg'' ''(level, message1, message2, color, text, stat)''
 
-Shorthand for ''Msg('h'...)'', meant for headings, which are displayed
-more prominantly. By default, with a blank line and several asterisks in front.
+''Deprecated''. Instead, start another kind of message with "====", which will
+generate whitespace and a separator line.
 
 * ''vMsg'' ''(level, message1, message2, color, text, stat)''
 
-Shorthand for ''Msg('v'...)'', meant for debugging/tracing messages.
-The levels of messages here, are separate from Logger's implicit
+The levels of messages here are separate from Logger's implicit
 levels for ''warning'', ''error'', etc.
-
-* ''rMsg(self, color=None, width=n, char='=')''
-
-Draw a (possibly colored) line ("rule") of width ''n'' characters.
-Default ''n'': 80.
-
-* ''Msg'' ''(msgType, message1, message2, color, text, stat)''
-
-Issue a message (normally to STDOUT), using the formatting and options defined
-for the given ''msgType''. Types 'e' (error), 'w' (warning),
-and 'h' (header) are provided.
 
 ===Treatment of message with `eMsg`, `vMsg`, `hMsg`, etc.===
 
@@ -380,6 +346,8 @@ These items can be filled in by a message format:
 
 * ''defineMsgType''(type, color=None, nLevels=None, func=None,
 prefix=None, infix=None, suffix=None, escape=None, indent=None)
+
+DEPRECATED
 
 Create or modify a named "type" of message.
 Types "v", "e", and "h" are predefined but may be modified.
@@ -531,49 +499,14 @@ Remove all statistics.
 ==Additional messaging methods==
 
 This package adds several more calls. The first is simply ''fatal'',
-which issues a ''log''() message with level 60, and then raises an
+which issues a ''log''() message with level 60 and then raises an
 exception (if uncaught, this will lead to a stack trace and termination).
 
-The following calls issue their messages via ''info''(),
-and so will not produce visible message if the ''Logger'' level is over 20.
-
-These are mainly for developers or power users, and support
-messages of the kind common for *nix command-line programs, where the
+The numbers message methods, such as ''info1'' check the verbosity level 
+(set via ''setVerbose()''), and discard the message if it is not at least
+as high as the number at the end of the method name.
+This supports the common *nix command-line usage, where the
 amount of messaging is increased by using one or more ''-v'' options.
-Thus, the ''verbose'' argument for the following calls ranges from 0
-(for a message that should appear any time the ''Logger'' message allows
-any 'info' messages through); to 1 (for messages that also require at least
-''-v'' on the command line); to 2 (for messages that also require at least
-''-v -v'' on the command line); and so on.
-
-To set the degree of verbosity, use ''setVerbose(n)''. Calling this with n'''0
-will test that Logger.isEnabledFor(20) is True; if not, it will call
-Logger.setLevel(20) so that these messages have a chance to get through.
-This means that getting such messages also forces you to get warnings,
-error, and criticals. This seems sensible to the author.
-
-* ''Msg(self, level, msgType='v', color=None, width=79)''
-
-Issues such a message. The ''msgType'' parameter specifies a message ''type''
-from the predefined list (e, v, h, or x).
-
-* ''vMsg(self, level, msg1, msg2, color=None)''
-
-Shorthand to issue such a message, with ''msgType'' 'v' (verbose).
-
-* ''hMsg(self, level, msg1, msg2, color=None, width=79)''
-
-Shorthand to issue such a message, with ''msgType'' 'h' ('heading').
-Such messages get a blank line before, and a distinctive color or prefix.
-
-* ''eMsg(self, level, msg1, msg2, color=None)''
-
-Shorthand to issue such a message, with ''msgType'' 'e' (error).
-Error messages with a negative level cause termination (deprecated, use `error()`).
-
-* '''rMsg(self, level, color=None, width=79)
-
-Produces a (possibly colored) horizontal rule of the given ''width''.
 
 ==Indentation control methods==
 
@@ -687,17 +620,17 @@ prefixes to messages (such as "INFO:root:").
 
 Seems to be a problem with `maxItems`, and with suppressing callables in `formatRec()`.
 
-`formatRec()` could use options to shorten long displays, such as:
+`formatRec()` could use more options to shorten long displays, such as:
 
 * suppress all object properties with value None
 * suppress a given list of properties
 * don't descend into certain object types
-* use a special displayer method, say, __format__()?
+* use a caller-supplied displayer method
 
 
 =To do=
 
-* I don't really like that "stats" part, probably discard it.
+* I don't really like that "stats" part, discard it.
 
 * Sync to Py logger:
     rename file to aLogger
@@ -712,24 +645,21 @@ Seems to be a problem with `maxItems`, and with suppressing callables in `format
     eMsg->e...
     hMsg??
 
-* formatRec():
-** Support more numpy, PyTorch classes (and have a way to extend?)
-Just make a dict of types, mapping to their formatter functions.
-** Perhaps accept maxItems as a dict, mapping types to limits?
-** Protect against circular structures.
-** For collections of length 1, put on same line
-** Implement key and property sorting options.
-** Use kw_args instead of long list of named options?
-
-* Unify formatRec() `options` parameter, with ALogger items?
-    self.openDict = "{"; self.closeDict = "}"
-    self.openList = "["; self.closeList = "]"
-    self.openObject = "<<"; self.closeObject = ">>"
-    self.disp_None = "*NONE*"
-
 * Option to get rid of "INFO:root:" prefix from logging package.
 
 * Consider switching to "logv = lambda lvl, msg: info(msg) if lvl<=args.verbose else None"
+
+
+* formatRec():
+** Move out to be a separate library.
+** Support more numpy, PyTorch classes (and have a way to extend? maybe just tostring()?)
+Or have a dict of types, mapping to their formatter functions.
+** Protect against circular structures (started 2022-02-17 via 'noDups' option).
+** Option to make strings visible and/or ASCII.
+** For collections of length 1, put on same line.
+** Implement key and property sorting options.
+** Perhaps accept maxItems as a dict, mapping types to limits?
+
 
 =History=
 
@@ -755,6 +685,11 @@ Linux command `dircolors` is not available. POD to MarkDown.
 and [evh]Msg() forms, in favor of warningN(), etc. Add verboseDefault. lint.
 * 2021-07-09: formatRec(): Fix maxDepth limiting, clean up option handling.
 Rename `noExpand` to `stopTypes`, add `stopNames`.
+* 2022-02-17: formatRec: Fix numpy ndarray shape reporting. Make depth limit
+message report type of next thing, and still report scalars. Add 'maxString'.
+Drop headingN() methods, and make log() insert separator space and line if the
+message starts with "====". Planning to lose hMsg(), defined msg types, etc.
+Add 'noDups'. Drop rMsg(), MsgRule, defineMsgType(), Msg().
 
 
 =Rights=
@@ -848,25 +783,17 @@ class ALogger:
                                 format='%(message)s')
         self.lg             = logging.getLogger()
 
-        self.headPrefix = "\n*******"
-
-        # msgType: color, nLevels, func, prefix, infix, suffix, escape, indent.
-        self.msgTypes       = {}
-        self.msgFormats     = {}
         self.msgStats       = {}
-
         self.msgIndentLevel = 0   # How far are we indenting infos?
         self.errorCount     = 0   # Total number of errors logged
-        self.plineCount     = 1   # pline() uses, for colorizing
+        self.plineCount     = 1   # pline() uses for colorizing
 
         self.unescapeExpr   = re.compile(r'_[0-9a-f][0-9a-f]')
 
         # Also available via ColorManager.uncolorizer()
         self.colorRegex     = re.compile(r'\x1b\[\d+(;\d+)*m')
-
         self.colorManager   = None
         if (self.options['color']): self.setupColor()
-        self.defineMsgTypes()
 
         # String to display to delimit types of objects
         # Factor out string-quoting too, to make it distinctive.
@@ -886,6 +813,8 @@ class ALogger:
             self.openObject = "<<"; self.closeObject = ">>"
             self.disp_None = "*NONE*"
 
+        self.aggregatesSeen = None  # For formatRec()
+        
         return(None)
 
     def setColors(self, activate=True):
@@ -971,99 +900,30 @@ class ALogger:
         """
         Define the set of built-in message types.
         """
-        # Try to figure out what the background color is?
-        bgType = 'light'
-        if ('TERM_BG' in os.environ):
-            if (os.environ('TERM_BG') in [u'black',u'blue',u'red',u'magenta']):
-                bgType = 'dark'
-        elif (0 and 'COLORTERM' in os.environ):
-            if (os.environ('COLORTERM') == "gnome-terminal"):
-                xtc = "FIX THIS" # which xtermcontrol
-                if (0 and os.path.exists(xtc)):
-                    # xtermbg = xtc --get-bg
-                    # ...
-                    pass
+        assert False
 
-        if (bgType == 'light'):
-            self.defineMsgType(u'v',
-              u'blue',             escape=0, indent=1)
-            self.defineMsgType(u'e',
-              u"white/red/bold",   escape=1, indent=1,  prefix=u"ERROR: ")
-            self.defineMsgType(u'h',
-              u'magenta/white',    escape=0, indent=1,  prefix=u"\n******* ")
-            self.defineMsgType(u'x',
-              u'blue',             escape=0, indent=0)
-        else:
-            self.defineMsgType(u'v',
-              u"/blue",            escape=0, indent=1)
-            self.defineMsgType(u'e',
-              u"/red", func=1,     escape=1, indent=1,  prefix=u"ERROR: ")
-            self.defineMsgType(u'h',
-              u"/magenta/white",   escape=0, indent=1,  prefix=u"\n******* ")
-            self.defineMsgType(u'x',
-              u"/blue",            escape=0, indent=0)
-
-    def defineMsgType(self, msgType, color=None, nLevels=0, func=None,
-        prefix=None, infix=None, suffix=None, escape=None, indent=None):
+    def defineMsgType(self, *args, **kwargs):
         """Create a new named message type, for use with 'Msg()'.
         Each type owns a bunch of formatting information.
         Arguments default to None, so user can leave items unchanged
         if the type is already defined.
         """
-        if (not msgType): return(0)
-        if (msgType not in self.msgTypes):
-            #sys.stderr.write("defining new message type '%s'.\n" % (msgType))
-            self.msgTypes[msgType] = {
-            'color'     : color or u"/yellow",
-            'nLevels'   : 0,
-            'func'      : 0,
-            'prefix'    : u"",
-            'infix'     : u"",
-            'suffix'    : u"",
-            'escape'    : 1,
-            'indent'    : 1,
-        }
-        theType = self.msgTypes[msgType]
-        if (color is not None):   theType['color']   = color
-        if (nLevels is not None): theType['nLevels'] = nLevels
-        if (func is not None):    theType['func']    = func
-        if (prefix is not None):  theType['prefix']  = prefix
-        if (infix is not None):   theType['infix']   = infix
-        if (suffix is not None):  theType['suffix']  = suffix
-        if (escape is not None):  theType['escape']  = escape
-        if (indent is not None):  theType['indent']  = indent
-        return(1)
+        assert False
 
     def getMsgDefs(self):
         """
         """
-        buf = ("******* Message Type Definitions (indentString = '%s'):\n" %
-            (self.options['indentString']))
-        for k, v in (self.msgTypes.items()):
-            buf += '  ' + k + ': '
-            for a in v.keys():
-                buf += "%s:'%s', " % (a, v[a])
-            buf += "\n"
-        return(buf)
+        assert False
 
-    def getPickedColorString(self, argColor, msgType):
+    def getPickedColorString(self, argColor:str, msgType:str=None):
         """Return color escape codes (not name!) -- the requested color if any,
         else the default color for the message type.
         """
+        assert not msgType
         if (not self.options['color']):
             return("","")
-
         if (argColor and argColor in self.colorStrings):
-            return(self.colorStrings[argColor],self.colorStrings['off'])
-
-        mt = msgType.lower()
-        if (mt and mt in self.msgTypes and
-            self.msgTypes[mt]['color'] in self.colorStrings):
-            #print("getPickedColorString: msgType color '%s'." %
-            #    (self.msgTypes[mt]['color']))
-
-            return(self.colorStrings[self.msgTypes[mt]['color']],
-                   self.colorStrings[u'off'])
+            return(self.colorStrings[argColor], self.colorStrings['off'])
         return("","")
 
 
@@ -1140,22 +1000,13 @@ class ALogger:
     def warning3(self, msg, **kwargs): self.log(3, msg, **kwargs)
     def warning4(self, msg, **kwargs): self.log(4, msg, **kwargs)
 
-    def heading0(self, msg, **kwargs):
-        self.log(0, self.headPrefix + msg, **kwargs)
-    def heading1(self, msg, **kwargs):
-        self.log(1, self.headPrefix + msg, **kwargs)
-    def heading2(self, msg, **kwargs):
-        self.log(2, self.headPrefix + msg, **kwargs)
-    def heading3(self, msg, **kwargs):
-        self.log(3, self.headPrefix + msg, **kwargs)
-    def heading4(self, msg, **kwargs):
-        self.log(4, self.headPrefix + msg, **kwargs)
-
-    def directMsg(self, msg, **kwargs):
+    def directMsg(self, msg, **kwargs) -> None:
         """Pretty much everything ends up here.
         'stat' are should have been handled and removed by caller.
         """
         #assert ('stat' not in kwargs)
+        if (msg.startswith("====")):
+            msg = "\n%s\n%s" % ("=" * 79, msg.lstrip('='))
         ender = kwargs['end'] if 'end' in kwargs else "\n"
         if (not msg.endswith(ender)): msg += ender
         #msg2 = re.sub(r'\n', '*', msg)
@@ -1165,20 +1016,12 @@ class ALogger:
         sys.stderr.write(msg)
 
     # Pass through a few useful methods?
-    def setLevel(self, lvl):
+    def setLevel(self, lvl) -> None:
         self.lg.setLevel(lvl)
-    #def disable(self, lvl):
-    #    self.lg.disable(lvl)
-    #def addLevelName(self, lvl, lvlName):
-    #    self.lg.addLevelName(lvl, lvlName)
-    #def getLevelName(self, lvl):
-    #    self.lg.getLevelName(lvl)
-    #def shutdown(self):
-    #    self.lg.logging.shutdown()
 
     # Add fatal(): level 60, and raise exception after.
     #
-    def fatal(self, msg, stat=None, **kwargs):         # level = 60
+    def fatal(self, msg, stat=None, **kwargs) -> None:
         if (stat): self.bumpStat(stat)
         self.log(60, msg, *kwargs)
         raise Exception("*** Logged message is fatal ***")
@@ -1191,51 +1034,70 @@ class ALogger:
     #     needed to make the message appare. So 0 will show up any time
     #     info() messages do; 1 must also have at least -v; two -v -v,....
     #
-    def MsgRule(self, verbose:int=0, color=None, width:int=79):
-        """Obsolete, deprecated. Use rMsg().
-        """
-        self.rMsg(verbose=verbose, color=color, width=width)
-
-    def rMsg(self, verbose:int, color=None, width:int=79, char=None):
-        """Draw a (possibly colored) line ''n'' columns wide. Default n: 80.
-        """
-        if (not char): char = '='
-        if (self.options['verbose']<verbose): return
-        (on,off) = self.getPickedColorString(color, None)
-        m = on + (char * width/len(char)) + off
-        self.info(m)
-
-    def vMsg(self, verbose:int, m1:str, m2:str="", color:str=None, stat:str=""):
-        """A variant of ''Msg''(), to issue a 'verbose' (msgType 'v') message.
+    def vMsg(
+        self, 
+        verbose:int, 
+        m1:str, 
+        m2:str="", 
+        color:str=None, 
+        indent:bool=True, 
+        stat:str=""
+        ) -> None:
+        """Issue a 'verbose' (msgType 'v') info message.
         """
         if (stat!=""): self.bumpStat(stat)
-        if (self.options['verbose']<verbose): return
-        m = self.assembleMsg(m1=m1, m2=m2, color=color, msgType='v')
+        if (self.options['verbose'] < verbose): return
+        m = self.assembleMsg(m1=m1, m2=m2, color=color, indent=indent)
         self.info(m)
 
     # Change called over to call error() directly, then delete eMsg().
-    def eMsg(self, verbose:int, m1:str, m2:str="", color:str=None, stat:str=""):
-        """A variant of ''Msg''(), to issue an 'error' (msgType 'e') message.
+    def eMsg(
+        self, 
+        verbose:int, 
+        m1:str, 
+        m2:str="", 
+        color:str=None, 
+        indent:bool=True, 
+        stat:str=""
+        ) -> None:
+        """Issue an error message.
         """
         self.errorCount += 1
         if (stat!=""): self.bumpStat(stat)
-        if (self.options['verbose']<verbose): return
-        m = self.assembleMsg(m1=m1, m2=m2, color=color, msgType='e')
+        if (self.options['verbose'] < verbose): return
+        m = self.assembleMsg(m1=m1, m2=m2, color=color, indent=indent)
         self.info(m)
         if (verbose<0):
             raise AssertionError("alogging:eMsg with level %d." % (verbose))
 
-    def hMsg(self, verbose:int, m1:str, m2:str="", color:str=None, stat:str=""):
-        """A variant of ''Msg''(), to issue a 'heading' (msgType 'h') message.
+    def hMsg(
+        self, 
+        verbose:int, 
+        m1:str, 
+        m2:str="", 
+        color:str=None, 
+        indent:bool=True, 
+        stat:str=""
+        ) -> None:
+        """Issue a 'heading' (msgType 'h') message.
+        DEPRECATED in favor of prefixing "====" to other messages.
         """
         if (stat!=""): self.bumpStat(stat)
-        if (self.options['verbose']<verbose): return
-        m = self.assembleMsg(m1=m1, m2=m2, color=color, msgType='h')
+        if (self.options['verbose'] < verbose): return
+        m = self.assembleMsg(m1=m1, m2=m2, color=color, indent=indent)
         self.info(m)
 
     # Messages of various kinds (sync with Perl version)
-    def Msg(self, msgType, m1:str, m2:str="",
-        color:str=None, escape:str=None, stat:str=None, verbose:int=0):
+    def Msg(
+        self,
+        level:int,  # vs. defined type
+        m1:str,
+        m2:str="",
+        color:str=None,
+        escape:str=None,
+        stat:str=None,
+        verbose:int=0
+        ) -> None:
         """Issue a message of the given ''msgType'' (see ''defineMsgType).
         See also the wrappers ''hMsg''(), ''vMsg''(), and ''hMsg''().
 
@@ -1264,65 +1126,46 @@ class ALogger:
         See ''showStats''() for displaying a list of all the collected counts.
         Also see ''bumpStat'', ''setStat'', ''appendStat'', and ''getStat''.
         """
+        assert False, "Don't use Msg() any more!"
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
-        m = self.assembleMsg(m1=m1, m2=m2,
-            msgType=msgType, color=color, escape=escape)
+        m = self.assembleMsg(m1=m1, m2=m2, color=color, escape=escape)
         self.lg.info(m)
         return
 
-    def assembleMsg(self, m1:str, m2:str="",
-             color:str=None, escape:bool=False, indent=None, nLevels:int=0, msgType:str='v'):
+    def assembleMsg(
+        self,
+        m1:str,
+        m2:str="",
+        color:str=None,
+        escape:bool=False,  # Make chars all visible?
+        indent=None,        # Indent by msgLevel?
+        nLevels:int=0,      # Show some stack trace?
+        msgType:str=None,
+        func:bool=False     # Show calling function name
+        ) -> str:
         """Assemble the components of a message to be printed.
         bumpStat also happens there.
         Parameters corresponding to definedMsgType() ones, are overrides.
         """
-        if (msgType not in self.msgTypes):
-            sys.stderr.write("Unknown message type '%s'.\n" % (msgType))
-            msgType = 'v'
-        msgDef = self.msgTypes[msgType]
-        locMsg = ""; nLevels = max(nLevels, msgDef['nLevels'])
+        assert msgType is None
+
+        locMsg = ""
         if (nLevels>0):
             locMsg = "TRACEBACK:\n" + self.getLoc(3, 3+nLevels) + "\n"
-        if (escape or msgDef['escape']):
+        if (escape):
             m1 = self.showInvisibles(m1)
             m2 = self.showInvisibles(m2)
-
-        pre = msgDef['prefix']
-        suf = msgDef['suffix']
-        inf = msgDef['infix']
-        if (indent or msgDef['indent']):
-            ind = (self.options['indentString'] * self.msgIndentLevel)
-            pre = ind + re.sub(r'\n', r'\n'+ind, msgDef['prefix'])
-            inf = re.sub(r'\n', r'\n'+ind, msgDef['infix'])
-            suf = re.sub(r'\n', r'\n'+ind, msgDef['suffix'])
-
+        pre = ""
+        if (indent): pre = (self.options['indentString'] * self.msgIndentLevel)
         caller = ""
-        if (msgDef['func']): caller = self.getCaller() + ": "
-
-        (on,off) = self.getPickedColorString(color, msgType)
-
-        if (isinstance(m1, PYunicode)):
-            um1 = m1
-        else:
-            try:
-                um1 = m1.decode(encoding='latin-1')
-            except UnicodeDecodeError:
-                um1 = re.sub(r'[\x80-\xFF]', self.options['badChar'], m1)
-        if (PY3 or isinstance(m2, PYunicode)):  # noga: F821
-            um2 = m2
-        else:
-            try:
-                um2 = m2.decode(encoding='latin-1')
-            except UnicodeDecodeError:
-                um2 = re.sub(r'[\x80-\xFF]', self.options['badChar'], m2)
-
-        m = u""
-        m += on + pre + caller + um1 + off + inf + um2 + suf
+        if (func): caller = self.getCaller() + ": "
+        (on, off) = self.getPickedColorString(color, msgType)
+        m = on + pre + caller + self.insureUnicode(m1) + off + self.insureUnicode(m2)
         if (locMsg): m += "\n" + locMsg
         return(m)
 
-    def getLoc(self, startLevel:int=0, endLevel:int=0):
+    def getLoc(self, startLevel:int=0, endLevel:int=0) -> str:
         """Return a line(s) showing where we were invoked from.
         frameItems = [ 'frameObj', 'file', 'lineno',
                        'function', "[codeLines]", 'indexOfLine' ]
@@ -1343,17 +1186,26 @@ class ALogger:
         fr = inspect.stack()[2]
         return(fr[3])
 
-
+    def insureUnicode(self, s:str):
+        if (not s): return ""
+        if (isinstance(s, str)): return s
+        try:
+            s2 = s.decode(encoding='latin-1')
+        except UnicodeDecodeError:
+            s2 = re.sub(r'[\x80-\xFF]', self.options['badChar'], s)
+        return s2
+        
+        
     ###########################################################################
     # Statistic-keeping
     #
-    def defineStat(self, stat:str):
+    def defineStat(self, stat:str) -> None:
         """Create a new statistic. Optional, because stats are quietly created
         as needed. However, ''setOption('noMoreStats', True) prevents this.
         """
         self.msgStats[stat] = 0
 
-    def bumpStat(self, stat:str, amount:int=1):
+    def bumpStat(self, stat:str, amount:int=1) -> None:
         """Increment the named statistic, by ''amount'' (default: 1).
         If the name contains "/", it splits there. The first part is
         the overall stat name, which will be stored as a dict, with
@@ -1362,38 +1214,45 @@ class ALogger:
         if (stat in self.msgStats):
             self.msgStats[stat] += amount
         elif (self.options['noMoreStats']):
-            self.Msg(0, "alogging.bumpStat: unknown stat '%s'." % stat)
+            self.error(0, "alogging.bumpStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = amount
 
-    def appendStat(self, stat:str, datum):
+    def appendStat(self, stat:str, datum:Any) -> None:
         """Append to the named statistic (converting to a list first if needed)
         """
         if (stat in self.msgStats):
             self.msgStats[stat].append(datum)
         elif (self.options['noMoreStats']):
-            self.Msg(0, "alogging.appendStat: unknown stat '%s'." % stat)
+            self.error(0, "alogging.appendStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = [ datum ]
 
-    def setStat(self, stat:str, value):
+    def setStat(self, stat:str, value:Any) -> None:
         """Force the named statistic to the given value.
         """
         if (stat in self.msgStats):
             self.msgStats[stat] = value
         elif (self.options['noMoreStats']):
-            self.Msg(0, "alogging.setStat: unknown stat '%s'." % stat)
+            self.error(0, "alogging.setStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = value
 
-    def getStat(self, stat:str):
+    def getStat(self, stat:str) -> Any:
         """Return the current value of the named statistic.
         """
         if (stat in self.msgStats): return(self.msgStats[stat])
         return(0)
 
-    def showStats(self, zeros:bool=False, descriptions:dict=None,
-                  dotfill:bool=0, fillchar:str='.', onlyMatching:str='', lists:str='len'):
+    def showStats(
+        self,
+        zeros:bool=False,
+        descriptions:dict=None,
+        dotfill:bool=0,
+        fillchar:str='.',
+        onlyMatching:str='',
+        lists:str='len'
+        ):
         """Display all the stat values, via ''pline''()
         @param ''zeros'': if not True, statistics counts of 0 are excluded.
         @param ''descriptions'': map from names to a ''label'' argument to
@@ -1498,7 +1357,7 @@ class ALogger:
     # dir() can be wrong, e.g., if the object has a custom __getattr__.
     # Does not seem to work for Cython objects such as in Spacy.
     #
-    def dirMain(self, obj, includeCallables:bool=False) -> Dict:
+    def dirMain(self, obj:Any, includeCallables:bool=False) -> Dict:
         tdict = {}
         for k in dir(obj):
             if (k.startswith("__") or k == "_"): continue
@@ -1514,34 +1373,37 @@ class ALogger:
 
     ###########################################################################
     #
-    def formatPickle(self, path:str):
+    def formatPickle(self, path:str) -> str:
         import pickle
         with open(path, "rb") as ifh:
             stuff = pickle.load(ifh)
         return self.formatRec(stuff)
 
-    def getFROptionDefaults(self):
+    def getFROptionDefaults(self) -> Dict:
         """Initial/default values for all the formatRec() options.
         """
         options = {
-            "specials":     False,    # Show callables and __xxx__ items
-            "showSize":     True,     # Display len() of aggregates
-            "maxDepth":     3,        # Limit recursion levels
-            "depthMessage": "(more)", # Show in place of deeper objects
-            "maxItems":     0,        # Limit items to show from lists
-            "quoteKeys":    False,    # Put quotation marks around dict keys?
-            "keyWidth":     14,       # Columns to leave for dict keys
-            "sortKeys":     True,     # Dicts shown in key order?
-            "indentSize":   4,        # Spaces per indent level
-            "stopTypes":    {},       # Types *not* to expand
-            "stopNames":    {},       # Names/keys *not* to expand
-            "propWidth":    16,       # Columns to leave for object prop names
+            "depthMessage": "deeper",   # Show in place of deeper objects
+            "indentSize":   4,          # Spaces per indent level
+            "keyWidth":     14,         # Columns to leave for dict keys
+            "maxDepth":     3,          # Limit recursion levels
+            "maxItems":     0,          # Limit items to show from lists
+            "maxString":    0,          # Limit string length to show
+            "noDups":       0,          # Don't print same aggregate twice.
+            "propWidth":    16,         # Columns to leave for object prop names
+            "quoteKeys":    False,      # Put quotation marks around dict keys?
+            "showSize":     True,       # Display len() of aggregates
+            "sortKeys":     True,       # Dicts shown in key order?
+            "specials":     False,      # Show callables and __xxx__ items
+            "stopNames":    {},         # Names/keys *not* to expand
+            "stopTypes":    {},         # Types *not* to expand
         }
         return options
 
-    def formatRec(self,
-        obj,                      # Data to format
-        **kwargs                  # Options
+    def formatRec(
+        self,
+        obj:Any,         # Data to format
+        **kwargs         # Options
         ) -> str:
         """Format a pretty wide range of data structures for pretty-printing.
         Based on a similar PHP tool I built with ccel.org.
@@ -1551,7 +1413,8 @@ class ALogger:
 
         @return: A printable string.
 
-        NOTE: This is protected against circular structures only by 'maxDepth'.
+        NOTE: This is protected against circular structures only by 'maxDepth' and
+        the (still experimental) 'noDups' option if set.
         """
         options = self.getFROptionDefaults()
         for k, v in kwargs.items():
@@ -1562,19 +1425,35 @@ class ALogger:
                     (type(options[k]), type(v), k))
             options[k] = v
 
+        # Keep a list of non-scalars so we don't re-print same one.
+        self.aggregatesSeen = {}
+
         return self.formatRec_R(obj, options=options, depth=0)
 
+    scalarTypes = [ int, str, bool, float, complex, str, bytearray ]
+    
     def formatRec_R(self, obj:Any, options:Dict, depth:int) -> str:
         """The real (recursive) formatter.
         """
         #print("In formatRec_R, depth %d, maxDepth %d." % (depth, options['maxDepth']))
+        isScalar = type(obj) in self.scalarTypes
         if (depth > options['maxDepth']):
-            return options['depthMessage']
+            if (isScalar): return self.formatScalar(obj, options['maxString'])
+            return "(%s %s)" % (options['depthMessage'], type(obj).__name__)
 
         ind = ' ' * (options['indentSize'] * depth)
         buf = ""
         #buf += (ind + "*** Dumping a '%s'." % (type(obj)))
 
+        # Avoid re-printing same non-scalar object (also prevents circular traverse).
+        if (not isScalar):
+            if (id(obj) in self.aggregatesSeen):
+                # TODO: Also print obj pointers on aggregates...
+                buf += ind + "(repeated %s, at 0x%x)" % (type(obj).__name__, id(obj))
+                return buf
+            else:
+                self.aggregatesSeen[id(obj)] = True
+                
         if (obj is None):                                           # NONE
             buf += ind + self.disp_None
 
@@ -1588,7 +1467,7 @@ class ALogger:
 
         # If a scalar is in some aggregates, the aggregate adds ind and \n.
         elif (isinstance(obj, (bool, int, float, complex, str))):   # SCALARS
-            buf += self.formatScalar(obj)
+            buf += self.formatScalar(obj, options['maxString'])
 
         elif (isinstance(obj, dict)):                               # DICT
             # namedtuple, defaultdict?
@@ -1609,7 +1488,7 @@ class ALogger:
                     v = obj[n]
                     inum += 1
                     if (self.skipIt(v, n, options)): continue
-                    if (options['maxItems'] and inum >= options['maxItems']):
+                    if (options['maxItems'] > 0 and inum > options['maxItems']):
                         buf += "*** maxItems reached ***"
                         break
                     buf += dfmt % (
@@ -1623,7 +1502,7 @@ class ALogger:
             if (len(obj)):
                 buf += ": %s\n" % (self.openList)
                 for n, v in enumerate(obj):
-                    if (options['maxItems'] and n > options['maxItems']): break
+                    if (options['maxItems'] > 0 and n > options['maxItems']): break
                     buf += ("%s%s,\n" %
                     (ind, self.formatRec_R(v, options=options, depth=depth+1)))
                 buf += ind + self.closeList
@@ -1634,7 +1513,7 @@ class ALogger:
             if (len(obj)):
                 buf += ": %s\n" % (self.openList)
                 for n, v in enumerate(obj):
-                    if (options['maxItems'] and n > options['maxItems']): break
+                    if (options['maxItems'] > 0 and n > options['maxItems']): break
                     buf += "%s #%d: %s,\n" % (
                         ind, n, self.formatRec_R(v, options=options, depth=depth+1))
                 buf += ind + self.closeList
@@ -1647,7 +1526,7 @@ class ALogger:
                 obj.dim(), len(obj), obj.dtype, cFlag)
 
         elif (type(obj).__name__ == 'ndarray'):                     # numpy array
-            buf += "ndarray |%d}|" % (len(obj))
+            buf += "ndarray |%s|" % (", ".join(str(x) for x in obj.shape))
 
         elif isinstance(obj, NamedNodeMap):                         # NamedNodeMap
             # This is weird, dir() won't touch it. Just map it to a dict
@@ -1676,7 +1555,11 @@ class ALogger:
                     #skipped = 0
                     if (options['sortKeys']): stuff = sorted(stuff)
                     for nm in (stuff):
-                        thing = getattr(obj, nm, "[NONE]")
+                        try:
+                            thing = getattr(obj, nm, "[NONE]")
+                        except ValueError as e:
+                            buf += "*** Could not get attr '%s': %s" % (nm, e)
+                            continue
                         if (self.skipIt(thing, nm, options)): continue
                         #buf += (ind + "  .%s (%s): " % (nm, type(thing)))
                         ofmt = ind + "  .%-" + str(options['propWidth']) + "s = %s,\n"
@@ -1689,7 +1572,7 @@ class ALogger:
 
         else:                                                       # UNKNOWN
             buf += ("something else")
-            buf += self.formatScalar(obj)
+            buf += self.formatScalar(obj, options['maxString'])
         return buf
         # end formatRec_R
 
@@ -1709,14 +1592,16 @@ class ALogger:
         if (not addQuotes): return s
         return '"' + re.sub(r'"', '\\"', s) + '"'
 
-    def formatScalar(self, obj) -> str:
-        """Return a formatted version of a scalar variable. If passed an
-        aggregate, format its length instead.
+    def formatScalar(self, obj:Any, maxString:int=0) -> str:
+        """Return a formatted version of a scalar variable (or at least not a aggregate).
+        If passed an aggregate, format its length instead.
         """
         ty = type(obj)
         if (obj is None):
             return self.disp_None
         elif (isinstance(obj, (str, PYunicode))):
+            if (maxString > 0 and len(obj) > maxString):
+                return '"%s"' % (obj[0:maxString])
             return '"%s"' % (obj)
         elif (isinstance(obj, bytearray)):
             return 'b"%s"' % (obj)
@@ -1735,6 +1620,9 @@ class ALogger:
             return "%12.4f" % (obj)
         elif (isinstance(obj, complex)):
             return "%s" % (obj)
+
+        elif (isinstance(obj, type)):
+            return "%12.4f" % (type(obj).__name__)
 
         elif (isinstance(obj, dict)):
             return "{|%d|}" % (len(obj))
@@ -1770,7 +1658,7 @@ if __name__ == "__main__":
     lg.warning("A warning message")
     lg.error("An error message")
 
-    lg.hMsg(0, "An hMsg message")
+    lg.info("====A header message")
     lg.vMsg(0, "A vMsg message.")
     lg.MsgPush()
     lg.vMsg(0, "A vMsg message, indented.")

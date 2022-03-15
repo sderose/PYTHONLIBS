@@ -13,7 +13,7 @@ import subprocess
 from unicodedata import normalize
 
 __metadata__ = {
-    "title"        : "argParsePP.py",
+    "title"        : "argParsePP",
     "description"  : "An extended `argparse`.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

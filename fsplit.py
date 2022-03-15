@@ -12,7 +12,7 @@ from collections import namedtuple
 from typing import Dict, Any, Union, IO
 
 __metadata__ = {
-    'title'        : "fsplit.py",
+    'title'        : "fsplit",
     'description'  : "A better (I hope) str.split() or csv package.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

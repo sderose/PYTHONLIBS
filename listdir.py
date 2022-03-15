@@ -8,7 +8,7 @@ import sys
 import os
 
 __metadata__ = {
-    'title'        : "listdir.py",
+    'title'        : "listdir",
     'description'  : "A slight improvement (I think) on os.listdir.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

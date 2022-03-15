@@ -15,7 +15,7 @@ import tarfile
 from sjdUtils import sjdUtils
 
 __metadata__ = {
-    'title'        : "ReadAny.py",
+    'title'        : "ReadAny",
     'description'  : "Read plain/zip/gzip files, directories, etc.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

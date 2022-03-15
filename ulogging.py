@@ -1,3 +1,4 @@
+import sys
 import logging
 import re
 
@@ -54,7 +55,7 @@ def getVerbose():
     return logging.verbose
 
 def fatal(msg:str, *args, **kwargs):
-    logging.critical(msg:str, *args, **kwargs)
+    logging.critical(msg, *args, **kwargs)
     sys.exit()
     
     

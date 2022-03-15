@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Datatypes.py: Verify datatypes represented by string data.
 # Written 2012-05-07 by Steven J. DeRose.
@@ -8,11 +8,8 @@
 import sys
 import re
 
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-
 __metadata__ = {
-    'title'        : "Datatypes.py",
+    'title'        : "Datatypes",
     'description'  : "Provide basic type-checking, conversions, formatting.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
@@ -239,13 +236,13 @@ class Datatypes:
     ASCII_NMCHAR      = r'[-_.:\w]'
     ASCII_NAME        = ASCII_NMSTART + ASCII_NMCHAR + "*"
 
-    xmlChar           = u"[\t\n\r\x20-\uD7FF\uE000-\uFFFD]"
+    xmlChar           = "[\t\n\r\x20-\uD7FF\uE000-\uFFFD]"
     #"\x{00010000}-\x{0010FFFF}"
     xmlSpace          = r"[\t\n\r\x20]"
     xmlNameStartCharList = (
-        u":A-Z_a-z\xc0-\xd6\xd8-\xf6\xf8-\u02ff\u0370-\u037d\u037f-\u1fff" +
-        u"\u200c\u200d\u2070-\u218f\u2c00-\u2fef" +
-        u"\u3001-\ud7ff\uf900-\ufdcf" + u"\ufdf0-\ufffd"
+        ":A-Z_a-z\xc0-\xd6\xd8-\xf6\xf8-\u02ff\u0370-\u037d\u037f-\u1fff" +
+        "\u200c\u200d\u2070-\u218f\u2c00-\u2fef" +
+        "\u3001-\ud7ff\uf900-\ufdcf" + "\ufdf0-\ufffd"
         #"\x{00010000}-\x{000effff}"
     )
     xmlNameCharList   = (r"-.0-9\u00b7\\u0300-\u036f\u203f-\u2040" + xmlNameStartCharList)
@@ -356,9 +353,9 @@ class Datatypes:
             v = Datatypes.__DatatypeData__[k2]
             try:
                 self.exprs[k2] = re.compile(r'^(' + v[0] + r')$')
-            except Exception as e:
+            except Exception as e0:
                 self.warn("Datatypes: Bad regex for %-20s '%s':\n    %s" %
-                    (k2, v[0], e))
+                    (k2, v[0], e0))
 
     def warn(self, msg):
         if (self.options["quiet"]): return

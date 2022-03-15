@@ -29,7 +29,7 @@ else:
     def unichr(n): return chr(n)
 
 __metadata__ = {
-    "title"        : "CharDisplay.py",
+    "title"        : "CharDisplay",
     "description"  : "Show tons of info about a character(s).",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

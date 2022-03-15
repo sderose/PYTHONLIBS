@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Union, Any, Dict
 
 __metadata__ = {
-    'title'        : "Record.py",
+    'title'        : "Record",
     'description'  : "A cross between namedtuple and dict.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

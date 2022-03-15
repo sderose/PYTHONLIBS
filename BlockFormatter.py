@@ -28,7 +28,7 @@ else:
     def unichr(n): return chr(n)
 
 __metadata__ = {
-    "title"        : "BlockFormatter.py",
+    "title"        : "BlockFormatter",
     "description"  : "Simple formatter class for Python argparse.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

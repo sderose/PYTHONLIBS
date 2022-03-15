@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 
 __metadata__ = {
-    "title"        : "strftime.py",
+    "title"        : "strftime",
     "description"  : "Make strftime available on command line.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

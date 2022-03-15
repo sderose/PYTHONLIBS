@@ -8,7 +8,7 @@ import sys
 import argparse
 
 __metadata__ = {
-    'title'        : "Homogeneous.py",
+    'title'        : "Homogeneous",
     'description'  : "Implement homogeneous subclasses of list, dict, etc.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # ColorManager.py: ANSI color utilities for Python, by Steven J. DeRose.
 # 2011-12-09: sjdUtils Ported to Python; 2016-10-31 ColorManager separated.
@@ -10,7 +10,7 @@ import re
 from typing import Union
 
 __metadata__ = {
-    'title'        : "ColorManager.py",
+    'title'        : "ColorManager",
     'description'  : "ANSI terminal color utilities.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
@@ -24,7 +24,7 @@ __metadata__ = {
 __version__ = __metadata__['modified']
 
 
-descr = u"""
+descr = """
 =Description=
 
 Provide relatively easy access to ANSI terminal colors. For example,
@@ -258,32 +258,32 @@ class ColorManager:
     numbers2Names = {}  # Set up only if needed
 
     colorNumbers = {  # +30 for foreground, +40 for background
-        u"black"   : 0,
-        u"red"     : 1,
-        u"green"   : 2,
-        u"yellow"  : 3,
-        u"blue"    : 4,
-        u"magenta" : 5,
-        u"cyan"    : 6,
-        u"white"   : 7,
-        u"default" : 9,
+        "black"   : 0,
+        "red"     : 1,
+        "green"   : 2,
+        "yellow"  : 3,
+        "blue"    : 4,
+        "magenta" : 5,
+        "cyan"    : 6,
+        "white"   : 7,
+        "default" : 9,
     }
 
     effectNumbers = {
-        u"bold"       : 1,
-        u"faint"      : 2,
-        u"italic"     : 3,
-        u"underline"  : 4,
-        #u"blink"      : 5,
-        #u"fblink"      :6,
-        u"reverse"    : 7,
-        u"concealed"  : 8,
-        u"strike"     : 9,
+        "bold"       : 1,
+        "faint"      : 2,
+        "italic"     : 3,
+        "underline"  : 4,
+        #"blink"      : 5,
+        #"fblink"      :6,
+        "reverse"    : 7,
+        "concealed"  : 8,
+        "strike"     : 9,
     }
 
     offNumbers = {
-        u"default"    : 0,
-        u"off"        : 0,
+        "default"    : 0,
+        "off"        : 0,
     }
 
     def __init__(self, effects=None):
@@ -306,8 +306,8 @@ class ColorManager:
 
         # Be nice to blink-sensitive folks
         if ('NOBLINK' not in os.environ):
-            ColorManager.effectNumbers[u"blink"] = 5
-            ColorManager.effectNumbers[u"fblink"] = 6
+            ColorManager.effectNumbers["blink"] = 5
+            ColorManager.effectNumbers["fblink"] = 6
 
         if (isinstance(effects, list) and len(effects)):
             for k in ColorManager.effectNumbers.keys():
@@ -340,7 +340,7 @@ class ColorManager:
 
                 for c2 in ColorManager.colorNumbers:
                     c2n = ColorManager.colorNumbers[c2]
-                    self.colorStrings[c+u"/"+c2] = (
+                    self.colorStrings[c+"/"+c2] = (
                         fmt2 % (eb, 30+cn, 40+c2n))
                     for e in ColorManager.effectNumbers:
                         en = ColorManager.effectNumbers[e]

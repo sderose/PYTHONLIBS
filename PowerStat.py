@@ -10,7 +10,7 @@ import os
 import stat
 import math
 import time
-from typing import Any, Dict  #, Union
+from typing import Any, Dict, Union
 import re
 import pwd
 import grp
@@ -23,7 +23,7 @@ if (PY3 and sys.version_info[1] < 7):
         return False
 
 __metadata__ = {
-    'title'        : "PowerStat.py",
+    'title'        : "PowerStat",
     'description'  : "A Python clone+lib (more or less) of 'stat'.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
@@ -72,10 +72,18 @@ time), by `{name}`, where name is any of identifiers specified at
 (for example) [https://docs.python.org/3/library/stat.html] (such as UF_HIDDEN
 and many others).
 
+==Additions==
+
+This package also provide a few generally-useful methods, such as:
+
+* PowerStat.StatItem.getFlag(s) -- givne either a path or an os.stat_result,
+return the flag character like "ls -F" appends to file names ("/" for directories, etc.).
+
 ==Formats==
 
 Where they overlap, the format specifications here follow those of `stat`.
-They start with "%", but have a load of fields, mostly optional:
+They can be placed into a format-definition string by prefixing
+them with "%", but have a load of syntax, mostly optional:
 
 * Optional flags: [#+-0] for affect leading zeros, signs, left-alignment, etc.
 * size (digits)
@@ -105,7 +113,7 @@ S for dates uses `strftime` formats.
 
 ==Examples==
 
-* %uS  gets user name as a string
+* %uS gets the user name as a string.
 
 
 =Related Commands=
@@ -262,8 +270,10 @@ statFormats:Dict[str, str] = {
 
 ###############################################################################
 # More semantically useful types for data
+#
 class Epoch(float):
     pass
+    
 class Unsigned(int):
     pass
 
@@ -535,11 +545,13 @@ class StatItem:
             raise ValueError("Unrecognized datum code '%s'." % (self.datum))
 
     @staticmethod
-    def getFlag(st, shortName:bool=True) -> str:
-        """Return the same character flag that "ls -F" would append to this item,
-        or the long form of it.
+    def getFlag(st:Union[os.stat_result, str], shortName:bool=True) -> str:
+        """Return the same single character file type flag that "ls -F" would,
+        to append/suffix to this item. Can also provide a long form of it.
         TODO: Find and add the non-short names that it wants....
         """
+        if (isinstance(st, str)):
+            st = os.stat(st)
         mode = st.st_mode
         if (stat.S_ISDIR(mode)):  return "/" if (shortName) else "/"
         # TODO: Which executagble bit(s) does ls -F actually report?
@@ -548,9 +560,8 @@ class StatItem:
         if (stat.S_ISFIFO(mode)): return "|" if (shortName) else "|"  # FIFO
         # TODO: Is this not supported on MacOS or something?
         #if (stat.S_ISWHT(mode)):  return "%" if (shortName) else "%"  # whiteout
-        if (st.S_IFWHT):  return "%" if (shortName) else "%"  # whiteout
-        if (st.S_IXUSR or st.S_IXGRP or st.S_IXOTH):
-            return "*" if (shortName) else "*"
+        #if (st.S_ISWHT):  return "%" if (shortName) else "%"  # whiteout
+        #if (st.S_IXUSR or st.S_IXGRP or st.S_IXOTH): return "*" if (shortName) else "*"
         return ""
 
     @staticmethod
