@@ -141,13 +141,15 @@ you specify `--quiet`.
 
 ===Command output format===
 
-* `--oformat` [x] -- formats the list as plain, json, html, or s-expressions.
-Setting this to other than "plain" (the default), overrides the specific
+* `--oformat` [x] -- formats the list as 'plain', 'json', 'html',
+or 'sexp' (LISP s-expressions).
+Setting this to other than "plain" (the default), overrides specific
 delimiter options described below.
 
 * `--openQuote "x"` and `--closeQuote "y"` -- set delimiters to be put
 before and after each name (typically both would be set to '"' or "'").
-`--quote` may be used as shorthand to set both to "'". These options
+`--quote` may be used as shorthand to set both to "'", or
+`--no-quote` to set both to "" (nothing). These options
 are overridden by `--oformat` settings that demand certain quoting,
 such as json, html, and sexp.
 
@@ -821,6 +823,7 @@ Filter by git status. More option re. symlinks, start Mac .webloc support.
 Improve doc, typehints, etc. Track inodes of directories to try to protect
 against circular symlinks.
 * 2022-02-14: Normalize quotes. Add --filetype.
+* 2022-03-23: Improve output format quoting options.
 
 
 =Rights=
@@ -1020,6 +1023,7 @@ class TraversalState(list):
     def indent(self) -> str:
         return self.iString * self.depth
 
+
     ###########################################################################
     # Stack managers for the main event types.
     #
@@ -1114,7 +1118,6 @@ class TraversalState(list):
             return PWFrame(thePWFrame.path, thePWFrame.fh or None,
                 PWType.CLOSE, inode=thePWFrame.inode)
         raise IOError("Trying to close a %s" % (thePWFrame))
-
 
 
 ###############################################################################
@@ -2124,6 +2127,9 @@ if __name__ == "__main__":
             "--quote", action="store_true",
             help='Sets both openQuote and closeQuote to "\'".')
         parser.add_argument(
+            "--noquote", "--no-quote",  action="store_true",
+            help='Sets both openQuote and closeQuote to "" (off).')
+        parser.add_argument(
             "--serialize", action="store_true",
             help="With --copy, add a serial number to each file.")
         parser.add_argument(
@@ -2158,8 +2164,11 @@ if __name__ == "__main__":
 
         args0 = parser.parse_args()
 
-        if (args0.quote):  # Overridden by  some following oformat values.
+        if (args0.quote):  # Overridden by some following oformat values.
             args0.openQuote = args0.closeQuote = "'"
+        elif (args0.noquote):
+            args0.openQuote = args0.closeQuote = ""
+
         if (args0.oformat): mapNamedOFOs(args0)
         return(args0)
 
@@ -2208,6 +2217,7 @@ if __name__ == "__main__":
             #args0.openQuote = ""
             #args0.closeQuote = ""
         elif (args0.oformat == "json"):
+            warn(0, "Overriding quote settings for --oformat json")
             args0.openDelim = "["
             args0.closeDelim = "]"
             args0.itemSep = ","
@@ -2215,6 +2225,7 @@ if __name__ == "__main__":
             args0.closeQuote = '"'
             args0.anonymousClose = True
         elif (args0.oformat == "html"):
+            warn(0, "Overriding quote settings for --oformat html")
             args0.openDelim = "<ol>"
             args0.closeDelim = "</ol>"
             args0.itemSep = ""
@@ -2222,6 +2233,7 @@ if __name__ == "__main__":
             args0.closeQuote = "</file></li>"
             args0.anonymousClose = True
         elif (args0.oformat == "sexp"):
+            warn(0, "Overriding quote settings for --oformat sexp")
             args0.openDelim = "("
             args0.closeDelim = ")"
             args0.itemSep = ""
@@ -2247,21 +2259,22 @@ if __name__ == "__main__":
         else:
             raise KeyError("Unknown --showInvisibles value.")
 
-    def quoteFilename(f:str, op:str, cl:str) -> str:
+    __notQuotes__ = "]\\-"
+    
+    def quoteFilename(f:str, op:str='"', cl:str='"') -> str:
         """This is not as smart as it should be. For example, it will
         do weird things for multi-char quotes, and it only knows how to
         backslash.
         """
-        if (not op or not cl): op = cl = '"'
-        try:
-            return op + re.sub(r"([%s%s])" % (op, cl), slashFunc, f) + cl
-        except re.error as e:
-            sys.stderr.write("Failed quoting '%s' with '%s'...'%s'.\n    %s" %
-                (f, op, cl, e))
-            sys.exit()
-
-    def slashFunc(mat) -> str:
-        return "\\" + mat.group(1)
+        if (op != "" or cl != ""):
+            assert op not in __notQuotes__ and cl not in __notQuotes__
+            try:
+                f = re.sub(r"([%s%s])" % (op, cl), "\\1", f)
+            except re.error as e:
+                sys.stderr.write("Failed quoting '%s' with '%s'...'%s'.\n    %s" %
+                    (f, op, cl, e))
+                sys.exit()
+        return op + f + cl
 
 
     ###########################################################################
@@ -2363,4 +2376,3 @@ if __name__ == "__main__":
 
     if (args.stats):
         warn(0, pw.travState.getStats(showZeroes=True))
-
