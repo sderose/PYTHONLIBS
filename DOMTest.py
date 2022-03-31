@@ -19,9 +19,9 @@ from xml.dom import minidom
 #from xml.dom.minidom import Document, Node, Element
 
 from DomExtensions import DomExtensions as de
-from DomExtensions import XMLStrings, NodeSelKind
+from DomExtensions import XMLStrings
+from DomExtensions import NodeSelKind as nsk
 from DomExtensions import NodeTypes
-
 
 __metadata__ = {
     "title"        : "DOMTest",
