@@ -1021,7 +1021,6 @@ class NOT_SUPPORTED_ERR(Exception):
 class HIERARCHY_REQUEST_ERR(Exception):
     """Thrown when requested navigation through the tree cannot be done.
     """
-    pass
 
 
 ###############################################################################
@@ -1088,6 +1087,8 @@ class NodeSelKind(Enum):
     ARG_COMMENT   = 0x080  # #comment
     ARG_CDATA     = 0x100  # #cdata
     
+    ARG_NONCOM    = 0xF7F  # Anything BUT comments
+    
     @staticmethod
     def getKind(someArg:Union[str, int]) -> 'NodeSelKind':  # nee def argType()
         """Categorize one of the arguments to __getitem__().
@@ -1100,6 +1101,8 @@ class NodeSelKind(Enum):
 
         if (someArg[0] == "@" and XMLStrings.isXmlName(someArg[1:])):
             return NodeSelKind.ARG_ATTR
+        if (someArg == "#noncom"):
+            return NodeSelKind.ARG_NONCOM
         # Next 3 can all be handled by _getListItemsByName_()
         if (someArg == "#text"):
             return NodeSelKind.ARG_TEXT
@@ -1216,9 +1219,10 @@ def _getListItemsByName_(self:Node, theList:list, nodeSel:NodeSel) -> list:
     """No attributes or ints here.
     """
     nk = NodeSelKind.getKind(nodeSel)
-    if (nk not in [ NodeSelKind.ARG_RESERVED, NodeSelKind.ARG_STAR, NodeSelKind.ARG_NAME ]):
+    if (nk not in [ NodeSelKind.ARG_PI, NodeSelKind.ARG_COMMENT, 
+        NodeSelKind.ARG_CDATA, NodeSelKind.ARG_STAR, NodeSelKind.ARG_NAME ]):
         raise IndexError(
-            "Node index '%s' is not reserved, '*', or element type." % (nodeSel))
+            "Node index '%s' is not a #-type, '*', or element type." % (nodeSel))
     inodes = []
     for item in theList:
         if (item.nodeType==Node.ELEMENT_NODE and
@@ -1230,10 +1234,10 @@ def _getListItemsByName_(self:Node, theList:list, nodeSel:NodeSel) -> list:
 ###############################################################################
 # Methods to make minidom (or whatever) look like JS DOM.
 #
-def outerHTML(self:Node, indent:str="    ", breakEndTags:bool=False) -> str:
+def outerHTML(self:Node, indent:str="    ", breakEndTags:bool=False, usePretty:bool=False) -> str:
     """
     """
-    if (True):
+    if (not usePretty):
         #from io import StringIO
         #buf = StringIO()
         buf = (
@@ -1608,19 +1612,25 @@ def getNChildNodes(self:Node, nodeSel:NodeSel=None) -> int:
     return n
 
 def getChildNumber(self:Node, nodeSel:NodeSel=None) -> int:
-    """Return the number of this node among its siblings.
-    @param nodeSel: If specified, only count siblings that are elements of
-    the specified type ('*' for all).
+    """Return the number of this node among its siblings, counting only
+    siblings that match the given nodeSel (default: all).
+    @param nodeSel: 
+        None: count everything
+        element type name: count only those
+        "*": count all/only elements
+        "#text", etc.: count only text nodes
+        "#noncom": count all non-comment nodes (TODO: experimental)
+    TODO: Add option for whether commend nodes count.
+    TODO: Should we care about non-coalesced text nodes?
     """
     n = 0
     for ch in self.parentNode.childNodes:
-        if (nodeSel is None or
-            (ch.nodeType == Node.ELEMENT_NODE and
-             (nodeSel=='*' or nodeSel==ch.nodeName))): n += 1
+        if (nodeSel is None): n += 1
+        elif (self.nodeMatches(nodeSel)): n += 1
         if (ch==self): return n
     return None
     
-getMyIndex = getChildNumber
+getMyIndex = getChildNumber  # TODO: Move under synonyms
 
 def getDepth(self:Node) -> int:
     """How far down are we? Document element is 1.
@@ -1803,7 +1813,8 @@ def nodeMatches(self:Node, nodeSel:NodeSel="*", attrs:dict=None) -> bool:
         A literal nodeName for an element
         At attribute name, prefixed with "@"
         '*' (the default), to match any element, but no non-element
-        '#text', '#pi', '#commend', or '#cdata'
+        '#text', '#pi', '#comment', or '#cdata'
+        '#noncom' matches any non-comment node.
         A compiled regex, which is matched against element names
 
     @param attrs: a dict of attribute name:value pairs, all of which must match.
@@ -1860,6 +1871,8 @@ def nodeSelMatches(self, nodeSel) -> bool:
         return (self.nodeType == Node.TEXT_NODE)
     elif (nsk == NodeSelKind.ARG_COMMENT):
         return (self.nodeType == Node.COMMENT_NODE)
+    elif (nsk == NodeSelKind.ARG_NONCOM):
+        return (self.nodeType != Node.COMMENT_NODE)
     elif (nsk == NodeSelKind.ARG_PI):
         return (self.nodeType == Node.PROCESSING_INSTRUCTION_NODE)
     elif (nsk == NodeSelKind.ARG_CDATA):
@@ -2099,7 +2112,7 @@ def getAllDescendants(root:Node, excludeTypes:list=None, includeTypes:list=None)
 
 
 ###############################################################################
-# Tabular structure support
+# Tabular structure support (TODO: Move these to DOMTableTools)
 #
 def getColumn(self:Node, onlyChild:str="tbody", colNum:int=1, colSpanAttr:str=None) -> list:
     """Called on the root of table-like structure, return a list of
@@ -2133,9 +2146,6 @@ def getCellOfRow(self:Node, colNum:int=1, colSpanAttr:str=None) -> Node:
             cspan = int(ch.getAttribute(colSpanAttr))
             if (cspan > 1): found += cspan-1
     return None
-
-def transpose(self:Node):
-    raise Exception("Unimplemented")
 
 def eliminateSpans(self:Node, rowSpanAttr:str="rowspan", colSpanAttr:str="colspan"):
     """Insert extra cells (empty, or copies of 'filler'), to obviate
@@ -3400,6 +3410,7 @@ class DomExtensions:
         @return Number of errors.
         """
         if (not classes): classes = [ Node ]
+        elif (isinstance(classes, type)): classes = [ classes ]
         nMissing = 0
         for toPatch in classes:
             inPatch = toPatch.__dict__.keys()
