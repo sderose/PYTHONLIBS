@@ -122,7 +122,7 @@ fspecRE = re.compile(fspecExpr)
 # https://docs.python.org/3/library/string.html?highlight=formatter#string.Formatter
 #
 class strPP(str):
-    def __init__(self, s:str):
+    def __init__(self, s: str):
         super(strPP, self).__init__(s)
 
     def format_field(self, fspec):
@@ -165,7 +165,7 @@ class strPP(str):
 #
 if __name__ == "__main__":
     import argparse
-    def anyInt(x:str) -> int:
+    def anyInt(x: str) -> int:
         return int(x, 0)
 
     def processOptions() -> argparse.Namespace:

@@ -342,7 +342,7 @@ class RecordDef():
     But do people think of "fields" as ordered, so maybe list?
     But we want to encourage names, not numbers, so maybe dict?
     """
-    def __init__(self, name:str, fields:list=None, keyFields=None):
+    def __init__(self, name: str, fields:list=None, keyFields=None):
         self.name = name
         self.fieldNames = []        # In order matching FieldInfo.seq
         self.fieldInfos = {}        # Index by field name
@@ -553,7 +553,7 @@ class Record(dict):
             fieldName = self.dfn.fieldInfos[k]
             self[fieldName] = v
 
-    def __setitem__(self, key:str, value:Any):
+    def __setitem__(self, key: str, value:Any):
         """Actually store a value, type-checking it on the way.
         See https://stackoverflow.com/questions/2060972/
         """

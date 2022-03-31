@@ -389,7 +389,7 @@ class Block:
     """A single block (para, listitem, headings, table row, etc), as
     teased out by linesToBlocks().
     """
-    def __init__(self, btype:str="PARA", text:str="", level:int=0, typeSequence=None, cols:int=None):
+    def __init__(self, btype:str="PARA", text: str="", level:int=0, typeSequence=None, cols:int=None):
         assert btype in blockTypes
         self.btype = btype                # kind of block
         self.text = text                  # accumulated text content
@@ -430,7 +430,7 @@ class BlockFormatter(argparse.HelpFormatter):
     def __init__(self, prog=None):
         super(BlockFormatter, self).__init__(prog)
 
-    def _fill_text(self, text:str, width:int, indent:str) -> str:
+    def _fill_text(self, text:str, width:int, indent: str) -> str:
         """Override the aggressive line-filler, to do these things:
             * Retain blank lines
             * Keep newline before line-initial [*#] (probably list items)
@@ -482,7 +482,7 @@ class BlockFormatter(argparse.HelpFormatter):
         return "\n".join(blocks)
 
     @staticmethod
-    def makeBlocks(text:str) -> list:
+    def makeBlocks(text: str) -> list:
         """Parse the input line by line and:
             * discard comments
             * combine each wrappable group of lines into one
@@ -531,7 +531,7 @@ class BlockFormatter(argparse.HelpFormatter):
         return blocks
 
     @staticmethod
-    def doSpecialChars(item:str) -> Tuple[str, str]:
+    def doSpecialChars(item: str) -> Tuple[str, str]:
         """Expand tabs, escapes, entities, etc.
         Return the expanded text, but with leading indent separate
         TODO: Switch to markdown2Xml.InlineMapper class.
@@ -553,7 +553,7 @@ class BlockFormatter(argparse.HelpFormatter):
         return item, indentString
 
     @staticmethod
-    def _alt_fill(item:str, width:int, indentString:str) -> str:
+    def _alt_fill(item:str, width:int, indentString: str) -> str:
         """In case _fill_text changes or goes away....
         The splitting regex forces a break at the longest non-space token
         smaller than line width (minus indent).

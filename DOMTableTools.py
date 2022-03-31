@@ -610,7 +610,7 @@ class NormTable(Node):
         """Move a column, identified by number or @class name, to a new place.
         """
         raise UnimplementedError
-        
+
     def clearCellsByContent(self:Node, expr:str=None, nbIsSpace:bool=True):
         """Clear content of cells
         """
@@ -669,14 +669,12 @@ class NormTable(Node):
 #
 DomExtensions.patchDom(NormTable)
 
-     
+
 ###############################################################################
 # Main
 #
 if __name__ == "__main__":
     import argparse
-    def anyInt(x:str) -> int:
-        return int(x, 0)
 
     def processOptions() -> argparse.Namespace:
         try:

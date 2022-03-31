@@ -5,7 +5,7 @@
 #
 #pylint: disable=W0511,W0612,W0613
 #
-#import sys
+import re
 #import os
 #import codecs
 #import string
@@ -15,12 +15,13 @@
 #from typing import IO, Dict, List, Union
 import logging
 lg = logging.getLogger("main")
-
-import DomExtensions
-from DomExtensions import DomExtensions as de
-from DomExtensions import XMLStrings, NodeSelKind
 from xml.dom import minidom
 #from xml.dom.minidom import Document, Node, Element
+
+from DomExtensions import DomExtensions as de
+from DomExtensions import XMLStrings, NodeSelKind
+from DomExtensions import NodeTypes
+
 
 __metadata__ = {
     "title"        : "DOMTest",
@@ -41,14 +42,14 @@ descr = """
 
 ==Usage==
 
-    # x = DOMTest.py [options] [files]
+    DomTest.py [options] [files]
 
 Test a DOM implementation, especially my extensions such as:
     * DomExtensions.py
     * pydom
     * domTables
-    
-    
+
+
 =Related Commands=
 
 
@@ -168,7 +169,7 @@ USpaces = {
 
     # These aren't really a "space"....
     #0x000A0:  ( 1.00,    "NO-BREAK SPACE"),
-    #0x02420:  ( 1.00, "",   "SYMBOL FOR SPACE"), 
+    #0x02420:  ( 1.00, "",   "SYMBOL FOR SPACE"),
     #0x0FEFF:  ( 0.00, "",   "ZERO WIDTH NO-BREAK SPACE (aka BOM)"),
 }
 USpacesStr = "".join(chr(c) for c in USpaces.keys())
@@ -182,20 +183,20 @@ def m(label, msg):
 
 def fail(msg):
     print("Test failed: %s" % (msg))
-        
+
 def test_driver(fh=None):
     if (fh is None):
         dom = minidom.parseString(sampleDoc)
     else:
         dom = minidom.parse(fh)
     doc = dom.documentElement
-    
+
     #x = subtest_meta(doc)
-    x = subtest_basics(doc)
+    x = subtest_xml_strings(doc)
     x = subtest_getItem(doc)
     x = subtest_serialization(doc)
     x = subtest_collectors(doc)
-   
+
     #x = subtest_selectors(doc)
     #x = subtest_cSS(doc)
     #x = subtest_bS4(doc)
@@ -211,7 +212,7 @@ def test_driver(fh=None):
 # Meta
 #
 def subtest_meta(doc):
-    nErrors = 0 
+    nErrors = 0
     # x = enableBrackets(toPatch=Node)
     de.patchDOM()
     # x = patchNamedNodeMap()
@@ -225,73 +226,90 @@ def subtest_meta(doc):
 # need a DOM document or node, but just work on strings.
 # Mostly, these are staticmethods in DomExtensions.XMLStrings.
 #
-def subtest_basics(dom):
+def subtest_xml_strings(dom):
     nErrors = 0
     x = [
-        #            NM QN PP NUM
-        ( "html:li",  0, 1, 0,  0),
-        ( "a",        1, 0, 1,  0),
-        ( "_",        1, 0, 1,  0),
-        ( ".foo.bar", 0, 0, 0,  0),
-        ( "div3",     1, 0, 1,  0),
-        ( "div.3-_b", 1, 0, 1,  0),
-        ( "#foo",     0, 0, 1,  0),
-        ( "123",      0, 0, 0,  1),
-        ( "0",        0, 0, 0,  1),
-        ( "-1",       0, 0, 0,  0),
-        ( "+1",       0, 0, 0,  0),
-        ( "1.0",      0, 0, 0,  0),
-        ( ":",        0, 0, 0,  0),
-        ( "foo-bar_baz.12:a1", 1, 1, 0,  0),
+        #            NM QN PN  NUM NodeSelArg
+        ( "A",        1, 1, 0,  0,  1),
+        ( "_",        1, 1, 0,  0,  1),
+        ( ".foo.bar", 0, 0, 0,  0,  0),
+        ( "_yup",     1, 1, 0,  0,  1),
+        ( ":nope",    0, 0, 0,  0,  0),
+        ( "div3",     1, 1, 0,  0,  1),
+        ( "div.3-_b", 1, 1, 0,  0,  1),
+        ( "#text",    0, 0, 0,  0,  1),
+        ( "#foo",     0, 0, 0,  0,  0),
+        ( "123",      0, 0, 0,  1,  0),
+        ( "0",        0, 0, 0,  1,  0),
+        ( "-1",       0, 0, 0,  0,  0),
+        ( "+1",       0, 0, 0,  0,  0),
+        ( "1.0",      0, 0, 0,  0,  0),
+        ( ":",        0, 0, 0,  0,  0),
+        ( "foo-bar_baz.12:a1",
+                      0, 1, 1,  0,  1),
+        ( "html:li",  0, 1, 1,  0,  1),
     ]
-    for s, isName, isQName, isNMPlus, isNUM in x:
-        assert isName   == XMLStrings.isXmlName(s)
-        assert isQName  == XMLStrings.isXmlQName(s)
-        assert isNMPlus == XMLStrings.isNodeKindChoice(s)  # allows initial [#@] and "*"
-        assert isNUM    == XMLStrings.isXmlNumber(s)
-            
+    for s, isName, isQName, isPName, isNUM, isNSA in x:
+        try:
+            assert isName  == XMLStrings.isXmlName(s)
+            assert isQName == XMLStrings.isXmlQName(s)
+            assert isPName == XMLStrings.isXmlPName(s)
+            assert isNSA   == XMLStrings.isNodeSelArg(s)  # allows initial [#@] and "*"
+            assert isNUM   == XMLStrings.isXmlNumber(s)
+        except AssertionError:
+            print("Failed for candidate name '%s'." % (s))
+            raise
+
     for i in range(13):
-        m("Node type %d" % (i), DomExtensions.NodeTypes(i))
-    
+        m("Node type %d" % (i), NodeTypes(i))
+
     # Categorizing arugments to selectors
-    #               INT NAME ATTR STAR RESERVED 
+    #               INT NAME ATTR STAR   #X   RE
     x = [
-        ( '12',       1,   0,   0,   0,       0 ),
-        ( 'a',        0,   1,   0,   0,       0 ),
-        ( '@class',   0,   0,   1,   0,       0 ),
-        ( '*',        0,   0,   0,   1,       0 ),
-        ( '#text',    0,   0,   0,   0,       1 ),
+        ( '12',       1,   0,   0,   0,   0,   0 ),
+        ( 'a',        0,   1,   0,   0,   0,   0 ),
+        ( '@class',   0,   0,   1,   0,   0,   0 ),
+        ( '*',        0,   0,   0,   1,   0,   0 ),
+        ( '#text',    0,   0,   0,   0,   1,   0 ),
+        ( re.compile("^.*$"),
+                      0,   0,   0,   0,   0,   1 ),
     ]
-    for s, isInt, isName, isAttr, isStar, isReserved in x:
-        assert isInt      == NodeSelKind.getKind(s)
-        assert isName     == NodeSelKind.getKind(s)
-        assert isAttr     == NodeSelKind.getKind(s)
-        assert isStar     == NodeSelKind.getKind(s)
-        assert isReserved == NodeSelKind.getKind(s)
+    for s, isInt, isName, isAttr, isStar, isReserved, isRegex in x:
+        sKind = nsk.getKind(s)
+        assert isInt      == bool(sKind == nsk.ARG_INT)
+        assert isName     == bool(sKind == nsk.ARG_NAME)
+        assert isAttr     == bool(sKind == nsk.ARG_ATTR)
+        assert isStar     == bool(sKind == nsk.ARG_STAR)
+        assert isReserved == bool(sKind in
+            [ nsk.ARG_COMMENT, nsk.ARG_TEXT, nsk.ARG_PI, nsk.ARG_CDATA ])
+        assert isRegex    == bool(sKind == nsk.ARG_REGEX)
 
     # On strings
     # TODO: options for ZML escaping, hex/dec/name entities, width, maybe TEX? Ents
     # TODO: escaping ]]> could be done in a lot of ways....
-    assert (XMLStrings.escapeXmlAttribute("""hello 'ew' "ahh" <foo>""", quoteChar='"') ==
-        """hello &apos;ew&apos; &quot;ahh&quot; &lt;foo&gt;""")
+    assert (XMLStrings.escape_attr("""hello 'ew' "ahh" <foo>""", quoteChar='"') ==
+        """hello 'ew' &quot;ahh&quot; &lt;foo>""")
+    assert (XMLStrings.escape_attr("""hello 'ew' "ahh" <foo>""", quoteChar="'") ==
+        """hello &apos;ew&apos; "ahh" &lt;foo>""")
+
     s = "hello <world> &noEnt; <?tgt foo?> <!--comment--> &#65; ]]> phew"
-    assert (XMLStrings.escapeXml(s) ==
-        "hello &lt;world> &amp;noEnt; &lt;?tgt foo?> &lt;!--comment--> ]]&gt; phew")
-    assert (XMLStrings.escapeXml(s, escapeAllGT=True) ==
+    assert (XMLStrings.escape_text(s) ==
+        "hello &lt;world> &amp;noEnt; &lt;?tgt foo?> &lt;!--comment--> ]]&gt; &amp;#65;phew")
+    assert (XMLStrings.escape_text(s, escapeAllGT=True) ==
         "hello &lt;world&gt; &amp;noEnt; &lt;?tgt foo?&gt; &lt;!--comment--&gt; ]]&gt; phew")
-    assert (XMLStrings.escapeCDATA(s) ==
+    assert (XMLStrings.escape_cdata(s) ==
         "hello <world> &noEnt; <?tgt foo?> <!--comment--> ]]&gt; phew")
-    assert (XMLStrings.escapeComment(s, replaceWith="-&#x2d;") ==
-        "hello <world> &noEnt; &lt;?tgt foo?> &lt;!--comment--> ]]&gt; phew")
-    assert (XMLStrings.escapePI(s, replaceWith="?&gt;") ==
+    assert (XMLStrings.escape_comment(s, replaceWith="-&#x2d;") ==
+        "hello <world> &noEnt; <?tgt foo?> <!-&#x2d;comment-&#x2d;> ]]> phew")
+    assert (XMLStrings.escape_pi(s, replaceWith="?&gt;") ==
         "hello <world> &noEnt; <?tgt foo?&gt <!--comment--> ]]>; phew")
-    
+
     s = "alpha \u03b1 nbsp \xA0 sharp-s \xdf pilcrow \xB6 rpilcrow \u204B end"
-    assert (XMLStrings.escapeASCII(s, width=4, base=16, htmlNames=True) ==
+    assert (XMLStrings.escape_to_ascii(s, width=4, base=16, htmlNames=True) ==
         "alpha &#x03b1; nbsp &#x00A0; sharp-s &#x00df; pilcrow &#x00B6; rpilcrow &#x204B; end")
-    assert (XMLStrings.escapeASCII(s, base=10, htmlNames=False) ==
+    assert (XMLStrings.escape_to_ascii(s, base=10, htmlNames=False) ==
         "alpha \u03b1 nbsp \xA0 sharp-s \xdf pilcrow \xB6 rpilcrow \u204B end")
-    
+
     # Check handling of prohibited C0 characters
     bad = ""
     ok = ""
@@ -307,19 +325,19 @@ def subtest_basics(dom):
     s = USpacesStr
     assert (XMLStrings.normalizeSpace(s, allUnicode=True) == "")
     assert (XMLStrings.stripSpace(s, allUnicode=True) == "")
-    
+
     return nErrors
-    
-   
+
+
 ###############################################################################
 # getItem
 #
 def subtest_getItem(doc):
     nErrors = 0
     ul = doc.getElementById("ul1")
-    
+
     alpha = ".ABCDEFGHIJ"
-    
+
     # Positive child numbers
     for n in range(1, 11):
         ch = ul[n]
@@ -332,20 +350,20 @@ def subtest_getItem(doc):
         ch2 = doc.interpretXPointer(xp)
         if (ch != ch2):
             fail("Child %d xpointer didn't round-trip ('%s')." % (n, xp))
-            
+
     # Negative child numbers
     for n in range(1, 11):
         ch = ul[-n]
         if (not ch.textContent.startsWith(alpha[-n])):
             fail("(negative) Child %d has textContent '%s'." % (n, ch.textContent))
-    
+
     # Attributes
     el = doc.getElementById("attrs")
     for aname in el.attributes:
         assert el.getAttribute(aname) == el["@"+aname]
     # TODO: x["@foo", 3]!!
     # TODO: x["#pi", 3]!!
-        
+
     # PI, comment, etc.
     bk = doc.getElementById("theBook")
     pis = bk["#pi"]
@@ -356,7 +374,7 @@ def subtest_getItem(doc):
     assert len(elems) == 5
     texts = bk["#text"]
     assert len(texts) == 5
-    
+
     # x = DEgetitem(self:Node, n1, n2=None, n3=None)
     # x = DEcontains(self:Node, nodeName:NMTokenPlus)
 
@@ -370,7 +388,7 @@ def subtest_getItem(doc):
 #
 def subtest_serialization(doc):
     nErrors = 0
-    
+
     ul = doc.getElementById("ul1")
     el = doc.getElementById("attrs")
 
@@ -382,24 +400,24 @@ def subtest_serialization(doc):
     # TODO: Are these even needed?
     assert (doc.getPI() == "")
     assert (doc.getComment(doc) == "")
-        
+
     assert (el.getEscapedAttributeList(sortAttributes=False, quoteChar="'") ==
         "id='attrs' a='1' b='2' _c12='3' dir='4' e:earth='round'")
-    
+
     el.setAttribute("class", "red blue")
-    assert el.hasAttribute("class")  
+    assert el.hasAttribute("class")
     assert el.getAttribute("class") == "red blue"
     el.addAttributeToken("class", "green", duplicates=False)
     assert el.getAttribute("class") == "red blue green"
     el.addAttributeToken("class", "green", duplicates=False)
     assert el.getAttribute("class") == "red blue green"
     # TODO What should happen if the addition is multi-token?
-        
+
     assert (doc.normalizeAllSpace() == "")
     assert (doc.normalize() == "")
     # TODO: Review
     assert (doc.addElementSpaces(exceptions=None) == "")
-    
+
     return nErrors
 
 
@@ -408,7 +426,7 @@ def subtest_serialization(doc):
 #
 def subtest_selectors(doc):
     nErrors = 0
-    
+
     home = doc.getElementById("home")
     # x = home.selectSelf(n=0, nodeName="")
     # x = home.selectAncestor(n=0, nodeName="")
@@ -434,14 +452,14 @@ def subtest_selectors(doc):
 
     # x = home.nodeMatches(nodeKind="*")
     return nErrors
-    
+
 
 ###############################################################################
 # Collectors and iterators
 #
 def subtest_collectors(doc):
     nErrors = 0
-    
+
     # TODO: Nuke the inner/outer HTML calls.
     # x = outerHTML(doc, indent="    ", breakEndTags=False)
     # x = innerHTML(doc, cOptions=None, indent="    ", breakEndTags=False, depth=0)
@@ -453,16 +471,16 @@ def subtest_collectors(doc):
     # TODO: Nuke the pre/post callbacks???
     # x = eachNodeCB(doc, callbackA=None, callbackB=None, depth=1)
     # x = eachNode(doc, wsn=True, attributeNodes=True, depth=1)
-    
+
     # TODO: Generalize to each(nodeChoice); keep these as shorthand"
     # x = reversedEachNode(doc, wsn=True, depth=1)
     # x = eachTextNode(doc, wsn=True, depth=1)
     # x = eachElement(doc, etype=None, depth=1)
     # x = eachAttribute(doc, etype=None, aname=None, depth=1)
-    
+
     # TODO: Review
     # x = generateNodes(doc)
-    
+
     # x = collectAllText(doc, delim=" ", depth=1)
     # x = getTextNodesIn(node)  # TODO: drop?
     # x = collectAllXml2(doc,...)
@@ -481,19 +499,19 @@ def subtest_CSS(doc):
 
 
 ###############################################################################
-# Selectors: BS4-like 
+# Selectors: BS4-like
 #
 def subtest_BS4(doc):
     nErrors = 0
     return nErrors
-    
+
 
 ###############################################################################
 # Selectors: XPointer
 #
 def subtest_XPointer(doc):
     nErrors = 0
-    
+
     # x = getXPointerToNode(doc, idAttrName="id")
     # x = getXPointer(doc, textOffset=None)
     # TODO: support comparison w/o document if no IDs, or IDs equal?
@@ -524,7 +542,7 @@ def subtest_SAX(doc):
     # x = generateSaxEvents(doc, handlers=None)
     # x = genSax(doc, handlers):
 
-    # TODO SAX_to_DOM    
+    # TODO SAX_to_DOM
     return nErrors
 
 
@@ -533,7 +551,7 @@ def subtest_SAX(doc):
 #
 def subtest_treeGeometry(doc):
     nErrors = 0
-    
+
     # x = getLeastCommonAncestor(doc, other)
     # x = getLeftBranch(doc)
     # x = getRightBranch(doc)
@@ -544,14 +562,14 @@ def subtest_treeGeometry(doc):
     # x = getDepth(doc)
     # x = getFQGI(doc, sep="/")
     return nErrors
- 
+
 
 ###############################################################################
 # subtest_s and comparisons
 #
 def subtest_comparisons(doc):
     nErrors = 0
-    
+
     # x = isWithinType(doc, nodeName)
     # x = isWithin(doc, node)
     # x = getContentType(self)
@@ -565,7 +583,7 @@ def subtest_comparisons(doc):
 #
 def subtest_attributes(doc):
     nErrors = 0
-    
+
     # x = NNM_iteritems(self)
     # x = NNM_getitem(self, which)
 
@@ -575,39 +593,39 @@ def subtest_attributes(doc):
     # x = getAttributeAs(
     # x = removeAttributeToken(doc, attrName, token)
     return nErrors
-    
+
 
 ###############################################################################
 # Tree editing
 #
 def subtest_treeEditing(doc):
     nErrors = 0
-    
+
     # x = removeWhiteSpaceNodes(doc)
     # x = removeWhiteSpaceNodesCB(doc)
-    
+
     # TODO Unify with the selector mech
     # x = removeNodesByTagName(doc, nodeName)
     # x = removeNodesByNodeType(doc, nodeType)
     # x = untagNodesByTagName(root, nodeName)
-    
+
     # x = renameByTagName(root, oldName, newName)
     # x = forceTagCase(root, upper=False, attribusubtest_oo=False)
-    
+
     # TODO Unify with the selector mech
     # x = getAllDescendants(root, excludeTypes=None, includeTypes=None)
-    
+
     # x = insertPrecedingSibling(doc, node)
     # x = insertFollowingSibling(doc, node)
     # x = insertParent(doc, nodeName)
-    
+
     # x = mergeWithFollowingSibling(doc, cur)
     # x = mergeWithPrecedingSibling(doc, cur)
     # x = groupSiblings(doc, first, breakNode, newParentType)
     # x = promoteChildren(doc)
     # x = moveChildToAttribute(root, pname, chname, aname, onDup="skip")
     # x = findNonAttributable(root, pname, chname, aname)
-    
+
     #
     return nErrors
 
@@ -617,7 +635,7 @@ def subtest_treeEditing(doc):
 #
 def subtest_tables(doc):
     nErrors = 0
-    
+
     # x = getColumn(doc, onlyChild="tbody", colNum=1, colSpanAttr=None)
     # x = getCellOfRow(doc, colNum=1, colSpanAttr=None)
     # x = transpose(doc)
@@ -626,30 +644,31 @@ def subtest_tables(doc):
     #isNormal hasRowSpan hasColSpan nameColumns
     #toMarkDown to JSON fromMarkDown fromJSON toLaTEX
     return nErrors
-    
+
 
 ###############################################################################
 # Stuff to add / to do
 #
-"""  
-    * split into multiple files
+"""
+    * split DomExtensions into multiple files
     * add unit subtest_s
-    
-    * the table stuff
+
+    * Finish the table stuff
     * factor the basic selection model throughout (incl regex)
     * move into pre/foll sib (or general target)
     * create nodes much more easily (cf XmlOutput)
         ** element(gi, {attrs}
-    * finish rest of negative indexe
+    * finish rest of negative indexes for selects
     * wrap/unwrap
-    * sort/uniq/case attr tokens
+    * sort/uniq/case attr tokens; cast to set/list.
+    * sexp parser for attributes? produce Node subtree handing off attr?
     * support namespace prefixes for ids
     * canonical output
     * range support
     * switch between <x y=z> and <z>, or similar
     * notion of before/start/end/after
     * Add divs given Hn; rank hn/title from div. rank/unrank divs
-    
+
     * write pydom
         ** Node is a subclass of list
         ** childnodes is just a list of nodes
@@ -660,9 +679,9 @@ def subtest_tables(doc):
         ** cast attrs by type
         ** supply all xpath axes
         ** classes that go away: namednodemap text->str?, pi, comment, cdata
-"""     
+"""
 
-    
+
 ###############################################################################
 # Main
 #

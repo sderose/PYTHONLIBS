@@ -494,7 +494,7 @@ class DialectX:
         "quotedNewline":     ( bool, False ),
     }
 
-    def apply_arguments(self, theArgs:argparse.Namespace) -> None:
+    def apply_arguments(self, theArgs: argparse.Namespace) -> None:
         """Call this to move the arguments (typically added by
         add_my_arguments), to the current instance.
         """
@@ -583,18 +583,18 @@ class FieldSchema(list):
     def __init__(self):
         super(FieldSchema, self).__init__()
 
-    def getFieldInfo(self, fieldSpec:Union[int, str]) -> FieldInfo:
+    def getFieldInfo(self, fieldSpec: Union[int, str]) -> FieldInfo:
         if (isinstance(fieldSpec, int)): return self[fieldSpec]
         for fi in self:
             if (fi.name == fieldSpec): return fi
         raise KeyError("Cannot find field %s." % (fieldSpec))
 
-    def isValueOk(self, fieldSpec:Union[int, str], val:Any) -> bool:
+    def isValueOk(self, fieldSpec: Union[int, str], val: Any) -> bool:
         fi = self.getFieldInfo(fieldSpec)
         if (val is None): return (not fi.required)
         return (isinstance(val, fi.type))
 
-    def getValidValue(self, fieldSpec:Union[int, str], value):
+    def getValidValue(self, fieldSpec: Union[int, str], value):
         """Check the value passed in. If it's ok for this field, return it.
         Otherwise:
             * If it's None, return the default if available, or else None.
@@ -670,7 +670,7 @@ class DictReader:
                 return fieldDict
         return None  # EOF
 
-    def readHeader(self, rec:str):
+    def readHeader(self, rec: str):
         from pydoc import locate  # see https://stackoverflow.com/questions/11775460/
         self.line_num += 1
         self.fieldNamesFromHeader = []
@@ -754,14 +754,14 @@ class DictWriter:
     _formatRegex = r'%-?\d+(\.\d+)[dxobsfg]'
 
     def __init__(self,
-        f:IO,
+        f: IO,
         #*args1,
-        fieldNames:list=None,
-        fieldformats:list=None,
-        restval:str='',
-        extrasaction:str='raise',
-        dialect:str='excel',
-        disp_None:str="[none]"
+        fieldNames: list = None,
+        fieldformats: list = None,
+        restval: str = '',
+        extrasaction: str = 'raise',
+        dialect: str = 'excel',
+        disp_None: str = "[none]"
         #**kwds1
         ):
         self.f            = f
@@ -783,14 +783,14 @@ class DictWriter:
     def writeheader(self) -> None:
         self.writerow(self.fieldNames)
 
-    def writerows(self, rows:list) -> int:
+    def writerows(self, rows: list) -> int:
         rnum = 0
         for row in rows:
             rnum += 1
             self.writerow(row)
         return rnum
 
-    def writerow(self, row:dict) -> None:
+    def writerow(self, row: dict) -> None:
         nDelims = len(self.dialect.delimiter)
         buf = ""
         if (self.fieldNames is None):
@@ -804,10 +804,10 @@ class DictWriter:
         buf[-len(thisDelim):] = self.dialect.lineterminator
         self.f.write(buf)
 
-    def writecomment(self, s:str):
+    def writecomment(self, s: str):
         self.f.write(self.dialect.comment + s + self.dialect.lineterminator)
 
-    def formatOneField(self, fval:Any) -> str:
+    def formatOneField(self, fval: Any) -> str:
         return self.formatScalar(fval)
 
     def formatScalar(self, obj) -> str:  # From alogging.py
@@ -903,7 +903,7 @@ UQuotePairs = [  # From my UnicodeSpecials.py
 lastQuoteArg = None
 lastQuoteMap = None
 
-def setupQuoteMap(quoteArg:str) -> Dict:
+def setupQuoteMap(quoteArg: str) -> Dict:
     """Given a specification of a kind of quoting, return a dict that
     maps one or more "open" quote characters to their corresponding "close"
     quote characters (which may be the same, as with straight quotes and
@@ -944,16 +944,16 @@ def setupQuoteMap(quoteArg:str) -> Dict:
     lastQuoteArg = quoteArg
     return lastQuoteMap
 
-def unescapeViaMap(c:str) -> str:
+def unescapeViaMap(c: str) -> str:
     if (c in escapeMap): return escapeMap[c]
     return c
 
-def dquote(s:str) -> str:
+def dquote(s: str) -> str:
     """Put double angle quotes around a string for display.
     """
     return u"\u00AB" + str(s) + u"\u00BB"
 
-def parseEntity(s:str) -> (str, int):
+def parseEntity(s: str) -> (str, int):
     """Handle XML/HTML entity and numeric character references.
     Just pass this off to Python html package (only imported if needed).
     NOTE: Unknown entities, like '&foo;', do not raise an error.
@@ -979,7 +979,7 @@ class DatatypeHandler:
     def __init__(self,
         boolCasterFunc=None,
         datetimeCasterFunc=None,
-        specialFloats:bool = False
+        specialFloats: bool = False
         ):
         """
         @param datetimeCasterFunc:
@@ -1000,7 +1000,7 @@ class DatatypeHandler:
 
         self.specialFloats = specialFloats
 
-    def handleDatatypes(self, d:DialectX, tokens:list) -> None:
+    def handleDatatypes(self, d: DialectX, tokens: list) -> None:
         #import Datatypes
         if (isinstance(d.typeList, list)):
             for i, typ in enumerate(d.typeList):
@@ -1015,7 +1015,7 @@ class DatatypeHandler:
                 (type(d.typeList)))
 
     @staticmethod
-    def datetimeCaster(s:str) -> str:
+    def datetimeCaster(s: str) -> str:
         """Return a date, time, or datetime object created from a string, or
         raises ValueError otherwise.
         """
@@ -1033,7 +1033,7 @@ class DatatypeHandler:
         raise ValueError("String cannot be parsed as date and/or time: '%s'" % (s))
 
     @staticmethod
-    def boolCaster(s:str) -> bool:
+    def boolCaster(s: str) -> bool:
         """Returns True (perhaps a paradox, given that I wrote this function
         on 2020-02-29) for more than just the empty string; False for a similar
         range, and raises ValueError otherwise (like for 'xyz').
@@ -1045,7 +1045,7 @@ class DatatypeHandler:
             pass
         return True
 
-    def autoType(self, tok:str) -> Any:
+    def autoType(self, tok: str) -> Any:
         """Convert a string to the most specific type we can.
 
         Complex uses the Python "1+1j" (not "1+1i"!) form)
@@ -1086,27 +1086,27 @@ class DatatypeHandler:
 dtHandler = None                        # TODO: make better
 
 def fsplit(
-    s:str,                              # The string to split:
-    dialect:DialectX         = None,    # The DialectX to assume
+    s: str,                              # The string to split:
+    dialect: DialectX         = None,    # The DialectX to assume
 
     # Manual options like Python 'csv' package:
-    delimiter:list           = None,    # Multi-character ok, but not regex
-    doublequote:bool         = False,   # TODO
-    escapechar:str           = "\\",
-    lineterminator:str       = "\n",    # UNUSED?
-    quotechar:str            = '"',     # 1 char, 2 chars, or mnemonic
-    quoting:int              = QUOTE_NONNUMERIC,
-    skipinitialspace:bool    = True,
-    strict:bool              = True,
+    delimiter: list           = None,    # Multi-character ok, but not regex
+    doublequote: bool         = False,   # TODO
+    escapechar: str           = "\\",
+    lineterminator: str       = "\n",    # UNUSED?
+    quotechar: str            = '"',     # 1 char, 2 chars, or mnemonic
+    quoting: int              = QUOTE_NONNUMERIC,
+    skipinitialspace: bool    = True,
+    strict: bool              = True,
 
     # Other manual options:
-    multidelimiter:bool      = False,
-    xescapes:bool            = False,    # Recognize \xFF?
-    uescapes:bool            = False,    # Recognize \uFFFF?
-    entities:bool            = False,    # Expand HTML special chars?
-    minsplit:bool            = None,     # Min number of fields - 1
-    maxsplit:bool            = None,     # Max number of fields - 1
-    typeList:bool            = None      # type to cast each field to
+    multidelimiter: bool      = False,
+    xescapes: bool            = False,    # Recognize \xFF?
+    uescapes: bool            = False,    # Recognize \uFFFF?
+    entities: bool            = False,    # Expand HTML special chars?
+    minsplit: bool            = None,     # Min number of fields - 1
+    maxsplit: bool            = None,     # Max number of fields - 1
+    typeList: bool            = None      # type to cast each field to
     ) -> list:
     """Fancier string splitter. Lots of options, and Unicode aware.
     """
@@ -1246,7 +1246,7 @@ def fsplit(
     if (d.typeList): dtHandler.handleDatatypes(d, tokens)
     return tokens
 
-def context(txt:str, i:int, sideSize=16):
+def context(txt: str, i: int, sideSize=16):
     """Extract a little context around a given point, and mark the spot.
     """
     stPos = i - sideSize

@@ -184,7 +184,7 @@ class StrBuf(str):
         https://stackoverflow.com/questions/3820506/location-of-python-string-class-in-the-source-code
         regexes? how do they get the chars to match?
     """
-    def __init__(self, s:str="", partMax:int=2048, partDft:int=None):
+    def __init__(self, s: str = "", partMax: int = 2048, partDft: int = None):
         super(StrBuf, self).__init__()
         if (partDft is None):
             partDft = partMax * 0.75
@@ -257,7 +257,7 @@ class StrBuf(str):
         if s2 < o2: return -1
         return +1
 
-    def __mul__(self, n:int):
+    def __mul__(self, n: int):
         if (n<=0): return StrBuf()
         s1 = str(self)
         s2 = StrBuf()
@@ -265,7 +265,7 @@ class StrBuf(str):
             s2.append(s1)
         return s2
 
-    def __add__(self, other, inplace=True):
+    def __add__(self, other, inplace = True):
         if (inplace): toChange = self
         else: toChange = self.copy()
         toChange.append(other)
@@ -273,7 +273,7 @@ class StrBuf(str):
 
     # Searching for various content
     #
-    def splitlines(self, keepends:bool=False):
+    def splitlines(self, keepends: bool = False):
         """The Python method splits on a whole mess of possibilities.
         """
         prev = None
@@ -287,7 +287,7 @@ class StrBuf(str):
                 prev = ""
         return
 
-    def startswith(self, tgt:str) -> bool:
+    def startswith(self, tgt: str) -> bool:
         tlen = len(tgt)
         for i in range(len(self.parts)):
             plen = self.lens[i]
@@ -297,12 +297,12 @@ class StrBuf(str):
             if (tgt==""): return True
         return False
 
-    def endswith(self, tgt:str) -> bool:
+    def endswith(self, tgt: str) -> bool:
         if len(self) < len(tgt): return False
         lastBit = str(self[-len(tgt):])
         return (lastBit==tgt)
 
-    def index(self, sub:str, start=0, end=-1) -> int:
+    def index(self, sub: str, start = 0, end = -1) -> int:
         if (not isinstance(start, int)):
             fatal("index got start as %s." % (type(start)))
         offset = self.find(sub, start=start, end=end)
@@ -310,16 +310,16 @@ class StrBuf(str):
             raise ValueError("String target not found.")
         return offset
 
-    def __in__(self, tgt:str) -> bool:
+    def __in__(self, tgt: str) -> bool:
         return self.string_contains(tgt)
 
-    def string_contains(self, tgt:str) -> bool:
+    def string_contains(self, tgt: str) -> bool:
         return (self.find(tgt) is not None)
 
-    def __contains__(self, sub:str) -> bool:
+    def __contains__(self, sub: str) -> bool:
         return (self.find(sub) is not None)
 
-    def find(self, sub:str, start=0, end=-1) -> int:
+    def find(self, sub: str, start:int = 0, end: int = -1) -> int:
         sPnum, sOffset = self.findCharN(start)
         ePnum, eOffset = self.findCharN(end)
         if (sPnum==ePnum):
@@ -345,7 +345,7 @@ class StrBuf(str):
             dregs = self.longestPrefixAtEnd(dregs + self.parts[pnum], sub)
         return -1
 
-    def partition(self, tgt:str) -> tuple:
+    def partition(self, tgt: str) -> tuple:
         offset = self.find(tgt)
         if (offset<0): return offset, None, None
         return (StrBuf(str(self[0:offset])),
@@ -355,7 +355,7 @@ class StrBuf(str):
 
     ### Methods that add to the string
     ###
-    def append(self, s:str):
+    def append(self, s: str):
         """Add at end of string.
         Yes, I know that regular Python strings do not have append() or extend(),
         despite being iterable and being just like lists in some respects.
@@ -378,7 +378,7 @@ class StrBuf(str):
         if (curPos < slen):
             self.prependShort(pnum+1, str(s[curPos:]))
 
-    def appendShort(self, pnum:int, s:str):
+    def appendShort(self, pnum: int, s: str):
         """Append, but it better fit in this part. Else use the real append().
         """
         slen = len(s)
@@ -386,7 +386,7 @@ class StrBuf(str):
         self.parts[pnum] += s
         self.lens[pnum] += slen
 
-    def prependShort(self, pnum:int, s:str):
+    def prependShort(self, pnum: int, s: str):
         """Add to start, but it better fit in this part.
         """
         slen = len(s)
@@ -394,10 +394,10 @@ class StrBuf(str):
         self.parts[pnum] = s + self.parts[pnum]
         self.lens[pnum] += slen
 
-    def insert(self, st:int, s:str) -> None:
+    def insert(self, st: int, s: str) -> None:
         self.addString(st, s)
 
-    def addString(self, st:int, s:str) -> None:
+    def addString(self, st: int, s: str) -> None:
         """Insert a string at the given offset. Try to fit in the relevant part + next,
         balancing them to about equal ending % full.
         If it's too big, add new parts, filling parts to self.partDft.
@@ -435,7 +435,7 @@ class StrBuf(str):
         if (curPos < slen):
             self.prependShort(pnum+1, str(s[curPos:]))
 
-    def splitPart(self, pnum:int, offset:int=None):
+    def splitPart(self, pnum: int, offset: int = None):
         """Split the given part at the offset, putting the second half into the next
         part if it fits, otherwise in a new part.
         """
@@ -451,14 +451,14 @@ class StrBuf(str):
         self.parts[pnum] = str(self.parts[pnum][0:offset])
         self.lens[pnum] = offset
 
-    def insertPart(self, pnum:int, s:str="") -> None:
+    def insertPart(self, pnum: int, s: str = "") -> None:
         """Add a part, immediately before part pnum.
         """
         assert len(s) <= self.partMax
         self.parts.insert(pnum, s)
         self.lens.insert(pnum, len(s))
 
-    def expandtabs(self, tabstops=4):  # TODO Add inplace
+    def expandtabs(self, tabstops: int = 4):  # TODO Add inplace
         """We just do this one part at a time -- but first, align each one to
         an exact tab-stop so the phase is right, then remove the padding after
         doing a normal str.expandtabs. Expanding will usually change the length,
@@ -483,12 +483,12 @@ class StrBuf(str):
         self.parts = [ "" ]
         self.lens = [ 0 ]
 
-    def strip(self, chars=""):  # TODO: inplace?
+    def strip(self, chars: str = ""):  # TODO: inplace?
         self.lstrip(chars)
         self.rstrip(chars)
         return self
 
-    def lstrip(self, chars=""):  # TODO: inplace?
+    def lstrip(self, chars: str = ""):  # TODO: inplace?
         while (len(self.parts)>0 and self.lens[0]>0):
             trimmed = self.parts[0].ltrim(chars)
             if (trimmed!=""):
@@ -498,7 +498,7 @@ class StrBuf(str):
             self.deletePart(0)
         return self
 
-    def rstrip(self, chars="") -> 'StrBuf':  # TODO: inplace?
+    def rstrip(self, chars: str = "") -> 'StrBuf':  # TODO: inplace?
         while (len(self.parts)>0 and self.lens[-1]>0):
             trimmed = self.parts[-1].rtrim(chars)
             if (trimmed!=""):
@@ -508,17 +508,17 @@ class StrBuf(str):
             self.deletePart(-1)
         return self
 
-    def removeprefix(self, affix:str):  # Add inplace
+    def removeprefix(self, affix: str):  # Add inplace
         if (not self.startswith(affix)): return self
         self.delete(0, len(affix))
         return self
 
-    def removesuffix(self, affix:str):  # Add inplace
+    def removesuffix(self, affix: str):  # Add inplace
         if (not self.endswith(affix)): return self
         self.delete(-len(affix), -1)
         return self
 
-    def delete(self, st:int, fin:int) -> None:
+    def delete(self, st: int, fin: int) -> None:
         """Delete a range of characters (negatives accepted).
         """
         pnum0, offset0 = self.findCharN(st)
@@ -526,7 +526,7 @@ class StrBuf(str):
         self.__delByPairs__(pnum0, offset0, pnum1, offset1)
         return self
 
-    def __delByPairs__(self, pnum0:int, offset0:int, pnum1:int, offset1:int) -> None:
+    def __delByPairs__(self, pnum0: int, offset0: int, pnum1: int, offset1: int) -> None:
         if (pnum0 == pnum1):
             buf = str(self.parts[pnum0][0:offset0]) + str(self.parts[pnum0][offset1:])
             self.parts[pnum0] = buf
@@ -537,7 +537,7 @@ class StrBuf(str):
             self.parts[pnum1] = self.parts[pnum1:]
         # TODO: Add __coalesce__
 
-    def deletePart(self, pnum:int) -> bool:
+    def deletePart(self, pnum: int) -> bool:
         """Delete a *part* in its entirety.
         This should really only happen when the part is already empty.
         Oh, and never truly delete the very last part.
@@ -594,7 +594,7 @@ class StrBuf(str):
         s.append(str(self.parts[ePnum][0:eOffset]))
         return s
 
-    def join(self, iterable:Iterable):
+    def join(self, iterable: Iterable):
         """Join is called on the inserted delimiter, not the iterable. So the iterable
         might contain strings or StrBufs or whatever. For the moment, we always construct
         a StrBuf for the result, on the theory that if the delimiter is big enough to
@@ -609,7 +609,7 @@ class StrBuf(str):
 
     ### Methods specific to this approach
     ###
-    def availInPart(self, pnum:int, forDft:bool=False) -> int:
+    def availInPart(self, pnum: int, forDft: bool = False) -> int:
         """Return the number of chars still available to fit into the part.
         If the part doesn't exist, just return 0.
         "Available" means below the max size, not the dft, unless you set 'forDft'.
@@ -626,7 +626,7 @@ class StrBuf(str):
         if (totLen == 0): return 0.0
         return float(totLen) / (self.partMax * len(self.parts))
 
-    def __coalesce__(self, pnum:int) -> bool:
+    def __coalesce__(self, pnum: int) -> bool:
         """See if the given part will fit into its neighbors (if any), with enough
         left over; and if so, split it into them (balancing the leftover space
         as specified), and delete the part.
@@ -649,7 +649,7 @@ class StrBuf(str):
         self.deletePart(pnum)
         return True
 
-    def local2global(self, pnum:int, localOffset:int) -> int:
+    def local2global(self, pnum: int, localOffset: int) -> int:
         """Given a part number and an offset within that part, return the
         global offset to the same place.
         """
@@ -658,7 +658,7 @@ class StrBuf(str):
         return tot + localOffset
 
     @staticmethod
-    def longestPrefixAtEnd(s:str, tgt:str) -> str:
+    def longestPrefixAtEnd(s: str, tgt: str) -> str:
         """Return the longest prefix of tgt, that occurs at the end of s ("" if none).
         For example, ('spam and egg', 'ggs') -> 'gg', because 'ggs' could match when
         combined with a following 's' or 'gs', but no further left. This is useful for
@@ -669,7 +669,7 @@ class StrBuf(str):
             if (tgt.startswith(s[startAt:])): return s[startAt:]
         return ""
 
-    def getChars(self, st:int, fin:int) -> str:
+    def getChars(self, st: int, fin: int) -> str:
         pnum0, offset0 = self.findCharN(st)
         pnum1, offset1 = self.findCharN(fin)
         if (pnum0 == pnum1):
@@ -680,13 +680,13 @@ class StrBuf(str):
         buf += str(self.parts[pnum1][0:offset1])
         return buf
 
-    def getChar(self, tgt:int) -> str:
+    def getChar(self, tgt: int) -> str:
         """Return the actual character at the given offset.
         """
         pnum, offset = self.findCharN(tgt)
         return self.parts[pnum][offset]
 
-    def findCharN(self, tgt:int) -> (int, int):
+    def findCharN(self, tgt: int) -> (int, int):
         """Convert a raw character offset (positive or negative), to a
         part-number and a positive offset within that part.
         """
@@ -729,27 +729,27 @@ class StrBuf(str):
 
     ####### Trivial cases: apply to all the parts, just first/last,....
     #
-    def zfill(self, n:int, inplace:bool=True):
+    def zfill(self, n: int, inplace: bool = True):
         return self.ljust(n, padchar="0", inplace=inplace)
 
-    def ljust(self, n:int, padchar:str=" ", inplace:bool=True):  # TODO: inplace
+    def ljust(self, n: int, padchar: str = " ", inplace: bool = True):  # TODO: inplace
         needed = n - len(self)
         if (needed > 0): self += padchar * needed
         return self
 
-    def rjust(self, n:int, padchar:str=" ", inplace:bool=True):  # TODO: i
+    def rjust(self, n: int, padchar: str = " ", inplace: bool = True):  # TODO: i
         needed = n - len(self)
         if (needed > 0): self.insert(0, padchar * needed)
         return self
 
-    def center(self, n:int, padchar:str=" ", inplace:bool=True):  # TODO: i
+    def center(self, n: int, padchar: str = " ", inplace: bool = True):  # TODO: i
         needed = n - len(self)
         if (needed > 0):
             self.insert(0, padchar * math.floor(needed/2.0))
             self += " " * math.ceil(needed/2.0)
         return self
 
-    def reverse(self, inplace:bool=True):
+    def reverse(self, inplace: bool = True):
         """Reversing each part, then reversing the list of parts, is enough.
         """
         if (inplace): toChange = self
@@ -773,7 +773,7 @@ class StrBuf(str):
     def istitle(self) -> bool: return self.isa(str.istitle)  # TODO: Fix boundary cases
     def isupper(self) -> bool: return self.isa(str.isupper)
 
-    def isa(self, isaWhat:Callable) -> bool:
+    def isa(self, isaWhat: Callable) -> bool:
         if len(self) == 0: return False
         for pnum, part in enumerate(self.parts):
             if (self.lens[pnum]) == 0: continue
@@ -783,31 +783,31 @@ class StrBuf(str):
     # The following operate in place instead of copying so you can avoid copying mongo
     # strings. But there's an option to do actual copying like the str versions.
     #
-    def capitalize(self, inplace:bool=True):
+    def capitalize(self, inplace: bool = True):
         if (inplace): toChange = self
         else: toChange = self.copy()  # TODO add args
         toChange.lower(inplace=inplace)
         if (toChange.lens[0]>0): toChange.parts[0][0] = toChange.parts[0][0].capitalize()
         return toChange
-    def casefold(self, inplace:bool=True):
+    def casefold(self, inplace: bool = True):
         return self.applyToAllParts(str.casefold, inplace=inplace)
-    def lower(self, inplace:bool=True):
+    def lower(self, inplace: bool=True):
         return self.applyToAllParts(str.lower, inplace=inplace)
-    def swapcase(self, inplace:bool=True):
+    def swapcase(self, inplace: bool = True):
         return self.applyToAllParts(str.swapcase, inplace=inplace)
     # title -- matters whether part boundary is word boundary!  TODO fix edge case
-    def title(self, inplace:bool=True):
+    def title(self, inplace: bool = True):
         return self.applyToAllParts(str.title, inplace=inplace)
-    def translate(self, table, inplace:bool=True):
+    def translate(self, table, inplace: bool = True):
         if (inplace): toChange = self
         else: toChange = self.copy()  # TODO add args
         for pnum, part in enumerate(toChange.parts):
             toChange.parts[pnum] = str.translate(part, table)
         return toChange
-    def upper(self, inplace:bool=True):
+    def upper(self, inplace: bool = True):
         return self.applyToAllParts(str.upper, inplace=inplace)
 
-    def applyToAllParts(self, what:Callable, inplace:bool=True):
+    def applyToAllParts(self, what: Callable, inplace: bool = True):
         if (inplace): toChange = self
         else: toChange = self.copy()  # TODO add args
         for pnum, part in enumerate(toChange.parts):
@@ -898,7 +898,7 @@ if __name__ == "__main__":
             else: msg = "DEFINED"
             print("%-20s %s" % (x, msg))
 
-    def timer(maxPower:int, partMax:int):
+    def timer(maxPower: int, partMax: int):
         print("\nTesting StrBuf")
         s = StrBuf(partMax=partMax)  # "", partMax=partMax
         for p in range(maxPower+1):

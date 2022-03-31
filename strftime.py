@@ -150,7 +150,7 @@ def mkInt(s:str, dft:int=0):
 #
 if __name__ == "__main__":
     import argparse
-    def anyInt(x:str) -> int:
+    def anyInt(x: str) -> int:
         return int(x, 0)
 
     def processOptions() -> argparse.Namespace:

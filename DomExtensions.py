@@ -751,7 +751,6 @@ for escaping data correctly for each relevant context; knows about character
 references, namespaces, and the open-element context; has useful methods for
 inferring open and close tags to keep things in sync.
 
-
 =History=
 
 * Written 2010-04-01~23 by Steven J. DeRose (originally in Perl).

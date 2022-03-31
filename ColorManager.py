@@ -240,7 +240,7 @@ For further information on this license, see
 =Options=
 """
 
-def warning(msg:str) -> None:
+def warning(msg: str) -> None:
     sys.stderr.write(msg+"\n")
 
 
@@ -292,7 +292,7 @@ class ColorManager:
         self.offColor = chr(27) + "[m"  # ANSI to turn off colors
         self.setupColors(effects=effects)
 
-    def setupColors(self, effects:Union[bool, list]=None):
+    def setupColors(self, effects: Union[bool, list] = None):
         """Work out all known color, effect, and combination names, and
         put them in a hash that maps them to their escape sequences.
         If 'effects' is not None, it must be either True (to enable all
@@ -350,7 +350,7 @@ class ColorManager:
             warning("KeyError in color setup: %s\n" % (err))
         return()
 
-    def addColor(self, newName:str, oldName:str) -> bool:
+    def addColor(self, newName: str, oldName: str) -> bool:
         """Add `newName` to the color table, so it can be passed to ''vMsg''.
         It becomes a synonym for ''oldName'' (any previous ''newName''
         is replaced, but ''oldName'' remains).
@@ -363,11 +363,11 @@ class ColorManager:
             return(False)
         return(True)
 
-    def isColorName(self, name:str) -> bool:
+    def isColorName(self, name: str) -> bool:
         name = name.lower()
         return(bool(name in self.colorStrings))
 
-    def getColorString(self, name:str) -> str:
+    def getColorString(self, name: str) -> str:
         """Return the ANSI escape sequence to obtain the named color.
         Raises KeyError if color name is not known.
         """
@@ -384,14 +384,14 @@ class ColorManager:
         """
         return(self.colorStrings)
 
-    def tostring(self, sampleText:str='sample', filterRegex:str=None) -> str:
+    def tostring(self, sampleText: str = 'sample', filterRegex: str = None) -> str:
         buf = ""
         for k in sorted(self.colorStrings.keys()):
             if (filterRegex and not re.match(filterRegex, k)): continue
             buf += "    %s  %s\n" % (self.colorize(k, sampleText), k)
         return(buf)
 
-    def colorize(self, msg:str="", argColor:str=None, endAs:str="off",
+    def colorize(self, msg: str = "", argColor: str = None, endAs: str = "off",
         fg:str='', bg:str='', effect:str='') -> str:
         """If color is enabled, surround `string` with the escape sequences
         needed to put it in the specified color (assuming the name is known).
@@ -412,19 +412,19 @@ class ColorManager:
             buf = "<%s>%s</%s>" % (argColor, msg, argColor)
         return(buf)
 
-    def uncolorize(self, msg:str) -> str:
+    def uncolorize(self, msg: str) -> str:
         """Remove any ANSI terminal color escapes from a string.
         """
         t = re.sub(self.colorRegex,    '', msg)
         return(t)
 
-    def uncoloredLen(self, msg:str) -> int:
+    def uncoloredLen(self, msg: str) -> int:
         """Return the length of a string in characters, not counting any ANSI
         terminal color escapes or any trailing whitespace.
         """
         return(len(self.uncolorize(msg)))
 
-    def color2Html(self, msg:str) -> str:  # TODO: Finish
+    def color2Html(self, msg: str) -> str:  # TODO: Finish
         """Convert colors escapes to HTML <spans>.
         TODO: This is dumb about overlapping/nested/serial colors, because
         ANSI terminal color does not use a stack discipline.
@@ -436,13 +436,13 @@ class ColorManager:
     def htmlMapper(_mat):
         assert(False)
 
-    def esc2css(self, e:str) -> str:
+    def esc2css(self, e: str) -> str:
         parts = [ code for code in re.split(r"\D+", e) if code.isnum() ]
         return ";".join(parts)
 
     def toName(self, num) -> str:
         if (ColorManager.numbers2Names is None):
-            for nam, num in self.colorStrings.items():
+            for nam, num2 in self.colorStrings.items():
                 ColorManager.numbers2Names[num] = nam
         return ColorManager.numbers2Names[num] or None
 

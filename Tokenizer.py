@@ -1661,7 +1661,7 @@ class HeavyTokenizer:
 
         return(tokens)
 
-    def map(self, s, optName:str, norm:str=None) -> str:
+    def map(self, s, optName:str, norm: str=None) -> str:
         """Check a given option (for ones that take a `dispType`
         as their value). Apply a regex change (that was already compiled!),
         to do the right thing to matching data.
