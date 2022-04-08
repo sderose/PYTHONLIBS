@@ -2127,7 +2127,7 @@ if __name__ == "__main__":
             "--quote", action="store_true",
             help='Sets both openQuote and closeQuote to "\'".')
         parser.add_argument(
-            "--noquote", "--no-quote",  action="store_true",
+            "--noquote", "--no-quote", action="store_true",
             help='Sets both openQuote and closeQuote to "" (off).')
         parser.add_argument(
             "--serialize", action="store_true",

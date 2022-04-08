@@ -686,7 +686,7 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--iencoding",  type=str, metavar='E', default="utf-8",
+            "--iencoding", type=str, metavar='E', default="utf-8",
             help='Assume this character set for input files. Default: utf-8.')
         parser.add_argument(
             "--oencoding", type=str, metavar='E',

@@ -488,7 +488,7 @@ if __name__ == "__main__":
             help='Display version information, then exit.')
 
         parser.add_argument(
-            'strings',           type=anyInt,
+            'strings', type=anyInt,
             nargs=argparse.REMAINDER,
             help='Strings to try against datatypes.')
 
