@@ -19,7 +19,7 @@ from xml.dom import minidom
 #from xml.dom.minidom import Document, Node, Element
 
 from DomExtensions import DomExtensions as de
-from DomExtensions import XMLStrings
+from DomExtensions import XMLStrings, NodeSelKind
 from DomExtensions import NodeSelKind as nsk
 from DomExtensions import NodeTypes
 
@@ -251,12 +251,12 @@ def subtest_xml_strings(dom):
     ]
     for s, isName, isQName, isPName, isNUM, isNSA in x:
         try:
-            assert isName  == XMLStrings.isXmlName(s)
+            assert isName == XMLStrings.isXmlName(s)
             assert isQName == XMLStrings.isXmlQName(s)
             assert isPName == XMLStrings.isXmlPName(s)
-            assert isNSA   == XMLStrings.isNodeSelArg(s)  # allows initial [#@] and "*"
-            assert isNUM   == XMLStrings.isXmlNumber(s)
-        except AssertionError:
+            assert isNSA == (NodeSelKind.getKind(s) is not None) # allows initial [#@] and "*"
+            assert isNUM == XMLStrings.isXmlNumber(s)
+        except (AssertionError, ValueError):
             print("Failed for candidate name '%s'." % (s))
             raise
 
@@ -287,27 +287,27 @@ def subtest_xml_strings(dom):
     # On strings
     # TODO: options for ZML escaping, hex/dec/name entities, width, maybe TEX? Ents
     # TODO: escaping ]]> could be done in a lot of ways....
-    assert (XMLStrings.escape_attr("""hello 'ew' "ahh" <foo>""", quoteChar='"') ==
+    assert (XMLStrings.escapeAttribute("""hello 'ew' "ahh" <foo>""", quoteChar='"') ==
         """hello 'ew' &quot;ahh&quot; &lt;foo>""")
-    assert (XMLStrings.escape_attr("""hello 'ew' "ahh" <foo>""", quoteChar="'") ==
+    assert (XMLStrings.escapeAttribute("""hello 'ew' "ahh" <foo>""", quoteChar="'") ==
         """hello &apos;ew&apos; "ahh" &lt;foo>""")
 
     s = "hello <world> &noEnt; <?tgt foo?> <!--comment--> &#65; ]]> phew"
-    assert (XMLStrings.escape_text(s) ==
+    assert (XMLStrings.escapeText(s) ==
         "hello &lt;world> &amp;noEnt; &lt;?tgt foo?> &lt;!--comment--> ]]&gt; &amp;#65;phew")
-    assert (XMLStrings.escape_text(s, escapeAllGT=True) ==
+    assert (XMLStrings.escapeText(s, escapeAllGT=True) ==
         "hello &lt;world&gt; &amp;noEnt; &lt;?tgt foo?&gt; &lt;!--comment--&gt; ]]&gt; phew")
-    assert (XMLStrings.escape_cdata(s) ==
+    assert (XMLStrings.escapeCDATA(s) ==
         "hello <world> &noEnt; <?tgt foo?> <!--comment--> ]]&gt; phew")
-    assert (XMLStrings.escape_comment(s, replaceWith="-&#x2d;") ==
+    assert (XMLStrings.escapeComment(s, replaceWith="-&#x2d;") ==
         "hello <world> &noEnt; <?tgt foo?> <!-&#x2d;comment-&#x2d;> ]]> phew")
-    assert (XMLStrings.escape_pi(s, replaceWith="?&gt;") ==
+    assert (XMLStrings.escapePI(s, replaceWith="?&gt;") ==
         "hello <world> &noEnt; <?tgt foo?&gt <!--comment--> ]]>; phew")
 
     s = "alpha \u03b1 nbsp \xA0 sharp-s \xdf pilcrow \xB6 rpilcrow \u204B end"
-    assert (XMLStrings.escape_to_ascii(s, width=4, base=16, htmlNames=True) ==
+    assert (XMLStrings.escapeASCII(s, width=4, base=16, htmlNames=True) ==
         "alpha &#x03b1; nbsp &#x00A0; sharp-s &#x00df; pilcrow &#x00B6; rpilcrow &#x204B; end")
-    assert (XMLStrings.escape_to_ascii(s, base=10, htmlNames=False) ==
+    assert (XMLStrings.escapeASCII(s, base=10, htmlNames=False) ==
         "alpha \u03b1 nbsp \xA0 sharp-s \xdf pilcrow \xB6 rpilcrow \u204B end")
 
     # Check handling of prohibited C0 characters

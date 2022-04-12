@@ -572,12 +572,12 @@ This is similar to the XSLT 'key' feature.
 
 ==Character stuff (internal methods)==
 
-* '''escapeXmlAttribute'''(string, quoteChar='"')
+* '''escapeAttribute'''(string, quoteChar='"')
 
 Escape the string as needed for it to
 fit in an attribute value (amp, lt, and quot).
 
-* '''escapeXml'''(string)
+* '''escapeText'''(string)
 
 Escape the string as needed for it to
 fit in XML text content (amp, lt, and gt when following "]]").
@@ -873,7 +873,7 @@ class XMLStrings:
     # GENERAL METHODS ON STRINGS
     #
     @staticmethod
-    def escapeXmlAttribute(s:str, quoteChar:str='"') -> str:
+    def escapeAttribute(s:str, quoteChar:str='"') -> str:
         """Turn characters special in (double-quoted) attributes, into char refs.
         Set to "'" if you prefer single-quoting your attributes, in which case that
         character will be replaced by a character reference instead.
@@ -885,9 +885,10 @@ class XMLStrings:
         if (quoteChar == '"'): s = re.sub(r'"', "&quot;",  s)
         else: s = re.sub(r"'", "&apos;",  s)
         return s
-
+    escapeXmlAttribute = escapeAttribute
+    
     @staticmethod
-    def escapeXml(s:str, escapeAllGT:bool=False) -> str:
+    def escapeText(s:str, escapeAllGT:bool=False) -> str:
         """Turn things special in text content, into char refs.
         This always uses the predefined XML named special character references.
         """
@@ -897,6 +898,8 @@ class XMLStrings:
         if (escapeAllGT): s = re.sub(r'>', "&gt;", s)
         else: s = re.sub(r']]>', "]]&gt;", s)
         return s
+
+    escapeXmlText = escapeText
 
     @staticmethod
     def escapeCDATA(s:str, replaceWith:str="]]&gt;") -> str:
@@ -947,7 +950,7 @@ class XMLStrings:
 
         s = XMLStrings.nukeNonXmlChars(s)
         s = re.sub(r'([^[:ascii:]])r', escASCIIFunction, s)
-        s = XMLStrings.escapeXml(s)
+        s = XMLStrings.escapeText(s)
         return s
 
     @staticmethod
@@ -1898,7 +1901,7 @@ def getEscapedAttribute(self:Node, aname:NMToken, quoteChar:str='"') -> str:
     any occurrences of the `quoteChar` (usually double quote).
     """
     avalue = self.getAttribute(aname)
-    return XMLStrings.escapeXmlAttribute(avalue, quoteChar='"')
+    return XMLStrings.escapeAttribute(avalue, quoteChar='"')
 
 def getCompoundAttribute(self:Node, name:NMToken, sep:str='#', keepMissing:bool=False) -> str:  ### Not DOM
     """Return the concatenation of the values of the named attribute,
@@ -2714,7 +2717,7 @@ def collectAllXml2r(self:Node, cOptions, depth:int=1):
         if (cOptions.indentText): buf = ind(cOptions, depth, "#text")
         if (cOptions.strip): s = self.data.strip()
         else: s = self.data
-        em.emit(buf + XMLStrings.escapeXml(s))
+        em.emit(buf + XMLStrings.escapeText(s))
 
     elif (ntype == Node.CDATA_SECTION_NODE):          # 4 CDATA
         buf = ""
@@ -2788,9 +2791,9 @@ def collectAllXml(
     elif (ntype == Node.ATTRIBUTE_NODE):              # 2 ATTR
         raise ValueError("Why are we seeing an attribute node?")
     elif (ntype == Node.TEXT_NODE):                   # 3 TEXT
-        textBuf += XMLStrings.escapeXml(self.data)
+        textBuf += XMLStrings.escapeText(self.data)
     elif (ntype == Node.CDATA_SECTION_NODE):          # 4 CDATA
-        textBuf += XMLStrings.escapeXml(self.data)
+        textBuf += XMLStrings.escapeText(self.data)
     elif (ntype == Node.ENTITY_REFERENCE_NODE):       # 5 ENTITY REF (deprecated)
         pass
     elif (ntype == Node.ENTITY_NODE):                 # 6 ENTITY
@@ -3322,10 +3325,10 @@ class DomExtensions:
 
             toPatch.getAllDescendants       = getAllDescendants
 
-            # TABLES
+            # TABLES (cf DOMTableTools.py)
             toPatch.getColumn               = getColumn
             toPatch.getCellOfRow            = getCellOfRow
-            toPatch.transpose               = transpose
+            #toPatch.transpose               = transpose
             toPatch.eliminateSpans          = eliminateSpans
             toPatch.hasSubTable             = hasSubTable
 

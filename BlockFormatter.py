@@ -329,27 +329,27 @@ def uescapes(s:str):
 # (for more complete support see ColorManager.py)
 #
 ansiCodes = {
-    "bold":      ( u"\x1B[1m", u"\x1B[22m" ),  # TODO Check off-code?
-    "faint":     ( u"\x1B[2m", u"\x1B[0m" ),
-    "italic":    ( u"\x1B[3m", u"\x1B[0m" ),  # (rare)
-    "underline": ( u"\x1B[4m", u"\x1B[0m" ),  # aka 'ul'
-    "blink":     ( u"\x1B[5m", u"\x1B[0m" ),
-    "fblink":    ( u"\x1B[6m", u"\x1B[0m" ),  # aka 'fastblink'   (rare)
-    "reverse":   ( u"\x1B[7m", u"\x1B[0m" ),  # aka 'inverse'
-    "concealed": ( u"\x1B[8m", u"\x1B[0m" ),  # aka 'invisible' or 'hidden'
-    "strike":    ( u"\x1B[9m", u"\x1B[0m" ),  # aka 'strikethru' or 'strikethrough'
-    "plain":     ( u"\x1B[0m", u"\x1B[0m" ),  # (can be used to express "no special effect")
-    "inverse":   ( u"\x1B[7m", u"\x1B[27m" ),
+    "bold":      ( "\x1B[1m", "\x1B[22m" ),  # TODO Check off-code?
+    "faint":     ( "\x1B[2m", "\x1B[0m" ),
+    "italic":    ( "\x1B[3m", "\x1B[0m" ),  # (rare)
+    "underline": ( "\x1B[4m", "\x1B[0m" ),  # aka 'ul'
+    "blink":     ( "\x1B[5m", "\x1B[0m" ),
+    "fblink":    ( "\x1B[6m", "\x1B[0m" ),  # aka 'fastblink'   (rare)
+    "reverse":   ( "\x1B[7m", "\x1B[0m" ),  # aka 'inverse'
+    "concealed": ( "\x1B[8m", "\x1B[0m" ),  # aka 'invisible' or 'hidden'
+    "strike":    ( "\x1B[9m", "\x1B[0m" ),  # aka 'strikethru' or 'strikethrough'
+    "plain":     ( "\x1B[0m", "\x1B[0m" ),  # (can be used to express "no special effect")
+    "inverse":   ( "\x1B[7m", "\x1B[27m" ),
 
     #
-    "black":     ( u"\x1B[30m", u"\x1B[m" ),
-    "red":       ( u"\x1B[31m", u"\x1B[m" ),
-    "green":     ( u"\x1B[32m", u"\x1B[m" ),
-    "yellow":    ( u"\x1B[33m", u"\x1B[m" ),
-    "blue":      ( u"\x1B[34m", u"\x1B[m" ),
-    "magenta":   ( u"\x1B[35m", u"\x1B[m" ),
-    "cyan":      ( u"\x1B[36m", u"\x1B[m" ),
-    "white":     ( u"\x1B[37m", u"\x1B[m" ),
+    "black":     ( "\x1B[30m", "\x1B[m" ),
+    "red":       ( "\x1B[31m", "\x1B[m" ),
+    "green":     ( "\x1B[32m", "\x1B[m" ),
+    "yellow":    ( "\x1B[33m", "\x1B[m" ),
+    "blue":      ( "\x1B[34m", "\x1B[m" ),
+    "magenta":   ( "\x1B[35m", "\x1B[m" ),
+    "cyan":      ( "\x1B[36m", "\x1B[m" ),
+    "white":     ( "\x1B[37m", "\x1B[m" ),
 }
 
 def effect(mat, effectName:str) -> str:

@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+# Just a little experimenting with logging pkg.
+#
 import sys
 import logging
 import re
 
-print("info is a %s." % (type(logging.info)))
+#print("info is a %s." % (type(logging.info)))
 
 # 'logging' isn't a class, thought logging.Logger is. Make sure this can
 # patch onto that correctly.

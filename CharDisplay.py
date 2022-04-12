@@ -5,7 +5,6 @@
 #
 #pylint: disable=I1101
 #
-#from __future__ import absolute_import, unicode_literals
 import sys
 import argparse
 import unicodedata
@@ -15,11 +14,6 @@ import string
 PY2 = sys.version_info[0] == 2
 if (PY2):
     sys.stderr.write("Not thoroughly tested in Python 2.")
-    # from urllib import quote as urlquote
-    # from urllib import unquote as urlunquote
-    #from htmlentitydefs import codepoint2name, name2codepoint
-    # from htmlentitydefss import decode as unescape
-    # def chr(n): return unichr(n)
 else:
     from urllib.parse import quote as urlquote
     from urllib.parse import unquote as urlunquote
@@ -2016,7 +2010,7 @@ if __name__ == "__main__":
                 nam = unicodedata.name(c0)
             except ValueError:
                 if (args.verbose): sys.stderr.write(
-                    u"No name for char '%s' (U+%05x)\n" % (c0, codePoint))
+                    "No name for char '%s' (U+%05x)\n" % (c0, codePoint))
                 continue
             if (args.python):
                 print("    ( 0x%05x, '%s',\t\"%s\" )," % (codePoint, c0, nam))

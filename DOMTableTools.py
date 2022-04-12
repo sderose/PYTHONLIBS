@@ -395,7 +395,7 @@ class NormComponents:
             for i, fd in enumerate(fds):
                 colElem = doc.createElement(nc.TD)
                 colElem.setAttribute(nc.CLASS, colNames[i])
-                colElem.innerHtml = XMLStrings.escapeXml(fd)
+                colElem.innerHtml = XMLStrings.escapeText(fd)
 
 nc = NormComponents()
 

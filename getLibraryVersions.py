@@ -166,11 +166,11 @@ def getLibraryVersions(dunder=False, sunder=False, builts=False, dotted=False):
         f = v = "???"
         try:
             f = sys.modules[m].__file__
-        except:
+        except AttributeError:
             pass
         try:
             v = sys.modules[m].__version__
-        except:
+        except AttributeError:
             pass
         print("%-30s %20s\n    %s" % (m, v, f))
         
