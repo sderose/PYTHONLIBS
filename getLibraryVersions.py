@@ -26,8 +26,10 @@ descr = """
     
 =Description=
 
-Display the name, version, and source file for each library already
-imported, or listed on the command line. 
+Display the name, version, and source file for each library imported.
+Can be run from the command line (listing libraries to import), or
+called from code to report the library state when called.
+
 By default, excludes names starting with single or double
 underscore, and a list of builtins (but see options).
 
@@ -156,7 +158,10 @@ zlib
 
 ###############################################################################
 #
-def getLibraryVersions(dunder=False, sunder=False, builts=False, dotted=False):
+def showLibraryVersions(dunder=False, sunder=False, builts=False, dotted=False):
+    """Collect all imported modules, with their version and path (if
+    available), and display them.
+    """
     mlist = sorted(list(sys.modules.keys()))
     for m in mlist:
         if (not dunder and m.startswith("__")): continue
@@ -235,6 +240,6 @@ if __name__ == "__main__":
     if (not args.quiet):
         print("=== Libraries loaded, with version and path ===")
 
-    getLibraryVersions(dunder=args.dunder, sunder=args.sunder,
+    showLibraryVersions(dunder=args.dunder, sunder=args.sunder,
         builts=args.builts, dotted=args.dotted)
     

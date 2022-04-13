@@ -651,14 +651,17 @@ Seems to be a problem with `maxItems`, and with suppressing callables in `format
 
 
 * formatRec():
-** Move out to be a separate library.
+** Move out to be a separate library?
 ** Support more numpy, PyTorch classes (and have a way to extend? maybe just tostring()?)
 Or have a dict of types, mapping to their formatter functions.
 ** Protect against circular structures (started 2022-02-17 via 'noDups' option).
-** Option to make strings visible and/or ASCII.
-** For collections of length 1, put on same line.
-** Implement key and property sorting options.
+** Option to only show first N of each class/type.
 ** Perhaps accept maxItems as a dict, mapping types to limits?
+** For collections of length 1, put on same line.
+** Coalesce short lists (and matrices?) of numbers.
+** Option to make strings visible and/or ASCII.
+** Implement key and property sorting options.
+** Option to re-display item name after closing ">>".
 
 
 =History=
@@ -1419,7 +1422,8 @@ class ALogger:
         options = self.getFROptionDefaults()
         for k, v in kwargs.items():
             if (k not in options):
-                raise KeyError("Bad formatRec() option '%s'." % (k))
+                raise KeyError("Bad formatRec() option '%s'. Known options: %s." %
+                    (k, ", ".join(sorted(options.keys()))))
             if (not isinstance(v, type(options[k]))):
                 raise ValueError("Expected type %s, not %s, for formatRec option '%s'." %
                     (type(options[k]), type(v), k))
@@ -1557,7 +1561,7 @@ class ALogger:
                     for nm in (stuff):
                         try:
                             thing = getattr(obj, nm, "[NONE]")
-                        except ValueError as e:
+                        except (ValueError, IndexError) as e:
                             buf += "*** Could not get attr '%s': %s" % (nm, e)
                             continue
                         if (self.skipIt(thing, nm, options)): continue
