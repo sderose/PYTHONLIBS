@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Homogeneous.py: Implement homogeneous subclasses of list, dict, etc.
 # 2020-02-19: Written by Steven J. DeRose.

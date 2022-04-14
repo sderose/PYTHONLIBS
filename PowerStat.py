@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # PowerStat.py: A Python clone+lib (more or less) of 'stat'.
 # 2020-11-23: Written by Steven J. DeRose.

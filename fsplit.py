@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # fsplit.py: A better (I hope) str.split() or csv package.
 # 2020-02-28: Written. Copyright by Steven J. DeRose.

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Record.py: A cross between namedtuple and dict.
 # Written 2018-06-09 by Steven J. DeRose (nee `DictTuple`).

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # BlockFormatter: Upgrade for Python argparse help formatting.
 # 2013-04-18: Written by Steven J. DeRose.

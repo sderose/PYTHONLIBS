@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # TokensEN.py: English-specific reference data for use with Tokenizers.
 # 2012-08-22: Extracted and ported from Tokenizer.pm by Steven J. DeRose.

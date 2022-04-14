@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # ReadAny.py: Read plain/zip/gzip files, directories, etc.
 # 2013-03-22: Written by Steven J. DeRose.

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # BlockFormatterPlus: Like BlockFormatter, but also hooks in handling
 # of inline markup, and use of color and Unicode pseudo-fonts.

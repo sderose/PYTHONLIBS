@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # MarkupHelpFormatter.py.
 # Upgrades for Python argparse, that don't forcibly wrap all text.

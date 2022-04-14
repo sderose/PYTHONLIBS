@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # alogging: messaging, logging, and statistics features from sjdUtils.py.
 # Fairly close to Python's Logging package, but adds color and -v stacking.
@@ -662,6 +662,8 @@ Or have a dict of types, mapping to their formatter functions.
 ** Option to make strings visible and/or ASCII.
 ** Implement key and property sorting options.
 ** Option to re-display item name after closing ">>".
+** Let stopNames option take list, not just dict. When a dict, allow value to
+say which sub-item to use as the key, and only show that.
 
 
 =History=
@@ -1449,11 +1451,16 @@ class ALogger:
         buf = ""
         #buf += (ind + "*** Dumping a '%s'." % (type(obj)))
 
+        try:
+            typeName = type(obj).__name__
+        except:
+            typeName = "???"
+            
         # Avoid re-printing same non-scalar object (also prevents circular traverse).
         if (not isScalar):
             if (id(obj) in self.aggregatesSeen):
                 # TODO: Also print obj pointers on aggregates...
-                buf += ind + "(repeated %s, at 0x%x)" % (type(obj).__name__, id(obj))
+                buf += ind + "(repeated %s, at 0x%x)" % (typeName, id(obj))
                 return buf
             else:
                 self.aggregatesSeen[id(obj)] = True
@@ -1461,7 +1468,7 @@ class ALogger:
         if (obj is None):                                           # NONE
             buf += ind + self.disp_None
 
-        #elif (type(obj).__name__ in [ Node, Document ]):
+        #elif (typeName in [ Node, Document ]):
         #    buf += "%s%s%s" % (unichr(0x227A), type(obj), unichr(0x227B))
 
         elif (callable(obj)):                                       # CALLABLE
@@ -1502,7 +1509,7 @@ class ALogger:
 
         elif (isinstance(obj, (tuple, set, frozenset))):            # TUPLE, SET
             buf += ind
-            if (options['showSize']): buf += "set-ish |%d|" % (len(obj))
+            if (options['showSize']): buf += "%s |%d|" % (typeName_, len(obj))
             if (len(obj)):
                 buf += ": %s\n" % (self.openList)
                 for n, v in enumerate(obj):
@@ -1513,7 +1520,7 @@ class ALogger:
 
         elif (isinstance(obj, list)):                               # LIST
             buf += ind
-            if (options['showSize']): buf += "list |%d|" % (len(obj))
+            if (options['showSize']): buf += "%s |%d|" % (typeName_, len(obj))
             if (len(obj)):
                 buf += ": %s\n" % (self.openList)
                 for n, v in enumerate(obj):
@@ -1522,14 +1529,14 @@ class ALogger:
                         ind, n, self.formatRec_R(v, options=options, depth=depth+1))
                 buf += ind + self.closeList
 
-        elif (type(obj).__name__ == "Tensor"):                      # torch Tensor
+        elif (typeName == "Tensor"):                      # torch Tensor
             # Ignore most props
             if (obj.is_cuda): cFlag = " (cuda)"
             else: cFlag = ""
-            buf += "%4d-D TENSOR of |%d| %s%s" % (
-                obj.dim(), len(obj), obj.dtype, cFlag)
+            buf += "%4d-D %s of |%d| %s%s" % (
+                obj.dim(), typeName_, len(obj), obj.dtype, cFlag)
 
-        elif (type(obj).__name__ == 'ndarray'):                     # numpy array
+        elif (typeName == 'ndarray'):                     # numpy array
             buf += "ndarray |%s|" % (", ".join(str(x) for x in obj.shape))
 
         elif isinstance(obj, NamedNodeMap):                         # NamedNodeMap
@@ -1545,8 +1552,8 @@ class ALogger:
 
         elif (isinstance(obj, object)):                             # OBJECT
             if (type(obj) in options['stopTypes'] or
-                type(obj).__name__ in options['stopTypes']):
-                buf += ind + "(object of type %s)" % (type(obj).__name__)
+                typeName in options['stopTypes']):
+                buf += ind + "(object of type %s)" % (typeName)
             else:
                 try:
                     stuff = dir(obj)
@@ -1554,7 +1561,7 @@ class ALogger:
                     if (isinstance(obj, Iterable)): iFlag = " (Iterable)"
                     else: iFlag = ""
                     if (options['showSize']):
-                        buf += "obj %s |%d|%s" % (type(obj).__name__, len(stuff), iFlag)
+                        buf += "obj %s |%d|%s" % (typeName, len(stuff), iFlag)
                     buf += ": %s\n" % (self.openObject)
                     #skipped = 0
                     if (options['sortKeys']): stuff = sorted(stuff)
@@ -1581,10 +1588,11 @@ class ALogger:
         # end formatRec_R
 
     def skipIt(self, thing:Any, nm:str, options:Dict) -> bool:
-        """Called for members of objects (and dicts?), return True if we
+        """Called for members of objects (and dicts?). Return True if we
         should skip this member due to name, being callable, etc.
         If the 'specials' option is set, we keep callable and __s; but
         that can be overridden for names listed specifically in `stopName`.
+        TODO: Upgrade to allow skipping entirely, or just showing name, type, size, (keyField?).
         """
         if (nm in options['stopNames']): return True
         if (options['specials']): return False
@@ -1615,18 +1623,16 @@ class ALogger:
         #    return "%s" % (obj)
 
         elif (isinstance(obj, bool)):
-            if (obj): return "True"
-            return "False"
-
+            return "True" if (obj) else "False"
         elif (isinstance(obj, int)):
-            return "%8d" % (obj)
+            return "%12d" % (obj)
         elif (isinstance(obj, float)):
-            return "%12.4f" % (obj)
+            return "%12s" % (obj)
         elif (isinstance(obj, complex)):
             return "%s" % (obj)
 
         elif (isinstance(obj, type)):
-            return "%12.4f" % (type(obj).__name__)
+            return "%12s" % (ty.__name__)
 
         elif (isinstance(obj, dict)):
             return "{|%d|}" % (len(obj))
@@ -1635,9 +1641,11 @@ class ALogger:
         elif (isinstance(obj, tuple)):
             return "(|%d|)" % (len(obj))
         elif (isinstance(obj, set)):
-            return "[set |%d|]" % (len(obj))
+            return "\u2282|%d|\u2283" % (len(obj))
+            #return "[set |%d|]" % (len(obj))
         elif (isinstance(obj, frozenset)):
-            return "[frset |%d|]" % (len(obj))
+            #return "\u2acf|%d|\u2ad0" % (len(obj))
+            return "\u2282frset |%d|\u2283" % (len(obj))
 
         elif (isinstance(obj, object)):
             return "[%s |%d|]" % (ty, len(obj))
@@ -1670,6 +1678,21 @@ if __name__ == "__main__":
     lg.vMsg(0, "A vMsg message, back to no indent.")
     lg.error("An eMsg message")
 
+    foo = {
+        "key1": 3,
+        "key2": -2.0E-12,
+        "key3": 3.14+1j,
+        "key4": True,
+        "key4": [ 0, 1, 2, { "z":26, "y":25, "x":24 } ],
+        "key5": ( "a", "b", "c" ),
+        "key6": set([ 99, 98, 97 ]),
+        "key7": None,
+        "hello": "world\u203d",
+        "aType": int,
+        "aFunc": lg.formatRec,
+        "aClass": ALogger,
+    }
+    print(lg.formatRec(foo))
     lg.bumpStat('infoStat', 100)
     lg.showStats()
 

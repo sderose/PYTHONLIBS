@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # listdir.py: A slight improvement (I think) on `os.listdir`.
 # 2020-12-09: Written by Steven J. DeRose.

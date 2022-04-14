@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # argparsePP.py: An extended `argparse`.
 # By Steven J. DeRose, started ~2014-06.
