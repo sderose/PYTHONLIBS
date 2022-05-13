@@ -12,7 +12,7 @@ import codecs
 #import subprocess
 #from collections import defaultdict, namedtuple
 from enum import Enum
-from typing import List, Union  #, IO, Dict
+#from typing import List, Union  #, IO, Dict
 import logging
 lg = logging.getLogger()
 
@@ -338,14 +338,17 @@ class NormComponents:
         #               (element attr val)
         self.TABLE    = "table"
         self.THEAD    = "thead"
+        self.TBODY    = "tbody"
         self.TFOOT    = "tfoot"
         self.TR       = "tr"
         self.TD       = "td"
         self.TH       = "th"
 
         self.CLASS    = "class"
-        
-        # TODO: Change following caller changes the values above.
+        self.COLSPAN  = "colspan"
+        self.ROWSPAN  = "rowspan"
+
+        # TODO: Change following; caller changes the values above.
         self.COLNAME    = ("td", "class", "")
         self.COLNAMEDEF = ("th", "class", "")
         self.ISKEY      = ("th", "iskey", "")
@@ -529,7 +532,7 @@ class NormTable(Node):
         """Generate the columns in a given row.
         """
         assert self.nodeName == nc.TR
-        for cell in tr.childNodes:
+        for cell in self.childNodes:
             if (cell.nodeName in [ nc.TD, nc.TH ]): yield cell
         return
                 
@@ -580,7 +583,7 @@ class NormTable(Node):
         """
         assert self.nodeName == nc.TR
         nColumns = 0
-        for cell in tr.childNodes:
+        for cell in self.childNodes:
             if (cell.nodeName not in [ nc.TD, nc.TH ]): continue
             try:
                 cspan = cell.getAttribute(nc.COLSPAN)
@@ -789,7 +792,7 @@ class NormTable(Node):
                 
         b2 = doc.createElement(nc.TBODY)
         t2.appendChild(b2)
-        for i in range(nRows):
+        for _i in range(nRows):
             b2.appendChild(self.CreateRow(nCols, th=False, cellClasses=cellClasses))
 
         if (tfoot):

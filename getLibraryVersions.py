@@ -166,7 +166,8 @@ def showLibraryVersions(dunder=False, sunder=False, builts=False, dotted=False):
     for m in mlist:
         if (not dunder and m.startswith("__")): continue
         if (not sunder and m.startswith("_") and m[1]!="_"): continue
-        if (not builts and m in builtinList): continue
+        #if (not builts and m in builtinList): continue
+        if (not builts and "__builtins__" in dir(m)): continue
         if (not dotted and "." in m): continue
         f = v = "???"
         try:

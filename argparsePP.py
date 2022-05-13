@@ -487,7 +487,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
             argument_default    = argument_default,
             conflict_handler    = conflict_handler,
             add_help            = add_help
-            )
+        )
 
     def add_argument(
         self,
@@ -515,17 +515,18 @@ class ArgumentParserPP(argparse.ArgumentParser):
         # For gnu style, always add "-" synonym for "--" form
         if (names[0].startswith("--") and self.gnuStyle):
             super.add_argument(
-                 names          = names,
-                 action         = action,
-                 nargs          = nargs,
-                 const          = const,
-                 default        = default,
-                 type           = type,
-                 choices        = choices,
-                 required       = required,
-                 help           = help,
-                 metavar        = metavar,
-                 dest           = dest)
+                names          = names,
+                action         = action,
+                nargs          = nargs,
+                const          = const,
+                default        = default,
+                type           = type,
+                choices        = choices,
+                required       = required,
+                help           = help,
+                metavar        = metavar,
+                dest           = dest
+            )
 
         return(super.add_argument(
             names           = names,
@@ -538,7 +539,8 @@ class ArgumentParserPP(argparse.ArgumentParser):
             required        = required,
             help            = help,
             metavar         = metavar,
-            dest            = dest)
+            dest            = dest
+            )
         )
 
     def showSettings(self):
@@ -570,12 +572,22 @@ class ArgumentParserPP(argparse.ArgumentParser):
             sys.stderr.write("add_toggle: option doesn't start with '--'.")
             return
         basename = name.strip(" \t-_")
-        pos = self.add_argument(name,
-            action="store_true", dest=name[2:], metavar=metavar,
-            default=default, help=help)
-        self.add_argument(self.negationPrefix+basename,
-            action="store_false", dest=dest or basename, metavar=metavar,
-            default=default, help="See '"+name+"'.")
+        pos = self.add_argument(
+            name,
+            action="store_true",
+            dest=name[2:],
+            metavar=metavar,
+            default=default,
+            help=help
+        )
+        self.add_argument(
+            self.negationPrefix+basename,
+            action="store_false",
+            dest=dest or basename,
+            metavar=metavar,
+            default=default,
+            help="See '"+name+"'."
+        )
         return pos
 
     def add_enum(
@@ -596,19 +608,22 @@ class ArgumentParserPP(argparse.ArgumentParser):
         The caller is responsible for avoiding conflicts.
         """
         self.add_argument(
-            "--"+basename, type=type,
+            "--"+basename,
+            type=type,
             default=default,
             help=help,
             metavar=metavar,
             dest=dest or basename,
             choices=choices
-            )
+        )
         for c in choices:
             self.add_argument(
-                "--"+c, action="store_const", const=c,
+                "--"+c,
+                action="store_const",
+                const=c,
                 help=("Shorthand for '--%s %s'." % (basename, c)),
                 dest=dest or basename
-                )
+            )
 
     def add_entailment(self, name1, name2, value2):
         """Store the fact that setting one option, forces another one.
@@ -625,8 +640,11 @@ class ArgumentParserPP(argparse.ArgumentParser):
         """Override argparse version, to respond to "pager" option.
         """
         if (self.pager == "less"):
-            subprocess.run([ "/usr/bin/less" ],
-            input=self.format_help(), check=True)
+            subprocess.run(
+                [ "/usr/bin/less" ],
+                input=self.format_help(),
+                check=True
+            )
         else:
             super.print_help(file=file)
 
@@ -677,8 +695,7 @@ if __name__ == "__main__":
             help="Display version information, then exit.")
 
         parser.add_argument(
-            "files", type=str,
-            nargs=argparse.REMAINDER,
+            "files", type=str, nargs=argparse.REMAINDER,
             help="Path(s) to input file(s)")
 
         args0 = parser.parse_args()

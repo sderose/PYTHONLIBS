@@ -907,13 +907,13 @@ class ALogger:
         """
         assert False
 
-    def defineMsgType(self, *args, **kwargs):
+    def defineMsgType(self, *_args, **_kwargs):
         """Create a new named message type, for use with 'Msg()'.
         Each type owns a bunch of formatting information.
         Arguments default to None, so user can leave items unchanged
         if the type is already defined.
         """
-        assert False
+        assert False, "defineMsgType has been dropped."
 
     def getMsgDefs(self):
         """
@@ -1377,6 +1377,7 @@ class ALogger:
 
 
     ###########################################################################
+    # Data formatters
     #
     def formatPickle(self, path:str) -> str:
         import pickle
@@ -1453,7 +1454,7 @@ class ALogger:
 
         try:
             typeName = type(obj).__name__
-        except:
+        except AttributeError:
             typeName = "???"
             
         # Avoid re-printing same non-scalar object (also prevents circular traverse).
@@ -1509,7 +1510,7 @@ class ALogger:
 
         elif (isinstance(obj, (tuple, set, frozenset))):            # TUPLE, SET
             buf += ind
-            if (options['showSize']): buf += "%s |%d|" % (typeName_, len(obj))
+            if (options['showSize']): buf += "%s |%d|" % (typeName, len(obj))
             if (len(obj)):
                 buf += ": %s\n" % (self.openList)
                 for n, v in enumerate(obj):
@@ -1520,7 +1521,7 @@ class ALogger:
 
         elif (isinstance(obj, list)):                               # LIST
             buf += ind
-            if (options['showSize']): buf += "%s |%d|" % (typeName_, len(obj))
+            if (options['showSize']): buf += "%s |%d|" % (typeName, len(obj))
             if (len(obj)):
                 buf += ": %s\n" % (self.openList)
                 for n, v in enumerate(obj):
@@ -1534,7 +1535,7 @@ class ALogger:
             if (obj.is_cuda): cFlag = " (cuda)"
             else: cFlag = ""
             buf += "%4d-D %s of |%d| %s%s" % (
-                obj.dim(), typeName_, len(obj), obj.dtype, cFlag)
+                obj.dim(), typeName, len(obj), obj.dtype, cFlag)
 
         elif (typeName == 'ndarray'):                     # numpy array
             buf += "ndarray |%s|" % (", ".join(str(x) for x in obj.shape))
@@ -1653,6 +1654,44 @@ class ALogger:
         # end formatScalar
 
 
+    ###########################################################################
+    # Get install state
+    #
+    def gatherLibraryReport(self, dunder=False, sunder=False, builts=False, dotted=False) -> str:
+        """Create a printable report of all the imported libraries.
+        """
+        buf = ""
+        libDict = self.gatherLibraryVersions(
+            dunder=dunder, sunder=sunder, builts=builts, dotted=dotted)
+        for m, pair in libDict.items():
+            buf += "%-30s %20s %s" % (m, pair[0], pair[1])
+        return buf
+
+    def gatherLibraryVersions(self, dunder=False, sunder=False, builts=False, dotted=False) -> Dict:
+        """Collect all imported modules, with their version and path (if
+        available), and display them.
+        From: getLibraryVersions.py (it also has a builtin list)
+        """
+        theDict = {}
+        mlist = sorted(list(sys.modules.keys()))
+        for m in mlist:
+            if (not dunder and m.startswith("__")): continue
+            if (not sunder and m.startswith("_") and m[1]!="_"): continue
+            if (not builts and "__builtins__" in dir(m)): continue
+            if (not dotted and "." in m): continue
+            ver = filename = "???"
+            try:
+                ver = sys.modules[m].__version__
+            except AttributeError:
+                pass
+            try:
+                filename = sys.modules[m].__file__
+            except AttributeError:
+                pass
+            theDict[m] = (ver, filename)
+        return theDict
+                
+    
 ###############################################################################
 # Main (doc, example and smoke-test)
 # Run some simple tests if invoked as its own command.
@@ -1683,10 +1722,10 @@ if __name__ == "__main__":
         "key2": -2.0E-12,
         "key3": 3.14+1j,
         "key4": True,
-        "key4": [ 0, 1, 2, { "z":26, "y":25, "x":24 } ],
-        "key5": ( "a", "b", "c" ),
-        "key6": set([ 99, 98, 97 ]),
-        "key7": None,
+        "key5": [ 0, 1, 2, { "z":26, "y":25, "x":24 } ],
+        "key6": ( "a", "b", "c" ),
+        "key7": set([ 99, 98, 97 ]),
+        "key8": None,
         "hello": "world\u203d",
         "aType": int,
         "aFunc": lg.formatRec,
