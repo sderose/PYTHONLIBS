@@ -90,7 +90,7 @@ Return the logger's level of reporting.
 
 ** Option: ''colorEnabled''
 Globally enables/disables use of color.
-Scripts may wish to set this to True if environment variable ''USE_COLOR'' is
+Scripts may wish to set this to True if environment variable ''CLI_COLOR'' is
 set and the relevant output is going to a terminal.
 See also the ''setColors''() method, below.
 
@@ -840,7 +840,7 @@ class sjdUtils:
         * Option: `colorEnabled`
 
         Globally enables/disables use of color.
-        Script may wish to set this to True if environment variable `USE_COLOR` is
+        Script may wish to set this to True if environment variable `CLI_COLOR` is
         set and the relevant output is going to a terminal.
         See also the `setColors()` method, below.
 

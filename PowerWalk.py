@@ -22,6 +22,8 @@ from typing import Dict, Any, Union
 assert sys.version_info[0] >= 3
 
 verbose = 0  # Also set by PowerWalk.setOptions("verbose")
+stats = defaultdict(int)
+
 def warn(lvl:int, msg:str):
     if (verbose>=lvl): sys.stderr.write("%s\n" % (msg))
 
@@ -2260,7 +2262,7 @@ if __name__ == "__main__":
             raise KeyError("Unknown --showInvisibles value.")
 
     __notQuotes__ = "]\\-"
-    
+
     def quoteFilename(f:str, op:str='"', cl:str='"') -> str:
         """This is not as smart as it should be. For example, it will
         do weird things for multi-char quotes, and it only knows how to
@@ -2319,8 +2321,8 @@ if __name__ == "__main__":
         if (args.fileType):
             st:os.stat_result = os.stat(path0)
             typeFlagChar = PowerStat.StatItem.getFlag(st)
-            epath += typeFlagChar 
-        
+            epath += typeFlagChar
+
         ppath = quoteFilename(epath, args.openQuote, args.closeQuote)
 
         indent = args.iString*pw.travState.depth

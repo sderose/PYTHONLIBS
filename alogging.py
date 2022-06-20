@@ -553,7 +553,7 @@ Default: '?'.
 * ''Option'':''color''
 
 Use ANSI terminal colors? If not passed to the constructor,
-this defaults to True if environment variable `USE_COLOR` is set,
+this defaults to True if environment variable `CLI_COLOR` is set,
 otherwise False. When set, the script tries to load my ColorManager package.
 Failing that, it issues a message and falls back to using "*" before and
 after colorized items.
@@ -735,7 +735,7 @@ class ALogger:
         ):
 
         if (color is None):
-            color = ('USE_COLOR' in os.environ)
+            color = ('CLI_COLOR' in os.environ)
 
         if (verbose is None):
             verbose = ALogger.verboseDefault
