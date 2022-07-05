@@ -120,6 +120,7 @@ esp. useful for added groups like with PowerWalk.py).
 * entailment? setting x also changes y and z
 * exclusion: can't set both x and y
 * support minimum unique truncations for "choices".
+* "union" or "no dups but ordered", rather than "append"
 * repeatable option, where instance can also be split, like -x "1 2 3" -x 4.
 
 * method to add synonym to previously-defined option

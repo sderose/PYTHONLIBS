@@ -44,7 +44,7 @@ descr = """
 
 Do pretty much what *nix `stat` does, but from and for Python. This also adds
 access to a variety of other file information accessible via the Python `stat`
-interface, using an extension of the usul `stat -f` %-string, to accept names
+interface, using an extension of the usual `stat -f` %-string, to accept names
 rather than just single letters to specify the datum desired.
 
 ==Usage as Command==
@@ -53,6 +53,9 @@ rather than just single letters to specify the datum desired.
     
 This will do the same thing as `stat [file]'. Except it isn't right yet.
 It does have `-x` to display a more readable form.
+
+The most visible change is that the -f (format) option can take names
+instead of just single letters for what to show. See below under "Formats".
 
 ==Usage as Library==
 
@@ -81,35 +84,88 @@ return the flag character like "ls -F" appends to file names ("/" for directorie
 
 ==Formats==
 
-Where they overlap, the format specifications here follow those of `stat`.
+For the most part, the format specifications here follow those of `stat`.
 They can be placed into a format-definition string by prefixing
 them with "%", but have a load of syntax, mostly optional:
 
-* Optional flags: [#+-0] for affect leading zeros, signs, left-alignment, etc.
-* size (digits)
+The first several fields of a format item are very similar to those of `sprintf` or
+Python `format()` [https://docs.python.org/3.9/library/string.html#formatspec].
+
+* Optional flags: Any of all of [#+-0] for affect leading zeros, signs, left-alignment, etc.
+    #  Prefixes octal with '0', hex with '0x'
+    +  Always show sign
+    -  Left-align (vs. '<' in Python)
+    0  Left-pad with 0 instead of space
+       (space) -- Puts a space in the sign columns ('+' overrides ' ')
+    
+* (Python adds ',' and '_' to manage thousands-separator in integers.
+May also want a modifier to magnitude suffixes, like `-H` for many commands.
+
+* size (digits) for minimum field width
+
 * precision ("." + digits)
-* fmtCode [DOUXFS] for decimal, octal, unsigned decimal, hex, float, or string.
-For some fields, like 'u' for user, the S form is a name, and the H form is the id.
+
+* fmtCode 
+    D  decimal
+    O  octal
+    U  unsigned decimal
+    X  hex
+    F  float
+    S  string
+
+For some fields, like 'u' for user, the 'S' form is a name, and the H form is the id.
 S for dates uses `strftime` formats.
-* sub [HML] only applies to p, d, r, and T (for p, it gets weird)
+
+Python also has 'b' for binary, 'c' for char conversion of an int, 'x' vs. 'X' to
+control the case of [A-F], and 'n' to insert number separators. Also, they're 
+lower case except for 'X'. For floats, [eEfFgGn%] are added.
+
+Truncation (max width) would also be nice, esp. for strings.
+
+* sub [HML] only applies to p (permissions), d (device a file is on), 
+r (device number for specials), and T (file type like `ls -F`). `sub` selects the
+"High", "Middle", or "Low" aspect
+
 * dataum -- the actual data item being rendered:
-    d device
-    i inode
-    p type and permissions
-    l number of hard links
-    u user
-    g group
-    r device number (for specials)
-    amcB times
-    z size in bytes
-    b size in blocks
-    k preferred block size
-    f flags
-    v inode generation
-    N name
-    T type (as in `ls -F`
-    Y link target
-    Z (special)
+    d  device       device (for files)
+    i  inode        inode
+    p  perm         type and permissions
+    l  nlinks       number of hard links
+    u  user         user (use fmtCode to pick number vs. name)
+    g  group        group (use fmtCode to pick number vs. name)
+    r  device       number (for specials)
+    a  atime        access time (times have special format controls)
+    m  mtime        modification time
+    c  ctime        creation time
+    B  btime        inode birth time
+    z  bytes        size in bytes
+    b  blocks       size in blocks
+    k  pblock       preferred block size
+    f  flags        flags, like `ls -lTdo`
+    v  igen         inode generation
+    N  name         full name
+    R  path         absolute path
+    T  type         type (as in `ls -F`)
+    Y  target       symlink target
+    Z  ???          ('major,minor' for character or block special files, otherwise size)
+
+Added items:
+    x  extension    file extension (not including the '.')
+                    base name without extension
+                    
+??? The preceding fields also get synonyms? space sep inside the ()?
+
+    
+You can also use, for any of these, the mnemonic name shown above, instead of just
+a single letter.
+
+For example, instead of
+
+    stat -f "-%Hu%Mu%Lu%Hg%Mg%Lg%Ho%Mo%Lo  %8su %8sg %6ds %12sm %sn"
+    
+you could say:
+
+    stat -f "-%(Hu)%(Mu)%(Lu)%(Hg)%(Mg)%(Lg)%(Ho)%(Mo)%(Lo  )%(8su )%(8sg )%(6ds )%(12sm )%sn"
 
 ==Examples==
 
@@ -533,8 +589,14 @@ class StatItem:
         #elif (self.datum == 'f'):               # user self.flags        ***
         #    return st.ST_XXX
 
-        # Not actually from 'stat' struct (likewise 'T')
+        # Not actually from 'stat' struct, bit in stat(1)
         #elif (self.datum == 'N'):               # file name              ***
+        #    # TODO: if (self.fmtCode == 's'): actual file name
+        #    return st[stat.ST_XXX]
+        #elif (self.datum == 'R'):               # file name              ***
+        #    # TODO: if (self.fmtCode == 's'): actual file name
+        #    return st[stat.ST_XXX]
+        #elif (self.datum == 'T'):               # file name              ***
         #    # TODO: if (self.fmtCode == 's'): actual file name
         #    return st[stat.ST_XXX]
         #elif (self.datum == 'Y'):               # symlink target         ***

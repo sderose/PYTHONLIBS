@@ -17,7 +17,7 @@ from os.path import getatime, getctime, getmtime, getsize, splitext
 from enum import Enum
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Callable, List
 
 assert sys.version_info[0] >= 3
 
@@ -83,7 +83,8 @@ descr="""
 
 PowerWalk is similar to Python's built-in `os.walk()`, but offers many
 additional features, especially for file selection. In that respect it is
-more similar to the *nix `find` command.
+more similar to the *nix `find` command, but can be used either as a shell
+command or as an API.
 
 It has a simple iterator that returns a triple for each item,
 containing a path, an (optional) open file handle (for non-containers), and a flag
@@ -95,28 +96,11 @@ PowerWalk can also:
 * return all paths in absolute form;
 * open and/or close leaf files for you;
 * open several kinds of compressed and container formats (such as `tar`),
-* include or exclude by extensions, name patterns, path patterns, etc.;
-* exclude hidden or backup items;
+* include or exclude by extensions, name patterns, path patterns, permissions, dates, etc.;
+* exclude hidden or backup items, or by filesystem type or `file` matches;
 * sort the items of each directory in various orders;
 * random-sample only a % of eligible items;
 * raise Exceptions instead of returning items for OPEN and CLOSE.
-
-The package also supplies a few useful independent tests and methods:
-
-* isBackup(path) -- .bak, #foo#, Backup 3 of foo, etc.
-* isHidden(path) -- Initial dot.
-* isGenerated(path) -- extensions like .py, .o, etc.
-* getGitStatus(path) -- One of these for files in git (a code should be added
-that specifically means "not in a git repo at all"):
-    M = modified
-    A = added
-    D = deleted
-    R = renamed
-    C = copied
-    U = updated but unmerged
-    ? = untracked
-    ! = ignored
-    0 = Error
 
 
 ==Usage as a command==
@@ -139,7 +123,7 @@ you specify `--quiet`.
 * `--filetype` -- Append a flag-character like "ls -F".
 
 * `--serialize` -- put a serial number on each file with `--copyTo`
-(as well as `--serializeFormat` to set the format (default "_%04d")).
+(use `--serializeFormat` to set the format (default "_%04d")).
 
 ===Command output format===
 
@@ -260,15 +244,17 @@ You can pass a list of paths as the first argument if desired.
 Or you can pass one or a list of paths to `pw.traverse()`, which will use
 them instead of the one(s) set on the constructor (if any).
 
-You can ignore the OPEN and CLOSE events (as shown here), or turn off the
-`containers` option to have them not be generated at all.
-You can also turn auto-opening and/or closing of files on or off.
+You can ignore the OPEN and CLOSE events for directories (as shown here), or 
+turn off the `containers` option to have them not be generated at all.
 
 The following example prints an
-outline of the file directory subtree of the current directory:
+outline of the file directory subtree of the current directory.
+The 'open' and 'close' options (both default to False), open each leaf
+file for you, passing the handle back in `fh` (otherwise, `fh` is always
+passed back as None), and close it on the next call to `traverse()`:
 
     depth = 0
-    pw = PowerWalk(args.files, recursive=True, containers=True)
+    pw = PowerWalk(args.files, recursive=True, containers=True, open=True, close=True)
     pw.setOption("includeExtensions", "txt")
     for path, fh, what in pw.traverse():
         if (what == PWType.OPEN):
@@ -281,14 +267,22 @@ outline of the file directory subtree of the current directory:
             print("  " * depth + srcFile)
             doOneFile(srcFile)
 
-If you'd rather think of directory boundaries as exceptional
-(some might say that's more Pythonic), you can  do this:
+If you'd rather not hear about directory boundaries at all, do:
+
+    pw = PowerWalk("myDir", recursive=True, containers=False)
+    for itemInfo in pw.traverse():
+        path, fh, _what = itemInfo
+        nrecs = len(list(fh.readlines()))
+        print("%6d lines in %s" % (nrecs, path))
+
+Or you can have an exception thrown on directory start/end
+(some might say that's more Pythonic):
 
     pw = PowerWalk("myDir", recursive=True, exceptions=True)
     while True:
         try:
             path, fh, what = pw.traverse():
-            nrecs = len(fh.readlines)
+            nrecs = len(list(fh.readlines()))
             print("%6d lines in %s" % (nrecs, path))
         except ItemOpening:
             print("\n\n*** Starting directory")
@@ -307,11 +301,40 @@ tar files, there may be no "path" per se for each individual item. In that case,
 the returned path is that of the container, and you'll be given an open
 file handle (whether or not you requested them for regular files).
 
+The package also supplies a few useful independent tests and methods:
+
+* isBackup(path) -- .bak, #foo#, Backup 3 of foo, etc.
+* isHidden(path) -- Initial dot.
+* isGenerated(path) -- extensions like .py, .o, etc.
+* getGitStatus(path) -- One of these for files in git (a code should be added
+that specifically means "not in a git repo at all"):
+    M = modified
+    A = added
+    D = deleted
+    R = renamed
+    C = copied
+    U = updated but unmerged
+    ? = untracked
+    ! = ignored
+    0 = Error
+
 
 =Methods=
 
-(the main one is `traverse()`, which unfortunately comes last in the
-alphabetical list below)
+The main method is `traverse()`, which unfortunately comes last in the
+alphabetical list below.
+
+==__init__(self, topLevelItems=None, options:Dict=None)==
+
+Create a PowerWalk instance, which can traverse all the specified
+items. If `topLevelItems` is None, the current directory is used;
+if it is a list, all the named files and/or directories will be used;
+otherwise, it should be a string path to one named file or directory.
+
+`options` is a dict of option name:value pairs. For example, to
+traverse all the subdirectories of the specified items (if any),
+pass `options` containing (at least) "recursive":True.
+Options can also be set later using `setOption` (see below).
 
 ==addOptionsToArgparse(parser, prefix="", singletons=True)==
 
@@ -321,17 +344,6 @@ is prefixed to each name (after the hyphens) to avoid name conflicts.
 If `singletons` is True, this will include single-character synonyms.
 Currently that's just `-r` for `--recursive`.
 
-==__init__(self, topLevelItems=None, options=None)==
-
-Create a PowerWalk instance, which can traverse all the specified
-items. If `topLevelItems` is None, the current directory is used;
-if it is a list, all the named files and/or directories will be used;
-otherwise, just the one named file or directory.
-
-`options` is a dict of option name:value pairs. For example, to
-traverse all the subdirectories of the specified items (if any),
-pass `options` containing (at least) "recursive":True.
-Options can also be set later using `setOption` (see below).
 
 ==getOption(self, name)==
 
@@ -666,6 +678,11 @@ xattr to say where copied from.
 
 * Support additional compression methods.
 
+* Be able to accept/return Path objects.
+
+* Make a cleaner design for the various output format punctuation, as class `Lister`.
+
+
 == Output options==
 
 * Replace `--absolute` with a choice of normalized, real, rel, or abs?
@@ -826,6 +843,7 @@ Improve doc, typehints, etc. Track inodes of directories to try to protect
 against circular symlinks.
 * 2022-02-14: Normalize quotes. Add --filetype.
 * 2022-03-23: Improve output format quoting options.
+* 2022-07-05: Start breaking out a cleaner listing i/f via classes ItemFmt, Lister...
 
 
 =Rights=
@@ -1176,7 +1194,7 @@ class PowerWalk:
         "verbose"             : int,
     }
 
-    def handlePathsArg(self, topLevelItems:list):
+    def handlePathsArg(self, topLevelItems:Union[List, str]):
         if (not topLevelItems):
             return [ os.environ["PWD"] ]
         elif (isinstance(topLevelItems, list)):
@@ -2088,6 +2106,135 @@ def xset(path:str, prop:str, val:Any) -> None:
     sys.exit()
 
 
+###############################################################################
+# This should perhaps be broken out into a package just for doing formatting.
+# Sync closer to Python format() though it's not the same thing; connect with
+#     PowerStat, stat, strfchr, note "A % language".
+#
+class FmtType(Enum):
+    nil = 0
+    b = 1  # bool
+    i = 2  # integer
+    f = 3  # float
+    j = 4  # complex
+    m = 5  # vec/mat/tensor (set, dict?)
+    s = 6  # str
+    z = 7  # block
+
+class ItemFmt:
+    """??? for files and for dirs?
+            [ "x", [ "y", "z" ], "w" ]
+    """
+    def __init__(self):
+        self.beforeFirst = ""
+        self.afterNonLast = ""
+        self.beforeNonFirst = ""
+        self.afterLast = ""
+        self.indent = ""
+        self.mainType = FmtType.nil
+        self.preProcess = None
+
+class Lister:
+    """A cleaner design for various output formats of dir/file lists.
+    Well, at least a small attempt at one....
+    
+    Specify a `stat`-like format string for each of:
+        * The very start
+        * Opening a container (dir, tar, etc.)
+        * Reporting a leaf item
+        * Separating leaf items
+        * Closing a container
+        * Separating containers
+        * The very end
+        
+    E.g.:
+        myDir
+            myFile1
+            myFile2
+            myFile2
+
+        ~/myDir/
+        ~/myDir/myFile1
+        ~/myDir/myFile2
+        ~/myDir/myFile2
+            
+        <catalog root="/home/xyz">
+            <dir name="myDir">
+                <item name="myFile1" />
+                <item name="myFile3" />
+                <item name="myFile3" />
+            </dir>
+        </catalog>
+        
+    Features to control (use PowerStat?)
+        (see stat -f codes [NRTYZ] for name, size, etc.)
+        Indentation
+        Closinh lines or not
+        Basename, path, ~
+        Extra info: permissions, size, type-flags like ls, user, group, times --
+            and different for open/close/item
+        Wrap like ls???
+        Markup? HTML dir, table, etc.
+        Treatment of links, tars, etc.
+        
+        
+    TODO: Ditch options anonymousClose, openQuote, closeQuote, quote, noquote, 
+    openDelim, closeDelim, short, statFormat, iString, itemSep, fileType, etc.
+    Then replace mapNamedOFOs() to match.
+    Maybe just an example, or a strftime-like
+    % thing? Need at least 3: open, leaf (amd itemSep?), close.
+    Give each like stat or my strfstat!
+
+        %N  -- filename (%2N adds 2 levels of dirs)
+        %P  -- full path
+        %n  -- basename
+        %e  -- extension
+        %2s -- indent by 2 spaces per level
+        %2t -- indent by 2 tabs per level
+
+    e.g.:  --ostat "<dir>|Opening %P\n|%2s%N\n|Closing %P|</dir>"    
+    """
+    def __init__(self):
+        self.options = {
+            "caseSensitive": False,
+            "openQuote":  '"',
+            "closeQuote": '"',
+            "escaper":    '\\',   # escapeChar or escape Callable?
+            "indentBy":   '  ',
+        }
+        self.itemDict = {}        # All the known "datum"s and "aliases"
+        self.letterDict = {}      # Single-char forwards
+        self.currentDepth = 0     # Indent level? Thread safety...
+
+    def addItem(
+        self, 
+        name:str, 
+        letter:str=None, 
+        docstring:str=None,
+        theType:FmtType=FmtType.nil, 
+        source:Callable=None
+        ) -> None:
+        self.itemDict[name] = (theType, docstring, source)
+        if letter:
+            assert letter not in self.letterDict
+            self.letterDict[letter] = name
+    
+    def addAlias(self, alias:str, name:str) -> None:
+        assert name in self.itemDict
+        assert alias not in self.itemDict
+        self.itemDict[alias] = name
+        
+    def resolve(self, key:str) -> ItemFmt:
+        if (key in self.itemDict): return self.itemDict[key]
+        if (key in self.letterDict): return self.itemDict[self.letterDict[key]]
+        matches = []
+        for cand in self.itemDict.keys():
+            if cand.startswith(key): matches.append(cand)
+        if (len(matches) == 1): return self.itemDict[matches[0]]
+        if (len(matches) == 0): return None
+        return "Duplicate"  # Not of type FmtItem...
+    
+        
 ###############################################################################
 #
 if __name__ == "__main__":
