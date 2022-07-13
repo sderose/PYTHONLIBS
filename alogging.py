@@ -645,6 +645,28 @@ Seems to be a problem with `maxItems`, and with suppressing callables in `format
     eMsg->e...
     hMsg??
 
+* Maybe do a level-transform from -v**n to logger levels?
+    Py name   Py lvl  
+    CRITICAL      50
+    ERROR         40
+    WARNING       30
+    INFO          20
+    DEBUG         10
+    NOTSET        0
+
+So if I get
+    mylog(0, msg) it should show unconditionally, so 29 (and setLevel that)
+    mylog(1, msg) it should show if they said -v, so level is 28
+    mylog(2, msg) is level 27
+    ...
+
+So argparse and setVerbose do:
+    lg.setLevel(29-args.verbose)
+
+Then we can do:
+    def vlog(lvl, msg):
+        lg.log(29-lvl, msg)
+
 * Option to get rid of "INFO:root:" prefix from logging package.
 
 * Consider switching to "logv = lambda lvl, msg: info(msg) if lvl<=args.verbose else None"
