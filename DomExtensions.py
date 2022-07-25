@@ -1617,14 +1617,15 @@ def getNChildNodes(self:Node, nodeSel:NodeSel=None) -> int:
 def getChildNumber(self:Node, nodeSel:NodeSel=None) -> int:
     """Return the number of this node among its siblings, counting only
     siblings that match the given nodeSel (default: all).
+    *** This counting is 1-based! ***
     @param nodeSel: 
         None: count everything
         element type name: count only those
         "*": count all/only elements
-        "#text", etc.: count only text nodes
+        "#text", "#pi", "#comment": count only those.
         "#noncom": count all non-comment nodes (TODO: experimental)
-    TODO: Add option for whether commend nodes count.
     TODO: Should we care about non-coalesced text nodes?
+    TODO: NodeSel option to count only non-whitespace-only text nodes?
     """
     n = 0
     for ch in self.parentNode.childNodes:
@@ -1714,27 +1715,77 @@ def getContentType(self) -> int:
 ###############################################################################
 # XPointer support
 #
-def getXPointer(self:Node, textOffset:int=None) -> str:
-    """Get a simple numeric XPointer to the node, as a string.
+def getXPointer(self:Node, textOffset:int=None, idAttrName:NMToken=None) -> str:
+    """Get a simple numeric XPointer to *either* an entire element or text
+    node, or to a specific character inside some text node, unless there
+    
     With `textOffset`, dig down and find the specified character (not byte!)
-    among the descendants, and return a precise pointer there. If the
-    offset is beyond the amount of text under `self`, just return an
-    XPointer to `self` as if no `textOffset` was given. If it's exactly
-    1 greater, return an xpointer that identifies the location just within
-    the node, after the last content character.
+    among the descendants, and return a precise pointer there, unless
+    there's not enough text -- then treat as if no `textOffset` was given. 
+    If it's exactly 1 greater, point just after the last content character.
 
     TODO: Extend to do full-fledged ranges.
     """
     if (textOffset is None):
-        return getXPointerToNode(self)
+        return getXPointerToNode(self, idAttrName=idAttrName)
     assert textOffset >= 0
     if (self.nodeType == Node.TEXT_NODE):  # Find the right text node first.
-        xp = getXPointerToNode(self)
+        xp = getXPointerToNode(self, idAttrName=idAttrName)
         if (textOffset>=0 and textOffset<=len()): xp += "#%d" % (textOffset)
         return xp
     theTextNode, localOffset = findTextByOffset(self, textOffset=textOffset)
-    xp = getXPointerToNode(theTextNode) + "#%d" % (localOffset)
+    xp = getXPointerToNode(theTextNode, idAttrName=idAttrName) + "#%d" % (localOffset)
     return xp
+
+def getXPointerToNode(self:Node, idAttrName:NMToken="id", nodeSel:NodeSel=None) -> str:
+    """Get a simple XPointer to a node (no specific character points!). These
+    are just a sequence of child-numbers, e.g.  1/12/352/4/1.
+        ==> These count text nodes, too, unless you set "whatToCount" to some
+        specific selector, such as "*" (for just elements).
+    
+    If `idAttrName` is not empty (it defaults to "id"), and that attribute
+    is set on an ancestor(s), then the XPointer will use the innermost such ID
+    as the leading component, and go no further up, e.g. myId/4/1.    
+    """
+    f = ""
+    cur = self
+    while (cur and cur.nodeType != Node.DOCUMENT_NODE):
+        idValue = cur.getAttribute(idAttrName) if idAttrName else ""
+        if (idValue):
+            f = idValue + "/" + f
+            break
+        f = str(cur.getChildNumber(nodeSel)+1) + "/" + f
+        cur = cur.parentNode
+    return f
+
+def getXPathToNode(self:Node, idAttrName:NMToken="id",
+    byType:bool=True, nodeSel:NodeSel=None) -> str:
+    """Basically like getXPointerToNode(), but generates an XPath expression.
+    The default (byType=True) counts each child among its own type (thus,
+    the number will usually be quite different than "raw" numbers:
+        /chap[1]/sec[6]/para[80]/note[2]/para[1]
+    A slightly dumber form is with byType=False, and just uses element numbers:
+        /*[1]/*[12]/*[352]/*[4]/*[1]
+    Just as with getXPointerToNode, if you set idAttrName and a value is found
+    for that attribute on the way up, traversal stops and that ID is used
+    as the first component. For example, if you set idAttrName="id", and the
+    upper para from the previous example has id="theRightValue", you get:
+        //*[@id=theRightValue]/note[2]/para[1]
+    """
+    f = ""
+    cur = self
+    while (cur and cur.nodeType != Node.DOCUMENT_NODE):
+        idValue = cur.getAttribute(idAttrName) if idAttrName else ""
+        if (idValue):
+            f = "//*[@%s='%s']/%s" % (idAttrName, idValue, f)
+            break
+        elif (byType):
+            curName = cur.nodeName
+            f = "%s[%d]/%s" % (curName, cur.getChildNumber(curName)+1, f)
+        else:
+            f = "*[%d]/%s" % (cur.getChildNumber(nodeSel)+1, f)
+        cur = cur.parentNode
+    return f
 
 def findTextByOffset(self:Node, textOffset:int=0):
     """Given a text offset within the *entire* text under the given node,
@@ -1756,18 +1807,6 @@ def compareDocumentPosition(self:Node, other:Node):
     """Compare two nodes for order.
     """
     return self.XPointerCompare(self.getXPointer(), other.getXPointer())
-
-def getXPointerToNode(self:Node, idAttrName:NMToken="id") -> str:
-    """Get a simple XPointer to the node, as a string.
-    If `idAttrName` is not empty (it defaults to "id"), the XPointer will use that 
-    as an ID, and use child sequence numbers from there down. This is more robust.
-    """
-    f = ""
-    cur = self
-    while (cur):
-        f = "/%s%s" % (cur.getMyIndex()+1, f)
-        cur = cur.parentNode
-    return f
 
 def XPointerCompare(self:Node, xp1:str, xp2:str) -> int:
     """Compare two purely numeric XPointers for relative order.
@@ -2416,7 +2455,7 @@ def eachElement(self:Node, etype:NMToken=None, depth:int=1) -> Element:
     return
 
 def eachAttribute(self:Node, etype:NMToken=None, aname:NMToken=None, depth:int=1) -> tuple:
-    """Generate all attributes in a given subtree, optionallyt limiting to one
+    """Generate all attributes in a given subtree, optionally limiting to one
     attribute name and/or one element type.
     @return a 2-tuple of an element node, and the name of one of its attributes.
     TODO: Should this return attrNodes per se?
@@ -3214,7 +3253,7 @@ class DomExtensions:
             classes = [ classes ]
         lg.info("====To patch: ")
         for toPatch in classes:
-            lg.info("*** Patching class %s ***\n", toPatch)
+            lg.warning("*** Patching class %s ***\n", toPatch)
             testCase = getattr(toPatch, "selectAncestor", None)
             if (testCase and callable(testCase)): return
 
@@ -3292,11 +3331,12 @@ class DomExtensions:
             if (not cmpMethod):
                 toPatch.compareDocumentPosition = compareDocumentPosition
 
-            # XPointer
+            # XPointer, XPath, etc.
             if (xptr):
                 toPatch.getXPointer         = getXPointer
                 toPatch.findTextByOffset    = findTextByOffset
                 toPatch.getXPointerToNode   = getXPointerToNode
+                toPatch.getXPathToNode      = getXPathToNode
                 toPatch.XPointerCompare     = XPointerCompare
                 toPatch.XPointerInterpret   = XPointerInterpret
 
@@ -3415,7 +3455,9 @@ class DomExtensions:
         if (not classes): classes = [ Node ]
         elif (isinstance(classes, type)): classes = [ classes ]
         nMissing = 0
+        print("'classes' is %s" % (type(classes)))
         for toPatch in classes:
+            print("Patching '%s' (%s)" % (toPatch.__name__, type(toPatch)))
             inPatch = toPatch.__dict__.keys()
             for k, v in DomExtensions.__dict__.items():
                 if (not callable(v)): continue
