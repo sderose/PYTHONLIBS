@@ -244,7 +244,7 @@ You can pass a list of paths as the first argument if desired.
 Or you can pass one or a list of paths to `pw.traverse()`, which will use
 them instead of the one(s) set on the constructor (if any).
 
-You can ignore the OPEN and CLOSE events for directories (as shown here), or 
+You can ignore the OPEN and CLOSE events for directories (as shown here), or
 turn off the `containers` option to have them not be generated at all.
 
 The following example prints an
@@ -718,7 +718,7 @@ or pathlib, or PurePAth.match().
 * Add `--files-without-match` and `--files-with-matches` like `grep`.
 * permissions -- see `passesPerm()` below.
 * owner and group ids (and none), inum -- cf `PowerStat.py`
-* file-flags like for `find -flags` and `chflags`
+* file-flags like for `find -flags` and `chflags` and 'ls -F'; or using circled -d etc. chars?
 * Mac fs metadata (kmdItem... and all that). See my `macFinderInfo`.
 * Option to not cross device or filesystem bounds (see `find -x`)
 * distinguish maxfiles tried vs. succeeded
@@ -2137,7 +2137,7 @@ class ItemFmt:
 class Lister:
     """A cleaner design for various output formats of dir/file lists.
     Well, at least a small attempt at one....
-    
+
     Specify a `stat`-like format string for each of:
         * The very start
         * Opening a container (dir, tar, etc.)
@@ -2146,7 +2146,7 @@ class Lister:
         * Closing a container
         * Separating containers
         * The very end
-        
+
     E.g.:
         myDir
             myFile1
@@ -2157,7 +2157,7 @@ class Lister:
         ~/myDir/myFile1
         ~/myDir/myFile2
         ~/myDir/myFile2
-            
+
         <catalog root="/home/xyz">
             <dir name="myDir">
                 <item name="myFile1" />
@@ -2165,20 +2165,20 @@ class Lister:
                 <item name="myFile3" />
             </dir>
         </catalog>
-        
+
     Features to control (use PowerStat?)
         (see stat -f codes [NRTYZ] for name, size, etc.)
         Indentation
         Closinh lines or not
         Basename, path, ~
-        Extra info: permissions, size, type-flags like ls, user, group, times --
+        Extra info: permissions, size, type-flags like ls -F, user, group, times --
             and different for open/close/item
         Wrap like ls???
         Markup? HTML dir, table, etc.
         Treatment of links, tars, etc.
-        
-        
-    TODO: Ditch options anonymousClose, openQuote, closeQuote, quote, noquote, 
+
+
+    TODO: Ditch options anonymousClose, openQuote, closeQuote, quote, noquote,
     openDelim, closeDelim, short, statFormat, iString, itemSep, fileType, etc.
     Then replace mapNamedOFOs() to match.
     Maybe just an example, or a strftime-like
@@ -2192,7 +2192,7 @@ class Lister:
         %2s -- indent by 2 spaces per level
         %2t -- indent by 2 tabs per level
 
-    e.g.:  --ostat "<dir>|Opening %P\n|%2s%N\n|Closing %P|</dir>"    
+    e.g.:  --ostat "<dir>|Opening %P\n|%2s%N\n|Closing %P|</dir>"
     """
     def __init__(self):
         self.options = {
@@ -2207,23 +2207,23 @@ class Lister:
         self.currentDepth = 0     # Indent level? Thread safety...
 
     def addItem(
-        self, 
-        name:str, 
-        letter:str=None, 
+        self,
+        name:str,
+        letter:str=None,
         docstring:str=None,
-        theType:FmtType=FmtType.nil, 
+        theType:FmtType=FmtType.nil,
         source:Callable=None
         ) -> None:
         self.itemDict[name] = (theType, docstring, source)
         if letter:
             assert letter not in self.letterDict
             self.letterDict[letter] = name
-    
+
     def addAlias(self, alias:str, name:str) -> None:
         assert name in self.itemDict
         assert alias not in self.itemDict
         self.itemDict[alias] = name
-        
+
     def resolve(self, key:str) -> ItemFmt:
         if (key in self.itemDict): return self.itemDict[key]
         if (key in self.letterDict): return self.itemDict[self.letterDict[key]]
@@ -2233,8 +2233,8 @@ class Lister:
         if (len(matches) == 1): return self.itemDict[matches[0]]
         if (len(matches) == 0): return None
         return "Duplicate"  # Not of type FmtItem...
-    
-        
+
+
 ###############################################################################
 #
 if __name__ == "__main__":
