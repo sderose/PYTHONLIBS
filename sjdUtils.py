@@ -738,6 +738,7 @@ class sjdUtils:
         }
 
         # See loremText(type='r'), below.
+        # See also Charsets/letterFrequencies.py.
         #
         self.letterFreqsTotal = 0  # setUtilsOption() sets this.
         self.setUtilsOption("letterFreqs", [ # Rough, from Wikipedia
