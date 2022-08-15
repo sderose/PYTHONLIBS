@@ -6,7 +6,6 @@
 #
 # pylint: disable=W1406
 #
-from __future__ import print_function
 import sys
 import os
 import re
@@ -25,7 +24,6 @@ except ImportError:
 #
 PY3 = sys.version_info[0] == 3
 if PY3:
-    def unichr(n): return chr(n)
     PYunicode = str
 else:
     PYunicode = unicode  # noqa: F821  #pylint: disable=E0602
@@ -717,7 +715,7 @@ message report type of next thing, and still report scalars. Add 'maxString'.
 Drop headingN() methods, and make log() insert separator space and line if the
 message starts with "====". Planning to lose hMsg(), defined msg types, etc.
 Add 'noDups'. Drop rMsg(), MsgRule, defineMsgType(), Msg().
-
+* 2022-07-27: Add indent option to pline. More type-hints.
 
 =Rights=
 
@@ -1338,13 +1336,20 @@ class ALogger:
         if (nPrinted==0):
             self.lg.info("    (no stats logged)")
 
-    def pline(self, label:str, n:int, denom:float=None, dotfill:int=0, fillchar:str='.',
-        width:int=None, quiet:bool=False) -> str:
-        """Display via ''vMsg''(), with ''label'' padded to ''width'' columns,
-        (default: `plineWidth` option). ''n'' is justified according to type.
-            With ''dotfill'', every ''dotfill'''th line will pad ''label''
-        with ''fillchar'' for readability (using ''ljust'').
-            If ''denom'' ('denominator') is non-zero, and ''n'' is an int or
+    def pline(
+        self, 
+        label:str,          # label, in 'width' columns
+        n:Any,              # value, in 2nd area(type-dependent alignment)
+        denom:float=None,   # if present, also display n/denom
+        dotfill:int=0,      # if set to D, dot-fill every D-th line
+        fillchar:str='.',   # the dot fill character
+        width:int=None,     # width of the label area
+        quiet:bool=False,   # if set, return it but don't display
+        indent:int=0,       # Add this many leading spaces
+        ) -> str:
+        """Display a pair of a label and an aligned value.
+        'widt´h' defaults to the `plineWidth` option).
+        If ''denom'' ('denominator') is non-zero, and ''n'' is an int or
         float, then an additional field showing n/denom appears (or 'NaN').
         """
         self.plineCount += 1
@@ -1375,6 +1380,7 @@ class ALogger:
             msg = label + (" " * padlen) + valueField
         else:
             msg = label + (fillchar * padlen) + valueField
+        if (indent): msg = (" " * indent) + msg
         if (not quiet): self.lg.info(msg)
         return(msg)
 
@@ -1492,7 +1498,7 @@ class ALogger:
             buf += ind + self.disp_None
 
         #elif (typeName in [ Node, Document ]):
-        #    buf += "%s%s%s" % (unichr(0x227A), type(obj), unichr(0x227B))
+        #    buf += "%s%s%s" % (chr(0x227A), type(obj), chr(0x227B))
 
         elif (callable(obj)):                                       # CALLABLE
             #buf += (ind + "callable '%s'\n" % (nm))
@@ -1679,7 +1685,13 @@ class ALogger:
     ###########################################################################
     # Get install state
     #
-    def gatherLibraryReport(self, dunder=False, sunder=False, builts=False, dotted=False) -> str:
+    def gatherLibraryReport(
+        self, 
+        dunder:bool=False, 
+        sunder:bool=False, 
+        builts:bool=False, 
+        dotted:bool=False
+        ) -> str:
         """Create a printable report of all the imported libraries.
         """
         buf = ""
@@ -1689,7 +1701,13 @@ class ALogger:
             buf += "%-30s %20s %s" % (m, pair[0], pair[1])
         return buf
 
-    def gatherLibraryVersions(self, dunder=False, sunder=False, builts=False, dotted=False) -> Dict:
+    def gatherLibraryVersions(
+        self, 
+        dunder:bool=False, 
+        sunder:bool=False, 
+        builts:bool=False, 
+        dotted:bool=False
+        ) -> Dict:
         """Collect all imported modules, with their version and path (if
         available), and display them.
         From: getLibraryVersions.py (it also has a builtin list)
