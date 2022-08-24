@@ -1249,7 +1249,6 @@ class ListManager:
         return(string.ascii_uppercase[n])
 
     # List of enough Roman numerals.
-    # Cf bingit/CCEL/CCEL3DBMakers/makeReferenceTables/makeRomanNumeralRef.sq
     #
     romans = [ "",
         'i', 'ii', 'iii', 'iv', 'v',
