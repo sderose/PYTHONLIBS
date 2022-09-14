@@ -176,6 +176,7 @@ or [https://github.com/sderose].
 genericMsg = "Value for option does not match type: '%s'."
 
 
+###############################################################################
 ### Numerics
 #
 def t_anyInt(s:str):
@@ -236,7 +237,9 @@ def t_slice(s):
     raise ValueError(genericMsg % (s))
 
 
+###############################################################################
 ### Characters
+# TODO: Sync with Python's set of islower() etc, plus length constraints
 #
 def t_char(s):
     """A single, literal Unicode character.
@@ -284,16 +287,18 @@ def t_uchar(s):
     raise ValueError(genericMsg % (s))              # Fail
 
 
+###############################################################################
 ### Normalized strings. This means that the string is normalized before storing,
-# not that a non-normalized string from the user is rejected.
+# not that a non-normalized string from the user is rejected (they're named like
+# the Python string-transformer functions to make that more intuitive).
 #
-def t_ustring(s):
+def t_upper(s):
     return s.upper()
 
-def t_lstring(s):
+def t_lower(s):
     return s.lower()
 
-def t_tstring(s):
+def t_title(s):
     return s.title()
 
 def t_NFC(s):
@@ -311,13 +316,30 @@ def t_NFKD(s):
 # TODO: Add case-folding PLUS canonicalization?
 
 
-### Constrained text items
+
+###############################################################################
+### Regex-constrained text items
+# Only do this if significantly easier than:
+#     add_argument("--foo", type=lambda x: re.match(r"whatev(er|uh)", x)...)
+# Perhaps:
+#     add_argument("--foo", type=match, const=r"whatev(er|uh)")
+# TODO: What of regex options, esp. IGNORECASE and UNICODE?
 #
-def checkX(expr, s):  ### Regex checking feature
+def checkRegex(expr, s):
     if (re.match(expr, s, flags=re.UNICODE)): return s
     raise ValueError(genericMsg % (s))
 
-# Following only allowe complete date and/or time, not arbitrary shortenings.
+def isRegex(s):
+    """Test for an arg which is itself a legit regular expression.
+    """
+    try:
+        re.compile(s)
+        return s
+    except re.error
+        return None
+
+# Following only allow complete date and/or time, not arbitrary shortenings.
+# TODO: Add support for the ISO-allowed truncations.
 #
 dateX = re.compile(r"\d\d\d\d-[01]\d-[0-3]\d" + "$")
 timeX = re.compile(r"[012]\d:[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[-+]\d\d:\d\d)?" + "$")
@@ -325,7 +347,6 @@ timeX = re.compile(r"[012]\d:[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[-+]\d\d:\d\d)?" + "$"
 # These allow optional parts
 #datePX = re.compile(r"(\d\d\d\d)(-[01]\d)?(-[0-3]\d)?" + "$")
 #timePX = re.compile(r"([012]\d)(:[0-5]\d)?((:[0-5]\d)(\.\d+))?)?(Z|[-+]\d\d:\d\d)?" + "$")
-
 def t_date_8601(s):
     return checkX(dateX, s)
 
@@ -336,6 +357,7 @@ def t_datetime_8601(s):
     return checkX(dateX[0:-1]+"T"+timeX, s)
 
 
+###############################################################################
 ### XML and XSD stuff
 #
 NMSTART = r"[_.A-Z]"
@@ -354,6 +376,7 @@ def x_QNAME(s):
     return checkX(r"[.\w][-_.:\w]*$", s)
 
 
+###############################################################################
 ### Python stuff
 #
 def p_encoding(s):
@@ -406,18 +429,6 @@ dt = Datatypes.Datatypes()
 
 dt.checkValueForType("int", "12")
 
-
-### Comparison types
-# These let the user specify a condition for the code to apply.
-# For example, `find` wants to check sizes, times, etc against some limit.
-#     --mtime "<2020-03-12"
-#     maybe append tolerance: ~3d
-#     strings want regex compare: --name "/.txt$" (prefix "~", or just *do*?)
-# Ones like -xattr need a name to compare:
-#     -xattr "whereFrom=~/example.com/" (too Perlish? =r""? ~=? ~?
-#
-def condition(s):
-    pass
 
 ### File-system stuff
 #
