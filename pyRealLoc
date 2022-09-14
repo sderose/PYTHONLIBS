@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+#
+# pyRealLoc: Find where the controlling Python executable really is.
+# 2022-09-14: Written by Steven J. DeRose.
+#
+import sys
+import argparse
+
+__metadata__ = {
+    "title"        : "pyRealLoc",
+    "description"  : "Find where the controlling Python executable really is.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.9",
+    "created"      : "2022-09-14",
+    "modified"     : "2022-09-14",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "Public domain"
+}
+__version__ = __metadata__["modified"]
+
+descr = """
+=Name=
+    """ +__metadata__["title"] + ": " + __metadata__["description"] + """
+
+
+=Description=
+
+Find where the controlling Python executable really is.
+
+"whence", "which", "type", and such shell commands do little good when using
+extra management layers, such as ''venv''. They will typically point you to
+the finger pointing to the moon, not to the moon, for example to a symbolic link
+a "shim" script.
+
+==Usage==
+
+    python3.9 pyRealLoc
+    
+(or whatever python command you want to identify).
+
+=Options=
+"""
+
+
+###############################################################################
+# Main
+#
+def processOptions() -> argparse.Namespace:
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
+
+    parser.add_argument(
+        "--version", action="version", version=__version__,
+        help="Display version information, then exit.")
+
+    args0 = parser.parse_args()
+    return(args0)
+
+args = processOptions()
+print(getattr(sys, "executable"))
