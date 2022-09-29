@@ -42,9 +42,17 @@ file status (values mostly based on git).
 Only git, Mercurial, and SVN have any support yet, and mainly git.
     
 
-==Usage==
+==Usage as a command==
 
     versionStatus.py [options] [files]
+
+==Usage form Python==
+
+    from versionStatus import getVersionStatus
+    systemName, status = getVersionStatus(path)
+
+The systemName is an Enum called VCS_Type, and the status is an Enum called gitStatus
+(even though the codes are all as for git).
 
 
 =See also=
@@ -236,7 +244,7 @@ def getSVNStatus(path):
     
 ###############################################################################
 #
-def doOneFile(path:str) -> (VCS_Type, gitStatus):
+def getVersionStatus(path:str) -> (VCS_Type, gitStatus):
     """Read and deal with one individual file.
     """
     if (not os.path.exists(path)):            # Exists at all?
@@ -270,14 +278,17 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--noclean", action="store_true",
-            help="Do not list unchanged/clean files.")
-        parser.add_argument(
             "--color", action="store_true",
             help="Colorize paths to show status.")
         parser.add_argument(
             "--longStat", action="store_true",
             help="Show words for file status, not just single characters.")
+        parser.add_argument(
+            "--noclean", action="store_true",
+            help="Do not list unchanged/clean files.")
+        parser.add_argument(
+            "--nosystem", action="store_true",
+            help="Do not list the CVS system name.")
         parser.add_argument(
             "--quiet", "-q", action="store_true",
             help="Suppress most messages.")
@@ -317,11 +328,13 @@ if __name__ == "__main__":
         sys.exit()
 
     for path0 in args.files:
-        vcs, status = doOneFile(path0)
+        vcs, status = getVersionStatus(path0)
         if (args.noclean and status==gitStatus.CLEAN): continue
         if (args.color):
             path0 = cm.colorize(path0, colorMap[status])
-        if (args.longStat):
-            print("%-12s %-12s %s" % (vcs.name, status.name, path0))
+        printStat = status.name if args.longStat else status.value
+        if (args.nosystem):
+            print("%-12s %s" % (printStat, path0))
         else:
-            print("%-12s %-3s %s" % (vcs.name, status.value, path0))
+            print("%-12s %-10s %s" % (vcs.name, printStat, path0))
+
