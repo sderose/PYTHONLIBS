@@ -12,8 +12,6 @@ from subprocess import check_output, CalledProcessError
 import logging
 lg = logging.getLogger()
 
-from PowerWalk import getGitStatus, gitStatus
-
 __metadata__ = {
     "title"        : "versionStatus.py",
     "description"  : "Figure out what VCS a file belongs to, if any.",
@@ -38,12 +36,10 @@ descr = """
 Given a file or directory, see if it's under version control, and what system,
 and what state.
 
-Returns or prints the particular VCS (as a VCS_Type Enum), and if it know, a
-git-based file status (as a ''gitStatus'' Enum).
+Returns or prints the particular VCS (as a VCS_Type Enum), and if it known, a
+file status (values mostly based on git).
 
-    
-I'd also like to return the file status, but that's trickier because models differ.
-For now, I'm only supporting git statuses, for which the Enum ''gitStatus''.
+Only git, Mercurial, and SVN have any support yet, and mainly git.
     
 
 ==Usage==
@@ -57,8 +53,6 @@ For now, I'm only supporting git statuses, for which the Enum ''gitStatus''.
 
 My 'backup', which has slight knowledge of git states.
 
-My 'PowerWalk.py', which provides getGitStatus().
-
 
 =Known bugs and Limitations=
 
@@ -68,10 +62,10 @@ If you'd like to add some, feel free, and send me the patch.
 
 =To do=
 
-* Move git support functions into here, from ''PowerWalk.py''.
 * Option to spell out status instead of using single-char codes.
 * A non-existent file is not considered to be in any version control
 system, even if its directory is in scope for one.
+* Add colors?
 
 
 =History=
@@ -125,26 +119,6 @@ class VCS_Type(Enum):
     Perforce    = 111
     Pijul		= 112    
     
-    
-def doOneFile(path:str) -> (VCS_Type, gitStatus):
-    """Read and deal with one individual file.
-    """
-    if (not os.path.exists(path)):            # Exists at all?
-        return VCS_Type.NONE, gitStatus.NO_FILE
-    rc = getGitStatus(path)
-    if (rc != gitStatus.NOT_MINE):            # In git?
-        return VCS_Type.Git, rc
-    rc = getMercurialStatus(path)
-    if (rc != gitStatus.NOT_MINE):            # In Mercurial?
-        return VCS_Type.Mercurial, rc
-    rc = getSVNStatus(path)
-    if (rc != gitStatus.NOT_MINE):            # In SVN?
-        return VCS_Type.SVN, rc
-    return VCS_Type.NONE, gitStatus.ERROR
-
-
-###############################################################################
-#
 class gitStatus(Enum):
     # Most of the symbols are what you get from 'git status --porcelain'....
     # (exceptions: E, \\u2205, X, =.
@@ -157,7 +131,7 @@ class gitStatus(Enum):
 
     UNTRACKED	= "?"
     IGNORED		= "!"       # TODO: vs. SVN "I"
-    UNMODIFIED  = "="       # TODO: vs. SVN "C" = 'clean'; " " in git
+    CLEAN       = "="       # TODO: vs. SVN "C" = 'clean'; " " in git
     MODIFIED	= "M"
     ADDED		= "A"
     DELETED		= "D"       # TODO: vs. Mercurial "R" = removed
@@ -167,6 +141,21 @@ class gitStatus(Enum):
 
     #             "~"       # TODO: SVN "~" = 'changed type'
 
+colorMap = {
+    gitStatus.ERROR		: "red",
+    gitStatus.NO_FILE   : "red",
+    gitStatus.NOT_MINE  : "cyan",
+    gitStatus.UNTRACKED	: "yellow",
+    gitStatus.IGNORED	: "yellow",
+    gitStatus.CLEAN     : "green",
+    gitStatus.MODIFIED	: "blue",
+    gitStatus.ADDED		: "blue",
+    gitStatus.DELETED	: "black",
+    gitStatus.RENAMED	: "blue",
+    gitStatus.COPIED	: "yellow",
+    gitStatus.UNMERGED	: "magenta",
+}
+    
 def getGitStatus(path:str) -> gitStatus:
     """See what sort of git state we're in (see `git status --help` for --porcelain).
     NOTE: It outputs "" for untracked and unchanged files. Some relevant options:
@@ -176,27 +165,29 @@ def getGitStatus(path:str) -> gitStatus:
     """
     # See if we're even in a git repo
     try:
-        gitDir = check_output("git rev-parse --show-toplevel 2>/dev/null", shell=True)
-    except CalledProcessError as e:
-        return gitStatus.NOT_GIT
+        _gitDir = check_output("git rev-parse --show-toplevel 2>/dev/null", shell=True)
+    except CalledProcessError:
+        return gitStatus.NOT_MINE
     try:
         tokens = [ "git", "status", "--porcelain", "--ignored=matching", path ]
-        buf = str(check_output(tokens))
-        buf0 = buf[0]
-        if (args.verbose): lg.info("status response length %d, buf0 '%s'" % (len(buf), buf0))
+        buf = check_output(tokens)
     except CalledProcessError:
-        if (args.verbose): lg.info("CalledProcessError")
+        if (args.verbose): lg.warning("CalledProcessError")
         return gitStatus.NOT_MINE
-    except IndexError:
-        if (args.verbose): lg.info("IndexError")
-        return gitStatus.UNMODIFIED  # TODO: Check if this is always right
+    if (len(buf) == 0):
+        return gitStatus.CLEAN
+    # If you don't give the encodoing, you get b'...', making buf0 be "b".
+    bufs = str(buf, encoding='utf-8')
+    buf0 = bufs[0]
+    if (0 and args.verbose): lg.warning(
+        "status response length %d, buf0 '%s': '%s'", len(buf), buf0, bufs)
     if (buf0 == " "):
-        if (args.verbose): lg.info("Found space")
-        return gitStatus.UNMODIFIED
+        if (args.verbose): lg.warning("Found space")
+        return gitStatus.CLEAN
     if (buf0 in "MADRCU?!"): 
-        if (args.verbose): lg.info("Found code '%s'" % (buf9))
+        if (args.verbose): lg.warning("Found code '%s'", buf0)
         return gitStatus(buf0)
-    warn(0, "Unknown code '%s' from git status for '%s'." % (buf0, path))
+    lg.warning("Unknown code '%s' from git status for '%s'.", buf0, path)
     return gitStatus.ERROR
 
 def getMercurialStatus(path):
@@ -244,6 +235,25 @@ def getSVNStatus(path):
     
     
 ###############################################################################
+#
+def doOneFile(path:str) -> (VCS_Type, gitStatus):
+    """Read and deal with one individual file.
+    """
+    if (not os.path.exists(path)):            # Exists at all?
+        return VCS_Type.NONE, gitStatus.NO_FILE
+    rc = getGitStatus(path)
+    if (rc != gitStatus.NOT_MINE):            # In git?
+        return VCS_Type.Git, rc
+    rc = getMercurialStatus(path)
+    if (rc != gitStatus.NOT_MINE):            # In Mercurial?
+        return VCS_Type.Mercurial, rc
+    rc = getSVNStatus(path)
+    if (rc != gitStatus.NOT_MINE):            # In SVN?
+        return VCS_Type.SVN, rc
+    return VCS_Type.NONE, gitStatus.ERROR
+
+
+###############################################################################
 # Main
 #
 if __name__ == "__main__":
@@ -259,6 +269,12 @@ if __name__ == "__main__":
         except ImportError:
             parser = argparse.ArgumentParser(description=descr)
 
+        parser.add_argument(
+            "--noclean", action="store_true",
+            help="Do not list unchanged/clean files.")
+        parser.add_argument(
+            "--color", action="store_true",
+            help="Colorize paths to show status.")
         parser.add_argument(
             "--longStat", action="store_true",
             help="Show words for file status, not just single characters.")
@@ -290,17 +306,22 @@ if __name__ == "__main__":
     ###########################################################################
     #
     args = processOptions()
-
+    if (args.color):
+        from ColorManager import ColorManager
+        cm = ColorManager()
+    else:
+        cm = None
+        
     if (len(args.files) == 0):
-        lg.info("versionStatus.py: No files specified....")
+        lg.warning("versionStatus.py: No files specified....")
         sys.exit()
 
     for path0 in args.files:
         vcs, status = doOneFile(path0)
+        if (args.noclean and status==gitStatus.CLEAN): continue
+        if (args.color):
+            path0 = cm.colorize(path0, colorMap[status])
         if (args.longStat):
             print("%-12s %-12s %s" % (vcs.name, status.name, path0))
         else:
             print("%-12s %-3s %s" % (vcs.name, status.value, path0))
-        
-    if (not args.quiet):
-        lg.info("versionStatus.py: Done")

@@ -3,7 +3,6 @@
 # ColorManager.py: ANSI color utilities for Python, by Steven J. DeRose.
 # 2011-12-09: sjdUtils Ported to Python; 2016-10-31 ColorManager separated.
 #
-from __future__ import print_function
 import sys
 import os
 import re
@@ -69,7 +68,7 @@ For information on the ANSI codes, see for example
     from ColorManager import ColorManager
     cm = ColorManager()
     ...
-    print(cm.colorize('red/white', myMessage)
+    print(cm.colorize(myMessage, 'red/white')
 
 ==Usage from shell==
 
@@ -133,9 +132,9 @@ If ''filter'' is supplied, it is treated as a regular expression, and any
 color names that do not match it are excluded. This is useful because
 there are about 1000 combinations available.
 
-* '''colorize(argColor='red', s="", endAs="off")'''
+* '''colorize(msg="", argColor='red', endAs="off")'''
 
-Return the string ''s'', but with
+Return the string ''msg'', but with
 the ANSI terminal escape sequences to display it in the specified
 ''argColor'' added at the start, and the escape to switch to color ''endAs''
 added at the end.
@@ -388,7 +387,7 @@ class ColorManager:
         buf = ""
         for k in sorted(self.colorStrings.keys()):
             if (filterRegex and not re.match(filterRegex, k)): continue
-            buf += "    %s  %s\n" % (self.colorize(k, sampleText), k)
+            buf += "    %s  %s\n" % (self.colorize(sampleText, k), k)
         return(buf)
 
     def colorize(self, msg: str = "", argColor: str = None, endAs: str = "off",
