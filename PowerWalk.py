@@ -21,6 +21,8 @@ from typing import Dict, Any, Union, Callable, List
 
 assert sys.version_info[0] >= 3
 
+from versionStatus import getGitStatus  # gitStatus
+
 verbose = 0  # Also set by PowerWalk.setOptions("verbose")
 stats = defaultdict(int)
 
@@ -306,17 +308,7 @@ The package also supplies a few useful independent tests and methods:
 * isBackup(path) -- .bak, #foo#, Backup 3 of foo, etc.
 * isHidden(path) -- Initial dot.
 * isGenerated(path) -- extensions like .py, .o, etc.
-* getGitStatus(path) -- One of these for files in git (a code should be added
-that specifically means "not in a git repo at all"):
-    M = modified
-    A = added
-    D = deleted
-    R = renamed
-    C = copied
-    U = updated but unmerged
-    ? = untracked
-    ! = ignored
-    0 = Error
+* getGitStatus(path) -- (used to be here, now moved to ''versionStatus.py'').
 
 
 =Methods=
@@ -737,7 +729,7 @@ or pathlib, or PurePAth.match().
     ** date, age, and file size (chars, bytes, blocks, kmgtp), file count.
     *** including MIME "Date:" for email files
 * Is under git or other version-control (and maybe, is committed/pushed?)
-See getGitStatus().
+See getGitStatus().  Not yet integrated.
 * Add specific support for .gitignore and cvs equivalent.
 
 What do various *nix utilities do for <=> tests in options?
@@ -1016,6 +1008,7 @@ class TraversalState(list):
             "ignoredByExcludeDir"        : 0,
             "ignoredByIncludeDir"        : 0,
 
+            "ignoredByGitStatus"         : 0,
             "ignoredByMinDepth"          : 0,
             "ignoredByPerm"              : 0,
             "ignoredByType"              : 0,
@@ -1390,7 +1383,8 @@ class PowerWalk:
             help="Follow MacOS .webloc links to the destination.")
         gitStatuses = " MADRCU?!"
         parser.add_argument(
-            "--git-status", type=str, default="", choices = [ x for x in gitStatuses ],
+            "--gitstatus", "--git-status", type=str, default="",
+            choices = [ x for x in gitStatuses ],
             help="Git status as for git -s [%s]. UNFINISHED." % (gitStatuses))
         parser.add_argument(
             prefix + "hidden", action="store_true",
@@ -1761,6 +1755,9 @@ class PowerWalk:
             not re.search(self.options["includeExtensions"], extPart)):
             self.recordEvent(trav, "ignoredByIncludeExtensions")
 
+        elif (self.options["gitstatus"] and
+            getGitStatus(path) != self.options["gitstatus"]):
+            self.recordEvent(trav, "ignoredByGitStatus")
         elif (self.options["excludeNames"] and
             re.search(self.options["excludeNames"], tail)):
             self.recordEvent(trav, "ignoredByExcludeNames")
@@ -2069,31 +2066,8 @@ def isGenerated(name:str) -> bool:
         if (re.search(ge, b)): return(True)
     return(False)
 
-def getGitStatus(path:str) -> Union[str, None]:
-    """See what sort of git state we're in (see `git status --help` for -s):
-        " " = unmodified
-        M = modified
-        A = added
-        D = deleted
-        R = renamed
-        C = copied
-        U = updated but unmerged
-        ? = untracked
-        ! = ignored
-        0 = Error
-
-    TODO: Add a code to mean "not in a git repo at all", so user can
-    treat files outside git distinctly from untracked files in git areas.
-    """
-    try:
-        tokens = [ "git", "status", "-s", path ]
-        buf = check_output(tokens)
-    except CalledProcessError:
-        return "0"
-    if str(buf[0]) in " MADRCU?!": return str(buf[1])
-    warn(0, "Unknown code '%s' from git status -s '%s'." % (str(buf[0]), path))
-    return None
-
+# NOTE: getGitStatus moved into versionStatus.py.
+#
 def getFileInfo(path:str) -> str:
     """See what the "file" command has to say about something...
     """
