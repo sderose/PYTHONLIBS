@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 #
 # alogging: messaging, logging, and statistics features from sjdUtils.py.
-# Fairly close to Python's Logging package, but adds color and -v stacking.
+# Fairly close to Python's Logging package (and moving closer),
+# but adds color and -v levels like many *nix utilities.
 # Written 2011-12-09 by Steven J. DeRose
 #
 # pylint: disable=W1406
@@ -20,14 +21,6 @@ try:
 except ImportError:
     class NamedNodeMap(list): pass  # Just get it out of the way...
 
-# "PYunicode" is a type that we can use in either Python 2 or 3.
-#
-PY3 = sys.version_info[0] == 3
-if PY3:
-    PYunicode = str
-else:
-    PYunicode = unicode  # noqa: F821  #pylint: disable=E0602
-
 __metadata__ = {
     'title'        : "alogging",
     'description'  : "logging additions, for -v levels, stats, formatting, traceback,...",
@@ -42,7 +35,6 @@ __metadata__ = {
 }
 __version__ = __metadata__['modified']
 
-
 descr = """
 =Description=
 
@@ -51,7 +43,10 @@ Derived from `sjdUtils.py`'s messaging methods.
 
 =Extra features compared to `logging.Logger`=
 
-* Traditional *nix-style `-v` verbosity levels
+* Traditional *nix-style `-v` verbosity levels. These are implemented by
+occupying 'logging' levels from INFO (20) counting down. so no -v is 20;
+-v is 19, -v -v is 18, etc. setVerbose(n) takes the -v count, and calls
+logging.setLevel(20-n).setLevel.
 
 * Better Unicode and non-printable char handling
 
@@ -83,6 +78,8 @@ and they accept an optional `stat` parameter (see below).
 
 ==vMsg() and its kin==
 
+(deprecated in favor of info/warning/error/critical)
+
 `vMsg()` takes an integer verbosity level, and only displays a message if the
 current verbosity level is at least that high. This is typically controlled
 by passing 0 or more `-v` options on a command line. It also allows a 2nd
@@ -109,8 +106,6 @@ already, and appends `datum` to the list.
 * `showStats()`
 * `setOption('noMoreStats', True)` -- this will prevent any new stat names
 from being accepted (causing an exception on any such attempt).
-
-You can control the indentation level of messages with `MsgPush()` and `MsgPop()`.
 
 Verbosity can be set with `setOption("verbose", n)` or `setVerbose(n)`.
 
@@ -305,10 +300,6 @@ as are very common for *nix utilities.
 
 ** Adds ''prefix'' before ''m1'',
 ''infix'' between ''m1'' and ''m2'', and/or ''suffix'' after ''m2''.
-
-** If ''indent'' is True, creates an indent string for
-the level set by ''MsgPush''(), etc., and inserts it
-before the prefix and after each newline in the prefix, infix, and suffix.
 
 ** If ''func'' is True, inserts the name of the calling function
 before ''m1''.
@@ -506,28 +497,6 @@ as high as the number at the end of the method name.
 This supports the common *nix command-line usage, where the
 amount of messaging is increased by using one or more ''-v'' options.
 
-==Indentation control methods==
-
-* ''MsgPush(self)''
-
-Increment the message-nesting depth, causing indentation for messages
-displayed via ''Msg''(). This is mainly useful for messages that reflect
-successive tiers of processing on input data (e.g., notices about
-each file, record, and field). The string to repeat to make indentation
-can be set with ''setOption('indentString', string)''.
-
-* ''MsgPop(self)''
-
-Decrement the message indentation depth (see ''MsgPush'').
-
-* ''MsgSet(self, n)''
-
-Force the message indentation depth to ''n'' (see ''MsgPush'').
-
-* ''MsgGet(self)''
-
-Return the current message indentation depth (see ''MsgPush'').
-
 
 ==Option control methods==
 
@@ -570,13 +539,6 @@ Sets the name of the character encoding to be used (default `utf-8`).
 This is just passed along to the like-named argument of the
 Python ''logging.basicConfig''() method, and controls where messages go.
 It defaults to `sys.stderr`.
-
-* ''Option'':''indentString'' (string)
-
-The string used by ''Msg''() to build indentation according to the
-''indentation depth''
-set by ''MsgPush''(), ''MsgPop'', etc. Default: "  " (two spaces).
-Indentation is inserted before the message and after each newline.
 
 * ''Option'':''noMoreStats''
 
@@ -643,27 +605,10 @@ Seems to be a problem with `maxItems`, and with suppressing callables in `format
     eMsg->e...
     hMsg??
 
-* Maybe do a level-transform from -v**n to logger levels?
-    Py name   Py lvl  
-    CRITICAL      50
-    ERROR         40
-    WARNING       30
-    INFO          20
-    DEBUG         10
-    NOTSET        0
+setVerbose does:
+    lg.setLevel(20-args.verbose)
 
-So if I get
-    mylog(0, msg) it should show unconditionally, so 29 (and setLevel that)
-    mylog(1, msg) it should show if they said -v, so level is 28
-    mylog(2, msg) is level 27
-    ...
-
-So argparse and setVerbose do:
-    lg.setLevel(29-args.verbose)
-
-Then we can do:
-    def vlog(lvl, msg):
-        lg.log(29-lvl, msg)
+Then message levels 0...9 do the same translation.
 
 * Option to get rid of "INFO:root:" prefix from logging package.
 
@@ -716,6 +661,8 @@ Drop headingN() methods, and make log() insert separator space and line if the
 message starts with "====". Planning to lose hMsg(), defined msg types, etc.
 Add 'noDups'. Drop rMsg(), MsgRule, defineMsgType(), Msg().
 * 2022-07-27: Add indent option to pline. More type-hints.
+* 2022-09-30: Fiddle with levels and level defaults. Drop MsgPush, MsgPop, etc.
+
 
 =Rights=
 
@@ -741,37 +688,32 @@ All those works are by the same author and are licensed under the same license
 ###############################################################################
 #
 class ALogger:
-    """A default verbosity level.
-    """
-    verboseDefault = 0
+    loggerLevelDefault = logging.INFO
 
     def __init__(self,
-        verbose:int  = None,       # Level of detail for 'info' messages.
+        verbose:int  = 0,          # Level of -v for 'info' messages (0...9)
+        level:int    = None,       # logging.setLevel value
         color        = None,
         filename:str = None,
         encoding:str = 'utf-8',
-        level:int    = None,
         options:dict = None
         ):
 
-        if (color is None):
-            color = ('CLI_COLOR' in os.environ)
+        if (color is None): color = ('CLI_COLOR' in os.environ)
 
-        if (verbose is None):
-            verbose = ALogger.verboseDefault
-
+        if (level is None): level = ALogger.loggerLevelDefault
+        
         self.options = {
-            'verbose'        : verbose,     # Verbosity level
+            'verbose'        : verbose,     # Number of -v levels
+            # Set a level that doesn't hide too much:
+            # CRITICAL 50, ERROR 40, WARNING 30, INFO 20, DEBUG 10, NOTSET 0
+            'level'          : level - verbose,
             'color'          : color,       # Using terminal color?
             'filename'       : filename,    # For logging pkg
             'encoding'       : encoding,    # Assumed char set
-            # Set a level that doesn't hide too much:
-            # CRITICAL 50, ERROR 40, WARNING 30, INFO 20, DEBUG 10, NOTSET 0
-            'level'          : level or 20, # For logging filtering
-
+            
             'badChar'        : "?",         # Substitute for undecodables
             'controlPix'     : True,        # Show U+24xx for control chars?
-            'indentString'   : "  ",        # For pretty-printing
             'noMoreStats'    : False,       # Warn on new stat names
             'plineWidth'     : 30,          # Columns for label for pline()
             'displayForm'    : "SIMPLE",    # UNICODE, HTML, or SIMPLE
@@ -779,15 +721,14 @@ class ALogger:
 
         self.optionTypes = {
             'verbose'        : int,
+            'level'          : int,
             'color'          : bool,
             'filename'       : str,
             'encoding'       : str,
-            'level'          : int,
+            
             'direct'         : bool,
-
             'badChar'        : str,
             'controlPix'     : bool,
-            'indentString'   : str,
             'noMoreStats'    : bool,
             'plineWidth'     : int,
             'displayForm'    : str,
@@ -809,7 +750,6 @@ class ALogger:
         self.lg             = logging.getLogger()
 
         self.msgStats       = {}
-        self.msgIndentLevel = 0   # How far are we indenting infos?
         self.errorCount     = 0   # Total number of errors logged
         self.plineCount     = 1   # pline() uses for colorizing
 
@@ -893,8 +833,8 @@ class ALogger:
         This is NOT the same as the logging package 'level'!
         """
         v = int(v)
-        if (v>0 and not self.lg.isEnabledFor(20)):
-            self.lg.setLevel(20)
+        if (v>=0):
+            self.lg.setLevel(logging.INFO)
         return(self.setALoggerOption('verbose', v))
 
     def getVerbose(self):
@@ -955,29 +895,7 @@ class ALogger:
     ###########################################################################
     # Manage persistent indentation of xMsg calls.
     #
-    def MsgPush(self):
-        """Increment the message indent level, causing indentation for messages
-        displayed via ''vMsg''. This is mainly useful for messages that reflect
-        successive tiers of processing on input data (e.g., notices about
-        each file, record, and field). The string to repeat to make indentation
-        can be set with ''setOption('indentString', string)''.
-        """
-        self.msgIndentLevel += 1
-
-    def MsgPop(self):
-        """Decrement the message-nesting level (see ''MsgPush'').
-        """
-        if (self.msgIndentLevel>0): self.msgIndentLevel -= 1
-
-    def MsgSet(self, n):
-        """Force the message-nesting level to ''n'' (see ''MsgPush'').
-        """
-        self.msgIndentLevel = n
-
-    def MsgGet(self):
-        """Return the message-nesting level (see ''MsgPush'').
-        """
-        return(self.msgIndentLevel)
+    #     MsgPush, MsgPop, MsgSet, MsgGet have been deleted.
 
 
     ###########################################################################
@@ -1065,7 +983,7 @@ class ALogger:
         m1:str, 
         m2:str="", 
         color:str=None, 
-        indent:bool=True, 
+        indent:int=0, 
         stat:str=""
         ) -> None:
         """Issue a 'verbose' (msgType 'v') info message.
@@ -1082,7 +1000,7 @@ class ALogger:
         m1:str, 
         m2:str="", 
         color:str=None, 
-        indent:bool=True, 
+        indent:int=0, 
         stat:str=""
         ) -> None:
         """Issue an error message.
@@ -1101,7 +1019,7 @@ class ALogger:
         m1:str, 
         m2:str="", 
         color:str=None, 
-        indent:bool=True, 
+        indent:int=0, 
         stat:str=""
         ) -> None:
         """Issue a 'heading' (msgType 'h') message.
@@ -1115,7 +1033,7 @@ class ALogger:
     # Messages of various kinds (sync with Perl version)
     def Msg(
         self,
-        level:int,  # vs. defined type
+        level:int,  # This is a -v level: 0...9.
         m1:str,
         m2:str="",
         color:str=None,
@@ -1155,7 +1073,7 @@ class ALogger:
         if (stat!=""): self.bumpStat(stat)
         if (self.options['verbose']<verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, escape=escape)
-        self.lg.info(m)
+        self.lg.log(logging.INFO - level, m)
         return
 
     def assembleMsg(
@@ -1164,7 +1082,7 @@ class ALogger:
         m2:str="",
         color:str=None,
         escape:bool=False,  # Make chars all visible?
-        indent=None,        # Indent by msgLevel?
+        indent:int=0,       # Indent by this many spaces
         nLevels:int=0,      # Show some stack trace?
         msgType:str=None,
         func:bool=False     # Show calling function name
@@ -1182,7 +1100,7 @@ class ALogger:
             m1 = self.showInvisibles(m1)
             m2 = self.showInvisibles(m2)
         pre = ""
-        if (indent): pre = (self.options['indentString'] * self.msgIndentLevel)
+        if (indent): pre = " " * indent
         caller = ""
         if (func): caller = self.getCaller() + ": "
         (on, off) = self.getPickedColorString(color, msgType)
@@ -1640,7 +1558,7 @@ class ALogger:
         ty = type(obj)
         if (obj is None):
             return self.disp_None
-        elif (isinstance(obj, (str, PYunicode))):
+        elif (isinstance(obj, (str))):
             if (maxString > 0 and len(obj) > maxString):
                 return '"%s"' % (obj[0:maxString])
             return '"%s"' % (obj)
@@ -1750,12 +1668,8 @@ if __name__ == "__main__":
     lg.error("An error message")
 
     lg.info("====A header message")
-    lg.vMsg(0, "A vMsg message.")
-    lg.MsgPush()
-    lg.vMsg(0, "A vMsg message, indented.")
-    lg.MsgPop()
-    lg.vMsg(0, "A vMsg message, back to no indent.")
-    lg.error("An eMsg message")
+    lg.vMsg(0, "A vMsg() message.")
+    lg.error("An error() message")
 
     foo = {
         "key1": 3,

@@ -3,32 +3,27 @@
 # MarkupHelpFormatter.py.
 # Upgrades for Python argparse, that don't forcibly wrap all text.
 #
-import os, sys, re, string
+import os
+import sys
+import re
+import string
 import argparse
 import html
 
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-if PY2:
-    string_types = basestring
-else:
-    string_types = str
-    def unichr(n): return chr(n)
-
 __metadata__ = {
-    'title'        : "MarkupHelpFormatter.py",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2013-04-18",
-    'modified'     : "2020-01-29",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/",
-    'description'  :
-        'Markdown/MediaWiki/POD formatter class for Python argparse.',
+    "title"        : "MarkupHelpFormatter.py",
+    "description"  :
+        "Markdown/MediaWiki/POD formatter class for Python argparse.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2013-04-18",
+    "modified"     : "2020-01-29",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/",
 }
-__version__ = __metadata__['modified']
+__version__ = __metadata__["modified"]
 
 
 descr = """
@@ -439,39 +434,40 @@ verbose = 0
 
 esc = chr(27)
 specialChars = {
-    "lsquo":   unichr(0x2018),    "rsquo":   unichr(0x2019),
-    "ldquo":   unichr(0x201C),    "rdquo":   unichr(0x201D),
-    "lsaquo":  unichr(0x2039),    "rsaquo":  unichr(0x203A),
-    "ldaquo":  unichr(0x00AB),    "rdaquo":  unichr(0x00BB),
+    "lsquo":   chr(0x2018),    "rsquo":   chr(0x2019),
+    "ldquo":   chr(0x201C),    "rdquo":   chr(0x201D),
+    "lsaquo":  chr(0x2039),    "rsaquo":  chr(0x203A),
+    "ldaquo":  chr(0x00AB),    "rdaquo":  chr(0x00BB),
 
-    "endash":  unichr(0x2013),    "emdash":  unichr(0x2014),
-    "shy":     unichr(0x00AD),    "hypoint": unichr(0x2027),
-    "hyminus": unichr(0x002D),
+    "endash":  chr(0x2013),    "emdash":  chr(0x2014),
+    "shy":     chr(0x00AD),    "hypoint": chr(0x2027),
+    "hyminus": chr(0x002D),
 
-    "ensp":    unichr(0x2002),    "emsp":    unichr(0x2003),
-    "thinsp":  unichr(0x2009),    "hairsp":  unichr(0x200A),
-    "zerosp":  unichr(0x200B),    "nbsp":    unichr(0x00A0),
+    "ensp":    chr(0x2002),    "emsp":    chr(0x2003),
+    "thinsp":  chr(0x2009),    "hairsp":  chr(0x200A),
+    "zerosp":  chr(0x200B),    "nbsp":    chr(0x00A0),
 
-    "lt": '<', "gt": '>', "apos": "'", "quo": '"', "amp": '&',
+    "lt": "<", "gt": ">", "apos": "'", "quo": '"', "amp": "&",
 }
 
-def hMsg(level, msg):
-    if (verbose>=level): sys.stderr.write("\n*******" + msg+'\n')
-
 def vMsg(level, msg):
-    if (verbose>=level): sys.stderr.write(msg+'\n')
+    if (verbose<level): return
+    if (msg.startswith("====")):
+        sys.stderr.write("\n" + ("*"*79) +"\n")
+        msg = msg[4:]
+    sys.stderr.write(msg+"\n")
 
 def makeDispayedLines(lines):
     assert (isinstance(lines, list))
     buf = ""
     for line in lines:
-        buf += "    >>>%s\n" % (re.sub(r'([\x01-\x20])', toPix, line))
+        buf += "    >>>%s\n" % (re.sub(r"([\x01-\x20])", toPix, line))
     return buf
 
 def toPix(mat):
     """Make control chars and space visible.
     """
-    return unichr(0x2400 + ord(mat.group(1)))
+    return chr(0x2400 + ord(mat.group(1)))
 
 
 ##############################################################################
@@ -543,7 +539,7 @@ class Loader:
         MarkupHelpFormatter.instanceCount += 1
         self.whichInstanceAmI = MarkupHelpFormatter.instanceCount
         self.prog = "???"
-        if ('prog' in kw): self.prog = kw['prog']
+        if ("prog" in kw): self.prog = kw["prog"]
         self._add_defaults = False
         self.podListLevel = 0
         self.html = outHTML()
@@ -560,7 +556,7 @@ class Loader:
         """Parse and execute an "=set" line, to set some option.
         For scalars/options:  =set name value
         """
-        mat = re.match(r'^=set\s+(\w+)\s+(.*)', line)
+        mat = re.match(r"^=set\s+(\w+)\s+(.*)", line)
         if (not mat):
             self.logError("Bad =set command: " + line)
             return(False)
@@ -576,7 +572,7 @@ class Loader:
             Xi[propName] = bool(propVal)
         elif (propName in Xo):
             if (type(Xo[propName] == list)):
-                mat = re.match(r'(\d+)\s+(.*)', propVal)
+                mat = re.match(r"(\d+)\s+(.*)", propVal)
                 if (not mat or int(mat.group(1)) not in Xo[propName]):
                     return(False)
                 Xo[propName][mat.group(1)] = mat.group(2)
@@ -592,7 +588,7 @@ class Loader:
 
         """
         quo = r"'[^']*'|\"[^\"]*\"|.*"
-        mat = re.match(r'^=style\s+(\w+)(\.\d)?\s+(\w+)\s+%s' % (quo), line)
+        mat = re.match(r"^=style\s+(\w+)(\.\d)?\s+(\w+)\s+%s" % (quo), line)
         if (not mat):
             self.logError("Bad =style syntax:\n    %s" % (line))
             return(False)
@@ -619,7 +615,7 @@ class Loader:
             Xi[propName] = bool(propVal)
         elif (propName in Xo):
             if (type(Xo[propName] == list)):
-                mat = re.match(r'(\d+)\s+(.*)', propVal)
+                mat = re.match(r"(\d+)\s+(.*)", propVal)
                 if (not mat or int(mat.group(1)) not in Xo[propName]):
                     return(False)
                 Xo[propName][mat.group(1)] = mat.group(2)
@@ -631,7 +627,7 @@ class Loader:
 
 
     def _format_text(self, txt):
-        """Called only for 'descr' (but twice??).
+        """Called only for "descr" (but twice??).
         """
         sys.stderr.write("*** Entering _format_text for instance %d, textlen %d.\n" %
             (self.whichInstanceAmI, len(txt)))
@@ -654,11 +650,11 @@ class Loader:
     def _split_lines(self, txt, width):
         """Called for each option's help text.
         """
-        #print('TEXT: %s' % (txt))
-        if txt.startswith('D|'):
+        #print("TEXT: %s" % (txt))
+        if txt.startswith("D|"):
             self._add_defaults = True
             txt = txt[2:]
-        if txt.startswith('R|'):
+        if txt.startswith("R|"):
             return txt[2:].splitlines()
         return argparse.HelpFormatter._split_lines(self, txt, width)
 
@@ -666,11 +662,11 @@ class Loader:
         if not self._add_defaults:
             return argparse.HelpFormatter._get_help_string(self, action)
         helpStr = action.help
-        if '%(default)' not in action.help:
+        if "%(default)" not in action.help:
             if action.default is not argparse.SUPPRESS:
                 defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
                 if action.option_strings or action.nargs in defaulting_nargs:
-                    helpStr += ' (default: %(default)s)'
+                    helpStr += " (default: %(default)s)"
         return helpStr
 
 
@@ -683,8 +679,8 @@ class Loader:
         maxWidths = []
         for i in range(startLine, len(lines)):
             lin = lines[i]
-            if (not re.match(r'\s*\{', lin)): break
-            cols = re.split(fieldSep, lin.strip('{}'))
+            if (not re.match(r"\s*\{", lin)): break
+            cols = re.split(fieldSep, lin.strip("{}"))
             for c in range(len(cols)):
                 if (c >= len(maxWidths)): maxWidths.append(0)
                 wid = len(cols[c])  # Too simple...
@@ -695,18 +691,14 @@ class Loader:
         """Recognize line-initial and line-internal markup from several
         systems. Layout with whitespace and color per options.
         """
-        hMsg(1, "Entering MarkupHelpFormatter.format(), passed %s, len %d.\n" %
+        vMsg(1, "====Entering MarkupHelpFormatter.format(), passed %s, len %d.\n" %
             (type(s), len(s)))
         self.resetLists()
         # If needed set up entity decoding
         if (self.htmlp is None and
             (Loader.InputOptions["entities"] or Loader.InputOptions["pod"])):
-            if (PY2):
-                import HTMLParser
-                self.htmlp = HTMLParser.HTMLParser()
-            else:
-                from html.parser import HTMLParser
-                self.htmlp = HTMLParser()
+            from html.parser import HTMLParser
+            self.htmlp = HTMLParser()
 
         # Join up regular text lines, and map markup to term capabilities.
         if (width <= 0):
@@ -714,21 +706,21 @@ class Loader:
             if ("WIDTH" in os.environ): width = os.environ["WIDTH"]
         vMsg(1, "format called, width %d (input length %d)" % (width, len(s)))
 
-        theLines = re.split(r'\r\n?|\n', s)
-        hMsg(1, " Split got %d lines *******" % (len(theLines)))
+        theLines = re.split(r"\r\n?|\n", s)
+        vMsg(1, "====Split got %d lines *******" % (len(theLines)))
 
         blocks = self.makeBlocks(theLines)
         if (verbose):
             msg = ""
             for b in blocks: msg += b.tostring() + "\n"
             if (verbose>=1):
-                hMsg(1, "Before doing inlines (%d blocks):\n%s" %
+                vMsg(1, "====Before doing inlines (%d blocks):\n%s" %
                     (len(blocks), msg))
                 for i, b in enumerate(blocks):
                     vMsg(1, "#%03d: %s" % (i, b.tostring()))
 
         blocks = self.doInlines(blocks)
-        hMsg(1, "After doing inlines (%d blocks):\n%s" %
+        vMsg(1, "====After doing inlines (%d blocks):\n%s" %
             (len(blocks), makeDispayedLines(blocks)))
 
         # Break block-level objects to fit screen
@@ -739,17 +731,17 @@ class Loader:
             vMsg(1, "    Block #%3d made %d lines" % (i, len(curWrap)))
             wrapped.extend(curWrap)
 
-        hMsg(1, "After wrapping , %d entries)" % (len(wrapped)))
+        vMsg(1, "====After wrapping , %d entries)" % (len(wrapped)))
 
         # Concat by hand to get precise locs of errors
         if (False):
             ww = ""
             for i, w in enumerate(wrapped):
                 try:
-                    ww += u"".join(wrapped)
+                    ww += "".join(wrapped)
                 except UnicodeDecodeError as e:
-                    vMsg(0, u"******* UnicodeDecodeError: %s" % (e))
-                    ww += w.decode('utf-8')  # Should have happened earlier...
+                    vMsg(0, "******* UnicodeDecodeError: %s" % (e))
+                    ww += w.decode("utf-8")  # Should have happened earlier...
             return(ww)
         return "".join(wrapped)
 
@@ -777,29 +769,29 @@ class Loader:
         HTMLon = Loader.InputOptions["pod"]
         tabSize = Loader.InputOptions["tabSize"]
 
-        blocks = [ Block("", 'TEXT') ]
+        blocks = [ Block("", "TEXT") ]
         blanks = 0
         for i in range(0,len(inlines)):
             line = inlines[i]
             vMsg(2, "LINE %3d: <<%s>>" % (i, line))
             line = line.expandtabs(tabSize)
             if (HTMLon):
-                line = re.sub(r'\s*<!--.*-->\s*$', '', line)
+                line = re.sub(r"\s*<!--.*-->\s*$", "", line)
 
             if (line.startswith("=set")):                  # OUR OPTIONS
                 if (not self.setOption(line)):
                     line = "??? " + line
                 continue
 
-            if (re.match(r'\s*$', line)):                  # BLANK LINE
+            if (re.match(r"\s*$", line)):                  # BLANK LINE
                 blanks += 1
                 continue
 
-            mat = re.match(r'(\s+)', line)                 # Get indentation
+            mat = re.match(r"(\s+)", line)                 # Get indentation
             if (mat): indent = mat.group(1)
             else: indent = ""
 
-            mat = re.match(r'\s*(\W+)', line)              # Leading non-alphas
+            mat = re.match(r"\s*(\W+)", line)              # Leading non-alphas
             if (mat):
                 leadPunct = mat.group(1)
                 leadPunct0 = leadPunct[0]
@@ -814,17 +806,17 @@ class Loader:
             columns = None
             listParam = None
 
-            if (indent != ''):                             # Code or similar
+            if (indent != ""):                             # Code or similar
                 blClass = StyleValues.BLK_PRE
 
             elif (not leadPunct):                          # Starts with \w
                 # Try to catch BNF defs. Not continuations like /\s+\|/.
-                mat = re.match(r'(\w+)\s*::=(.*)', line)
+                mat = re.match(r"(\w+)\s*::=(.*)", line)
                 if (Loader.InputOptions["defs"] and mat):    # Grammar / deflist
                     typ = "BNF"
                     columns = [ mat.group(1), mat.group(2) ]  # TODO FINISH
                 elif (blanks == 0                          # Just text
-                    and blocks[-1].type in [ 'TEXT', 'ITEM' ]
+                    and blocks[-1].type in [ "TEXT", "ITEM" ]
                     and indent == blocks[-1].indent):
                     blocks[-1].text += " " + rest
                     # Leave typ==None, no new Block
@@ -832,7 +824,7 @@ class Loader:
                     blClass = StyleValues.BLK_TEXT
                 continue
 
-            elif (leadPunct0 in '*+#'):                    # LIST ITEM
+            elif (leadPunct0 in "*+#"):                    # LIST ITEM
                 line = rest
                 blClass = StyleValues.BLK_ITEM
                 #marker = leadPunct  # TODO?
@@ -840,31 +832,31 @@ class Loader:
                 listParam = self.listCounts
                 # TODO Adjust the list count
 
-            elif (leadPunct0 == '>'):                      # Quotation?
+            elif (leadPunct0 == ">"):                      # Quotation?
                 line = rest
                 blClass = StyleValues.BLK_QUOTE
                 marker = leadPunct
 
-            elif (leadPunct0 == '|'):                      # Table? Quotation?
+            elif (leadPunct0 == "|"):                      # Table? Quotation?
                 line = rest
                 blClass = StyleValues.BLK_ROW
                 marker = leadPunct
-                columns = line.split(sep='|')  # TODO FINISH
+                columns = line.split(sep="|")  # TODO FINISH
 
-            elif (re.match(r'[-=*]{3,}\s*$', line)):       # Horizontal RULE
+            elif (re.match(r"[-=*]{3,}\s*$", line)):       # Horizontal RULE
                 line = leadPunct
                 blClass = StyleValues.BLK_RULE
 
-            elif (leadPunct0 == '='):                      # "=" code
+            elif (leadPunct0 == "="):                      # "=" code
                 headLevel = 0
-                if (line.startswith('==') or               # Markdown heads
-                    (MDon and line.endswith('='))):
-                    mat = re.match(r'(=+)', line)
+                if (line.startswith("==") or               # Markdown heads
+                    (MDon and line.endswith("="))):
+                    mat = re.match(r"(=+)", line)
                     headLevel = len(mat.group(1)) - 1
                     line = line[len(mat.group(1)):]
                     blClass = StyleValues.BLK_HEAD
                 elif (PODon):                              # POD
-                    mat = re.match(r'=([a-z]+)', line)
+                    mat = re.match(r"=([a-z]+)", line)
                     if (mat):
                         line, headLevel, typ = self.handlePODCode(line,mat.group(1))
 
@@ -881,7 +873,7 @@ class Loader:
                     line = Renderer.OutputOptions["headSuffix"][headLevel]
 
             else:                                          # UNKNOWN start, just cat
-                blocks[-1].text += ' ' + line
+                blocks[-1].text += " " + line
                 blanks = 0
                 # Leave type==None, so no new block constructed.
 
@@ -905,7 +897,7 @@ class Loader:
 
         if (cmd == "head"):
             blockType = "HEAD"
-            mat2 = re.match(r'=head(\d)', line)
+            mat2 = re.match(r"=head(\d)", line)
             if (mat2):
                 headLevel = int(mat2.group(1))
                 vMsg(3, "      POD heading, level %d" % (headLevel))
@@ -924,7 +916,7 @@ class Loader:
             if (self.podListLevel>0): self.podListLevel -= 1
         elif (cmd == "item"):
             ind = Renderer.OutputOptions["indentSize"]*self.podListLevel
-            line = (' ' * ind) + line[6:]
+            line = (" " * ind) + line[6:]
             blockType = "ITEM"
         elif (cmd == "begin"): line = ""
         elif (cmd == "end"):   line = ""
@@ -955,22 +947,22 @@ class Loader:
                 b = re.sub("'''''(.*?)'''''", self.mkBI,   b)
                 b = re.sub("'''(.*?)'''",     self.mkItal, b)
                 b = re.sub("''(.*?)''",       self.mkBold, b)
-                b = re.sub(r'(\[.*?\])',      self.mkLink, b)
+                b = re.sub(r"(\[.*?\])",      self.mkLink, b)
 
             if (Loader.InputOptions["pod"]):
-                b = re.sub(r'B<(.*?)>',       self.mkBold, b)  # bold
-                b = re.sub(r'C<(.*?)>',       self.mkUnd,  b)  # command
-                b = re.sub(r'E<(.*?)>',       self.mkChar, b)  # special ch
-                b = re.sub(r'F<(.*?)>',       self.mkQuot, b)  # filename
-                b = re.sub(r'I<(.*?)>',       self.mkItal, b)  # italic
-                b = re.sub(r'L<(.*?)>',       self.mkLink, b)  # link
-                b = re.sub(r'S<(.*?)>',       self.mkNBrk, b)  # no-break
-                b = re.sub(r'X<(.*?)>',       self.drop,   b)  # index entry
-                #b = re.sub(r'Z<(.*?)>',      self.drop,   b)  # No POD
+                b = re.sub(r"B<(.*?)>",       self.mkBold, b)  # bold
+                b = re.sub(r"C<(.*?)>",       self.mkUnd,  b)  # command
+                b = re.sub(r"E<(.*?)>",       self.mkChar, b)  # special ch
+                b = re.sub(r"F<(.*?)>",       self.mkQuot, b)  # filename
+                b = re.sub(r"I<(.*?)>",       self.mkItal, b)  # italic
+                b = re.sub(r"L<(.*?)>",       self.mkLink, b)  # link
+                b = re.sub(r"S<(.*?)>",       self.mkNBrk, b)  # no-break
+                b = re.sub(r"X<(.*?)>",       self.drop,   b)  # index entry
+                #b = re.sub(r"Z<(.*?)>",      self.drop,   b)  # No POD
 
             if (Loader.InputOptions["mailEmph"]):
-                b = re.sub(r'\b\*(\w+)\*\b',  self.mkBold, b)
-                b = re.sub(r'\b_(\w+)_\b',    self.mkBold, b)
+                b = re.sub(r"\b\*(\w+)\*\b",  self.mkBold, b)
+                b = re.sub(r"\b_(\w+)_\b",    self.mkBold, b)
 
             if (Loader.InputOptions["backslashes"]):
                 import ast
@@ -990,8 +982,8 @@ class Loader:
         BD = "'''(?P>BD>[^']+)'''"
         IT = "''(?P<IT>[^']+)''"
         TT = "`(?P<TT>[^`]+)`"
-        theExprMD = BI + '|' + BD + '|' + IT + '|' + TT
-        theExprPod = r'(?P<PODTYPE>[BCEFILSX])<(?P<POD>.*?)>'
+        theExprMD = BI + "|" + BD + "|" + IT + "|" + TT
+        theExprPod = r"(?P<PODTYPE>[BCEFILSX])<(?P<POD>.*?)>"
         if (True):  # TODO: only if POD is on
             theExpr = "%s|%s" % (theExprMD, theExprPod)
         else:
@@ -1000,11 +992,11 @@ class Loader:
         runs = []
         prevEnd = 0
         for mat in re.finditer(theExpr):
-            for typ in [ 'BI', 'BD', 'IT', 'TT', 'POD' ]:
-                assert (type=='PPOD' or typ in StyleValues.InlineClasses)
+            for typ in [ "BI", "BD", "IT", "TT", "POD" ]:
+                assert (type=="PPOD" or typ in StyleValues.InlineClasses)
                 if (mat.groups(typ) is None): continue
                 txt = mat.group(typ)
-                if (typ == 'POD'): fullType = "POD_" + mat.group('PODTYPE')
+                if (typ == "POD"): fullType = "POD_" + mat.group("PODTYPE")
                 else: fullType = "MDN_" + typ
                 print("Run: (%s): '%s'" % (fullType, txt))
                 fr = FormatRun(mat.group(1), mat.start(typ), mat.end(typ), emphType=fullType)
@@ -1027,46 +1019,46 @@ class Loader:
     def mkBI(self, matchobj):
         return(StyleValues.colorize(matchobj.group(1), fg="red", bold=1))
     def mkLink(self, matchobj):
-        if (':' in matchobj.group(1)):
-            anchor, ref = matchobj.group(1).split(sep=':', maxsplit=1)
+        if (":" in matchobj.group(1)):
+            anchor, ref = matchobj.group(1).split(sep=":", maxsplit=1)
         else:
             anchor = ref = matchobj.group(1)
         ref = ref.strip("\"'")
-        mat = re.match(r'(IETF\s*)?RFC\s*(\d+)', ref)
+        mat = re.match(r"(IETF\s*)?RFC\s*(\d+)", ref)
         if (mat):
-            ref = MarkupHelpFormatter.OutputOptions['RFCformat'] % (mat.group(2))
+            ref = MarkupHelpFormatter.OutputOptions["RFCformat"] % (mat.group(2))
         if (verbose>=3):
             self.html.text(anchor)
         msg = StyleValues.colorize(anchor, fg="blue", bold=1)
         return(msg)
     def mkNBrk(self, matchobj):
-        return(re.sub(r'\s', unichr(160), matchobj.group(1)))
+        return(re.sub(r"\s", chr(160), matchobj.group(1)))
     def mkQuot(self, matchobj):
         """Add quotes around the text.
         """
-        if (Renderer.OutputOptions["quoteType"] == 'D'):
+        if (Renderer.OutputOptions["quoteType"] == "D"):
             return(specialChars["ldquo"] + matchobj.group(1) + specialChars["rdquo"])
-        elif (Renderer.OutputOptions["quoteType"] == 'S'):
+        elif (Renderer.OutputOptions["quoteType"] == "S"):
             return(specialChars["lsquo"] + matchobj.group(1) + specialChars["rsquo"])
-        elif (Renderer.OutputOptions["quoteType"] == 'A'):
+        elif (Renderer.OutputOptions["quoteType"] == "A"):
             return(specialChars["laquo"] + matchobj.group(1) + specialChars["raquo"])
         else:
             return('"' + matchobj.group(1) + '"')
     def mkChar(self, matchobj):
         txt = matchobj.group(1)
-        if   (txt == 'lt'):     return('<')
-        elif (txt == 'gt'):     return('>')
-        elif (txt == 'verbar'): return('|')
-        elif (txt == 'sol'):    return('/')
-        elif (re.match(r'0x[0-9a-f]+', txt)):
-            return(unichr(hex(txt)))
-        elif (re.match(r'0[0-7]+', txt)):
-            return(unichr(oct(txt)))
-        elif (re.match(r'\d+', txt)):
-            return(unichr(int(txt)))
+        if   (txt == "lt"):     return("<")
+        elif (txt == "gt"):     return(">")
+        elif (txt == "verbar"): return("|")
+        elif (txt == "sol"):    return("/")
+        elif (re.match(r"0x[0-9a-f]+", txt)):
+            return(chr(hex(txt)))
+        elif (re.match(r"0[0-7]+", txt)):
+            return(chr(oct(txt)))
+        elif (re.match(r"\d+", txt)):
+            return(chr(int(txt)))
         # Try html entities:
         if (self.htmlp is not None):
-            c = self.htmlp.unescape('&'+txt+';')
+            c = self.htmlp.unescape("&"+txt+";")
             if (len(c) == 1): return(c)
         return(txt)
 
@@ -1103,9 +1095,9 @@ class Block:
             * list markers and numbers
             * blank lines before headings
             * color escapes for emphasis
-            * Unicode-based 'fonts'
+            * Unicode-based "fonts"
         """
-        towrap = ''
+        towrap = ""
         full = "\n" * self.blanks  # TODO Wrong, this is *input* blank count
         if (self.headCounts): full += ".".join(self.headCounts) + ": "
         elif (self.listCounts): full += ".".join(self.listCounts) + ": "
@@ -1118,8 +1110,8 @@ class Block:
         """Return the length of a string in characters, not counting any ANSI
         terminal color escapes or any trailing whitespace.
         """
-        t = re.sub(colorRegex,    '',s)
-        t = re.sub(r'\s+$',       '', t)
+        t = re.sub(colorRegex,    "",s)
+        t = re.sub(r"\s+$",       "", t)
         if (t.find(chr(27)) >= 0):
             if (not self.gaveEscMessage):
                 vMsg(0, "MarkupHelpFormatter: " +
@@ -1134,13 +1126,13 @@ class Block:
         Could also support soft and regular hyphens, URI "/", etc.
         """
         buf = ""
-        #tokens = re.split(r'( +' + colorEndRegex + r')', s)
+        #tokens = re.split(r"( +" + colorEndRegex + r")", s)
         leadSpaces = 0
-        mat = re.match(r'(\s+)', s)
+        mat = re.match(r"(\s+)", s)
         if (mat):
             leadSpaces = len(mat.group(1))
             s = s[leadSpaces:]
-        tokens = re.split(r'\s+', s)
+        tokens = re.split(r"\s+", s)
         line = " " * (marginLeft + leadSpaces)
         lineLen = len(line)
         effWidth = width-marginLeft-marginRight
@@ -1152,24 +1144,24 @@ class Block:
         for token in tokens:
             tokenLen = self.uncoloredLength(token)
             if (lineLen + 1 + tokenLen <= effWidth):
-                line += ' ' + token
+                line += " " + token
                 lineLen += 1 + tokenLen
                 continue
             # Following doesn't get triggered for L<txt|"http://...">
             if (Renderer.OutputOptions["breakURIs"] and
-                  re.search(r'https?://', token)):
+                  re.search(r"https?://", token)):
                 avail = effWidth-lineLen-1
-                loc = token.rfind('/', 1, avail)
+                loc = token.rfind("/", 1, avail)
                 #vMsg(0,
                 #    "# Breaking URI, avail %d, token %d, / at %d: '%s'.\n"
                 #    % (avail, tokenLen, loc, token))
                 if (loc>-1): # break there
-                    line += ' ' + token[0:loc+1]
+                    line += " " + token[0:loc+1]
                     token = token[loc+1:]
-            buf += line + '\n'
+            buf += line + "\n"
             line = (" " * (hangingIndent+marginLeft)) + token
             lineLen = marginLeft + tokenLen
-        if (line != ""): buf += line + '\n'
+        if (line != ""): buf += line + "\n"
         return(buf[1:])  # Why is this?
 
     def toHTML(self):
@@ -1193,14 +1185,14 @@ class ListManager:
 
         depth = len(code)
         ind = self.formatOptions["indentSize"] * depth
-        buf = (' ' * ind)
+        buf = (" " * ind)
         while (len(self.listCounts)<=depth): self.listCounts.append(1)
         self.listCounts[depth] += 1
         vMsg(1, "In doListItem: code %-8s depth %d counts: %s." %
             (code, depth, str(self.listCounts)))
-        if (code[-1] == '*'):
+        if (code[-1] == "*"):
             buf += self.getULMarker(depth)
-        else:  # '+' for MarkDown, '#' for MediaWiki
+        else:  # "+" for MarkDown, "#" for MediaWiki
             buf += (self.formatOptions["OLPrefix"] + self.getOLMarker(depth) +
                 self.formatOptions["OLSuffix"])
 
@@ -1241,7 +1233,7 @@ class ListManager:
         elif (theType=="decimal"):
             return(str(n))
         elif (theType=="none"):
-            return('')
+            return("")
         elif (theType=="lower-roman"):
             return(ListManager.getRoman(n).lower())
         elif (theType=="upper-roman"):
@@ -1251,33 +1243,33 @@ class ListManager:
     # List of enough Roman numerals.
     #
     romans = [ "",
-        'i', 'ii', 'iii', 'iv', 'v',
-        'vi', 'vii', 'viii', 'ix', 'x',
-        'xi', 'xii', 'xiii', 'xiv', 'xv',
-        'xvi', 'xvii', 'xviii', 'xix', 'xx',
-        'xxi', 'xxii', 'xxiii', 'xxiv', 'xxv',
-        'xxvi', 'xxvii', 'xxviii', 'xxix', 'xxx',
-        'xxxi', 'xxxii', 'xxxiii', 'xxxiv', 'xxxv',
-        'xxxvi', 'xxxvii', 'xxxviii', 'xxxix', 'xl',
-        'xli', 'xlii', 'xliii', 'xliv', 'xlv',
-        'xlvi', 'xlvii', 'xlviii', 'xlix', 'l',
-        'li', 'lii', 'liii', 'liv', 'lv',
-        'lvi', 'lvii', 'lviii', 'lix', 'lx',
-        'lxi', 'lxii', 'lxiii', 'lxiv', 'lxv',
-        'lxvi', 'lxvii', 'lxviii', 'lxix', 'lxx',
-        'lxxi', 'lxxii', 'lxxiii', 'lxxiv', 'lxxv',
-        'lxxvi', 'lxxvii', 'lxxviii', 'lxxix', 'lxxx',
-        'lxxxi', 'lxxxii', 'lxxxiii', 'lxxxiv', 'lxxxv',
-        'lxxxvi', 'lxxxvii', 'lxxxviii', 'lxxxix', 'xc',
-        'xci', 'xcii', 'xciii', 'xciv', 'xcv',
-        'xcvi', 'xcvii', 'xcviii', 'xcix', 'c',
+        "i", "ii", "iii", "iv", "v",
+        "vi", "vii", "viii", "ix", "x",
+        "xi", "xii", "xiii", "xiv", "xv",
+        "xvi", "xvii", "xviii", "xix", "xx",
+        "xxi", "xxii", "xxiii", "xxiv", "xxv",
+        "xxvi", "xxvii", "xxviii", "xxix", "xxx",
+        "xxxi", "xxxii", "xxxiii", "xxxiv", "xxxv",
+        "xxxvi", "xxxvii", "xxxviii", "xxxix", "xl",
+        "xli", "xlii", "xliii", "xliv", "xlv",
+        "xlvi", "xlvii", "xlviii", "xlix", "l",
+        "li", "lii", "liii", "liv", "lv",
+        "lvi", "lvii", "lviii", "lix", "lx",
+        "lxi", "lxii", "lxiii", "lxiv", "lxv",
+        "lxvi", "lxvii", "lxviii", "lxix", "lxx",
+        "lxxi", "lxxii", "lxxiii", "lxxiv", "lxxv",
+        "lxxvi", "lxxvii", "lxxviii", "lxxix", "lxxx",
+        "lxxxi", "lxxxii", "lxxxiii", "lxxxiv", "lxxxv",
+        "lxxxvi", "lxxxvii", "lxxxviii", "lxxxix", "xc",
+        "xci", "xcii", "xciii", "xciv", "xcv",
+        "xcvi", "xcvii", "xcviii", "xcix", "c",
     ]
 
     @staticmethod
     def getRoman(n):
         """Convert to Roman numerals. Limited range.
         """
-        #return( 'x' * int(n/10) + ListManager.romans[n % 10])
+        #return( "x" * int(n/10) + ListManager.romans[n % 10])
         return ListManager.romans[n]
 
 
@@ -1323,59 +1315,59 @@ class StyleValues:
     BLK_QUOTE	= 8
 
     BlockClasses = {
-        'TEXT':	    { 'display':'block', 'marginTop':1, },
-        'ITEM':	    { 'display':'block', 'marginLeft':4, 'marker':'*'},
-        'HEAD':	    { 'display':'block', 'font':'bold', },
-        'PRE':	    { 'display':'block', 'font':'monospace', },
-        'ROW':	    { 'display':'block', 'font':'monospace', },
-        'BNF':	    { 'display':'block', 'font':'monospace', },
-        'RULE':	    { 'display':'block', 'font':'monospace', },
-        'QUOTE':	{ 'display':'block', 'marginLeft':4, },
+        "TEXT":	    { "display":"block", "marginTop":1, },
+        "ITEM":	    { "display":"block", "marginLeft":4, "marker":"*"},
+        "HEAD":	    { "display":"block", "font":"bold", },
+        "PRE":	    { "display":"block", "font":"monospace", },
+        "ROW":	    { "display":"block", "font":"monospace", },
+        "BNF":	    { "display":"block", "font":"monospace", },
+        "RULE":	    { "display":"block", "font":"monospace", },
+        "QUOTE":	{ "display":"block", "marginLeft":4, },
     }
 
     # Union of most inline classes known to MD, POD, and HTML.
     # Distinguished by something like a namespace prefix....
     InlineClasses = {
         # Markdown
-        'M:BI':     { 'bold':1, 'ital':1},
-        'M:BD':     { 'bold':1, },
-        'M:IT':     { 'italic':1, },
-        'M:TT':     { 'monospace':1, },
+        "M:BI":     { "bold":1, "ital":1},
+        "M:BD":     { "bold":1, },
+        "M:IT":     { "italic":1, },
+        "M:TT":     { "monospace":1, },
         # POD
-        'P:B':      { 'bold':1, },
-        'P:C':      { 'monospace':1, },  # code
-        'P:E':      {           },  # escape ### TODO figure something out
-        'P:F':      { 'monospace':1, },  # filename
-        'P:I':      { 'italic':1, },
-        'P:L':      { 'bold':1, 'color':'blue', },  # link
-        'P:S':      { 'bold':1, },
-        'P:X':      { 'bold':1, },
+        "P:B":      { "bold":1, },
+        "P:C":      { "monospace":1, },  # code
+        "P:E":      {           },  # escape ### TODO figure something out
+        "P:F":      { "monospace":1, },  # filename
+        "P:I":      { "italic":1, },
+        "P:L":      { "bold":1, "color":"blue", },  # link
+        "P:S":      { "bold":1, },
+        "P:X":      { "bold":1, },
         # HTML
-        'H:B':      { 'bold':1, },
-        'H:I':      { 'italic':1, },
-        'H:TT':     { 'monospace':1, },
-        'H:EM':     { 'italic':1, },
-        'H:STRONG': { 'bold':1, },
-        'H:a':      { 'bold':1, 'color':'blue', },
-        'H:abbr':   {           },
-        'H:acronym':{           },
-        'H:big':    {           },  ###
-        'H:code':   { 'monospace':1, },
-        'H:data':   { 'monospace':1, },
-        'H:del':    { 'strike':1, },
-        'H:dfn':    {           },
-        'H:em':     { 'italic':1, },
-        'H:ins':    { 'color':'red', },
-        'H:kbd':    { 'monospace':1, },
-        'H:label':  {           },
-        'H:q':      { 'bold':1, },  ###
-        'H:small':  { 'bold':1, },  ###
-        'H:span':   {           },
-        'H:strong': { 'bold':1, },
-        'H:sub':    { 'bold':1, },  ###
-        'H:sup':    { 'bold':1, },  ###
-        'H:u':      { 'underline':1, },
-        'H:var':    { 'monospace':1, },
+        "H:B":      { "bold":1, },
+        "H:I":      { "italic":1, },
+        "H:TT":     { "monospace":1, },
+        "H:EM":     { "italic":1, },
+        "H:STRONG": { "bold":1, },
+        "H:a":      { "bold":1, "color":"blue", },
+        "H:abbr":   {           },
+        "H:acronym":{           },
+        "H:big":    {           },  ###
+        "H:code":   { "monospace":1, },
+        "H:data":   { "monospace":1, },
+        "H:del":    { "strike":1, },
+        "H:dfn":    {           },
+        "H:em":     { "italic":1, },
+        "H:ins":    { "color":"red", },
+        "H:kbd":    { "monospace":1, },
+        "H:label":  {           },
+        "H:q":      { "bold":1, },  ###
+        "H:small":  { "bold":1, },  ###
+        "H:span":   {           },
+        "H:strong": { "bold":1, },
+        "H:sub":    { "bold":1, },  ###
+        "H:sup":    { "bold":1, },  ###
+        "H:u":      { "underline":1, },
+        "H:var":    { "monospace":1, },
     }
 
     # These are the fonts available as Unicode 'Mathematical' variations on
@@ -1386,32 +1378,32 @@ class StyleValues:
     #
     FontTypes = {
         # Name                        ( Upper    Lower,   Digits   Exceptions )
-        'LATIN':                      ( 0x00041, 0x00061, 0x00031, '' ),
-        'BOLD':                       ( 0x1d400, 0x1d41a, 0x1d7ce, '' ),
-        'ITALIC':                     ( 0x1d434, 0x1d44e, None,    'h' ),
-        'BOLD ITALIC':                ( 0x1d468, 0x1d482, None,    '' ),
-        'SCRIPT':                     ( 0x1d49c, 0x1d4b6, None,    'BEFHILMR ego' ),
-        'BOLD SCRIPT':                ( 0x1d4d0, 0x1d4ea, None,    '' ),
-        'FRAKTUR':                    ( 0x1d504, 0x1d51e, None,    'CHIRZ' ),
-        'DOUBLE-STRUCK':              ( 0x1d538, 0x1d552, 0x1d7d8, 'CHNPQRZ' ),
-        'BOLD FRAKTUR':               ( 0x1d56c, 0x1d586, None,    '' ),
-        'SANS-SERIF':                 ( 0x1d5a0, 0x1d586, 0x1d7e3, '' ),
-        'SANS-SERIF BOLD':            ( 0x1d5d4, 0x1d5ee, 0x1d7ec, '' ),
-        'SANS-SERIF ITALIC':          ( 0x1d608, 0x1d622, None,    '' ),
-        'SANS-SERIF BOLD ITALIC':     ( 0x1d63c, 0x1d656, None,    '' ),
-        'MONOSPACE':                  ( 0x1d670, 0x1d68a, 0x1d7f6, '' ),
-        'CIRCLED':                    ( 0x024b6, 0x024d0, 0x0245f, '' ),
-        'PARENTHESIZED':              ( 0x1f110, 0x0249c, 0x02473, '' ),
+        "LATIN":                      ( 0x00041, 0x00061, 0x00031, "" ),
+        "BOLD":                       ( 0x1d400, 0x1d41a, 0x1d7ce, "" ),
+        "ITALIC":                     ( 0x1d434, 0x1d44e, None,    "h" ),
+        "BOLD ITALIC":                ( 0x1d468, 0x1d482, None,    "" ),
+        "SCRIPT":                     ( 0x1d49c, 0x1d4b6, None,    "BEFHILMR ego" ),
+        "BOLD SCRIPT":                ( 0x1d4d0, 0x1d4ea, None,    "" ),
+        "FRAKTUR":                    ( 0x1d504, 0x1d51e, None,    "CHIRZ" ),
+        "DOUBLE-STRUCK":              ( 0x1d538, 0x1d552, 0x1d7d8, "CHNPQRZ" ),
+        "BOLD FRAKTUR":               ( 0x1d56c, 0x1d586, None,    "" ),
+        "SANS-SERIF":                 ( 0x1d5a0, 0x1d586, 0x1d7e3, "" ),
+        "SANS-SERIF BOLD":            ( 0x1d5d4, 0x1d5ee, 0x1d7ec, "" ),
+        "SANS-SERIF ITALIC":          ( 0x1d608, 0x1d622, None,    "" ),
+        "SANS-SERIF BOLD ITALIC":     ( 0x1d63c, 0x1d656, None,    "" ),
+        "MONOSPACE":                  ( 0x1d670, 0x1d68a, 0x1d7f6, "" ),
+        "CIRCLED":                    ( 0x024b6, 0x024d0, 0x0245f, "" ),
+        "PARENTHESIZED":              ( 0x1f110, 0x0249c, 0x02473, "" ),
 
-        "FULLWIDTH":                  ( 0x0FF21, 0x0FF41, 0x0FF10, '' ),
-        "SUPERCRIPT":                 ( None,    None,    0x02070, '123' ),
-        "SUBSCRIPT":                  ( None,    None,    0x02080, '' ),
+        "FULLWIDTH":                  ( 0x0FF21, 0x0FF41, 0x0FF10, "" ),
+        "SUPERCRIPT":                 ( None,    None,    0x02070, "123" ),
+        "SUBSCRIPT":                  ( None,    None,    0x02080, "" ),
 
         # Not available in lower case, only upper
-        'SQUARED':                    ( 0x1f130, None,    None,    '' ),
-        'NEGATIVE CIRCLED':           ( 0x1f150, None,    0x02775, '' ),
-        'NEGATIVE SQUARED':           ( 0x1f170, None,    None,    '' ),
-        #'REGIONAL INDICATOR SYMBOL':  ( 0x1f1e6, None,    None,    '' ),
+        "SQUARED":                    ( 0x1f130, None,    None,    "" ),
+        "NEGATIVE CIRCLED":           ( 0x1f150, None,    0x02775, "" ),
+        "NEGATIVE SQUARED":           ( 0x1f170, None,    None,    "" ),
+        #"REGIONAL INDICATOR SYMBOL":  ( 0x1f1e6, None,    None,    "" ),
     }
 
     @staticmethod
@@ -1431,7 +1423,7 @@ class StyleValues:
         "bold"      :  1,
         "underline" :  4,
     }
-    colorRegex    = re.compile(r'\x1b\[\d+(;\d+)*m')
+    colorRegex    = re.compile(r"\x1b\[\d+(;\d+)*m")
     colorEnd = esc + "[0m"
 
     @staticmethod
@@ -1444,11 +1436,11 @@ class StyleValues:
             bgnum = StyleValues.colors[bg] + 10
             cc.append(str(bgnum))
         if (bold):
-            cc.append('1')
+            cc.append("1")
         ccstring = ";".join(cc)
         return(esc + "[" + ccstring + "m" + s + StyleValues.colorEnd)
 
-    AlignTypes = { 'L': 0, 'C': 1, 'R': 2, 'D': 3, 'F': 4, }
+    AlignTypes = { "L": 0, "C": 1, "R": 2, "D": 3, "F": 4, }
 
 
 ##############################################################################
@@ -1460,7 +1452,7 @@ class StyleSheet(dict):
     * fancy selectors, just a single type-name
     * no style inheritance, cascading, etc.
     """
-    def __init__(self, ssName='ssDefault'):
+    def __init__(self, ssName="ssDefault"):
         super(StyleSheet, self).__init__()
         self.ssName = ssName
 
@@ -1474,45 +1466,45 @@ class Style:
         * The only fonts alternatives are Unicode ranges (Mathematical Bold...)
         * Color and effects are just ANSI terminal colors
     """
-    disp = set(['INLINE', 'BLOCK', 'NONE', 'TROW', 'TCELL'])
-    wisp = set(['PRE', 'WRAP', 'NORM', 'TRUNC'])
+    disp = set(["INLINE", "BLOCK", "NONE", "TROW", "TCELL"])
+    wisp = set(["PRE", "WRAP", "NORM", "TRUNC"])
     font = lambda x: x in StyleValues.FontTypes
     color = set(
-        ['RED', 'YELLOW', 'GREEN', 'BLUE', 'MAGENTA', 'CYAN', 'WHITE', 'BLACK'])
-    align = set(['LEFT', 'CENTER', 'RIGHT', 'DECIMAL', 'FULL'])
-    mark = set(['*', '+', '-', '•'])  # TODO: Add more
+        ["RED", "YELLOW", "GREEN", "BLUE", "MAGENTA", "CYAN", "WHITE", "BLACK"])
+    align = set(["LEFT", "CENTER", "RIGHT", "DECIMAL", "FULL"])
+    mark = set(["*", "+", "-", "•"])  # TODO: Add more
 
     StylePropDefaults = {
         # Whether we're block, inline, hidden, etc.
-        'display':         ( disp,  'INLINE' ),
-        'whitespace':      ( wisp,  'WRAP' ),
+        "display":         ( disp,  "INLINE" ),
+        "whitespace":      ( wisp,  "WRAP" ),
 
-        'unicodeMath':     ( bool,  True ),
-        'bold':            ( bool,  False ),
-        'ital':            ( bool,  False ),
-        'monospace':       ( bool,  False ),
-        'underline':       ( bool,  False ),
-        'nobreak':         ( bool,  False ),
-        'font':            ( font,  'ROMAN' ),
-        'backgroundColor': ( color, "default" ),
-        'color':           ( color, "default" ),
-        'reversed':        ( bool,  False ),
+        "unicodeMath":     ( bool,  True ),
+        "bold":            ( bool,  False ),
+        "ital":            ( bool,  False ),
+        "monospace":       ( bool,  False ),
+        "underline":       ( bool,  False ),
+        "nobreak":         ( bool,  False ),
+        "font":            ( font,  "ROMAN" ),
+        "backgroundColor": ( color, "default" ),
+        "color":           ( color, "default" ),
+        "reversed":        ( bool,  False ),
 
-        'markerType':      ( mark,   'BULLET' ),
-        'textBefore':      ( str,    '' ),
-        'textAfter':       ( str,    '' ),
-        'hot':             ( bool,   '' ),
+        "markerType":      ( mark,   "BULLET" ),
+        "textBefore":      ( str,    "" ),
+        "textAfter":       ( str,    "" ),
+        "hot":             ( bool,   "" ),
 
         # Block-only properties
-        'align':           ( align,  'LEFT' ),
-        'border':          ( bool,  False ),
-        'borderColor':     ( bool,  False ),
-        'borderUnicode':   ( bool,  True ),
-        'marginLeft':      ( int,    0 ),
-        'marginRight':     ( int,    0 ),
-        'marginTop':       ( int,    0 ),
-        'marginBottom':    ( int,    0 ),
-        'width':           ( int,    0 ),
+        "align":           ( align,  "LEFT" ),
+        "border":          ( bool,  False ),
+        "borderColor":     ( bool,  False ),
+        "borderUnicode":   ( bool,  True ),
+        "marginLeft":      ( int,    0 ),
+        "marginRight":     ( int,    0 ),
+        "marginTop":       ( int,    0 ),
+        "marginBottom":    ( int,    0 ),
+        "width":           ( int,    0 ),
     }
 
     def __init__(self):
@@ -1537,9 +1529,9 @@ class Renderer:
             "sectionNums" : True,           # Generate heading numbers
             "width"       : None,           # Output display width
             "indentSize"  : 4,              # Spaces of indent per level
-            "quoteType"   : 'D',  # D double curly, S single curly, A angle, else '"'
-            "OLPrefix"    : "", # such as '('
-            "OLSuffix"    : "", # such as ':'
+            "quoteType"   : "D",  # D double curly, S single curly, A angle, else '"'
+            "OLPrefix"    : "", # such as "("
+            "OLSuffix"    : "", # such as ":"
             "headFG"      : ["blue", "blue", "blue", "blue", "blue", "blue"],
             "headBG"      : ["white", "white", "white", "white", "white", "white"],
             "headPrefix"  : ["\n\n\n\n", "\n\n\n", "\n\n", "\n", "\n", "\n"],
@@ -1602,7 +1594,7 @@ class outHTML:
         self.tagStack.append(tag)
         if (not self.dest): return
         buf = "<" + tag
-        if (isinstance(attrs, string_types)):
+        if (isinstance(attrs, str)):
             buf += " " + attrs
         elif (isinstance(attrs, dict)):
             for a, v in attrs.items(): buf += ' %s=\"%s\"' % (a, v)
@@ -1616,8 +1608,8 @@ class outHTML:
 
     def text(self, txt):
         if (not self.dest): return
-        txt = re.sub(r'&', '&amp;', txt)
-        txt = re.sub(r'<', '&lt;', txt)
+        txt = re.sub(r"&", "&amp;", txt)
+        txt = re.sub(r"<", "&lt;", txt)
         self.dest.write(txt)
 
     def closeElement(self, tag=None, required=False):
@@ -1684,7 +1676,7 @@ Those, in turn, can have content, even with [links].
 """
     else:
         try:
-            testText = open(sys.argv[1], 'r').read()
+            testText = open(sys.argv[1], "r").read()
         except IOError as e:
             print("Can't read file '%s'." % (sys.argv[1]))
             sys.exit()
