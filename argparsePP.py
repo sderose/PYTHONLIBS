@@ -181,6 +181,7 @@ genericMsg = "Value for option does not match type: '%s'."
 #
 def t_anyInt(s:str):
     """Accept octal, decimal, or hex.
+    Possibly also accept NaN, Inf, -Inf, -0...
     """
     try:
         return int(s, 0)
@@ -335,7 +336,7 @@ def isRegex(s):
     try:
         re.compile(s)
         return s
-    except re.error
+    except re.error:
         return None
 
 # Following only allow complete date and/or time, not arbitrary shortenings.
