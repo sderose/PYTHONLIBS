@@ -191,13 +191,10 @@ specialChars = {
     "lt": '<', "gt": '>', "apos": "'", "quo": '"', "amp": '&',
 }
 
-def hMsg(level, msg):
-    if (BlockFormatter._options['verbose']>=level):
-        sys.stderr.write("\n*******" + msg+'\n')
-
 def vMsg(level, msg):
-    if (BlockFormatter._options['verbose']>=level):
-        sys.stderr.write(msg+'\n')
+    if (BlockFormatter._options['verbose'] < level): return
+    if (msg.startswith("====")): sys.stderr.write("\n" + "*" * 79 + '\n')
+    sys.stderr.write(msg+'\n')
 
 def makeVis(s):
     return re.sub(r'([\x01-\x0F\x11-\x1F])', toPix, s)  # NOT NEWLINE!

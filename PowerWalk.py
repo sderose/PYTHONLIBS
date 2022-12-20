@@ -19,55 +19,53 @@ from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 from typing import Dict, Any, Union, Callable, List
 
-assert sys.version_info[0] >= 3
-
-from versionStatus import getGitStatus  # gitStatus
-
-verbose = 0  # Also set by PowerWalk.setOptions("verbose")
-stats = defaultdict(int)
-
-def warn(lvl:int, msg:str):
-    if (verbose>=lvl): sys.stderr.write("%s\n" % (msg))
-
-
-###############################################################################
 # Libraries for particular file "formats":
 import codecs
 import io
 
+#from versionStatus import getGitStatus  # gitStatus
+
+assert sys.version_info[0] >= 3
+
+verbose = 0  # Also set by PowerWalk.setOptions("verbose")
+stats = defaultdict(int)
+
+def warning(lvl:int, msg:str):
+    if (verbose>=lvl): sys.stderr.write("%s\n" % (msg))
+
 # try:
 #     import zip
 # except ImportError:
-#     warn(0, "Cannot import module 'zip'.")
+#     warning(0, "Cannot import module 'zip'.")
 try:
     import gzip
 except ImportError:
-    warn(0, "Cannot import module 'gzip'.")
+    warning(0, "Cannot import module 'gzip'.")
 try:
     import tarfile
 except ImportError:
-    warn(0, "Cannot import module 'tarfile'.")
+    warning(0, "Cannot import module 'tarfile'.")
 # try:
 #     import uu
 # except ImportError:
-#     warn(0, "Cannot import module 'uu'.")
+#     warning(0, "Cannot import module 'uu'.")
 # try:
 #     import bz2
 # except ImportError:
-#     warn(0, "Cannot import module 'bz2'.")
+#     warning(0, "Cannot import module 'bz2'.")
 # try:
 #     import zlib
 # except ImportError:
-#     warn(0, "Cannot import module 'zlib'.")  # supports gzip
+#     warning(0, "Cannot import module 'zlib'.")  # supports gzip
 # try:
 #     import zipfile
 # except ImportError:
-#     warn(0, "Cannot import module 'zipfile'.")
+#     warning(0, "Cannot import module 'zipfile'.")
 
 
 __metadata__ = {
     "title"        : "PowerWalk",
-    "description"  : "Like os.walk, but with many features of *nix 'find', and v. flexible interface.",
+    "description"  : "Like os.walk, but with many features of *nix 'find', etc.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
     "type"         : "http://purl.org/dc/dcmitype/Software",
@@ -167,10 +165,11 @@ with "$".
   ** `-include-dirs` and `-exclude-dirs`are
 like grep (and also available as `--includeDirs` and `--excludeDirs`),
 but take full regexes to match against.
-  ** `--includeExtensions` and `--excludeExtensions` match file extensions (without the ".") against full regexes. In particular, the "|" operator
-  is supported for "or". For example: `--ie "(py|pl|pm|cc)" works.
+  ** `--includeExtensions` and `--excludeExtensions` match file extensions
+(without the ".") against full regexes. In particular, the "|" operator
+is supported for "or". For example: `--ie "(py|pl|pm|cc)" works.
   ** `--includeFileInfos` and `--excludeFileInfos` match
-  characteristics reported by the *nix `file` command.
+characteristics reported by the *nix `file` command.
 For example, this makes it easy to get Python files whether they have a `.py`
 extension of not.
 
@@ -608,6 +607,10 @@ to False.
 
 =Known bugs and limitations=
 
+* --excludeExtensions doesn't work.
+
+* If you specify -r --type f, it fails to recurse.
+
 * If you don't specify -r, it won't even list a directory that's specified
 at the very top level. Currently, I've hacked it so that directories that
 are specified directly, at the top level, are always recursed into
@@ -617,8 +620,6 @@ behavior is:
 ** `ls` (unless you set `-d`) lists content for all directories specified directly.
 ** `ls -d -r` seems to not recurse at all.
 ** `ls *" lists all the files, ''then'' all the directories with their files.
-
-* If you specify -r --type f, it fails to recurse.
 
 * Default indented list unindents some files, and/or fails to display
 directory events.
@@ -632,16 +633,16 @@ but it will work fine as long as you don't specifically need the missing ones.
 
 * For command-line use, there are options for whether/how to quote filenames.
 But escaping the specified quote character(s) is rudimentary.
-Specifically, it will mess up multi-character quotation marks,
+Specifically, it messes up multi-character quotation marks,
 and it can only backslash.
 
 * I've used this almost exclusively for reading (for example, picking
-out just the desired files from an NLP corpus like OANC or MASC). So writing
+out just the desired files from an NLP corpus like OANC or MASC). Writing
 is not yet thoroughly tested. I imagine writing doesn't work well for container
 files (tar, gzip, etc.).
 
 * Statistics of the current run as well as the current
-nesting depth of the traversal (in `.depth`), are separated into a
+nesting depth of the traversal (in `.depth`) are separated into a
 `TraversalState` object. A reference to that object is
 kept directly in the PowerWalk object instance as `PowerWalk.travState`.
 So if you try to run two traversals from the same PowerWalk instance, you may
@@ -673,6 +674,8 @@ xattr to say where copied from.
 * Be able to accept/return Path objects.
 
 * Make a cleaner design for the various output format punctuation, as class `Lister`.
+
+* Make use of 'parent' options with addOptionsToArgParse.
 
 
 == Output options==
@@ -948,16 +951,16 @@ PWFrame = namedtuple("PWFrame", [ "path", "fh", "what", "inode" ])
 
 def isPWFrameOK(ts:PWFrame) -> bool:
     if (not isinstance(ts.path, str)):
-        warn(0, "Bad PWFrame.path: %s." % (type(ts.path)))
+        warning(0, "Bad PWFrame.path: %s." % (type(ts.path)))
         return False
     if (ts.fh is not None and not isStreamable(ts.fh)):
-        warn(0, "Bad PWFrame.fh: %s." % (ts.fh or "[None]"))
+        warning(0, "Bad PWFrame.fh: %s." % (ts.fh or "[None]"))
         return False
     if (not isinstance(ts.what, PWType)):
-        warn(0, "Bad PWFrame.what: %s." % (ts.what))
+        warning(0, "Bad PWFrame.what: %s." % (ts.what))
         return False
     if (not isinstance(ts.inode, int)):
-        warn(0, "Bad PWFrame.inode: %s." % (ts.inode))
+        warning(0, "Bad PWFrame.inode: %s." % (ts.inode))
         return False
     return True
 
@@ -967,7 +970,8 @@ def isPWFrameOK(ts:PWFrame) -> bool:
 class TraversalState(list):
     """Instantiate for each traversal.
     This object is passed down the recursive traversal.
-    The main (list) content is a stack of PWFrame namedtuples.
+    The main (list) content is a stack of PWFrame namedtuples, which in turn
+    consists of [ "path", "fh", "what", "inode" ].
 
     It has methods that do "the right thing" when called for an item
     confirmed as an OPEN, CLOSE, LEAF, IGNORE, or ERROR (based on the
@@ -1060,7 +1064,7 @@ class TraversalState(list):
         if (self.depth > self.stats["maxDepthReached"]):
             self.stats["maxDepthReached"] = self.depth
 
-        warn(1, "In openContainer, containers %d, exceptions %d." %
+        warning(1, "In openContainer, containers %d, exceptions %d." %
             (self.options["containers"], self.options["exceptions"]))
         if (not self.options["containers"]):
             return None
@@ -1073,7 +1077,7 @@ class TraversalState(list):
         Files that are filtered out don't even get here. But for containers,
         we mightgenerate events or excpetions (see options["containers")
         """
-        warn(2, "handleLeaf: %s" % (path))
+        warning(2, "handleLeaf: %s" % (path))
         thePWFrame = PWFrame(path, fh, PWType.LEAF, inode=0)
         assert isPWFrameOK(thePWFrame)
         self.bump("leafs")
@@ -1088,7 +1092,7 @@ class TraversalState(list):
             tsf = self.handleIgnorable(travState, path)
             if (tsf): yield tsf
         """
-        #warn(1, "handleIgnorable: %s" % (path))
+        #warning(1, "handleIgnorable: %s" % (path))
         self.bump("ignored")
         if (not self.options["ignorables"]):
             return None
@@ -1101,7 +1105,7 @@ class TraversalState(list):
         errorType:PWType=PWType.ERROR) -> Union[PWFrame, None]:
         """Called for missing, unopenable, etc.
         """
-        warn(1, "handleError: %s" % (path))
+        warning(1, "handleError: %s" % (path))
         self.bump("errors")
         if (not self.options["errorEvents"]):
             return None
@@ -1117,11 +1121,11 @@ class TraversalState(list):
         """Called at the end of any node, whether container or leaf.
         For leafs, don't yield a separate event, just pop the stack.
         """
-        warn(2, "In closeContainer, containers %d, exceptions %d." %
+        warning(2, "In closeContainer, containers %d, exceptions %d." %
             (self.options["containers"], self.options["exceptions"]))
         thePWFrame = self[-1]
         self.depth -= 1  # not thread-safe
-        warn(1, "closeContainer: %s" % (thePWFrame.path))
+        warning(1, "closeContainer: %s" % (thePWFrame.path))
         self.pop()
         if (thePWFrame.what == PWType.OPEN):
             if (not self.options["containers"]):
@@ -1273,12 +1277,15 @@ class PowerWalk:
         else:
             theType = self.__optionTypes[name]
             if (theType == "REGEX"):
+                warning(1, "setOption for '%s' to '%s' type %s." % (name, value, theType))
                 if (value):
                     try:
                         self.options[name] = re.compile(value)
                     except (re.error, TypeError) as e:
-                        warn(0, "Cannot compile regex for option %s: %s\n    %s" %
+                        warning(0, "Cannot compile regex for option %s: %s\n    %s" %
                             (name, value, e))
+                warning(1, "    compiled to: '%s' (type %s)." %
+                    (self.options[name], type(self.options[name])))
                 return
             if (value is None):
                 if (theType == list): value = []
@@ -1288,16 +1295,15 @@ class PowerWalk:
                 elif (theType == PWDisp): value = PWDisp.IGNORE
                 else: value = 0
             try:
-                self.options[name] = theType(value)
+                ###self.options[name] = theType(value)
                 if (name=="verbose"):
                     global verbose
                     verbose = value
-                elif (name in [ "excludeNames", "includeNames" ] and
-                    "." in value):
-                    warn(0, "Option --%s '%s' won't match against extensions." %
+                elif (name in [ "excludeNames", "includeNames" ] and "." in value):
+                    warning(0, "Option --%s '%s' won't match against extensions." %
                         (name, value))  # TODO: Check
             except (TypeError, re.error) as e:
-                warn(0, "Cannot cast value '%s' for option '%s' to %s:\n    %s"
+                warning(0, "Cannot cast value '%s' for option '%s' to %s:\n    %s"
                     % (value, name, theType.__name__, e))
 
     def setOptionsFromArgparse(self, argsObj=None, prefix:str="") -> None:
@@ -1306,12 +1312,13 @@ class PowerWalk:
         for k, v in argsObj.__dict__.items():
             qname = prefix+k
             if (qname in self.options): self.setOption(qname, v, strict=False)
+        showOptions(argsObj)
 
     @staticmethod
     def addOptionsToArgparse(parser, prefix:str="", singletons:bool=True):
         """Provide an easy way to add all our options to a main program's
         argparse instance. Use setOptionsFromArgparse() after, to
-        copy them in from the argparse result, ignoring any others.
+        copy them back here from the argparse result, ignoring any others.
         @param prefix: Put this before all names to avoid name conflicts.
             You can include leading "--", but it will be added if not included.
         @param singletons: If set, include single-char synonyms (which, btw,
@@ -1459,7 +1466,7 @@ class PowerWalk:
         # Test that all the known options are available.
         for op in PowerWalk.__optionTypes.keys():
             if (prefix+op not in parser._option_string_actions):
-                warn(0, "addOptionsToArgparse: '%s' not added.\nList is: %s." %
+                warning(0, "addOptionsToArgparse: '%s' not added.\nList is: %s." %
                     (prefix+op,
                     ", ".join(parser._option_string_actions.keys())))
                 sys.exit()
@@ -1528,10 +1535,10 @@ class PowerWalk:
         for tl in (tops):
             if (self.options["absolute"]):
                 tl = os.path.abspath(tl)
-            warn(1, "\n******* Starting top-level item '%s'." % (tl))
+            warning(1, "\n******* Starting top-level item '%s'." % (tl))
             for tsf in self.ttraverse(tl, trav):
                 trav.bump("nodesTried")
-                warn(2, "tried %d, max %d." %
+                warning(2, "tried %d, max %d." %
                     (trav.stats["nodesTried"], self.options["maxFiles"]))
                 if (self.options["maxFiles"] and
                     trav.stats["nodesTried"] > self.options["maxFiles"]): break
@@ -1544,7 +1551,7 @@ class PowerWalk:
         """Recurse as needed.
         @param path: The path as accumulated down any recursion.
         """
-        warn(2, "%sttraverse at '%s'" % ("  "*len(trav), path))
+        warning(2, "%sttraverse at '%s'" % ("  "*len(trav), path))
 
         if (self.options["maxDepth"] > 0 and               # MAXDEPTH REACHED
             len(trav) > self.options["maxDepth"]):
@@ -1553,7 +1560,7 @@ class PowerWalk:
         try:
             theStat = os.stat(path)
         except (FileNotFoundError, OSError) as e:
-            warn(0, "Unexpected error statting '%s':\n    %s" % (path, e))
+            warning(0, "Unexpected error statting '%s':\n    %s" % (path, e))
             self.travState.bump("errors")
             return False
 
@@ -1585,7 +1592,7 @@ class PowerWalk:
                 if (tsf): yield tsf
             else:
                 tsf = trav.openContainer(path, fh=None, inode=theStat.st_ino)
-                warn(1, "Opening dir '%s' (tsf %s)." % (path, tsf))
+                warning(1, "Opening dir '%s' (tsf %s)." % (path, tsf))
                 if (tsf): yield tsf
                 children = os.listdir(path)
                 if (self.options["sort"]):
@@ -1596,7 +1603,7 @@ class PowerWalk:
                     for chFrame in self.ttraverse(chPath, trav):
                         yield chFrame
                 tsf = trav.closeContainer()
-                warn(1, "Closing dir '%s', tsf %s." % (path, tsf))
+                warning(1, "Closing dir '%s', tsf %s." % (path, tsf))
                 if (tsf): yield tsf
 
         elif (False and tarfile.is_tarfile(path)):         # TAR FILE
@@ -1618,7 +1625,7 @@ class PowerWalk:
                         self.recordEvent(trav, "tarSubdir")
                         # TODO: add tar internal recursion!
                     else:  # also issyn, islnk, ischr, isblk, isfifo, isdev
-                        warn(0, "Non-file, non-dir) in tar file.")
+                        warning(0, "Non-file, non-dir) in tar file.")
                 tfObject.closeContainer()
                 tsf = trav.closeContainer()
                 if (tsf): yield tsf
@@ -1706,7 +1713,7 @@ class PowerWalk:
             for ancPWFrame in self.travState:
                 if (ancPWFrame.inode != newInode): continue
                 self.travState.bump("errors")
-                warn(0, "Directory 'tree' has cyclic link at %s. Skipped." % (path))
+                warning(0, "Directory 'tree' has cyclic link at %s. Skipped." % (path))
                 return False
         return self.dirPassesFilters(path, theStat, trav)
 
@@ -1737,6 +1744,9 @@ class PowerWalk:
         (_, extPart) = os.path.splitext(tail)
         extPart = extPart.strip(". \t\n\r")
 
+        warning(1, "Checking filters for '%s', ext '%s' (exclExt '%s')." %
+            (tail, extPart, self.options["excludeExtensions"]))
+
         passes = False  # Assume the worst for now...
 
         if (not self.passesType(path, theStat)):
@@ -1748,6 +1758,7 @@ class PowerWalk:
             self.recordEvent(trav, "ignoredByMinDepth")
         elif (not self.options["hidden"] and isHidden(path)):
             self.recordEvent(trav, "hiddenFile")
+
         elif (self.options["excludeExtensions"] and
             re.search(self.options["excludeExtensions"], extPart)):
             self.recordEvent(trav, "ignoredByExcludeExtensions")
@@ -1783,7 +1794,7 @@ class PowerWalk:
             self.recordEvent(trav, "regular")
             passes = True
 
-        warn(2, "%s filter: %s" % ("PASS" if passes else "FAIL", tail))
+        warning(2, "%s filter: %s" % ("PASS" if passes else "FAIL", tail))
         return passes
 
     def passesType(self, _path:str, theStat:os.stat_result) -> bool:
@@ -1819,7 +1830,7 @@ class PowerWalk:
             if (not theStat.S_IFWHT): return False
 
         else:
-            warn(0, "Unknown -type value '%s'." % (ty))
+            warning(0, "Unknown -type value '%s'." % (ty))
         return True
 
     def passesPerm(self, _path:str, theStat:os.stat_result, permOptions:list) -> bool:
@@ -1897,7 +1908,7 @@ class PowerWalk:
 
         chmod also has settings for ACLs (access control lists).
         """
-        warn(1, "makeActions for arg '%s'." % (perm))
+        warning(1, "makeActions for arg '%s'." % (perm))
         try:
             return [ int(perm, 8) ]
         except ValueError:
@@ -1930,7 +1941,7 @@ class PowerWalk:
     def chSort(self, curPath:str, chList:list, reverse=False) -> list:
         """Sort a file-list returned from os.listdir somehow.
         """
-        warn(2, "Sorting by '%s'." % (self.options["sort"]))
+        warning(2, "Sorting by '%s'." % (self.options["sort"]))
         if (self.options["sort"] == "none"):
             return chList
 
@@ -1959,6 +1970,7 @@ class PowerWalk:
                 (self.options["dirsSeparate"]))
 
     def doTheSort(self, curPath:str, chList:list, sortBy:str, reverse=False) -> list:
+        #pylint: disable=C3001
         if (sortBy == "name"):
             theLambda = None
             #chList.sort()
@@ -1984,12 +1996,12 @@ class PowerWalk:
         """
         self.travState.bump(thing)
         if (len(theStack) == 0):
-            warn(2, "%s  Trying: empty stack (%s)" %
+            warning(2, "%s  Trying: empty stack (%s)" %
                 ("  "*len(theStack), thing))
             return
         if (self.options["notify"]):
             frame = theStack[-1]
-            warn(2, "Trying %s: '%s' (cont=%s)" %
+            warning(2, "Trying %s: '%s' (cont=%s)" %
                 (thing, frame.path, frame.what))
         return
 
@@ -2066,8 +2078,32 @@ def isGenerated(name:str) -> bool:
         if (re.search(ge, b)): return(True)
     return(False)
 
-# NOTE: getGitStatus moved into versionStatus.py.
-#
+
+def getGitStatus(path:str) -> Union[str, None]:
+    """See what sort of git state we're in (see `git status --help` for -s):
+        " " = unmodified
+        M = modified
+        A = added
+        D = deleted
+        R = renamed
+        C = copied
+        U = updated but unmerged
+        ? = untracked
+        ! = ignored
+        0 = Error
+
+    TODO: Add a code to mean "not in a git repo at all", so user can
+    treat files outside git distinctly from untracked files in git areas.
+    """
+    try:
+        tokens = [ "git", "status", "-s", path ]
+        buf = check_output(tokens)
+    except CalledProcessError:
+        return "0"
+    if str(buf[0]) in " MADRCU?!": return str(buf[1])
+    warning(0, "Unknown code '%s' from git status -s '%s'." % (str(buf[0]), path))
+    return None
+
 def getFileInfo(path:str) -> str:
     """See what the "file" command has to say about something...
     """
@@ -2076,7 +2112,7 @@ def getFileInfo(path:str) -> str:
 
 def xset(path:str, prop:str, val:Any) -> None:
     #import xattr
-    warn(0, "--xattr is not yet supported for %s: %s=%s." % (path, prop, val))
+    warning(0, "--xattr is not yet supported for %s: %s=%s." % (path, prop, val))
     sys.exit()
 
 
@@ -2262,6 +2298,9 @@ if __name__ == "__main__":
             "--short", action="store_true",
             help="Only show the bottom-level name in the outline view.")
         parser.add_argument(
+            "--showOptions", action="store_true",
+            help="Display all the option values.")
+        parser.add_argument(
             "--statFormat", action="store_true",
             help='Display output like "stat -f" for each file.')
         parser.add_argument(
@@ -2293,7 +2332,19 @@ if __name__ == "__main__":
             args0.openQuote = args0.closeQuote = ""
 
         if (args0.oformat): mapNamedOFOs(args0)
+
+        if (args0.verbose > 1 or args0.showOptions):
+            showOptions(args0)
+
         return(args0)
+
+    def showOptions(ap):
+        warning(0, "\nOptions parsed:")
+        for k in vars(ap):
+            if (k.startswith("_")): continue
+            v = getattr(ap, k)
+            if (isinstance(v, str)): v = '"' + v + '"'
+            warning(0, "    %-20s %s" % (k, v))
 
     def addOutputFormatOptions(parser:argparse.ArgumentParser, prefix:str="") -> None:
         """Add a boatload of options for how to format output, mainly filelists.
@@ -2340,7 +2391,7 @@ if __name__ == "__main__":
             #args0.openQuote = ""
             #args0.closeQuote = ""
         elif (args0.oformat == "json"):
-            warn(0, "Overriding quote settings for --oformat json")
+            warning(0, "Overriding quote settings for --oformat json")
             args0.openDelim = "["
             args0.closeDelim = "]"
             args0.itemSep = ","
@@ -2348,7 +2399,7 @@ if __name__ == "__main__":
             args0.closeQuote = '"'
             args0.anonymousClose = True
         elif (args0.oformat == "html"):
-            warn(0, "Overriding quote settings for --oformat html")
+            warning(0, "Overriding quote settings for --oformat html")
             args0.openDelim = "<ol>"
             args0.closeDelim = "</ol>"
             args0.itemSep = ""
@@ -2356,7 +2407,7 @@ if __name__ == "__main__":
             args0.closeQuote = "</file></li>"
             args0.anonymousClose = True
         elif (args0.oformat == "sexp"):
-            warn(0, "Overriding quote settings for --oformat sexp")
+            warning(0, "Overriding quote settings for --oformat sexp")
             args0.openDelim = "("
             args0.closeDelim = ")"
             args0.itemSep = ""
@@ -2364,7 +2415,7 @@ if __name__ == "__main__":
             args0.closeQuote = '"'
             args0.anonymousClose = True
         else:
-            warn(0, "Unknown output format '%s'." % (args0.oformat))
+            warning(0, "Unknown output format '%s'." % (args0.oformat))
 
     def makeDisplayableName(s:str) -> str:  # TODO: Finish showInvisibles support
         if (s.isalnum):
@@ -2461,16 +2512,16 @@ if __name__ == "__main__":
 
             if (args.copyTo):
                 if (not os.path.isdir(args.copyTo)):
-                    warn(0, "No directory available at '%s'." % (args.copyTo))
+                    warning(0, "No directory available at '%s'." % (args.copyTo))
                     sys.exit()
 
                 _, baseName = os.path.split(path0)
                 if (args.serialize):
                     baseName = args.serializeFormat % (leafNum, baseName)
-                warn(1, "copyTo '%s', base '%s'." % (args.copyTo, baseName))
+                warning(1, "copyTo '%s', base '%s'." % (args.copyTo, baseName))
                 tgtPath = os.path.join(args.copyTo, baseName)
                 if (os.path.exists(tgtPath)):
-                    warn(0, "Target already exists: %s => %s" %
+                    warning(0, "Target already exists: %s => %s" %
                         (ppath, tgtPath))
                 else:
                     copyfile(path0, tgtPath)
@@ -2484,7 +2535,7 @@ if __name__ == "__main__":
                     buf0 = check_output(cmd, shell=True)
                     if (not args.quiet): print(buf0)
                 except CalledProcessError as e0:
-                    warn(0, "Failed on %s:\n    %s" % (cmd, e0))
+                    warning(0, "Failed on %s:\n    %s" % (cmd, e0))
         elif (what0 == PWType.CLOSE):
             print("%s%s%s%s" % (indent, args.closeDelim,
                 "" if (args.anonymousClose) else " "+ppath, args.itemSep))
@@ -2498,4 +2549,4 @@ if __name__ == "__main__":
             (whatCounts[PWType.OPEN], whatCounts[PWType.LEAF]))
 
     if (args.stats):
-        warn(0, pw.travState.getStats(showZeroes=True))
+        warning(0, pw.travState.getStats(showZeroes=True))

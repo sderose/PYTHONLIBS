@@ -2,7 +2,6 @@
 #
 # sjdUtils: some generally useful stuff.
 #
-from __future__ import print_function
 import sys
 import os
 import re
@@ -14,20 +13,9 @@ import math
 import ColorManager
 from alogging import ALogger
 
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-if PY2:
-    string_types = basestring # noqa: F821
-else:
-    string_types = str
-    def xrange(x): return iter(range(x))
-    def cmp(a, b): return ((a > b) - (a < b))
-    def unichr(n): return chr(n)
-    def unicode(s, encoding='utf-8', errors='strict'):
-        return str(s, encoding, errors)
-
 __metadata__ = {
     'title'        : "sjdUtils",
+    "description"  : "generally useful small routines.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -218,9 +206,6 @@ escaped by ''escape''.
 
 
 ==Unicode stuff==
-
-If running in Python 3, it defines `unichr` to just be `chr` so it
-still works.
 
 * '''isUnicodeCodePoint'''(c)
 
@@ -553,13 +538,14 @@ Write unit tests and fix several bugs. Add HNumber 'base' arg.
 * 2016-12-13: Add align().
 * 2018-01-11: Move XmlRegexes out to separate package.
 * 2018-03-20: Don't die if ColorManager not available.
-* 2018-08-16: Keep unichr() defined even in Python 3.
+* 2018-08-16: Keep chr() defined even in Python 3.
 * 2018-09-25ff: Clean up more PY 2 vs. 3 details.
 * 2018-10-05: add className()
 * 2018-11-27: Add splitPlus().
 * 2020-01-22: Move doc, POD->MarkDown, lint, metadata.
 * 2020-08-27: unbackslash() for both Python 2 and 3.
 * 2020-09-03: Add shrinkuser().
+
 
 =Rights=
 
@@ -569,6 +555,7 @@ this license, see [http://creativecommons.org/licenses/by-sa/3.0/].
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github/com/sderose].
+
 
 =Options=
 """
@@ -591,48 +578,48 @@ def className(obj):
 # Useful sets of Unicode characters
 #
 UQuotes = (
-    unichr(0x0022) +  # 'QUOTATION MARK'
-    unichr(0x0027) +  # 'APOSTROPHE'
-    unichr(0x301f) +  # 'LOW DOUBLE PRIME QUOTATION MARK'
-    unichr(0xff02) +  # 'FULLWIDTH QUOTATION MARK'
-    unichr(0xff07) +  # 'FULLWIDTH APOSTROPHE'
+    chr(0x0022) +  # 'QUOTATION MARK'
+    chr(0x0027) +  # 'APOSTROPHE'
+    chr(0x301f) +  # 'LOW DOUBLE PRIME QUOTATION MARK'
+    chr(0xff02) +  # 'FULLWIDTH QUOTATION MARK'
+    chr(0xff07) +  # 'FULLWIDTH APOSTROPHE'
     ""
 )
 ULSQuotes = (
-    unichr(0x2018) +  # 'LEFT SINGLE QUOTATION MARK',
-    #unichr(0x201a) +  # 'SINGLE LOW-9 QUOTATION MARK',
-    #unichr(0x201b) +  # 'SINGLE HIGH-REVERSED-9 QUOTATION MARK',
+    chr(0x2018) +  # 'LEFT SINGLE QUOTATION MARK',
+    #chr(0x201a) +  # 'SINGLE LOW-9 QUOTATION MARK',
+    #chr(0x201b) +  # 'SINGLE HIGH-REVERSED-9 QUOTATION MARK',
     # 2032 - 2037 ??? FIX ???
-    unichr(0x2039) +  # 'SINGLE LEFT-POINTING ANGLE QUOTATION MARK',
-    unichr(0x275b) +  # 'HEAVY SINGLE TURNED COMMA QUOTATION MARK ORNAMENT',
-    #unichr(0x275f) +  # 'HEAVY LOW SINGLE COMMA QUOTATION MARK ORNAMENT',
-    unichr(0x276e) +  # 'HEAVY LEFT-POINTING ANGLE QUOTATION MARK ORNAMENT',
+    chr(0x2039) +  # 'SINGLE LEFT-POINTING ANGLE QUOTATION MARK',
+    chr(0x275b) +  # 'HEAVY SINGLE TURNED COMMA QUOTATION MARK ORNAMENT',
+    #chr(0x275f) +  # 'HEAVY LOW SINGLE COMMA QUOTATION MARK ORNAMENT',
+    chr(0x276e) +  # 'HEAVY LEFT-POINTING ANGLE QUOTATION MARK ORNAMENT',
     ""
 )
 ULDQuotes = (
-    unichr(0x00ab) +  # 'LEFT-POINTING DOUBLE ANGLE QUOTATION MARK',
-    unichr(0x201c) +  # 'LEFT DOUBLE QUOTATION MARK',
-    unichr(0x201e) +  # 'DOUBLE LOW-9 QUOTATION MARK',
-    unichr(0x275d) +  # 'HEAVY DOUBLE TURNED COMMA QUOTATION MARK ORNAMENT',
-    #unichr(0x2760) +  # 'HEAVY LOW DOUBLE COMMA QUOTATION MARK ORNAMENT',
-    unichr(0x301d) +  # 'REVERSED DOUBLE PRIME QUOTATION MARK',
+    chr(0x00ab) +  # 'LEFT-POINTING DOUBLE ANGLE QUOTATION MARK',
+    chr(0x201c) +  # 'LEFT DOUBLE QUOTATION MARK',
+    chr(0x201e) +  # 'DOUBLE LOW-9 QUOTATION MARK',
+    chr(0x275d) +  # 'HEAVY DOUBLE TURNED COMMA QUOTATION MARK ORNAMENT',
+    #chr(0x2760) +  # 'HEAVY LOW DOUBLE COMMA QUOTATION MARK ORNAMENT',
+    chr(0x301d) +  # 'REVERSED DOUBLE PRIME QUOTATION MARK',
     ""
 )
 ULQuotes = ULSQuotes + ULDQuotes
 
 URSQuotes = (
-    unichr(0x2019) +  # 'RIGHT SINGLE QUOTATION MARK',
-    unichr(0x203a) +  # 'SINGLE RIGHT-POINTING ANGLE QUOTATION MARK',
-    unichr(0x275c) +  # 'HEAVY SINGLE COMMA QUOTATION MARK ORNAMENT',
-    unichr(0x276f) +  # 'HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT',
+    chr(0x2019) +  # 'RIGHT SINGLE QUOTATION MARK',
+    chr(0x203a) +  # 'SINGLE RIGHT-POINTING ANGLE QUOTATION MARK',
+    chr(0x275c) +  # 'HEAVY SINGLE COMMA QUOTATION MARK ORNAMENT',
+    chr(0x276f) +  # 'HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT',
     ""
 )
 URDQuotes = (
-    unichr(0x00bb) +  # 'RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK',
-    unichr(0x201d) +  # 'RIGHT DOUBLE QUOTATION MARK',
-    unichr(0x201f) +  # 'DOUBLE HIGH-REVERSED-9 QUOTATION MARK',
-    unichr(0x275e) +  # 'HEAVY DOUBLE COMMA QUOTATION MARK ORNAMENT',
-    unichr(0x301e) +  # 'DOUBLE PRIME QUOTATION MARK',
+    chr(0x00bb) +  # 'RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK',
+    chr(0x201d) +  # 'RIGHT DOUBLE QUOTATION MARK',
+    chr(0x201f) +  # 'DOUBLE HIGH-REVERSED-9 QUOTATION MARK',
+    chr(0x275e) +  # 'HEAVY DOUBLE COMMA QUOTATION MARK ORNAMENT',
+    chr(0x301e) +  # 'DOUBLE PRIME QUOTATION MARK',
     ""
 )
 URQuotes = URSQuotes + URDQuotes
@@ -648,15 +635,15 @@ char2escape = {
     "\\"   : "\\\\", # backslash
     }
 spaceCodes = {
-    "SP"       : unichr(0x2420), # SP
-    "B"        : unichr(0x2422), # B/
-    "U"        : unichr(0x2423), # _
+    "SP"       : chr(0x2420), # SP
+    "B"        : chr(0x2422), # B/
+    "U"        : chr(0x2423), # _
     "OK"       : ' ',
-    "NBSP"     : unichr(0x00A0), # Non-breaking space
+    "NBSP"     : chr(0x00A0), # Non-breaking space
     }
 lfCodes = {
-    "LF"       : unichr(0x240A),
-    "NL"       : unichr(0x2424),
+    "LF"       : chr(0x240A),
+    "NL"       : chr(0x2424),
     "OK"       : "\n",
     }
 
@@ -680,7 +667,7 @@ def strip_accents(s):
 def UEscapeFunction(mat):
     return("\\u%04x;" % (ord(mat.group(1))))
 def controlSymbolsFunction(mat):
-    return(unichr(0x2400 + ord(mat.group(1))))
+    return(chr(0x2400 + ord(mat.group(1))))
 def escHexFn(m):
     utf = m.group(1).encode('utf-8')
     buf = ""
@@ -706,10 +693,8 @@ class sjdUtils:
         # compatibility:
         if (old):
             self.vMsg           = self.lg.vMsg
-            self.hMsg           = self.lg.hMsg
             self.eMsg           = self.lg.vMsg
 
-        self.lg             = logger or ALogger(1)
         self.showStats      = self.lg.showStats
 
         # Init some extra color stuff:
@@ -1050,14 +1035,14 @@ class sjdUtils:
     def rpad(self, s, width=0, padChar=" ", quoteChar=""):
         """Like ljust(), but can also quote before padding.
         """
-        if (not isinstance(s, string_types)): s = str(s)
-        if (quoteChar): s = quoteChar[0] + unicode(s) + quoteChar[-1]
+        if (not isinstance(s, str)): s = str(s)
+        if (quoteChar): s = quoteChar[0] + str(s) + quoteChar[-1]
         return(s.ljust(width, padChar))
 
     def lpad(self, s, width=0, padChar="0", quoteChar=""):
         """Like rjust(), but can also quote before padding.
         """
-        if (not isinstance(s, string_types)): s = str(s)
+        if (not isinstance(s, str)): s = str(s)
         if (quoteChar): s = quoteChar[0] + s + quoteChar[-1]
         return(s.rjust(width, padChar))
 
@@ -1067,7 +1052,7 @@ class sjdUtils:
         Can also quote before padding.
         """
         buf = ""
-        if (not isinstance(s, string_types)): s = str(s)
+        if (not isinstance(s, str)): s = str(s)
         while (len(s) > 3):
             triple = s[len(s)-3:]
             if (sepChar=="COLOR"):
@@ -1095,7 +1080,7 @@ class sjdUtils:
         maxLens = []
         allNumeric = []
         for s in mylist:
-            if (isinstance(s, string_types)):
+            if (isinstance(s, str)):
                 tokens = s.split(sep=delim)
             else:
                 tokens = list(s)
@@ -1132,7 +1117,7 @@ class sjdUtils:
         if (base==1000): col = 1
         else: col = 2
         fs = "{0:3.2f}{1:1s}"
-        rc = unicode(n)
+        rc = str(n)
         for i in (range(len(self.multipliers)-1, 0, -1)):
             factor = self.multipliers[i][col]
             if (n > factor):
@@ -1172,8 +1157,8 @@ class sjdUtils:
         """
         if (curly):
             if (escape):
-                re.sub(r'('+unichr(0x201c)+unichr(0x201d)+r')', escape+'\\1', s)
-            s = unichr(0x201c) + s + unichr(0x201d)
+                re.sub(r'('+chr(0x201c)+chr(0x201d)+r')', escape+'\\1', s)
+            s = chr(0x201c) + s + chr(0x201d)
         else:
             if (escape):
                 s = re.sub(r'"', escape+'"', s)
@@ -1214,8 +1199,8 @@ class sjdUtils:
 
     def getUTF8(self, c):
         u = ""
-        if (not isinstance(c, string_types)):
-            c = unicode(c)
+        if (not isinstance(c, str)):
+            c = str(c)
         try:
             u = c.encode('utf-8')
         except UnicodeDecodeError as e:
@@ -1226,7 +1211,7 @@ class sjdUtils:
         spaceChar = " "
         if (spaceAs and spaceAs in spaceCodes):
             spaceChar = spaceCodes[spaceAs]
-        lfChar = unichr(0x240A)
+        lfChar = chr(0x240A)
         if (lfAs and lfAs in lfCodes):
             lfChar = lfCodes[lfAs]
 
@@ -1246,7 +1231,7 @@ class sjdUtils:
             print("makePrintable mode '%s' unsupported." % (mode))
         return buf
 
-    def showControls(self, s, space=unichr(0x2422), lf=unichr(0x240A)):
+    def showControls(self, s, space=chr(0x2422), lf=chr(0x240A)):
         """Convert control characters into Unicode "control pictures".
         Space lets you choose U+2422 = bSlash, U+2423 = underbar, U+2420 = SP.
         LF lets you choose U+240a = LF, U+2424 = NL.
@@ -1286,7 +1271,7 @@ class sjdUtils:
         This escaping is appropriate for XML text content.
         """
         if (s is None): return("")
-        if (not isinstance(s, string_types)): s = str(s)
+        if (not isinstance(s, str)): s = str(s)
         s = s = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f]', "", s)
         s = re.sub(r'&',   "&amp;",  s)
         s = re.sub(r'<',   "&lt;",   s)
@@ -1353,7 +1338,7 @@ class sjdUtils:
         """Turn HTML4 entites and numeric character references into literals.
         """
         if (s is None): return("")
-        if (PY2):
+        if (sys.version_info[0] == 2):
             import HTMLParser
         else:
             from html.parser import HTMLParser
@@ -1363,10 +1348,10 @@ class sjdUtils:
     # Handle c-like \\ codes, include octal, hex, Unicode.
     #
     def charFromHexFunction(self, mat):
-        return(unichr(int(mat.group(1), 16)))
+        return(chr(int(mat.group(1), 16)))
 
     def charFromOctalFunction(self, mat):
-        return(unichr(int(mat.group(1), 8)))
+        return(chr(int(mat.group(1), 8)))
 
     def charToURIFunction(self, mat):
         c = mat.group(1)
@@ -1399,7 +1384,7 @@ class sjdUtils:
         s = re.sub(r"([^[:ascii:]])", self.charToXXFunction, s)
         return(s)
 
-    if PY2:
+    if (sys.version_info[0] == 2):
         def unbackslash(self, s):
             return s.decode('string_escape') # python2
     else:
@@ -1517,14 +1502,14 @@ class sjdUtils:
     ###########################################################################
     # Miscellaneous
     #
-    # In Python 3, use 'importlib' instead of 'imp'.
     def try_module(self, moduleName, quiet=False):
-        import imp
+        if (sys.version_info[0] == 2): import imp as importlib
+        else: import importlib
         try:
-            imp.find_module(moduleName)
+            importlib.find_module(moduleName)
         except ImportError:
             if (not quiet): sys.stderr.write(
-                "sjdUtils.try_module(): Can't find module'%s'." % (moduleName))
+                "sjdUtils.try_module(): Can't find module '%s'." % (moduleName))
             return(False)
         return(True)
 

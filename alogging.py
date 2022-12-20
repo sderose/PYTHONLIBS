@@ -22,18 +22,18 @@ except ImportError:
     class NamedNodeMap(list): pass  # Just get it out of the way...
 
 __metadata__ = {
-    'title'        : "alogging",
-    'description'  : "logging additions, for -v levels, stats, formatting, traceback,...",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2011-12-09",
-    'modified'     : "2022-02-17",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "alogging",
+    "description"  : "logging additions, for -v levels, stats, formatting, traceback,...",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2011-12-09",
+    "modified"     : "2022-02-17",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['modified']
+__version__ = __metadata__["modified"]
 
 descr = """
 =Description=
@@ -68,7 +68,7 @@ to keep and report error statistics
     lg = alogging.ALogger()
 
     lg.warn(msg)
-    lg.vMsg(2, msg1, msg2, color='red', stat='Input too long')
+    lg.vMsg(2, msg1, msg2, color="red", stat='Input too long')
 
     print(lg.formatRec(myBigDataThing))
 
@@ -87,8 +87,8 @@ message parameter, just for flexibility (probably should change to allow any
 number).
 
 `vMsg()` is meant for
-verbose or informational messages `eMsg()` (now deprecated, use `error()`) is for errors,
-while `hMsg` is for headings. They have different formatting
+verbose or informational messages `eMsg()` (now deprecated, use `error()`)
+is for errors, while `hMsg` is for headings. They have different formatting
 characteristics, which can be changed independently.
 
 The `stat` option may be used to provide the name of a counter to increment.
@@ -97,14 +97,14 @@ messages may increment the same-named stat counter.
 The named stats are created as needed.
 Other `stat` methods include (see also the more detailed discussion below):
 
-* `getStat('name')`
-* `bumpStat('name')`
-* `bumpStat('name', incrementAmount)`
-* `setStat('name', newCounterValue)`
+* `getStat("name")`
+* `bumpStat("name")`
+* `bumpStat("name", incrementAmount)`
+* `setStat("name", newCounterValue)`
 * `appendStat(self, stat, datum)` -- converts the stat to a list if it isn't
 already, and appends `datum` to the list.
 * `showStats()`
-* `setOption('noMoreStats', True)` -- this will prevent any new stat names
+* `setOption("noMoreStats", True)` -- this will prevent any new stat names
 from being accepted (causing an exception on any such attempt).
 
 Verbosity can be set with `setOption("verbose", n)` or `setVerbose(n)`.
@@ -112,14 +112,14 @@ Verbosity can be set with `setOption("verbose", n)` or `setVerbose(n)`.
 ==formatRec(self, obj, options=None)==
 
 This will fairly nicely format any (?) Python object as an annotated outline.
-It knows about the basic
-scalar and collection datatypes, as well as basic numpy and PyTorch vector types.
+It knows about the basic scalar and collection datatypes,
+as well as basic numpy and PyTorch vector types.
 For objects, it knows to show their non-callable properties.
 
 `options` should be a dict, which may include:
 * `obj`       -- The data to be displayed.
-* `keyWidth`  -- Allow this much room for dict keys, in trying to line things up. Default: 14.
-* `maxDepth`  -- Limit how far down nested collections will be displayed. Default: 3.
+* `keyWidth`  -- Room for dict keys, in trying to line things up. Default: 14.
+* `maxDepth`  -- Limit nesting of collections to display. Default: 3.
 * `maxItems`  -- Limit how many items of lists will be displayed.
 * `maxString` -- Limit number of characters to show for strings.
 * `propWidth` -- Allow this much room for object property names.
@@ -147,7 +147,7 @@ vertically by padding their keys/names to `keyWidth` or `propWidth` columns.
 
 Object are displayed pretty much like dicts, but using "<<" and ">>" to surround
 their members, and putting "." before property names, unlike quoted dict keys.
-Callables, and properties beginning with "__", are omitted unless the 'specials'
+Callables, and properties beginning with "__", are omitted unless the "specials"
 option is set.
 
 numpy and PyTorch vectors are not shown in their entirety, but do display their
@@ -160,7 +160,7 @@ gets a decently-formatted partial or complete stack trace
 
 ==getCaller(self)==
 
-Just returns the name of the (direct) caller of `alogging`, using Python `inspect`.
+Returns the name of the (direct) caller of `alogging`, using Python `inspect`.
 
 
 ==Notes on speed==
@@ -223,7 +223,7 @@ If ''dotfill'' is greater than 0, then every ''dotfill'''th line will use
 ''fillchar'' instead of space for padding ''label''. For example,
 ''dotfill=3'' makes every third line be dot-filled.
 
-If ''denom'' is greater than 0, another column is displayed, showing ''n/denom''.
+If ''denom'' > 0, another column is displayed, showing ''n/denom''.
 
 =='logging'-like messaging methods==
 
@@ -331,60 +331,6 @@ These items can be filled in by a message format:
 
 * 'msg'
 
-==Message types==
-
-* ''defineMsgType''(type, color=None, nLevels=None, func=None,
-prefix=None, infix=None, suffix=None, escape=None, indent=None)
-
-DEPRECATED
-
-Create or modify a named "type" of message.
-Types "v", "e", and "h" are predefined but may be modified.
-Type "x" is reserved.
-
-The parameters other than ''type'' are all optional and default to `None`.
-When a parameter is `None`, the property is left
-unchanged for an already-existing message type.
-However, for an entirely new message type the property is set to
-the corresponding default value shown below:
-
-* ''type'': a name for the type of message, to identify it to ''Msg''().
-Required.
-
-* ''color'': What color to display the message in (if color is enabled).
-Default: `/yellow`.
-Note that the `_Msg` methods can take a `color` argument to override this for
-particular messages.
-
-* ''nLevels'': Number of levels of stack-trace to display
-(not yet supported). Default: `0`.
-
-* ''func'': If True, display the calling function's name.
-Default: `False`.
-
-* ''prefix'': A string to display before the start of each message.
-For example, "h"
-messages prefix "\\n******* ", to make them stand out like headings.
-Default: "".
-
-* ''infix'': A string to display between the parts (''m1'' and ''m2'')
-of each message. For example, one might want ''m2'' always on a separate line,
-and therefore set ''infix'' to `\\n`.
-Default: "".
-
-* ''suffix'': A string to display after the end of each message.
-Default: "".
-
-* ''escape'': Turn non-printable characters in the message to printable.
-This is done using ''showInvisibles''() (q.v.).
-Default: `True`.
-Note that the `Msg` methods accept an `escape` parameter to override this for
-particular messages.
-
-* ''indent'': Whether to indent messages according to the level set
-using ''vPush''(), ''vPop''(), etc.
-Default: `True`.
-
 ==Statistics-keeping methods==
 
 This package maintains a list of named "statistics". Typically, each
@@ -491,7 +437,7 @@ This package adds several more calls. The first is simply ''fatal'',
 which issues a ''log''() message with level 60 and then raises an
 exception (if uncaught, this will lead to a stack trace and termination).
 
-The numbers message methods, such as ''info1'' check the verbosity level 
+The numbers message methods, such as ''info1'' check the verbosity level
 (set via ''setVerbose()''), and discard the message if it is not at least
 as high as the number at the end of the method name.
 This supports the common *nix command-line usage, where the
@@ -586,24 +532,21 @@ Seems to be a problem with `maxItems`, and with suppressing callables in `format
 * suppress a given list of properties
 * don't descend into certain object types
 * use a caller-supplied displayer method
+* output the info in HTML or XML rather than just as printable.
 
 
 =To do=
 
 * I don't really like that "stats" part, discard it.
 
-* Sync to Py logger:
+* Sync the Perl version to this Python version:
     rename file to aLogger
     drop 'direct' option
-    drop defineMsgType (globalchange, colorManager, lessData, ...)
-    drop versions of this package from `Volsunga
-    drop any redundant code from sjdUtils
+    drop redundant code from sjdUtils
     drop prefix/infix/suffix
     warn(0 -'''w0...), etc.
-    drop stat arg
-    vMsg->i...
-    eMsg->e...
-    hMsg??
+    drop stat args
+    drop hMsg in favor of "====" prefix
 
 setVerbose does:
     lg.setLevel(20-args.verbose)
@@ -612,11 +555,11 @@ Then message levels 0...9 do the same translation.
 
 * Option to get rid of "INFO:root:" prefix from logging package.
 
-* Consider switching to "logv = lambda lvl, msg: info(msg) if lvl<=args.verbose else None"
-
+* Consider switching to something like:
+    logv = lambda lvl, msg: info(msg) if lvl<=args.verbose else None
 
 * formatRec():
-** Move out to be a separate library?
+** Move out to be a separate library or at least class?
 ** Support more numpy, PyTorch classes (and have a way to extend? maybe just tostring()?)
 Or have a dict of types, mapping to their formatter functions.
 ** Protect against circular structures (started 2022-02-17 via 'noDups' option).
@@ -661,14 +604,20 @@ Drop headingN() methods, and make log() insert separator space and line if the
 message starts with "====". Planning to lose hMsg(), defined msg types, etc.
 Add 'noDups'. Drop rMsg(), MsgRule, defineMsgType(), Msg().
 * 2022-07-27: Add indent option to pline. More type-hints.
+* 2022-08-03: Drop remaining MsgType stuff, and MsgPush/MsgPop. Add indent
+option to DirectMsg and pline. Add parseOptions in test main.
+* 2022-08-03ff: Break formatRec into a class. Keep options on class instead
+of passing down. Add FormatBuf class, to replace mongo string 'buf' (for the
+moment, have both, but clean up how they're built). Drop remaining defineMsgType.
+>>>>>>> 6f2e866 (logging updates. improve alogging.formatRec().)
 * 2022-09-30: Fiddle with levels and level defaults. Drop MsgPush, MsgPop, etc.
 
 
 =Rights=
 
 Copyright 2019 by Steven J. DeRose. This work is licensed under a Creative
-Commons Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see [http://creativecommons.org/licenses/by-sa/3.0].
+Commons Attribution-Share Alike 3.0 Unported License. For further information
+on this license, see [http://creativecommons.org/licenses/by-sa/3.0].
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github.com/sderose].
@@ -688,50 +637,55 @@ All those works are by the same author and are licensed under the same license
 ###############################################################################
 #
 class ALogger:
-    loggerLevelDefault = logging.INFO
+    """Some extensions to the Python logger, to make it more like my
+    old Perl logger, and to support repeatable -v options and color.
+    """
+    verboseDefault = 0
 
     def __init__(self,
-        verbose:int  = 0,          # Level of -v for 'info' messages (0...9)
-        level:int    = None,       # logging.setLevel value
+        verbose:int  = None,       # Level of detail for "info" messages.
         color        = None,
         filename:str = None,
         encoding:str = 'utf-8',
         options:dict = None
         ):
 
-        if (color is None): color = ('CLI_COLOR' in os.environ)
+        if (color is None):
+            color = ("CLI_COLOR" in os.environ)
 
-        if (level is None): level = ALogger.loggerLevelDefault
-        
+        if (verbose is None):
+            verbose = ALogger.verboseDefault
+
         self.options = {
-            'verbose'        : verbose,     # Number of -v levels
+            "verbose"        : verbose,     # Verbosity level
+            "color"          : color,       # Using terminal color?
+            "filename"       : filename,    # For logging pkg
+            "encoding"       : encoding,    # Assumed char set
             # Set a level that doesn't hide too much:
             # CRITICAL 50, ERROR 40, WARNING 30, INFO 20, DEBUG 10, NOTSET 0
-            'level'          : level - verbose,
-            'color'          : color,       # Using terminal color?
-            'filename'       : filename,    # For logging pkg
-            'encoding'       : encoding,    # Assumed char set
-            
-            'badChar'        : "?",         # Substitute for undecodables
-            'controlPix'     : True,        # Show U+24xx for control chars?
-            'noMoreStats'    : False,       # Warn on new stat names
-            'plineWidth'     : 30,          # Columns for label for pline()
-            'displayForm'    : "SIMPLE",    # UNICODE, HTML, or SIMPLE
+            "level"          : ALogger.verboseDefault, # For logging filtering
+
+            "badChar"        : "?",         # Substitute for undecodables
+            "controlPix"     : True,        # Show U+24xx for control chars?
+            "indentString"   : "  ",        # For pretty-printing
+            "noMoreStats"    : False,       # Warn on new stat names
+            "plineWidth"     : 30,          # Columns for label for pline()
+            "displayForm"    : "SIMPLE",    # UNICODE, HTML, or SIMPLE
         }
 
         self.optionTypes = {
-            'verbose'        : int,
-            'level'          : int,
-            'color'          : bool,
-            'filename'       : str,
-            'encoding'       : str,
-            
-            'direct'         : bool,
-            'badChar'        : str,
-            'controlPix'     : bool,
-            'noMoreStats'    : bool,
-            'plineWidth'     : int,
-            'displayForm'    : str,
+            "verbose"        : int,
+            "color"          : bool,
+            "filename"       : str,
+            "encoding"       : str,
+            "level"          : int,
+            "direct"         : bool,
+
+            "badChar"        : str,
+            "controlPix"     : bool,
+            "indentString"   : str,
+            "noMoreStats"    : bool,
+            "plineWidth"     : int,
         }
 
         if (options is not None):
@@ -741,11 +695,11 @@ class ALogger:
                 self.options[k] = self.optionTypes[k](v)
 
         if (filename):
-            logging.basicConfig(level=self.options['level'],
-                                filename=self.options['filename'],
+            logging.basicConfig(level=self.options["level"],
+                                filename=self.options["filename"],
                                 format='%(message)s')
         else:
-            logging.basicConfig(level=self.options['level'],
+            logging.basicConfig(level=self.options["level"],
                                 format='%(message)s')
         self.lg             = logging.getLogger()
 
@@ -758,28 +712,8 @@ class ALogger:
         # Also available via ColorManager.uncolorizer()
         self.colorRegex     = re.compile(r'\x1b\[\d+(;\d+)*m')
         self.colorManager   = None
-        if (self.options['color']): self.setupColor()
+        if (self.options["color"]): self.setupColor()
 
-        # String to display to delimit types of objects
-        # Factor out string-quoting too, to make it distinctive.
-        if (self.options['displayForm'] == "UNICODE"):
-            self.openDict = "{"; self.closeDict = "}"
-            self.openList = "["; self.closeList = "]"
-            self.openObject = "\u00ab"; self.closeObject = "\u00bb"  # ANGLE BKT
-            self.disp_None = "\u2205"  # NULL SET
-        elif (self.options['displayForm'] == "HTML"):
-            self.openDict = "<DL>"; self.closeDict = "</DL>"
-            self.openList = "<OL>"; self.closeList = "</OL>"
-            self.openObject = "<UL>"; self.closeObject = "</UL>"
-            self.disp_None = "&#x2205;"  # NULL SET
-        else:  # (self.options['displayForm'] == "SIMPLE"):
-            self.openDict = "{"; self.closeDict = "}"
-            self.openList = "["; self.closeList = "]"
-            self.openObject = "<<"; self.closeObject = ">>"
-            self.disp_None = "*NONE*"
-
-        self.aggregatesSeen = None  # For formatRec()
-        
         return(None)
 
     def setColors(self, activate=True):
@@ -796,9 +730,9 @@ class ALogger:
             #print("Color count: %d" % (len(self.colorStrings)))
         except ImportError as e:
             sys.stderr.write("Cannot import ColorManager:\n    %s" % (e))
-            self.colorStrings = { 'bold': '*', 'off':'*' }
+            self.colorStrings = { "bold": '*', "off":'*' }
 
-    def colorize(self, argColor='red', s="", endAs="off",
+    def colorize(self, argColor="red", s="", endAs="off",
         fg='', bg='', effect=''):
         if (self.colorManager):
             return self.colorManager.colorize(argColor=argColor, msg=s,
@@ -830,23 +764,23 @@ class ALogger:
 
     def setVerbose(self, v:int):
         """Set the degree of verbosity for messages to be reported.
-        This is NOT the same as the logging package 'level'!
+        This is NOT the same as the logging package "level"!
         """
         v = int(v)
-        if (v>=0):
-            self.lg.setLevel(logging.INFO)
-        return(self.setALoggerOption('verbose', v))
+        if (v>0 and not self.lg.isEnabledFor(20)):
+            self.lg.setLevel(20)
+        return(self.setALoggerOption("verbose", v))
 
     def getVerbose(self):
         """Return the verbosity threshold.
         """
-        return(self.getALoggerOption('verbose'))
+        return(self.getALoggerOption("verbose"))
 
     def showInvisibles(self, s):
-        """Return 's' with non-ASCII and control characters replaced by
+        """Return "s" with non-ASCII and control characters replaced by
         hexadecimal escapes such as \\uFFFF.
         """
-        cp = self.options['controlPix']
+        cp = self.options["controlPix"]
         try:
             s = re.sub(r'([%[:ascii:]]|[[:cntrl:]])',
                 lambda x: (
@@ -859,36 +793,16 @@ class ALogger:
 
 
     ###########################################################################
-    # Set default options for predefined message-types v, e, h, x.
     #
-    def defineMsgTypes(self):
-        """
-        Define the set of built-in message types.
-        """
-        assert False
-
-    def defineMsgType(self, *_args, **_kwargs):
-        """Create a new named message type, for use with 'Msg()'.
-        Each type owns a bunch of formatting information.
-        Arguments default to None, so user can leave items unchanged
-        if the type is already defined.
-        """
-        assert False, "defineMsgType has been dropped."
-
-    def getMsgDefs(self):
-        """
-        """
-        assert False
-
     def getPickedColorString(self, argColor:str, msgType:str=None):
         """Return color escape codes (not name!) -- the requested color if any,
         else the default color for the message type.
         """
         assert not msgType
-        if (not self.options['color']):
+        if (not self.options["color"]):
             return("","")
         if (argColor and argColor in self.colorStrings):
-            return(self.colorStrings[argColor], self.colorStrings['off'])
+            return(self.colorStrings[argColor], self.colorStrings["off"])
         return("","")
 
 
@@ -899,14 +813,14 @@ class ALogger:
 
 
     ###########################################################################
-    # Python 'Logger'-compatible calls:
+    # Python "Logger"-compatible calls:
     #
     # The type-specific calls handles statistic-updating, because that should
     # happen whether or not the level filters out actual display.
     #
     def log(self, level, msg, stat=None, **kwargs):  # ARGS!
         if (stat): self.bumpStat(stat)
-        if (self.options['verbose'] < level): return
+        if (self.options["verbose"] < level): return
         self.directMsg(msg, **kwargs)
     def debug(self, msg, stat=None, **kwargs):         # level = 10
         if (stat): self.bumpStat(stat)
@@ -945,17 +859,23 @@ class ALogger:
 
     def directMsg(self, msg, **kwargs) -> None:
         """Pretty much everything ends up here.
-        'stat' are should have been handled and removed by caller.
+        "stat" are should have been handled and removed by caller.
+        kwargs known:
+            "color"  -- takes colorString style names
+            "end"    -- like Python print()
+            "indent" -- indent the message this far.
         """
-        #assert ('stat' not in kwargs)
+        #assert ("stat" not in kwargs)
         if (msg.startswith("====")):
             msg = "\n%s\n%s" % ("=" * 79, msg.lstrip('='))
-        ender = kwargs['end'] if 'end' in kwargs else "\n"
+        if ("indent" in kwargs):
+            msg = " " * kwargs["indent"] + msg
+        ender = kwargs["end"] if "end" in kwargs else "\n"
         if (not msg.endswith(ender)): msg += ender
         #msg2 = re.sub(r'\n', '*', msg)
-        if ('color' in kwargs):
+        if ("color" in kwargs):
             if (not self.colorManager): msg += " (color not enabled)"
-            else: msg = self.colorManager.colorize(kwargs['color'])
+            else: msg = self.colorManager.colorize(kwargs["color"])
         sys.stderr.write(msg)
 
     # Pass through a few useful methods?
@@ -972,61 +892,55 @@ class ALogger:
     # The following message methods and types are treated
     #     as subtypes of info() messages. So they only appear if you
     #     set logging level to a value <= 20.
-    # IN ADDITION, they take a 'verbose' argument, which is a value
+    # IN ADDITION, they take a "verbose" argument, which is a value
     #     from 0 to n, and is the number of '-v' flags (or equivalent)
     #     needed to make the message appare. So 0 will show up any time
     #     info() messages do; 1 must also have at least -v; two -v -v,....
     #
     def vMsg(
-        self, 
-        verbose:int, 
-        m1:str, 
-        m2:str="", 
-        color:str=None, 
-        indent:int=0, 
-        stat:str=""
+        self,
+        verbose:int,
+        m1:str,
+        m2:str="",
+        color:str=None,
+        indent:int=0,
         ) -> None:
-        """Issue a 'verbose' (msgType 'v') info message.
+        """Issue a "verbose" (msgType "v") info message.
         """
-        if (stat!=""): self.bumpStat(stat)
-        if (self.options['verbose'] < verbose): return
+        if (self.options["verbose"] < verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, indent=indent)
         self.info(m)
 
     # Change called over to call error() directly, then delete eMsg().
     def eMsg(
-        self, 
-        verbose:int, 
-        m1:str, 
-        m2:str="", 
-        color:str=None, 
-        indent:int=0, 
-        stat:str=""
+        self,
+        verbose:int,
+        m1:str,
+        m2:str="",
+        color:str=None,
+        indent:int=0,
         ) -> None:
         """Issue an error message.
         """
         self.errorCount += 1
-        if (stat!=""): self.bumpStat(stat)
-        if (self.options['verbose'] < verbose): return
+        if (self.options["verbose"] < verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, indent=indent)
         self.info(m)
         if (verbose<0):
             raise AssertionError("alogging:eMsg with level %d." % (verbose))
 
     def hMsg(
-        self, 
-        verbose:int, 
-        m1:str, 
-        m2:str="", 
-        color:str=None, 
-        indent:int=0, 
-        stat:str=""
+        self,
+        verbose:int,
+        m1:str,
+        m2:str="",
+        color:str=None,
+        indent:int=0,
         ) -> None:
-        """Issue a 'heading' (msgType 'h') message.
+        """Issue a "heading" (msgType "h") message.
         DEPRECATED in favor of prefixing "====" to other messages.
         """
-        if (stat!=""): self.bumpStat(stat)
-        if (self.options['verbose'] < verbose): return
+        if (self.options["verbose"] < verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, indent=indent)
         self.info(m)
 
@@ -1041,14 +955,12 @@ class ALogger:
         stat:str=None,
         verbose:int=0
         ) -> None:
-        """Issue a message of the given ''msgType'' (see ''defineMsgType).
+        """Issue a message.
         See also the wrappers ''hMsg''(), ''vMsg''(), and ''hMsg''().
 
         Checks ''verbose'' against the value of the 'verbose' option; if that
         option has actually been set, ''and'' is lower, return without display.
         Otherwise, call Logger's ''info''() to actually issue the message.
-
-        * ''msgType'' Mnemonic 'type' of the message, per defineMsgType''().
 
         * ''message1'' Text to display, in the color specified by ''color''
         or for the message type.
@@ -1071,7 +983,7 @@ class ALogger:
         """
         assert False, "Don't use Msg() any more!"
         if (stat!=""): self.bumpStat(stat)
-        if (self.options['verbose']<verbose): return
+        if (self.options["verbose"]<verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, escape=escape)
         self.lg.log(logging.INFO - level, m)
         return
@@ -1104,14 +1016,15 @@ class ALogger:
         caller = ""
         if (func): caller = self.getCaller() + ": "
         (on, off) = self.getPickedColorString(color, msgType)
-        m = on + pre + caller + self.insureUnicode(m1) + off + self.insureUnicode(m2)
+        m = (on + pre + caller + self.insureUnicode(m1) +
+            off + self.insureUnicode(m2))
         if (locMsg): m += "\n" + locMsg
         return(m)
 
     def getLoc(self, startLevel:int=0, endLevel:int=0) -> str:
         """Return a line(s) showing where we were invoked from.
-        frameItems = [ 'frameObj', 'file', 'lineno',
-                       'function', "[codeLines]", 'indexOfLine' ]
+        frameItems = [ "frameObj", "file", "lineno",
+                       "function", "[codeLines]", "indexOfLine" ]
         """
         if (startLevel<=0): return("")
         buf = ""
@@ -1135,16 +1048,16 @@ class ALogger:
         try:
             s2 = s.decode(encoding='latin-1')
         except UnicodeDecodeError:
-            s2 = re.sub(r'[\x80-\xFF]', self.options['badChar'], s)
+            s2 = re.sub(r'[\x80-\xFF]', self.options["badChar"], s)
         return s2
-        
-        
+
+
     ###########################################################################
     # Statistic-keeping
     #
     def defineStat(self, stat:str) -> None:
         """Create a new statistic. Optional, because stats are quietly created
-        as needed. However, ''setOption('noMoreStats', True) prevents this.
+        as needed. However, ''setOption("noMoreStats", True) prevents this.
         """
         self.msgStats[stat] = 0
 
@@ -1156,7 +1069,7 @@ class ALogger:
         """
         if (stat in self.msgStats):
             self.msgStats[stat] += amount
-        elif (self.options['noMoreStats']):
+        elif (self.options["noMoreStats"]):
             self.error(0, "alogging.bumpStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = amount
@@ -1166,7 +1079,7 @@ class ALogger:
         """
         if (stat in self.msgStats):
             self.msgStats[stat].append(datum)
-        elif (self.options['noMoreStats']):
+        elif (self.options["noMoreStats"]):
             self.error(0, "alogging.appendStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = [ datum ]
@@ -1176,7 +1089,7 @@ class ALogger:
         """
         if (stat in self.msgStats):
             self.msgStats[stat] = value
-        elif (self.options['noMoreStats']):
+        elif (self.options["noMoreStats"]):
             self.error(0, "alogging.setStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = value
@@ -1194,7 +1107,7 @@ class ALogger:
         dotfill:bool=0,
         fillchar:str='.',
         onlyMatching:str='',
-        lists:str='len'
+        lists:str="len"
         ):
         """Display all the stat values, via ''pline''()
         @param ''zeros'': if not True, statistics counts of 0 are excluded.
@@ -1233,12 +1146,12 @@ class ALogger:
                 label = k
             v = self.msgStats[k]
             if (isinstance(v, list)):
-                if (lists == 'omit'): continue
-                elif (lists == 'len'): self.pline("  "+label, len(v))
-                elif (lists == 'uniq'):
+                if (lists == "omit"): continue
+                elif (lists == "len"): self.pline("  "+label, len(v))
+                elif (lists == "uniq"):
                     uv = sorted(list(set(v)))
                     self.pline("  "+label, uv)
-                elif (lists == 'uniqc'):
+                elif (lists == "uniqc"):
                     uv = defaultdict(int)
                     for item in v: uv[item] += 1
                     disp = ""
@@ -1255,7 +1168,7 @@ class ALogger:
             self.lg.info("    (no stats logged)")
 
     def pline(
-        self, 
+        self,
         label:str,          # label, in 'width' columns
         n:Any,              # value, in 2nd area(type-dependent alignment)
         denom:float=None,   # if present, also display n/denom
@@ -1266,7 +1179,7 @@ class ALogger:
         indent:int=0,       # Add this many leading spaces
         ) -> str:
         """Display a pair of a label and an aligned value.
-        'widt´h' defaults to the `plineWidth` option).
+        'width' defaults to the `plineWidth` option).
         If ''denom'' ('denominator') is non-zero, and ''n'' is an int or
         float, then an additional field showing n/denom appears (or 'NaN').
         """
@@ -1288,10 +1201,10 @@ class ALogger:
             try:
                 ratio = "%12.6f" % (n*1.0/denom)
             except (ValueError, ZeroDivisionError):
-                ratio = "%12s" % ('NaN')
+                ratio = "%12s" % ("NaN")
             valueField += "   " + ratio
 
-        wid = width or self.options['plineWidth']
+        wid = width or self.options["plineWidth"]
         if (not dotfill or self.plineCount % dotfill != 0):
             uncolorized = re.sub(self.colorRegex, '', label)
             padlen = wid - len(uncolorized)
@@ -1313,7 +1226,8 @@ class ALogger:
         for k in dir(obj):
             if (k.startswith("__") or k == "_"): continue
             try:
-                if (not includeCallables and callable(getattr(dir, k))):  # TODO dir? -> obj?
+                if (not includeCallables and
+                    callable(getattr(dir, k))):  # TODO dir? -> obj?
                     continue
                 val = getattr(dir, k)
             except AttributeError:
@@ -1323,19 +1237,82 @@ class ALogger:
 
 
     ###########################################################################
-    # Data formatters
+    # Get install state
     #
-    def formatPickle(self, path:str) -> str:
-        import pickle
-        with open(path, "rb") as ifh:
-            stuff = pickle.load(ifh)
-        return self.formatRec(stuff)
-
-    def getFROptionDefaults(self) -> Dict:
-        """Initial/default values for all the formatRec() options.
+    def gatherLibraryReport(self, dunder=False, sunder=False, builts=False, dotted=False) -> str:
+        """Create a printable report of all the imported libraries.
         """
-        options = {
+        buf = ""
+        libDict = self.gatherLibraryVersions(
+            dunder=dunder, sunder=sunder, builts=builts, dotted=dotted)
+        for m, pair in libDict.items():
+            buf += "%-30s %20s %s" % (m, pair[0], pair[1])
+        return buf
+
+    def gatherLibraryVersions(self, dunder=False, sunder=False, builts=False, dotted=False) -> Dict:
+        """Collect all imported modules, with their version and path (if
+        available), and display them.
+        From: getLibraryVersions.py (it also has a builtin list)
+        """
+        theDict = {}
+        mlist = sorted(list(sys.modules.keys()))
+        for m in mlist:
+            if (not dunder and m.startswith("__")): continue
+            if (not sunder and m.startswith("_") and m[1]!="_"): continue
+            if (not builts and "__builtins__" in dir(m)): continue
+            if (not dotted and "." in m): continue
+            ver = filename = "???"
+            try:
+                ver = sys.modules[m].__version__
+            except AttributeError:
+                pass
+            try:
+                filename = sys.modules[m].__file__
+            except AttributeError:
+                pass
+            theDict[m] = (ver, filename)
+        return theDict
+
+
+###########################################################################
+# Data formatters
+#
+class FormatBuf:
+    def __init__(self, iString:str="  "):
+        self.iString = iString
+        self.lines = []
+
+    def add(self, depth:int=0, s:str="") -> None:
+        self.lines.append(self.iString*depth + s)
+
+    def assemble(self) -> str:
+        return "\n".join(self.lines) + "\n"
+
+
+class FormatRec:
+    """Format Python data structures nicely for readability. This can:
+      * use hierarchical indentation
+      * show datatypes
+      * show cardinalities, limit number of members to include
+      * sort aggregates
+      * exclude callables and dunder items
+      * skip particular item names or dict keys or types
+      * limit depth
+      * limit string length shown
+      * protect against circular references
+
+    Currently set up only to pretty-print. Plan is to also support
+    XHTML output.
+    """
+    _scalarTypes = [ int, str, bool, float, complex, str, bytearray ]
+
+    def __init__(self, logger=None, **kwargs):
+        if (logger): self.lg = logger
+        else: self.lg = ALogger()
+
+        self.options = {
             "depthMessage": "deeper",   # Show in place of deeper objects
+            "displayForm":  "UNICODE",
             "indentSize":   4,          # Spaces per indent level
             "keyWidth":     14,         # Columns to leave for dict keys
             "maxDepth":     3,          # Limit recursion levels
@@ -1350,7 +1327,40 @@ class ALogger:
             "stopNames":    {},         # Names/keys *not* to expand
             "stopTypes":    {},         # Types *not* to expand
         }
-        return options
+        for k, v in kwargs.items():
+            if (k not in self.options):
+                self.lg.error("FormatRec: Unknown option '%s'." % (k))
+                continue
+            if (not isinstance(v, type(self.options[k]))):
+                self.lg.error("FormatRec: Unknown option '%s'." % (k))
+                continue
+            self.options[k] = v
+
+        # String to display to delimit types of objects
+        # Factor out string-quoting too, to make it distinctive.
+        if (self.options["displayForm"] == "UNICODE"):
+            self.openDict = "{"; self.closeDict = "}"
+            self.openList = "["; self.closeList = "]"
+            self.openObject = "\u00ab"; self.closeObject = "\u00bb"  # ANGLE BKT
+            self.disp_None = "\u2205"  # NULL SET
+        elif (self.options["displayForm"] == "HTML"):
+            self.openDict = "<DL>"; self.closeDict = "</DL>"
+            self.openList = "<OL>"; self.closeList = "</OL>"
+            self.openObject = "<UL>"; self.closeObject = "</UL>"
+            self.disp_None = "&#x2205;"  # NULL SET
+        else:  # (self.options["displayForm"] == "SIMPLE"):
+            self.openDict = "{"; self.closeDict = "}"
+            self.openList = "["; self.closeList = "]"
+            self.openObject = "<<"; self.closeObject = ">>"
+            self.disp_None = "*NONE*"
+
+        self.aggregatesSeen = None  # For formatRec()
+
+    def formatPickle(self, path:str) -> str:
+        import pickle
+        with open(path, "rb") as ifh:
+            stuff = pickle.load(ifh)
+        return self.formatRec(stuff)
 
     def formatRec(
         self,
@@ -1365,186 +1375,226 @@ class ALogger:
 
         @return: A printable string.
 
-        NOTE: This is protected against circular structures only by 'maxDepth' and
-        the (still experimental) 'noDups' option if set.
+        NOTE: This is protected against circular structures only by "maxDepth"
+        and the (still experimental) "noDups" option if set.
         """
-        options = self.getFROptionDefaults()
         for k, v in kwargs.items():
-            if (k not in options):
-                raise KeyError("Bad formatRec() option '%s'. Known options: %s." %
-                    (k, ", ".join(sorted(options.keys()))))
-            if (not isinstance(v, type(options[k]))):
-                raise ValueError("Expected type %s, not %s, for formatRec option '%s'." %
-                    (type(options[k]), type(v), k))
-            options[k] = v
+            if (k not in self.options):
+                raise KeyError("Bad formatRec() option '%s'. Known: %s." %
+                    (k, ", ".join(sorted(self.options.keys()))))
+            if (not isinstance(v, type(self.options[k]))):
+                raise ValueError("Expected type %s, not %s, for option '%s'." %
+                    (type(self.options[k]), type(v), k))
+            self.options[k] = v
 
         # Keep a list of non-scalars so we don't re-print same one.
         self.aggregatesSeen = {}
 
-        return self.formatRec_R(obj, options=options, depth=0)
+        return self.formatRec_R(obj, depth=0)
 
-    scalarTypes = [ int, str, bool, float, complex, str, bytearray ]
-    
-    def formatRec_R(self, obj:Any, options:Dict, depth:int) -> str:
+    def getLenDisplay(self, typeName:str, obj:Any, lenValue:str=None) -> str:
+        """Iff options say so, return a string showing the cardinality of
+        the given object, as well as its type.
+            For a few cases like numpy, where you can't just use len()
+            on the object, pass the printable value in lenValue.
+        """
+        if (self.options["showSize"]):
+            if (not lenValue): lenValue = len(obj)
+            return "%s |%s|: " % (typeName, lenValue)
+        return ""
+
+    def formatRec_R(self, obj:Any, depth:int) -> str:
         """The real (recursive) formatter.
         """
-        #print("In formatRec_R, depth %d, maxDepth %d." % (depth, options['maxDepth']))
-        isScalar = type(obj) in self.scalarTypes
-        if (depth > options['maxDepth']):
-            if (isScalar): return self.formatScalar(obj, options['maxString'])
-            return "(%s %s)" % (options['depthMessage'], type(obj).__name__)
+        #print("In formatRec_R, depth %d, maxDepth %d." % (depth, self.options["maxDepth"]))
+        isScalar = type(obj) in self._scalarTypes
+        if (depth > self.options["maxDepth"]):
+            if (isScalar):
+                return self.formatScalar(obj, self.options["maxString"])
+            return "(%s %s)" % (self.options["depthMessage"], type(obj).__name__)
 
-        ind = ' ' * (options['indentSize'] * depth)
+        ind = ' ' * (self.options["indentSize"] * depth)
         buf = ""
         #buf += (ind + "*** Dumping a '%s'." % (type(obj)))
+        fb = FormatBuf(iString=" " * self.options["indentSize"])
 
         try:
             typeName = type(obj).__name__
         except AttributeError:
             typeName = "???"
-            
-        # Avoid re-printing same non-scalar object (also prevents circular traverse).
+
+        # Avoid re-printing same object (also prevents circular traverse).
         if (not isScalar):
             if (id(obj) in self.aggregatesSeen):
                 # TODO: Also print obj pointers on aggregates...
                 buf += ind + "(repeated %s, at 0x%x)" % (typeName, id(obj))
+                fb.add(depth, "(repeated %s, at 0x%x)" % (typeName, id(obj)))
                 return buf
             else:
                 self.aggregatesSeen[id(obj)] = True
-                
-        if (obj is None):                                           # NONE
+
+        if (obj is None):                                 # NONE
             buf += ind + self.disp_None
+            fb.add(depth, self.disp_None)
 
         #elif (typeName in [ Node, Document ]):
         #    buf += "%s%s%s" % (chr(0x227A), type(obj), chr(0x227B))
+        #    fb.add(depth, buf)
 
-        elif (callable(obj)):                                       # CALLABLE
+        elif (callable(obj)):                             # CALLABLE
             #buf += (ind + "callable '%s'\n" % (nm))
-            nm = getattr(obj, '__name__', "[UNNAMED]")
+            nm = getattr(obj, "__name__", "[UNNAMED]")
             buf += ind + "Callable '%s()'" % (nm)
+            fb.add(depth, "Callable '%s()'" % (nm))
 
         # If a scalar is in some aggregates, the aggregate adds ind and \n.
         elif (isinstance(obj, (bool, int, float, complex, str))):   # SCALARS
-            buf += self.formatScalar(obj, options['maxString'])
+            buf += self.formatScalar(obj, self.options["maxString"])
+            fb.add(depth, self.formatScalar(obj, self.options["maxString"]))
 
-        elif (isinstance(obj, dict)):                               # DICT
+        elif (isinstance(obj, dict)):                     # DICT
             # namedtuple, defaultdict?
-            buf += ind
-            if (options['showSize']): buf += "dict |%d|:" % (len(obj))
+            lenPart = self.getLenDisplay(typeName, obj)
+            buf += ind + lenPart + self.openDict
+            fb.add(depth, lenPart + self.openDict)
             if (len(obj)):
-                buf += ind + " %s\n" % (self.openDict)
-                dfmt = ind + "  %-" + str(options['keyWidth']) + "s: %s,\n"
-                inum = 0
-
-                if (options['sortKeys']):
+                dfmt = "  %-" + str(self.options["keyWidth"]) + "s: %s,\n"
+                keyList = obj.keys()
+                if (self.options["sortKeys"]):
                     try:
-                        keyList = sorted(obj.keys())
+                        keyList = sorted(keyList)
                     except TypeError:
-                        keyList = obj.keys()
-                else: keyList = obj.keys()
-                for n in keyList:
+                        pass
+                for inum, n in enumerate(keyList):
                     v = obj[n]
-                    inum += 1
-                    if (self.skipIt(v, n, options)): continue
-                    if (options['maxItems'] > 0 and inum > options['maxItems']):
-                        buf += "*** maxItems reached ***"
+                    if (self.skipIt(v, n)): continue
+                    if (0 < self.options["maxItems"] < inum):
+                        bufData += "*** maxItems reached ***"
                         break
-                    buf += dfmt % (
-                        self.quote(n, options['quoteKeys']),
-                        self.formatRec_R(v, options=options, depth=depth+1))
-                buf += ind + self.closeDict
+                    thisOne = dfmt % (
+                        self.quote(n, self.options["quoteKeys"]),
+                        self.formatRec_R(v, depth=depth+1))
+                    buf += ind + thisOne
+                    fb.add(depth, thisOne)
+            buf += ind + self.closeDict
+            fb.add(depth, self.closeDict)
 
-        elif (isinstance(obj, (tuple, set, frozenset))):            # TUPLE, SET
-            buf += ind
-            if (options['showSize']): buf += "%s |%d|" % (typeName, len(obj))
+        elif (isinstance(obj, (tuple, set, frozenset))):  # TUPLE, SET
+            lenPart = self.getLenDisplay(typeName, obj)
+            buf += ind + lenPart + self.openList + "\n"
+            fb.add(depth, lenPart + self.openList)
             if (len(obj)):
-                buf += ": %s\n" % (self.openList)
                 for n, v in enumerate(obj):
-                    if (options['maxItems'] > 0 and n > options['maxItems']): break
-                    buf += ("%s%s,\n" %
-                    (ind, self.formatRec_R(v, options=options, depth=depth+1)))
+                    if (0 < self.options["maxItems"] < n): break
+                    subPart = self.formatRec_R(v, depth=depth+1)
+                    buf += ind + subPart + ",\n"
+                    fb.add(depth, subPart)
                 buf += ind + self.closeList
+                fb.add(depth, self.closeList)
 
-        elif (isinstance(obj, list)):                               # LIST
-            buf += ind
-            if (options['showSize']): buf += "%s |%d|" % (typeName, len(obj))
+        elif (isinstance(obj, list)):                     # LIST
+            lenPart = self.getLenDisplay(typeName, obj)
             if (len(obj)):
-                buf += ": %s\n" % (self.openList)
+                buf += ind + lenPart + self.openList + "\n"
+                fb.add(depth, lenPart + self.openList)
                 for n, v in enumerate(obj):
-                    if (options['maxItems'] > 0 and n > options['maxItems']): break
-                    buf += "%s #%d: %s,\n" % (
-                        ind, n, self.formatRec_R(v, options=options, depth=depth+1))
+                    if (0 < self.options["maxItems"] < n): break
+                    subPart = "#%d: %s,\n" % (
+                        n, self.formatRec_R(v, depth=depth+1))
+                    buf += ind + subPart
+                    fb.add(depth, subPart)
                 buf += ind + self.closeList
+                fb.add(depth, self.closeList)
 
         elif (typeName == "Tensor"):                      # torch Tensor
             # Ignore most props
             if (obj.is_cuda): cFlag = " (cuda)"
             else: cFlag = ""
-            buf += "%4d-D %s of |%d| %s%s" % (
+            lenPart = "%4d-D %s of |%d| %s%s" % (
                 obj.dim(), typeName, len(obj), obj.dtype, cFlag)
+            buf += ind + lenPart + "  //data not shown//" + "\n"
+            fb.add(depth, lenPart + "  //data not shown//")
 
-        elif (typeName == 'ndarray'):                     # numpy array
-            buf += "ndarray |%s|" % (", ".join(str(x) for x in obj.shape))
+        elif (typeName == "ndarray"):                     # numpy array
+            lenValue = ", ".join(str(x) for x in obj.shape)
+            lenPart = self.getLenDisplay(typeName, obj, lenValue=lenValue)
+            buf += ind + lenPart + "  //data not shown//" + "\n"
+            fb.add(depth, lenPart + "  //data not shown//")
 
-        elif isinstance(obj, NamedNodeMap):                         # NamedNodeMap
+        elif isinstance(obj, NamedNodeMap):               # NamedNodeMap
             # This is weird, dir() won't touch it. Just map it to a dict
             # and print it that way. Geez. TODO: Support sortKeys.
             eqDict = {}
             for k, v in obj.items():
                 eqDict[k] = v
-            return self.formatRec_R(eqDict, options=options, depth=depth)
+            subPart = self.formatRec_R(eqDict, depth=depth)
+            buf += ind + subPart
+            fb.add(depth, subPart)
 
-        #elif (isinstance(obj, type)):                               # TYPE
+        #elif (isinstance(obj, type)):                    # TYPE
         #    buf += "(type)"
 
-        elif (isinstance(obj, object)):                             # OBJECT
-            if (type(obj) in options['stopTypes'] or
-                typeName in options['stopTypes']):
+        elif (isinstance(obj, object)):                   # OBJECT
+            if (type(obj) in self.options["stopTypes"] or
+                typeName in self.options["stopTypes"]):
                 buf += ind + "(object of type %s)" % (typeName)
+                fb.add(depth, "(object of type %s)" % (typeName))
             else:
                 try:
                     stuff = dir(obj)
-                    #buf += ind
+                    if (self.options["sortKeys"]): stuff = sorted(stuff)
                     if (isinstance(obj, Iterable)): iFlag = " (Iterable)"
                     else: iFlag = ""
-                    if (options['showSize']):
-                        buf += "obj %s |%d|%s" % (typeName, len(stuff), iFlag)
-                    buf += ": %s\n" % (self.openObject)
+                    if (self.options["showSize"]):
+                        sizePart = "obj %s |%d|%s" % (typeName, len(stuff), iFlag)
+                    else:
+                        sizePart = typeName
+                    buf += ind + sizePart + self.openObject + "\n"
+                    fb.add(depth, sizePart + self.openObject)
+
                     #skipped = 0
-                    if (options['sortKeys']): stuff = sorted(stuff)
+                    ofmt = ind + "  .%-" + str(self.options["propWidth"]) + "s = %s,\n"
                     for nm in (stuff):
                         try:
                             thing = getattr(obj, nm, "[NONE]")
                         except (ValueError, IndexError) as e:
                             buf += "*** Could not get attr '%s': %s" % (nm, e)
+                            fb.add(depth, "*** Could not get attr '%s': %s" %
+                                (nm, e))
                             continue
-                        if (self.skipIt(thing, nm, options)): continue
+                        if (self.skipIt(thing, nm)):
+                            continue
                         #buf += (ind + "  .%s (%s): " % (nm, type(thing)))
-                        ofmt = ind + "  .%-" + str(options['propWidth']) + "s = %s,\n"
-                        buf += ofmt % (
-                            nm, self.formatRec_R(thing, options=options, depth=depth+1))
+                        subPart = self.formatRec_R(thing, depth=depth+1)
+                        buf += ofmt % (nm, subPart)
+                        fb.add(depth, ofmt % (ofmt % (nm, subPart)))
+                        # TODO: Recursion vs. fb.add
+
                     buf += ind + self.closeObject
+                    fb.add(depth, sizePart + self.openObject)
                 except AttributeError:
-                    # xml.dom.minidom.NamedNodeMap lands here, dir can't deal....
+                    # minidom.NamedNodeMap lands here, dir can't deal....
                     buf += "(dir() failed for %s)" % (type(obj))
 
         else:                                                       # UNKNOWN
-            buf += ("something else")
-            buf += self.formatScalar(obj, options['maxString'])
+            buf += "something else"
+            fb.add(depth, sizePart + self.openObject)
+            buf += self.formatScalar(obj, self.options["maxString"])
+            fb.add(depth, self.formatScalar(obj, self.options["maxString"]))
         return buf
         # end formatRec_R
 
-    def skipIt(self, thing:Any, nm:str, options:Dict) -> bool:
+    def skipIt(self, thing:Any, nm:str) -> bool:
         """Called for members of objects (and dicts?). Return True if we
-        should skip this member due to name, being callable, etc.
-        If the 'specials' option is set, we keep callable and __s; but
+        should skip this member given options settings.
+        If the "specials" option is set, we keep callable and __s, but
         that can be overridden for names listed specifically in `stopName`.
-        TODO: Upgrade to allow skipping entirely, or just showing name, type, size, (keyField?).
+        TODO: Allow partial skipping, just showing name, type, size, keyField?.
         """
-        if (nm in options['stopNames']): return True
-        if (options['specials']): return False
+        if (nm in self.options["stopNames"]): return True
+        if (self.options["specials"]): return False
         if (callable(thing)): return True
-        if (isinstance(nm, str) and nm.startswith('__')): return True
+        if (isinstance(nm, str) and nm.startswith("__")): return True
         return False
 
     def quote(self, s:str, addQuotes:bool=False) -> str:
@@ -1552,13 +1602,14 @@ class ALogger:
         return '"' + re.sub(r'"', '\\"', s) + '"'
 
     def formatScalar(self, obj:Any, maxString:int=0) -> str:
-        """Return a formatted version of a scalar variable (or at least not a aggregate).
+        """Return a formatted version of a scalar variable (or
+        at least not a aggregate).
         If passed an aggregate, format its length instead.
         """
         ty = type(obj)
         if (obj is None):
             return self.disp_None
-        elif (isinstance(obj, (str))):
+        elif (isinstance(obj, str)):
             if (maxString > 0 and len(obj) > maxString):
                 return '"%s"' % (obj[0:maxString])
             return '"%s"' % (obj)
@@ -1604,10 +1655,10 @@ class ALogger:
     # Get install state
     #
     def gatherLibraryReport(
-        self, 
-        dunder:bool=False, 
-        sunder:bool=False, 
-        builts:bool=False, 
+        self,
+        dunder:bool=False,
+        sunder:bool=False,
+        builts:bool=False,
         dotted:bool=False
         ) -> str:
         """Create a printable report of all the imported libraries.
@@ -1620,10 +1671,10 @@ class ALogger:
         return buf
 
     def gatherLibraryVersions(
-        self, 
-        dunder:bool=False, 
-        sunder:bool=False, 
-        builts:bool=False, 
+        self,
+        dunder:bool=False,
+        sunder:bool=False,
+        builts:bool=False,
         dotted:bool=False
         ) -> Dict:
         """Collect all imported modules, with their version and path (if
@@ -1648,14 +1699,50 @@ class ALogger:
                 pass
             theDict[m] = (ver, filename)
         return theDict
-                
-    
+
+
 ###############################################################################
 # Main (doc, example and smoke-test)
 # Run some simple tests if invoked as its own command.
 #
 if __name__ == "__main__":
-    print("Running smoke tests on alogging.py")
+    import argparse
+
+    def processOptions() -> argparse.Namespace:
+        try:
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
+        except ImportError:
+            parser = argparse.ArgumentParser(description=descr)
+
+        parser.add_argument(
+            "--color",  # Don't default. See below.
+            help="Colorize the output.")
+        parser.add_argument(
+            "--quiet", "-q", action="store_true",
+            help="Suppress most messages.")
+        parser.add_argument(
+            "--verbose", "-v", action="count", default=0,
+            help="Add more messages (repeatable).")
+        parser.add_argument(
+            "--version", action="version", version=__version__,
+            help="Display version information, then exit.")
+
+        parser.add_argument(
+            "files", type=str, nargs=argparse.REMAINDER,
+            help="Path(s) to input file(s)")
+
+        args0 = parser.parse_args()
+        #if (args0.verbose): lg.setVerbose(args0.verbose)
+        return(args0)
+
+
+    ###########################################################################
+    #
+    args = processOptions()
+
+    print("Running smoke test on alogging.py")
 
     if (len(sys.argv) > 1):
         print(descr)
@@ -1663,14 +1750,17 @@ if __name__ == "__main__":
 
     lg = ALogger(1)
 
-    lg.info("sjd alogging.ALogger library.", stat='infoStat')
+    lg.info("sjd alogging.ALogger library.", stat="infoStat")
     lg.warning("A warning message")
     lg.error("An error message")
 
     lg.info("====A header message")
-    lg.vMsg(0, "A vMsg() message.")
-    lg.error("An error() message")
+    lg.vMsg(0, "A vMsg message.")
+    lg.vMsg(0, "A vMsg message, indented.", indent=4)
+    lg.error("An error message")
 
+    print("Trying formatRec:")
+    frec = FormatRec()
     foo = {
         "key1": 3,
         "key2": -2.0E-12,
@@ -1682,10 +1772,9 @@ if __name__ == "__main__":
         "key8": None,
         "hello": "world\u203d",
         "aType": int,
-        "aFunc": lg.formatRec,
+        "aFunc": frec.formatRec,
         "aClass": ALogger,
     }
-    print(lg.formatRec(foo))
-    lg.bumpStat('infoStat', 100)
+    print(frec.formatRec(foo))
+    lg.bumpStat("infoStat", 100)
     lg.showStats()
-

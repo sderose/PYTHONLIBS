@@ -7,7 +7,7 @@
 # blank lines and line-breaks before MarkDown-ish lists, tables, headings, etc.
 # It does no colorizing, fonts, etc.
 #
-#pylint: disable=W0212,W1406
+#pylint: disable=W0212
 #
 import sys
 import re
@@ -282,7 +282,7 @@ spaceChars = {
     "zerosp":  unichr(0x200B), "nbsp":    unichr(0x00A0),
 }
 specialChars = {
-    "lt":      "<",            "gt":      ">", 
+    "lt":      "<",            "gt":      ">",
     "apos":    "'",            "quo":     '"',
     "amp":     "&",            "hellip":  unichr(0x2026),
 }
@@ -299,7 +299,7 @@ def warning1(msg:str):
     if (BlockFormatter._options["verbose"]>=1): warning0(msg)
 def warning2(msg:str):
     if (BlockFormatter._options["verbose"]>=2): warning0(msg)
-    
+
 def makeVis(s:str):
     """Turn control characters into Unicode Control Pictures.
     TODO: Make wrapping treat these as breakable?
