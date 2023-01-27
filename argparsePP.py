@@ -12,6 +12,8 @@ import argparse
 import subprocess
 from unicodedata import normalize
 
+import Datatypes  # Support for XSD types
+
 __metadata__ = {
     "title"        : "argParsePP",
     "description"  : "An extended `argparse`.",
@@ -201,7 +203,7 @@ def t_hInt(s:str):
         pass
     raise ValueError(genericMsg % (s))
 
-def t_probability(s):
+def t_probability(s:str):
     """Floating point number between 0.0 and 1.0.
     Yeah, I know, roundoff error.
     """
@@ -212,7 +214,7 @@ def t_probability(s):
         pass
     raise ValueError(genericMsg % (s))
 
-def t_percentage(s):
+def t_percentage(s:str):
     """This is for percentages of a tangible things, that cannot go negative
     or over 100, or probabilities. Some percentages, like in finance,
     % change, can go wider -- just use float for those.
@@ -224,7 +226,7 @@ def t_percentage(s):
         pass
     raise ValueError(genericMsg % (s))
 
-def t_slice(s):
+def t_slice(s:str):
     """A span of integer indexes.
     """
     try:
@@ -242,7 +244,7 @@ def t_slice(s):
 ### Characters
 # TODO: Sync with Python's set of islower() etc, plus length constraints
 #
-def t_char(s):
+def t_char(s:str):
     """A single, literal Unicode character.
     """
     try:
@@ -251,7 +253,7 @@ def t_char(s):
         pass
     raise ValueError(genericMsg % (s))
 
-def t_ascii_char(s):
+def t_ascii_char(s:str):
     """A single Unicode character, not including NUL.
     """
     try:
@@ -261,7 +263,7 @@ def t_ascii_char(s):
         pass
     raise ValueError(genericMsg % (s))
 
-def t_uchar(s):
+def t_uchar(s:str):
     """A single Unicode character, specified as any of:
         * a literal (a shell may already expand some \\-codes before we see them)
         * a hex/dec/oct code point
@@ -293,25 +295,25 @@ def t_uchar(s):
 # not that a non-normalized string from the user is rejected (they're named like
 # the Python string-transformer functions to make that more intuitive).
 #
-def t_upper(s):
+def t_upper(s:str):
     return s.upper()
 
-def t_lower(s):
+def t_lower(s:str):
     return s.lower()
 
-def t_title(s):
+def t_title(s:str):
     return s.title()
 
-def t_NFC(s):
+def t_NFC(s:str):
     return normalize("NFC", s)
 
-def t_NFD(s):
+def t_NFD(s:str):
     return normalize("NFD", s)
 
-def t_NFKC(s):
+def t_NFKC(s:str):
     return normalize("NFKC", s)
 
-def t_NFKD(s):
+def t_NFKD(s:str):
     return normalize("NFKD", s)
 
 # TODO: Add case-folding PLUS canonicalization?
@@ -326,11 +328,11 @@ def t_NFKD(s):
 #     add_argument("--foo", type=match, const=r"whatev(er|uh)")
 # TODO: What of regex options, esp. IGNORECASE and UNICODE?
 #
-def checkRegex(expr, s):
+def checkRegex(expr, s:str):
     if (re.match(expr, s, flags=re.UNICODE)): return s
     raise ValueError(genericMsg % (s))
 
-def isRegex(s):
+def isRegex(s:str):
     """Test for an arg which is itself a legit regular expression.
     """
     try:
@@ -348,14 +350,14 @@ timeX = re.compile(r"[012]\d:[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[-+]\d\d:\d\d)?" + "$"
 # These allow optional parts
 #datePX = re.compile(r"(\d\d\d\d)(-[01]\d)?(-[0-3]\d)?" + "$")
 #timePX = re.compile(r"([012]\d)(:[0-5]\d)?((:[0-5]\d)(\.\d+))?)?(Z|[-+]\d\d:\d\d)?" + "$")
-def t_date_8601(s):
-    return checkX(dateX, s)
+def t_date_8601(s:str):
+    return checkRegex(dateX, s)
 
-def t_time_8601(s):
-    return checkX(timeX, s)
+def t_time_8601(s:str):
+    return checkRegex(timeX, s)
 
-def t_datetime_8601(s):
-    return checkX(dateX[0:-1]+"T"+timeX, s)
+def t_datetime_8601(s:str):
+    return checkRegex(dateX[0:-1]+"T"+timeX, s)
 
 
 ###############################################################################
@@ -365,22 +367,22 @@ NMSTART = r"[_.A-Z]"
 NMCHAR  = r"[-_.:\w]"
 NAME = NMSTART + NMCHAR + "*"   # Add Unicode! Cf. XML/PARSERS/XmlRegexes.py.
 
-def t_xml_lang(s):
-    return checkX(r"\w{2,3}(\.\w{2,3})?$", s)
+def t_xml_lang(s:str):
+    return checkRegex(r"\w{2,3}(\.\w{2,3})?$", s)
 
-def x_NMTOKEN(s):
+def x_NMTOKEN(s:str):
     if (s[0].isdigit()): raise ValueError(genericMsg % (s))
-    return checkX(r"[.\w][-_.:\w]*$", s)
+    return checkRegex(r"[.\w][-_.:\w]*$", s)
 
-def x_QNAME(s):
+def x_QNAME(s:str):
     if (s[0].isdigit()): raise ValueError(genericMsg % (s))
-    return checkX(r"[.\w][-_.:\w]*$", s)
+    return checkRegex(r"[.\w][-_.:\w]*$", s)
 
 
 ###############################################################################
 ### Python stuff
 #
-def p_encoding(s):
+def p_encoding(s:str):
     try:
         import codecs
         codecs.decode("", encoding=s)
@@ -397,27 +399,27 @@ pythonReservedWords = frozenset([
     "raise", "return", "True", "try", "while", "with", "yield",
 ])
 
-def p_keyword(s):
+def p_keyword(s:str):
     import keyword
     if (keyword.iskeyword(s)): return s
     #if (s in pythonReservedWords): return s
     raise ValueError(genericMsg % (s))
 
-def p_identifier(s):
+def p_identifier(s:str):
     if (s.isidentifier()): return s
     raise ValueError(genericMsg % (s))
 
-def p_exception(s):
+def p_exception(s:str):
     if (s.isidentifier()):
         if (eval("issubclass(%s, Exception)")): return s
     raise ValueError(genericMsg % (s))
 
-def p_class(s):
+def p_class(s:str):
     if (s.isidentifier()):
         if (eval("type(%s) == type(str)")): return s
     raise ValueError(genericMsg % (s))
 
-def p_type(s):
+def p_type(s:str):
     if (s.isidentifier()):
         if (eval("isinstance(%s, type)")): return s
     raise ValueError(genericMsg % (s))
@@ -425,7 +427,6 @@ def p_type(s):
 
 ### XSD types (cf Datatypes.py)
 #
-import Datatypes
 dt = Datatypes.Datatypes()
 
 dt.checkValueForType("int", "12")
@@ -455,7 +456,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
         epilog                  = None,
         parents                 = None,
         formatter_class         = None,
-        prefix_chars            = "-",
+        prefix_chars:str        = "-",
         fromfile_prefix_chars   = None,
         argument_default        = None,
         conflict_handler        = "error",
@@ -463,9 +464,9 @@ class ArgumentParserPP(argparse.ArgumentParser):
 
         # Additions (see the --help)
         ignoreCase              = True,
-        hyphenConvention        = "gnu",  # cf prefix_chars
-        negationPrefix          = "no-",
-        showDefaults            = True,
+        hyphenConvention:str    = "gnu",  # cf prefix_chars
+        negationPrefix:str      = "no-",
+        showDefaults:bool       = True,
         shortMetavars           = True,
         pager                   = None,
         gnuStyle                = True,
@@ -504,7 +505,10 @@ class ArgumentParserPP(argparse.ArgumentParser):
 
     def add_argument(
         self,
-        *names,              # TODO implement
+        *theArgs,              # TODO Finish...
+        **kwargs
+        ):
+        """
         action      = None,
         nargs       = None,
         const       = None,
@@ -515,46 +519,22 @@ class ArgumentParserPP(argparse.ArgumentParser):
         help        = None,
         metavar     = None,
         dest        = None
-        ):
-        basename = names[0].strip(" \t-_")
-        if (self.showDefaults and default is not None):
-            if (help is None): help=""
-            help += " Default: " + str(default)
-        if (metavar is None):
-            metavar = basename.upper()
-            if (self.shortMetavars):  metavar = metavar[0:1]
-        if (dest is None): dest = re.sub("-", "_", basename)
+        """
+        basename = theArgs[0].strip(" \t-_")
+        if (self.showDefaults and kwargs["default"] is not None):
+            if (kwargs["help"] is None): help=""
+            help += " Default: " + str(kwargs["default"])
+        if (kwargs["metavar"] is None):
+            kwargs["metavar"] = basename.upper()
+            if (self.shortMetavars):
+                kwargs["metavar"] = kwargs["metavar"][0:1]
+        if (kwargs["dest"] is None):
+            kwargs["dest"] = re.sub("-", "_", basename)
 
         # For gnu style, always add "-" synonym for "--" form
-        if (names[0].startswith("--") and self.gnuStyle):
-            super.add_argument(
-                names          = names,
-                action         = action,
-                nargs          = nargs,
-                const          = const,
-                default        = default,
-                type           = type,
-                choices        = choices,
-                required       = required,
-                help           = help,
-                metavar        = metavar,
-                dest           = dest
-            )
-
-        return(super.add_argument(
-            names           = names,
-            action          = action,
-            nargs           = nargs,
-            const           = const,
-            default         = default,
-            type            = type,
-            choices         = choices,
-            required        = required,
-            help            = help,
-            metavar         = metavar,
-            dest            = dest
-            )
-        )
+        if (theArgs[0].startswith("--") and self.gnuStyle):
+            super().add_argument(theArgs, kwargs)
+        return super().add_argument(theArgs, kwargs)
 
     def showSettings(self):
         """Display the args with types and values.
@@ -568,11 +548,11 @@ class ArgumentParserPP(argparse.ArgumentParser):
 
     def add_toggle(
         self,
-        name        = None,  # name without "no-" or similar part
+        name:str    = None,  # name without "no-" or similar part
         default     = None,
-        help        = None,
-        metavar     = None,
-        dest        = None
+        help:str    = None,
+        metavar:str = None,
+        dest:str    = None
         ):
         """Add both sides of an invertible boolean option. This method:
             Adds the named option with action="store_true"
@@ -605,13 +585,13 @@ class ArgumentParserPP(argparse.ArgumentParser):
 
     def add_enum(
         self,
-        basename    = "",
-        type        = str,
-        default     = None,
-        help        = None,
-        metavar     = None,
-        dest        = None,
-        choices     = None
+        basename:str = "",
+        type         = str,
+        default      = None,
+        help         = None,
+        metavar      = None,
+        dest         = None,
+        choices      = None
         ):
         """Add the given argument, with a set of `choices`. In addition, add each
         choice as a separate argumnt of its own, that just sets this one.
@@ -638,7 +618,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
                 dest=dest or basename
             )
 
-    def add_entailment(self, name1, name2, value2):
+    def add_entailment(self, name1:str, name2:str, value2):
         """Store the fact that setting one option, forces another one.
         The actual forcing has to be done via parser_arguments().
         """
@@ -659,7 +639,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
                 check=True
             )
         else:
-            super.print_help(file=file)
+            super().print_help(file=file)
 
 
 ###############################################################################

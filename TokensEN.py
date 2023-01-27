@@ -416,7 +416,8 @@ class TokensEN:
             "Mon", "Tue", "Tues", "Wed", "Weds",
             "Thu", "Thur", "Thurs", "Fri", "Sat", "Sun",
 
-            "Ave", "Blvd", "Rd", "Ln", "St", "Ct",
+            "Ave", "Blvd", "Rd", "Ln", "Ct",
+            # "St",
             "Co", "Inc"
             "i.e", "e.g",
         }
@@ -713,4 +714,3 @@ if __name__ == "__main__":
 
         args0 = parser.parse_args()
         return(args0)
-

@@ -410,7 +410,8 @@ class StrBuf(str):
         # Can it fit in the current part?
         avail = self.availInPart(pnum)
         if (avail >= slen):
-            self.parts[pnum] = str(self.parts[pnum][0:offset]) + str(s) + str(self.parts[pnum][offset:])
+            self.parts[pnum] = (str(self.parts[pnum][0:offset]) + str(s) +
+                str(self.parts[pnum][offset:]))
             self.lens[pnum] += slen
             return
 
@@ -439,7 +440,8 @@ class StrBuf(str):
         """Split the given part at the offset, putting the second half into the next
         part if it fits, otherwise in a new part.
         """
-        assert offset < self.lens[pnum], "splitPart: offset %d out of range %d." % (offset, self.lens[pnum])
+        assert offset < self.lens[pnum], "splitPart: offset %d out of range %d." % (
+            offset, self.lens[pnum])
         plen = self.lens[pnum]
         neededR = plen - offset
         availR = 0
@@ -714,14 +716,14 @@ class StrBuf(str):
 
     def max(self) -> str:
         m = None
-        for pnum, part in enumerate(self.parts):
+        for _pnum, part in enumerate(self.parts):
             thisMax = max(part)
             if (m is None or thisMax > m): m = thisMax
         return thisMax
 
     def min(self) -> str:
         m = None
-        for pnum, part in enumerate(self.parts):
+        for _pnum, part in enumerate(self.parts):
             thisMin = min(part)
             if (m is None or thisMin < m): m = thisMin
         return thisMin
@@ -730,22 +732,22 @@ class StrBuf(str):
     ####### Trivial cases: apply to all the parts, just first/last,....
     #
     def zfill(self, n: int, inplace: bool = True):
-        return self.ljust(n, padchar="0", inplace=inplace)
+        return self.ljust(n, fillchar="0", inplace=inplace)
 
-    def ljust(self, n: int, padchar: str = " ", inplace: bool = True):  # TODO: inplace
-        needed = n - len(self)
-        if (needed > 0): self += padchar * needed
+    def ljust(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: inplace
+        needed = width - len(self)
+        if (needed > 0): self += fillchar * needed
         return self
 
-    def rjust(self, n: int, padchar: str = " ", inplace: bool = True):  # TODO: i
-        needed = n - len(self)
-        if (needed > 0): self.insert(0, padchar * needed)
+    def rjust(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: i
+        needed = width - len(self)
+        if (needed > 0): self.insert(0, fillchar * needed)
         return self
 
-    def center(self, n: int, padchar: str = " ", inplace: bool = True):  # TODO: i
-        needed = n - len(self)
+    def center(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: i
+        needed = width - len(self)
         if (needed > 0):
-            self.insert(0, padchar * math.floor(needed/2.0))
+            self.insert(0, fillchar * math.floor(needed/2.0))
             self += " " * math.ceil(needed/2.0)
         return self
 
@@ -832,9 +834,9 @@ if __name__ == "__main__":
         x1 = " Some additional text"
         s = StrBuf(w1)
         w2 = s.tostring()
-        if (not w2 == w1):
+        if (w2 != w1):
             print("Initial bad:\n    %s\n    %s" % (w1, w2))
-        if (not len(s) == len(w1)):
+        if (len(s) != len(w1)):
             print("Initial len %d vs. %d" % (len(s), len(w1)))
 
         i = 0
@@ -842,10 +844,10 @@ if __name__ == "__main__":
             assert c == w1[i]
             i += 1
 
-        if (not s[0] == "A"):
+        if (s[0] != "A"):
             print("expecting A at [0] but got '%s' (%s)." % (s[0], type(s[0])))
-        if (not str(s[50:54]) == "knot"):
-            print("expecting know at 50:54 but got '%s'." % (str(s[50:54])))
+        if (str(s[50:54]) != "knot"):
+            print("expecting knot at 50:54 but got '%s'." % (str(s[50:54])))
 
         p, o = s.findCharN(3)
         print("findCharN(3) gives part %d, offset %d (total len %d)." % (p, o, len(s)))
@@ -885,7 +887,7 @@ if __name__ == "__main__":
         assert len(s2) == reps * len(w1)
         assert str(s2) == w1 * reps
 
-        if (not str(s.upper()) == w1.upper()):
+        if (str(s.upper()) != w1.upper()):
             print("upper failed:\n    %s\n    %s" % (w1, w2))
 
     # TODO This doesn't work....
@@ -894,7 +896,7 @@ if __name__ == "__main__":
             xs = str(x)
             strThing = getattr(str, xs)
             strbufThing = getattr(StrBuf, xs)
-            if (strbufThing is strbufThing): msg = "INHERITED"
+            if (strbufThing is strThing): msg = "INHERITED"
             else: msg = "DEFINED"
             print("%-20s %s" % (x, msg))
 

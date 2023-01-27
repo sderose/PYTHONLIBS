@@ -6,22 +6,17 @@
 #pylint: disable=W0511,W0612,W0613
 #
 import re
-#import os
-#import codecs
-#import string
-#import math
-#import subprocess
+import logging
 #from collections import defaultdict, namedtuple
 #from typing import IO, Dict, List, Union
-import logging
-lg = logging.getLogger("main")
 from xml.dom import minidom
 #from xml.dom.minidom import Document, Node, Element
 
 from DomExtensions import DomExtensions as de
 from DomExtensions import XMLStrings, NodeSelKind
-from DomExtensions import NodeSelKind as nsk
 from DomExtensions import NodeTypes
+
+lg = logging.getLogger("main")
 
 __metadata__ = {
     "title"        : "DOMTest",
@@ -57,7 +52,38 @@ Test a DOM implementation, especially my extensions such as:
 
 Far from complete.
 
+
 =To do=
+
+* split DomExtensions into multiple files
+* add unit subtest_s
+
+* Finish the table stuff
+* factor the basic selection model throughout (incl regex)
+* move into pre/foll sib (or general target)
+* create nodes much more easily (cf XmlOutput)
+    ** element(gi, {attrs}
+* finish rest of negative indexes for selects
+* wrap/unwrap
+* sort/uniq/case attr tokens; cast to set/list.
+* sexp parser for attributes? produce Node subtree handing off attr?
+* support namespace prefixes for ids
+* canonical output
+* range support
+* switch between <x y=z> and <z>, or similar
+* notion of before/start/end/after
+* Add divs given Hn; rank hn/title from div. rank/unrank divs
+
+* write pydom
+    ** Node is a subclass of list
+    ** childnodes is just a list of nodes
+    ** nodeType is an Enum
+    ** attributes are just a dict
+    ** order via <=>
+    ** del/ins slice/splice/len for nodes
+    ** cast attrs by type
+    ** supply all xpath axes
+    ** classes that go away: namednodemap text->str?, pi, comment, cdata
 
 
 =History=
@@ -275,14 +301,14 @@ def subtest_xml_strings(dom):
                       0,   0,   0,   0,   0,   1 ),
     ]
     for s, isInt, isName, isAttr, isStar, isReserved, isRegex in x:
-        sKind = nsk.getKind(s)
-        assert isInt      == bool(sKind == nsk.ARG_INT)
-        assert isName     == bool(sKind == nsk.ARG_NAME)
-        assert isAttr     == bool(sKind == nsk.ARG_ATTR)
-        assert isStar     == bool(sKind == nsk.ARG_STAR)
-        assert isReserved == bool(sKind in
-            [ nsk.ARG_COMMENT, nsk.ARG_TEXT, nsk.ARG_PI, nsk.ARG_CDATA ])
-        assert isRegex    == bool(sKind == nsk.ARG_REGEX)
+        sKind = NodeSelKind.getKind(s)
+        assert isInt      == bool(sKind == NodeSelKind.ARG_INT)
+        assert isName     == bool(sKind == NodeSelKind.ARG_NAME)
+        assert isAttr     == bool(sKind == NodeSelKind.ARG_ATTR)
+        assert isStar     == bool(sKind == NodeSelKind.ARG_STAR)
+        assert isReserved == bool(sKind in [ NodeSelKind.ARG_COMMENT,
+            NodeSelKind.ARG_TEXT, NodeSelKind.ARG_PI, NodeSelKind.ARG_CDATA ])
+        assert isRegex    == bool(sKind == NodeSelKind.ARG_REGEX)
 
     # On strings
     # TODO: options for ZML escaping, hex/dec/name entities, width, maybe TEX? Ents
@@ -647,42 +673,6 @@ def subtest_tables(doc):
 
 
 ###############################################################################
-# Stuff to add / to do
-#
-"""
-    * split DomExtensions into multiple files
-    * add unit subtest_s
-
-    * Finish the table stuff
-    * factor the basic selection model throughout (incl regex)
-    * move into pre/foll sib (or general target)
-    * create nodes much more easily (cf XmlOutput)
-        ** element(gi, {attrs}
-    * finish rest of negative indexes for selects
-    * wrap/unwrap
-    * sort/uniq/case attr tokens; cast to set/list.
-    * sexp parser for attributes? produce Node subtree handing off attr?
-    * support namespace prefixes for ids
-    * canonical output
-    * range support
-    * switch between <x y=z> and <z>, or similar
-    * notion of before/start/end/after
-    * Add divs given Hn; rank hn/title from div. rank/unrank divs
-
-    * write pydom
-        ** Node is a subclass of list
-        ** childnodes is just a list of nodes
-        ** nodeType is an Enum
-        ** attributes are just a dict
-        ** order via <=>
-        ** del/ins slice/splice/len for nodes
-        ** cast attrs by type
-        ** supply all xpath axes
-        ** classes that go away: namednodemap text->str?, pi, comment, cdata
-"""
-
-
-###############################################################################
 # Main
 #
 if __name__ == "__main__":
@@ -718,5 +708,3 @@ if __name__ == "__main__":
     args = processOptions()
 
     test_driver()
-
-

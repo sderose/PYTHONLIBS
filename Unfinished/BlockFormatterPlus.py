@@ -282,9 +282,6 @@ def fatal(msg): log(0, msg); sys.exit()
 #
 theStyle = None  # Used by InlineMapper.formatBlock()  # TODO: unglobalize
 
-class UnimplementedError(Exception):
-    pass
-
 esc = chr(27)
 specialChars = {
     "lsquo":   unichr(0x2018),    "rsquo":   unichr(0x2019),
@@ -532,7 +529,7 @@ class BlockFormatterPlus(argparse.HelpFormatter):
             endPos += len(lin)
             # TODO: Finish
         lines = []
-        raise UnimplementedError("Finish _fill_despite_color().")  # TODO Finish
+        raise NotImplementedError("Finish _fill_despite_color().")  # TODO Finish
         return "\n".join(lines)
 
     ColorTag = namedtuple("ColorTag", ["startTextPos", "escapeSequence"])
@@ -842,7 +839,7 @@ class FancyText:
             s = re.sub(r"([\.?!])  ", "\\1 ", s)
 
         if (texChars):
-            raise UnimplementedError("Not yet, sorry.")
+            raise NotImplementedError("Not yet, sorry.")
 
         return s
 
@@ -928,43 +925,43 @@ class InlineMapper:
     # TODO: MOVE THIS TO MarkdownSyntaxes.py.
     #
     def setup_MarkDown(self):      # Markdown                    [RFC7763]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_MultiMarkdown(self): # MultiMarkdown               [RFC7764]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_GFM(self):           # GitHub Flavored Markdown    [RFC7764]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_pandoc(self):        # Pandoc                      [RFC7764]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_Fountain(self):      # Fountain                    [RFC7764]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_CommonMark(self):    # CommonMark                  [RFC7764]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_kramdown_rfc2629(self):  # Markdown for RFCs       [RFC7764]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_rfc7328(self):       # Pandoc2rfc                  [RFC7764]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_Extra(self):         # Markdown Extra              [RFC7764]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_SSW(self):           # Markdown for SSW [Paulina_Ciupak]
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_mediaWiki(self):     #
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_POD(self):           #
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
     def setup_HTML(self):          #
-        raise UnimplementedError("Not yet, sorry.")
+        raise NotImplementedError("Not yet, sorry.")
 
 
     def formatBlock(self, b):
@@ -1294,7 +1291,7 @@ class Styler:  # All methods static
 
     @staticmethod
     def mk_smallCap(txt):
-        raise UnimplementedError()
+        raise NotImplementedError()
 
     ### Quotation-related effects
     #

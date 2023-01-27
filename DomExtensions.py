@@ -55,7 +55,7 @@ in either direction.
 It provides many "geometric" operations in the tree, such as
 locating the left or right "branch", determing the sequence of nodeNames down to
 a node, determining the child number of a node among its siblings (counting
-text nodes or not), 
+text nodes or not),
 comparing node order, containment, and some support for ranges (which also
 can be in semi-precedence and other relationships). And it can map back and
 forth a node plus optional local offset, to and from global text offsets.
@@ -63,7 +63,7 @@ forth a node plus optional local offset, to and from global text offsets.
 It provides "bulk" operations such as removing all white-space-only nodes,
 removing or renaming all instances of attributes or elements, and much more.
 
-It also provides operations inspired by other work. It can generate and 
+It also provides operations inspired by other work. It can generate and
 interpretg XPointers; do what I see as the more useful BS4 "find" operations
 and a variety of CSS selectors;
 generate equivalent SAX event sequences from any subtree; etc.
@@ -666,7 +666,7 @@ a category from #text, #pi, #comment, or #cdata, etc. This can be combined
 with indexes, or used alone. The filter "*" means all and only elements.
 * insertBefore and appendChild are just list splicing
 * cloneNode becomes copy
-* compareDocumentPosition becomes <, >, <=, >=, in, and contains. Op for the other? 
+* compareDocumentPosition becomes <, >, <=, >=, in, and contains. Op for the other?
 Possibly PEP 465 infix matrix mult operator "@"? or // __floordiv__ or ** for descendant.
 << and >> for psib/fsib
 * countOF for # of a in b
@@ -678,7 +678,7 @@ Possibly PEP 465 infix matrix mult operator "@"? or // __floordiv__ or ** for de
 
 Possible additions:
 * += and -= may be mapped to preceding/following sibling n
-* 
+*
 
 =To do=
 
@@ -796,7 +796,7 @@ Balisage Series on Markup Technologies, vol. 13 (2014).
 ###############################################################################
 #
 _regexType = type(re.compile(r'a*'))
-    
+
 class XMLStrings:
 
     _xmlSpaceExpr = r"[ \t\n\r]+"
@@ -886,7 +886,7 @@ class XMLStrings:
         else: s = re.sub(r"'", "&apos;",  s)
         return s
     escapeXmlAttribute = escapeAttribute
-    
+
     @staticmethod
     def escapeText(s:str, escapeAllGT:bool=False) -> str:
         """Turn things special in text content, into char refs.
@@ -1009,7 +1009,7 @@ class XMLStrings:
 
 
 ###############################################################################
-# A couple fake types, for type-hinting parameters. 
+# A couple fake types, for type-hinting parameters.
 # Would be nicer but non-trivial to implement these as subclasses of str.
 #
 NMToken = str       # An XML name token (mainly for type hint readability)
@@ -1020,7 +1020,7 @@ NodeSel = str   # Union(XMLQName, "@"+XMLQName, "*", "#text", "#comment", "#cdat
 #
 class NOT_SUPPORTED_ERR(Exception):
     pass
-    
+
 class HIERARCHY_REQUEST_ERR(Exception):
     """Thrown when requested navigation through the tree cannot be done.
     """
@@ -1036,11 +1036,11 @@ class Axes(Enum):
     Probably document order would be the clearest case. Also, some nodes occur in
     multiple axes relative to a given starting nodes (CHILD|DESCENDANT, most obviously).
     For the present, only SELF can be combined with others.
-    
+
     Possibly introduce axis-specific prefixes to __getitem__ -- like current "@",
     but all the others apply only to element targets.
     """
-    NONE            = 0x000  # 
+    NONE            = 0x000  #
     SELF            = 0x001  # .
     ANCESTOR        = 0x002  # ..
     CHILD           = 0x004  # /
@@ -1051,10 +1051,10 @@ class Axes(Enum):
     FOLLOWING       = 0x080  # >>
     ATTRIBUTE       = 0x100  # @
 
-    ANCESTOR_SELF   = 0x003  # 
-    DESCENDANT_SELF = 0x009  # 
-    
-    
+    ANCESTOR_SELF   = 0x003  #
+    DESCENDANT_SELF = 0x009  #
+
+
 ###############################################################################
 #
 class NodeSelKind(Enum):
@@ -1062,7 +1062,7 @@ class NodeSelKind(Enum):
     This has two main uses:
         1: given one of the 3 args to __getitem__, identify it.
            Often these will be ints, which is why that's here.
-        2: Helping interpret the similar arg to many selection/navigation 
+        2: Helping interpret the similar arg to many selection/navigation
            methods, e.g., selectChild("#pi", n=1). In that case, the
            arg can also be a regex, which specifies matching element names.
 
@@ -1070,7 +1070,7 @@ class NodeSelKind(Enum):
             '#space' for white-space-only text nodes,
             '#realtext' for non-white-space-only text nodes,
             union of text, element, and cdata
-            
+
     The model here is:
         There are BRANCHES and LEAVES.
         BRANCHES have a name, attribute dict, and child list.
@@ -1089,9 +1089,9 @@ class NodeSelKind(Enum):
     ARG_PI        = 0x040  # #pi
     ARG_COMMENT   = 0x080  # #comment
     ARG_CDATA     = 0x100  # #cdata
-    
+
     ARG_NONCOM    = 0xF7F  # Anything BUT comments
-    
+
     @staticmethod
     def getKind(someArg:Union[str, int]) -> 'NodeSelKind':  # nee def argType()
         """Categorize one of the arguments to __getitem__().
@@ -1222,7 +1222,7 @@ def _getListItemsByName_(self:Node, theList:list, nodeSel:NodeSel) -> list:
     """No attributes or ints here.
     """
     nk = NodeSelKind.getKind(nodeSel)
-    if (nk not in [ NodeSelKind.ARG_PI, NodeSelKind.ARG_COMMENT, 
+    if (nk not in [ NodeSelKind.ARG_PI, NodeSelKind.ARG_COMMENT,
         NodeSelKind.ARG_CDATA, NodeSelKind.ARG_STAR, NodeSelKind.ARG_NAME ]):
         raise IndexError(
             "Node index '%s' is not a #-type, '*', or element type." % (nodeSel))
@@ -1244,8 +1244,8 @@ def outerHTML(self:Node, indent:str="    ", breakEndTags:bool=False, usePretty:b
         #from io import StringIO
         #buf = StringIO()
         buf = (
-            self.getStartTag() + 
-            self.innerHTML(indent=indent, breakEndTags=breakEndTags) + 
+            self.getStartTag() +
+            self.innerHTML(indent=indent, breakEndTags=breakEndTags) +
             self.getEndTag()
         )
         return buf
@@ -1265,8 +1265,8 @@ def innerHTML(self:Node, cOptions=None, indent:str="    ", breakEndTags:bool=Fal
         if (ty == Node.TEXT_NODE):
             sys.stderr.write("#TEXT: %s" % (curNode.nodeValue))
             t += curNode.nodeValue
-        elif (ty==Node.DOCUMENT_NODE or 
-              ty==Node.DOCUMENT_FRAGMENT_NODE or 
+        elif (ty==Node.DOCUMENT_NODE or
+              ty==Node.DOCUMENT_FRAGMENT_NODE or
               ty==Node.ELEMENT_NODE):
             t += indentString + curNode.getStartTag()
             for ch in (curNode.childNodes):
@@ -1618,7 +1618,7 @@ def getChildNumber(self:Node, nodeSel:NodeSel=None) -> int:
     """Return the number of this node among its siblings, counting only
     siblings that match the given nodeSel (default: all).
     *** This counting is 1-based! ***
-    @param nodeSel: 
+    @param nodeSel:
         None: count everything
         element type name: count only those
         "*": count all/only elements
@@ -1633,7 +1633,7 @@ def getChildNumber(self:Node, nodeSel:NodeSel=None) -> int:
         elif (self.nodeMatches(nodeSel)): n += 1
         if (ch==self): return n
     return None
-    
+
 getMyIndex = getChildNumber  # TODO: Move under synonyms
 
 def getDepth(self:Node) -> int:
@@ -1718,10 +1718,10 @@ def getContentType(self) -> int:
 def getXPointer(self:Node, textOffset:int=None, idAttrName:NMToken=None) -> str:
     """Get a simple numeric XPointer to *either* an entire element or text
     node, or to a specific character inside some text node, unless there
-    
+
     With `textOffset`, dig down and find the specified character (not byte!)
     among the descendants, and return a precise pointer there, unless
-    there's not enough text -- then treat as if no `textOffset` was given. 
+    there's not enough text -- then treat as if no `textOffset` was given.
     If it's exactly 1 greater, point just after the last content character.
 
     TODO: Extend to do full-fledged ranges.
@@ -1742,10 +1742,10 @@ def getXPointerToNode(self:Node, idAttrName:NMToken="id", nodeSel:NodeSel=None) 
     are just a sequence of child-numbers, e.g.  1/12/352/4/1.
         ==> These count text nodes, too, unless you set "whatToCount" to some
         specific selector, such as "*" (for just elements).
-    
+
     If `idAttrName` is not empty (it defaults to "id"), and that attribute
     is set on an ancestor(s), then the XPointer will use the innermost such ID
-    as the leading component, and go no further up, e.g. myId/4/1.    
+    as the leading component, and go no further up, e.g. myId/4/1.
     """
     f = ""
     cur = self
@@ -1870,7 +1870,7 @@ def nodeMatches(self:Node, nodeSel:NodeSel="*", attrs:dict=None) -> bool:
     """
     nsm = self.nodeSelMatches(nodeSel)
     if (not nsm): return False
-    
+
     if (not attrs): return True
     for tgtName, tgtVal in attrs.items:
         if (":" in tgtName):
@@ -1961,9 +1961,9 @@ def getCompoundAttribute(self:Node, name:NMToken, sep:str='#', keepMissing:bool=
 __falseBooleanValues__ = [ "", "0", "F", "false" ]  # nil? #F? FALSE? False?
 
 def getAttributeAs(
-    self:Node, 
-    name:NMToken, 
-    typ:type, 
+    self:Node,
+    name:NMToken,
+    typ:type,
     default:Any,
     nilOK:bool=False,
     split:bool=False
@@ -2193,7 +2193,7 @@ def eliminateSpans(self:Node, rowSpanAttr:str="rowspan", colSpanAttr:str="colspa
     """Insert extra cells (empty, or copies of 'filler'), to obviate
     spans within the table.
     """
-    raise Exception("Unimplemented")
+    raise NotImplementedError
 
 def hasSubTable(self:Node, tableTag:str="table"):
     st = self.getDescendant(tableTag)
@@ -3186,15 +3186,15 @@ class NodeTypes(Enum):
             return NodeTypes(n)
         except ValueError:
             return NodeTypes.NO_NODE
-            
+
     @staticmethod
     def isCore(node:Node) -> bool:
         nt = NodeTypes.fromint(node.nodeType)
         return (nt in
             [ NodeTypes.ELEMENT_NODE,
               NodeTypes.TEXT_NODE, NodeTypes.CDATA_SECTION_NODE ])
-        
-        
+
+
 ###############################################################################
 #
 class DomExtensions:

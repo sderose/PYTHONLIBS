@@ -3,25 +3,21 @@
 # DOMTableTools.py: Do fancy table stuff with *ML tables.
 # 2022-01-30: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
-#import os
 import codecs
-#import string
-#import math
-#import subprocess
-#from collections import defaultdict, namedtuple
 from enum import Enum
 #from typing import List, Union  #, IO, Dict
 import logging
-lg = logging.getLogger()
 
 from xml.dom.minidom import Node  # , Element, Document
 from xml.dom import minidom
 
 from fsplit import fsplit
 from DomExtensions import DomExtensions, XMLStrings
+
 DomExtensions.patchDom()
+
+lg = logging.getLogger()
 
 sys.stderr.write("Node.selectAncestor is %s." % (Node.selectAncestor))
 
@@ -118,8 +114,10 @@ defined and implemented here, should be able to
 round-trip between (say) SQL and HTML without loss.
 
 * The Normalized Table knows about semantic types of fields, such as bool,
-int, float, string, date, and time; and a few special cases such as enums URLs -- this is mainly so it can do display better (such as integer vs. string justification);
-treat URLs as links; offer appropriate editing such as checkboxes for booleans, menus for enums, or perhaps calendars for dates. But it doesn't know about
+int, float, string, date, and time; and a few special cases such as enums
+URLs -- this is mainly so it can do display better (such as integer vs. string justification);
+treat URLs as links; offer appropriate editing such as checkboxes for
+booleans, menus for enums, or perhaps calendars for dates. But it doesn't know about
 integer or string sizes, unisgned vs. signed, etc. Wouldn't be that hard to
 upgrade my implementation for that, I just don't think it's that useful ''in
 this context''.
@@ -246,6 +244,9 @@ Key normalizations vs. general HTML tables:
 
 =Known bugs and Limitations=
 
+Although we use patchDOM to attach a bunch of methods to Node and
+to NormTable, pylint doesn't seem to realize it, so it still reports
+issues like E1101: NormTable has no 'xxx' member.
 
 =To do=
 
@@ -278,10 +279,7 @@ def info2(msg:str) -> None: log(2, msg)
 def error(msg:str) -> None: log(0, msg)
 def fatal(msg:str) -> None: log(0, msg); sys.exit()
 
-class UnimplementedError(Exception):
-    pass
-    
-    
+
 ###############################################################################
 #
 ELEM = Node.ELEMENT_NODE
@@ -355,14 +353,14 @@ class NormComponents:
         self.SORTFLAG   = ("th", "class", "SORTABLE")
 
     def csv2norm(self, path:str, hasHeader:bool=True):
-        """Load a CSV file and create a normTable out of it.
+        """Load a CSV file and create a NormTable out of it.
         First record better be field names; each name may also
         have a colon and a datatype name appended.
         """
         fsplitArgs = { "quote":'"', "delim":"," }
         doc = minidom.Document()
         tbl = doc.createElement("table")
-        doc.appendChild(tbl)    
+        doc.appendChild(tbl)
         headRow = doc.createElement(nc.TR)
         tbl.appendChild(headRow)
 
@@ -411,7 +409,7 @@ class Condition:
     def __init__(self, expr:str):
         """Create an interpretable AST from some syntax.
         """
-        raise UnimplementedError
+        raise NotImplementedError
 
 
 ###############################################################################
@@ -422,7 +420,7 @@ class NormTable(Node):
     def __init__(self, *args1, **kwargs):
         self.nestedOk = False
         super(NormTable, self).__init__(*args1, **kwargs)
-        
+
     @staticmethod
     def warn(msg):
         if (args.quiet): return
@@ -499,18 +497,18 @@ class NormTable(Node):
                         nFound += 1
                         if (nFound >= n): return ch2
         return None
-    
+
     def countRows(self:Node) -> int:
         """Find out how many rows there are.
         """
         nFound = 0
         for _tr in self.getRows(): nFound += 1
         return nFound
-        
+
     def getRows(self:Node) -> Node:
         """Generate all row elements of this (but not of nested) table.
         They may be at top level, or inside thead/tbody/tfoot, but no deeper.
-        Or, you can pass it a tbody etc. to just get the locals (though if 
+        Or, you can pass it a tbody etc. to just get the locals (though if
         there were to be a directly nested thead/tbody/tfoot in that tbody,
         its rows would also get counted.... Let's assume that doesn't happen.
         """
@@ -521,11 +519,11 @@ class NormTable(Node):
                 for ch2 in ch.childNodes:
                     if (ch2.nodeName == nc.TR): yield ch
         return
-                
+
     def getHeadRow(self:Node) -> Node:
         """Given any node in a table, return the header tr.
         """
-        tbl = self.selectAncestorOrSelf("table")
+        tbl:Node = self.selectAncestorOrSelf("table")
         return tbl.getElementsByTagName(nc.TR)[0]
 
     def getColumns(self:Node) -> Node:
@@ -535,7 +533,7 @@ class NormTable(Node):
         for cell in self.childNodes:
             if (cell.nodeName in [ nc.TD, nc.TH ]): yield cell
         return
-                
+
     # TODO: col num<>name > dtype <cell
     def getColumnHeaderForCell(self:Node) -> Node:
         assert self.nodeName == nc.TD
@@ -578,7 +576,7 @@ class NormTable(Node):
         return n
 
     def countColumns(self:Node) -> int:
-        """Return the number of column in a given row. 
+        """Return the number of column in a given row.
         This accounts for colspans.
         """
         assert self.nodeName == nc.TR
@@ -592,7 +590,7 @@ class NormTable(Node):
             except TypeError:
                 pass
         return nColumns
-        
+
     def getColumnNames(self:Node) -> list:
         colNames = []
         for th in self.getHeadRow().childNodes:
@@ -606,7 +604,7 @@ class NormTable(Node):
         return colTypes
 
     def getSchemaName(self:Node) -> str:
-        raise UnimplementedError
+        raise NotImplementedError
 
     def checkNesting(self:Node) -> int:
         """Check whether nested tables, if any, obey NormTable restrictions.
@@ -627,7 +625,7 @@ class NormTable(Node):
         return errCount
 
     def checkKeys(self:Node):
-        raise UnimplementedError
+        raise NotImplementedError
 
 
     ###########################################################################
@@ -663,16 +661,16 @@ class NormTable(Node):
         else:
             self.parentNode.appendChild(fsib)
         return dum
-        
+
     def nukeThead(self:Node, promote:bool=True):
         """If 'promote' is True, move any thead row into tbody.
         Otherwise, delete them.
         Then remove the thead itself.
         """
-        raise UnimplementedError
+        raise NotImplementedError
 
     def nukeTfoot(self:Node, promote:bool=True):
-        raise UnimplementedError
+        raise NotImplementedError
 
     def setColumnNames(self:Node, names:list, attrName:str=nc.CLASS, alone:bool=True):
         """Given a list of names, assign them by setting the given attribute
@@ -680,16 +678,16 @@ class NormTable(Node):
         that name only; otherwise, the name is added as a space-separated
         token if not already there, and any prior tokens remain.
         """
-        raise UnimplementedError
+        raise NotImplementedError
 
     def unjoin(self:Node):
-        raise UnimplementedError
+        raise NotImplementedError
 
     def attrToColumn(self:Node, attrName:str, colName:str, colNum:int):
-        raise UnimplementedError
+        raise NotImplementedError
 
     def columnToAttr(self:Node, colName:str, attrName:str):
-        raise UnimplementedError
+        raise NotImplementedError
 
 
     ###########################################################################
@@ -715,17 +713,17 @@ class NormTable(Node):
             asc/desc
             empties to start or end
         """
-        raise UnimplementedError
+        raise NotImplementedError
 
     def moveColumn(self:Node, columnToMove, target):
         """Move a column, identified by number or @class name, to a new place.
         """
-        raise UnimplementedError
+        raise NotImplementedError
 
     def clearCellsByContent(self:Node, expr:str=None, nbIsSpace:bool=True):
         """Clear content of cells
         """
-        raise UnimplementedError
+        raise NotImplementedError
 
 
     ###########################################################################
@@ -744,13 +742,13 @@ class NormTable(Node):
         t2 = doc.createElement(nc.TABLE)
         b2 = doc.createElement(nc.TBODY)
         t2.appendChild(b2)
-        
+
         # Make as many new rows, as the starting table has columns
         nCols = self.getRow(0).countColumns()
         for _i in range(nCols):
             tr2 = doc.createElement(nc.TR)
             b2.appendChild(tr2)
-            
+
         for tr in self.getRows():
             cNum = 0
             for cell in tr.childNodes:
@@ -758,38 +756,40 @@ class NormTable(Node):
                 cell2 = cell.cloneNode()()
                 b2.childNodes[cNum].appendChild(cell2)
                 cNum += 1
-        
+
         if (replace):
             self.parentNode.replaceChild(t2, self)
         return t2
-        
+
     def InsertColumn(self:'NormTable'):  # As number N, or before/after name?
-        raise UnimplementedError
-        
+        raise NotImplementedError
+
     def DeleteColumn(self:'NormTable'):  # By number or name
-        raise UnimplementedError
+        raise NotImplementedError
 
     def DeleteRow(self:'NormTable'):     # By number
-        raise UnimplementedError
+        raise NotImplementedError
 
     def InsertRow(self:'NormTable'):     # As number N
-        raise UnimplementedError
+        raise NotImplementedError
 
-    def CreateTable(self:Node, nRows:int, nCols:int, thead:bool=True, tfoot:bool=True, cellClasses:list=None):
+    def CreateTable(
+        self:Node, nRows:int, nCols:int,
+        thead:bool=True, tfoot:bool=True, cellClasses:list=None):
         """Make an entire n*m table, optionally with thead and tfoot.
         If cellClasses is given it must be a list of length nCols, and its values
         must be strings to be put into @CLASS of the respective cell elements.
         TODO: Perhaps add a callback to provide content to insert?
         """
         if (cellClasses): assert len(cellClasses) == nCols
-        
+
         doc = self.ownerDocument
         t2 = doc.createElement(nc.TABLE)
         if (thead):
             h2 = doc.createElement(nc.THEAD)
             t2.appendChild(h2)
             h2.appendChild(self.CreateRow(nCols, th=True, cellClasses=cellClasses))
-                
+
         b2 = doc.createElement(nc.TBODY)
         t2.appendChild(b2)
         for _i in range(nRows):
@@ -799,9 +799,9 @@ class NormTable(Node):
             f2 = doc.createElement(nc.TFOOT)
             t2.appendChild(f2)
             f2.appendChild(self.CreateRow(nCols, th=True, cellClasses=cellClasses))
-            
+
         return t2
-        
+
     def CreateRow(self:Node, nCols:int, th:bool=False, cellClasses:list=None) -> Node:
         """Create a row with nCols cells, all empty.
         TODO: Perhaps add a callback to provide content to insert?
@@ -814,7 +814,7 @@ class NormTable(Node):
             if (cellClasses): cell.setAttribute(nc.CLASS, cellClasses[i])
             tr.appendChild(cell)
         return tr
-        
+
     def ListList2Table(self:Node, data:list) -> Node:
         """Make a new table from a list of lists of data. Better be rectangular.
         """
@@ -826,43 +826,45 @@ class NormTable(Node):
             for j, cell in row.childNodes:
                 cell.innerHTML = str(rowData[j])
         return t2
-        
+
     def DeleteTable(self:'NormTable'):  # TODO: Drop?
-        raise UnimplementedError
+        raise NotImplementedError
 
     def SetColumn(self:'NormTable'):  # TODO: Drop? Or change to SetColumnDatatype?
-        raise UnimplementedError
+        raise NotImplementedError
 
     def RenameTable(self:'NormTable'):  # TODO: Drop?
-        raise UnimplementedError
+        raise NotImplementedError
 
     def RenameColumn(self:'NormTable'):  # TODO: Drop?
-        raise UnimplementedError
+        raise NotImplementedError
 
 
     ###########################################################################
     # Do SQL on these
     #
     def project(self:'NormTable', columns:list):
-        raise UnimplementedError
-        
+        raise NotImplementedError
+
     def select(self:'NormTable'):
-        raise UnimplementedError
-        
+        raise NotImplementedError
+
     def union(self:'NormTable'):
-        raise UnimplementedError
-        
+        raise NotImplementedError
+
     def intersection(self:'NormTable'):
-        raise UnimplementedError
-        
+        raise NotImplementedError
+
     def diff(self:'NormTable'):
-        raise UnimplementedError
-        
+        raise NotImplementedError
+
     def symdiff(self:'NormTable'):
-        raise UnimplementedError
-        
-    def join(self:'NormTable', other:'NormTable', selfColumns:list, otherColumns:list, where:Condition):
-        raise UnimplementedError
+        raise NotImplementedError
+
+    def join(
+        self:'NormTable', other:'NormTable',
+        selfColumns:list, otherColumns:list, where:Condition):
+        raise NotImplementedError
 
 # Make sure the right methods get monkey-patched onto our subclass?? TODO: Check
 #
@@ -924,4 +926,3 @@ if __name__ == "__main__":
             if (args.normalize and not tbl0.normalize()):
                 lg.error("Culd not normalize table with ID '%s'.", tid)
                 continue
-

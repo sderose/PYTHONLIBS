@@ -32,8 +32,6 @@ import os
 import argparse
 import codecs
 from functools import partial
-from html.entities import codepoint2name, name2codepoint
-import html5lib
 import inspect
 import json
 import logging
@@ -44,6 +42,7 @@ import random
 import re
 import stat
 import string
+
 from collections import defaultdict, namedtuple, OrderedDict, deque, Counter
 from datetime import date, datetime
 from enum import Enum
@@ -53,6 +52,7 @@ from subprocess import check_output, CalledProcessError
 from time import time, ctime
 import typing
 from typing import IO, Dict, List, Union, Any, Iterable, Callable, Type
+
 import unicodedata
 import xml
 import xml.dom
@@ -60,6 +60,9 @@ import xml.dom.minidom
 from xml.dom.minidom import Document, Node, Element, Text, NamedNodeMap
 import xml.sax
 from xml.parsers import expat
+from html.entities import codepoint2name, name2codepoint
+import html5lib
+
 
 import DomExtensions
 from PowerWalk import PowerWalk, PWType
