@@ -15,12 +15,9 @@ import xml.dom.minidom
 from xml.dom.minidom import Node, NamedNodeMap, Element, Document
 import logging as lg
 
-PY3 = sys.version_info[0] == 3
-if PY3:
-    from html.entities import codepoint2name, name2codepoint
-    def unichr(n): return chr(n)
-    def cmp(a, b): return ((a > b) - (a < b))
+from html.entities import codepoint2name, name2codepoint
 
+def cmp(a, b): return ((a > b) - (a < b))
 
 __metadata__ = {
     'title'        : "DomExtensions",
@@ -651,7 +648,7 @@ actually checks for `isinstance(arg, int)`, so `myNode["1"]` will not work.
 
 =Model simplifications=
 
-In general, I've tried to do a few main things:
+In general, I've aimed for a few main things:
 * Reduce the number of constructs you have to think about
 * Replace DOM properties and methods with Python-native equivalents.
 * Add a ton of higher-level utility functions so you don't have to re-invent them.
@@ -684,7 +681,13 @@ Possible additions:
 
 *** In patchDom(), test to make sure we don't overwrite anything already there.
 
-*** Rename all nodeplus args to nodeSel.
+*** Rename all nodeplus args to nodeSel. Check other naming consistency.
+
+Add "tagToRuby".
+
+Reduce redundancy in traversers and generators.
+
+Rename 'maxidom'?
 
 For canonical XML, make getEscapedAttributeList() put namespace attrs first,
 and escape CR and all > in content.
@@ -771,17 +774,19 @@ Type-hinting. Proof and sort patchDom list vs. reality.
 * 2022-01-27: Fix various annoying bugs with NodeTypes Enum. Remember that the Document
 element is really an element. Improve handling for bool and for multi-token values
 in getAttributeAs(). Turn off default of appending id comment in getEndTag().
+* 2023-02-06: Clean up parent/sibling insert/wrap methods.
+
 
 =Rights=
 
-Copyright 2020, Steven J. DeRose. This work is licensed under a Creative Commons
+Copyright 2010, 2020, Steven J. DeRose. This work is licensed under a Creative Commons
 Attribution-Share Alike 3.0 Unported License. For further information on
 this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github/com/sderose].
 
-The methods here are based on
+Many of the methods here are based on
 [https://www.w3.org/TR/1999/REC-xpath-19991116/] and on my paper:
 "JSOX: A Justly Simple Objectization for XML,
 or: How to do better with Python and XML."
@@ -937,11 +942,7 @@ class XMLStrings:
             """Turn all non-ASCII chars to character refs.
             """
             code = ord(mat.group[1])
-            if (PY3):
-                nonlocal width, base, htmlNames
-            else:
-                # https://stackoverflow.com/questions/3190706/
-                raise ValueError("PY3 dependency: nonlocal.")
+            nonlocal width, base, htmlNames
             if (htmlNames and code in codepoint2name):
                 return "&%s;" % (codepoint2name[code])
             if (base==10):
@@ -971,9 +972,9 @@ class XMLStrings:
         """Convert HTML entities, and numeric character references, to literal chars.
         """
         if (len(mat.group(1)) == 2):
-            return unichr(int(mat.group[2], 16))
+            return chr(int(mat.group[2], 16))
         elif (mat.group(1)):
-            return unichr(int(mat.group[2], 10))
+            return chr(int(mat.group[2], 10))
         elif (mat.group(2) in name2codepoint):
             return name2codepoint[mat.group(2)]
         else:
@@ -1030,11 +1031,11 @@ class HIERARCHY_REQUEST_ERR(Exception):
 #
 class Axes(Enum):
     """A list of the XPath axes. With a bit each, so they can be ORed.
-    That's main to enable an "or self" axis for every other axis (though it
-    seems unlikely for ATTRIBUTE). For other combination, a definition of relative
+    That's mainly to enable an "or self" axis for every other axis (though it
+    seems unlikely for ATTRIBUTE). For other combinations, a definition of relative
     order would be needed. For example, who is the first node along PSIBLING|FSIBLING?
-    Probably document order would be the clearest case. Also, some nodes occur in
-    multiple axes relative to a given starting nodes (CHILD|DESCENDANT, most obviously).
+    Probably document order would be the clearest. Also, some nodes occur in
+    multiple axes relative to a given starting nodes (e.g., CHILD|DESCENDANT).
     For the present, only SELF can be combined with others.
 
     Possibly introduce axis-specific prefixes to __getitem__ -- like current "@",
@@ -1058,18 +1059,14 @@ class Axes(Enum):
 ###############################################################################
 #
 class NodeSelKind(Enum):
-    """Major classes of arguments for DEgetitem etc.
+    """Major types of arguments for DEgetitem etc.
     This has two main uses:
-        1: given one of the 3 args to __getitem__, identify it.
-           Often these will be ints, which is why that's here.
-        2: Helping interpret the similar arg to many selection/navigation
-           methods, e.g., selectChild("#pi", n=1). In that case, the
-           arg can also be a regex, which specifies matching element names.
-
-        Possible additions:
-            '#space' for white-space-only text nodes,
-            '#realtext' for non-white-space-only text nodes,
-            union of text, element, and cdata
+    
+    1: given one of the 3 args to __getitem__, identify what kind it is.
+       Often these will be ints, which is why that's here.
+    2: Helping interpret the similar arg to many selection/navigation
+       methods, e.g., selectChild("#pi", n=1). In that case, the
+       arg can also be a regex, which specifies matching nodeNames.
 
     The model here is:
         There are BRANCHES and LEAVES.
@@ -1091,16 +1088,26 @@ class NodeSelKind(Enum):
     ARG_CDATA     = 0x100  # #cdata
 
     ARG_NONCOM    = 0xF7F  # Anything BUT comments
+    
+    # Possible additions:
+    # ARG_space    =        # for white-space-only text nodes,
+    # ARG_realtext =        # for non-white-space-only text nodes,
+    # ARG_basic    =        # for union of text, element, and cdata
+
 
     @staticmethod
     def getKind(someArg:Union[str, int]) -> 'NodeSelKind':  # nee def argType()
         """Categorize one of the arguments to __getitem__().
         """
-        if (someArg is None): return NodeSelKind.ARG_NONE
-        if (isinstance(someArg, int)): return NodeSelKind.ARG_INT
+        if (someArg is None):
+            return NodeSelKind.ARG_NONE
+        if (isinstance(someArg, int)): 
+            return NodeSelKind.ARG_INT
 
-        if (XMLStrings.isXmlName(someArg)): return NodeSelKind.ARG_NAME
-        if (someArg == "*"): return NodeSelKind.ARG_STAR
+        if (XMLStrings.isXmlName(someArg)): 
+            return NodeSelKind.ARG_NAME
+        if (someArg == "*"): 
+            return NodeSelKind.ARG_STAR
 
         if (someArg[0] == "@" and XMLStrings.isXmlName(someArg[1:])):
             return NodeSelKind.ARG_ATTR
@@ -1116,6 +1123,7 @@ class NodeSelKind(Enum):
         if (someArg == "#cdata"):
             return NodeSelKind.ARG_CDATA
         #if (someArg == ".."): return NodeSelKind.ARG_ANCESTOR
+        
         raise ValueError("Bad argument type for '%s'." % (someArg))
 
 
@@ -1235,7 +1243,7 @@ def _getListItemsByName_(self:Node, theList:list, nodeSel:NodeSel) -> list:
 
 
 ###############################################################################
-# Methods to make minidom (or whatever) look like JS DOM.
+# Methods to make minidom (or whatever) look more like JS DOM.
 #
 def outerHTML(self:Node, indent:str="    ", breakEndTags:bool=False, usePretty:bool=False) -> str:
     """
@@ -1687,6 +1695,7 @@ def isWithin(self:Node, node:Node) -> bool:
 isDescendantOf = isWithin
 
 CONTENT_EMPTY = 0
+# CONTENT_WSO ?? whitespace only
 CONTENT_TEXT = 1
 CONTENT_ELEMENT = 2
 CONTENT_MIXED = 3
@@ -2109,13 +2118,12 @@ def removeNodesByNodeType(self:Node, nodeType:str) -> int:
         ct += 1
     return ct
 
-def untagNodesByTagName(root:Node, nodeName:NMToken) -> None:
+def promoteChildrenByParentName(root:Node, nodeName:NMToken) -> None:
     """Find all elements of a given element type, and remove them, leaving their
     descendants otherwise intact.
     """
     for t in root.getElementsByTagName(nodeName):
-        tn = root.getDocument.createTextNode(t.innerText())
-        t.parentNode.replaceChild(t, tn)
+        t.promoteChildren()
 
 def renameByTagName(root:Node, oldName:NMToken, newName:NMToken) -> None:
     """Change the name for all elements of a given element type name.
@@ -2235,92 +2243,94 @@ def addElementSpaces(self:Node, exceptions=None):
 
 
 ###############################################################################
+# Node creation/insertion methods.
+# To do: Let caller supply attribute, too.
 #
-def insertPrecedingSibling(self:Node, node):
+def insertPrecedingSibling(self:Node, newNode:Node) -> Node:
     """
     """
-    self.parentNode.insertBefore(node, self)
-    return node
+    self.parentNode.insertBefore(newNode, self)
+    return newNode
 
-def insertFollowingSibling(self:Node, node):
+def insertFollowingSibling(self:Node, newNode) -> Node:
     """
     """
     par = self.parentNode
     r = self.getFollowingSibling()
-    if (r): par.insertBefore(node, r)
-    else: par.appendChild(node)
-    return node
+    if (r): par.insertBefore(newNode, r)
+    else: par.appendChild(newNode)
+    return newNode
 
-def insertParent(self:Node, nodeName:NMToken) -> Node:
-    """TODO Allow a sequence of siblings
+def createParent(self:Node, nodeName:NMToken) -> Node:
+    """See also: groupSiblings(), below.
     """
-    new = self.getOwnerDocument.createElement(nodeName)
-    self.parentNode.replaceChild(new, self)
-    new.appendChild(self)
-    return new
+    newNode = self.getOwnerDocument.createElement(nodeName)
+    self.parentNode.replaceChild(newNode, self)
+    newNode.appendChild(self)
+    return newNode
 
+def groupSiblings(self:Node, firstNode:Node, lastNode:Node, nodeName:NMToken) -> Node:
+    """Take a block of one or more contiguous siblings and enclose them in a new
+    intermediate parent node (which goes at the level they *used* to be at).
+    See also: insertParent(), above.
+    """
+    if (not firstNode or not lastNode):
+        raise ValueError("Must supply firstNode and lastNode to groupSiblings().\n")
+    oldParent1 = firstNode.parentNode
+    oldParent2 = lastNode.parentNode
+    if (not (oldParent1 == oldParent2)):
+        raise ValueError("groupSiblings: firstNode and lastNode are not siblings!\n")
+        
+    newNode = firstNode.getOwnerDocument().createElement(nodeName)
+    oldParent1.insertChildBefore(newNode, firstNode)
+    curNode = firstNode
+    while (curNode):
+        nextNode = curNode.getFollowingSibling()
+        oldParent1.removeChild(curNode)
+        newNode.appendChild(curNode)
+        if (curNode == lastNode): break
+        curNode = nextNode
+    return newNode
 
-###############################################################################
-#
-def mergeWithFollowingSibling(self:Node, cur):
+def mergeWithFollowingSibling(self:Node) -> Node:
     """Following sibling goes away, but its children are appended to the node.
     """
-    if (not (cur)): return None
-    sib = cur.getFollowingSibling()
+    if (not (self)): return None
+    sib = self.getFollowingSibling()
     if (not sib): return False
-    while (cur.hasChildNodes()):
-        cur.appendChild(sib.getFirstChild())
-    cur.parentNode.removeChild(sib)
+    while (sib.hasChildNodes()):
+        cur = sib.removeChild(self.getFirstChild())
+        self.appendChild(cur)
+    self.parentNode.removeChild(sib)
+    return self
 
-def mergeWithPrecedingSibling(self:Node, cur):
+def mergeWithPrecedingSibling(self:Node) -> Node:
     """Preceding sibling goes away, but its children are appended to the node.
     """
-    if (not (cur)): return None
-    sib = cur.getPrecedingSibling()
+    if (not (self)): return None
+    sib = self.getPrecedingSibling()
     if (not sib): return False
-    while (cur.hasChildNodes()):
-        cur.insertBefore(sib.getLastChild(), cur.getFirstChild())
-    cur.parentNode.removeChild(sib)
+    while (self.hasChildNodes()):
+        cur = sib.getLastChild()
+        sib.removeChild(cur)
+        self.insertBefore(cur, self.getFirstChild())
+    self.parentNode.removeChild(sib)
+    return self
 
-
-###############################################################################
-# Take a block of contiguous siblings and enclose them in a new intermediate
-# parent node (which in inserted at the level they *used* to be at).
-#
-def groupSiblings(self:Node, first, breakNode, newParentType):
-    """
-    """
-    if (not first or not breakNode):
-        raise ValueError("Must supply first and breakNode to groupSiblings\n")
-    oldParent = first.parentNode
-    oldParent2 = breakNode.parentNode
-    if (not (oldParent == oldParent2)):
-        raise ValueError("groupSiblings: first and last are not siblings!\n")
-    newParent = first.getOwnerDocument().createElement(newParentType)
-    oldParent.insertChildBefore(newParent, first)
-
-    cont = cur = first
-    while (cur):
-        cont = cur.getFollowingSibling()
-        moving = oldParent.removeChild(cur)
-        newParent.insertBefore(moving, None)
-        cur = cont
-
-
-###############################################################################
-#
-def promoteChildren(self:Node):
+def promoteChildren(self:Node) -> Node:
     """Remove the given node itself, but promoting all its children.
     Sometimes known as "unwrapping".
+    See also: promoteChildrenByParentName().
+    Returns the *last* of the former children.
     """
     parent = self.parentNode
     cur = self.getFirstChild()
     while (cur):
-        cont = cur.getFollowingSibling()
-        moving = self.removeChild(cur)
-        parent.insertBefore(moving, parent)
-        cur = cont
+        self.removeChild(cur)
+        parent.insertBefore(cur, self)
+        cur = self.getFirstChild()
     parent.removeChild(self)
+    return cur
 
 def moveChildToAttribute(root:Node, pname:NMToken, chname:NMToken, aname:NMToken, onDup:str="skip") -> int:
     """Within the subtree under `root`, check all elements named `ename` that
@@ -2366,6 +2376,7 @@ def findNonAttributable(root:Node, pname:NMToken, chname:NMToken, aname:NMToken)
 
 
 ###############################################################################
+# Generators for the various XPath axes.
 #
 def eachNodeCB(self:Node, callbackA:Callable=None, callbackB:Callable=None, depth:int=1):
     """Traverse a subtree given its root, and call separate callbacks before
@@ -2395,6 +2406,7 @@ def eachNode(self:Node, wsn:bool=True, attributeNodes:bool=True, depth:int=1) ->
     """Generate all descendant nodes (see also eachTextNode, eachElement)
     @param wsn: If False, skip white-space-only nodes.
     @param attributeNodes: If False, skip attribute nodes.
+    TODO: Upgrade this and similar, to use NodeKind?
     """
     if (not self): return
     yield self
@@ -2476,8 +2488,8 @@ def eachAttribute(self:Node, etype:NMToken=None, aname:NMToken=None, depth:int=1
                 yield chNode, chAname
     return
 
-# TODO: eachComment, eachPI, eachCDATA?
-
+# TODO: eachComment, eachPI, eachCDATA? No, just add nodeKind args to above.
+# 
 def generateNodes(self:Node) -> Node:
     """Traverse a subtree given its root, and yield the nodes preorder.
     """
@@ -2487,6 +2499,10 @@ def generateNodes(self:Node) -> Node:
         yield ch.generateNodes()
     return
 
+
+###############################################################################
+# A SAX interface directly to the DOM.
+#
 def generateSaxEvents(self:Node, handlers:dict=None):
     handlerNames = [
         'XmlDeclHandler',
@@ -2794,8 +2810,6 @@ def collectAllXml2r(self:Node, cOptions, depth:int=1):
         raise ValueError("startCB: Bad DOM nodeType returned: %s." % ntype)
     return
 
-
-###############################################################################
 def collectAllXml(
     self:Node,                # Root of subtree to generate XML for
     delim:str="",             # Put before each start tag
@@ -2859,6 +2873,7 @@ def collectAllXml(
 
 
 ###############################################################################
+#
 fhGlobal = None  # TODO Unglobalize this, probably via partial functions.
 
 def export(
@@ -3359,7 +3374,7 @@ class DomExtensions:
             toPatch.removeWhiteSpaceNodes   = removeWhiteSpaceNodes
             toPatch.removeNodesByTagName    = removeNodesByTagName
             toPatch.removeNodesByNodeType   = removeNodesByNodeType
-            toPatch.untagNodesByTagName     = untagNodesByTagName
+            toPatch.promoteChildrenByParentName = promoteChildrenByParentName
             toPatch.renameByTagName         = renameByTagName
             toPatch.forceTagCase            = forceTagCase
 
@@ -3375,10 +3390,10 @@ class DomExtensions:
             toPatch.normalizeAllSpace       = normalizeAllSpace
             toPatch.normalize               = normalize
 
-            # Local changes
+            # Local tree changes
             toPatch.insertPrecedingSibling  = insertPrecedingSibling
             toPatch.insertFollowingSibling  = insertFollowingSibling
-            toPatch.insertParent            = insertParent
+            toPatch.createParent            = createParent
             toPatch.mergeWithFollowingSibling = mergeWithFollowingSibling
             toPatch.mergeWithPrecedingSibling = mergeWithPrecedingSibling
             toPatch.groupSiblings           = groupSiblings
