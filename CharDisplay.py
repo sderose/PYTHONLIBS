@@ -149,6 +149,11 @@ Unicode code point for ''that'' is (unless you set `--nomac`).
 My `ord`, `chr`, `countChars`, `strfchr.py`.
 
 
+=Known Bugs and Limitations=
+
+Unicode category names do not display correctly (though mnemonics do).
+
+
 =To do=
 
 * Option to sanity-check types/values generated, via CProps info.
@@ -1795,10 +1800,10 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
     if (literal in unixJargon): charInfo["JARGON"] = unixJargon[literal]
 
     if (args.verbose):
-        buf = "CharInfo for U+%05x:\\n" % (n)
+        buf = "CharInfo for U+%05x:\n" % (n)
         for k, v in charInfo.items():
-            buf += "    %-16s %s\\n" % (k, v)
-        sys.stderr.write(buf+"    =======\\n\\n")
+            buf += "    %-16s %s\n" % (k, v)
+        sys.stderr.write(buf+"    =======\n\n")
     return charInfo
 
 def makeDisplay(n:int, full=True) -> str:
@@ -1812,7 +1817,7 @@ def makeDisplay(n:int, full=True) -> str:
         return "???"
 
     try:
-        msg = "\\n".join([
+        msg = "\n".join([
             fmtline("Unicode Name",     charInfo["UNAME" ]),
             fmtline("Script",           charInfo["SCRIPTNAME"]),
             fmtline("Category",         "'%s' (%s)" % (
@@ -1828,17 +1833,17 @@ def makeDisplay(n:int, full=True) -> str:
             fmtline("Entities",         "%s  %s  %s" % (
                 charInfo["HEXENTITY"], charInfo["DECENTITY"], charInfo["NAMEDENTITY"])),
             fmtline("Unix jargon",      charInfo["JARGON"] or "")
-        ]) + "\\n"
+        ]) + "\n"
         if (full):
             if ("MIRROROF" in charInfo):
                 mChar = charInfo["MIRROROF"]
             else:
                 mChar = ""
                 if (not args.quiet):
-                    msg += "    ******* No MIRROROF property *******\\n"
+                    msg += "    ******* No MIRROROF property *******\n"
             if (mChar != ""): mDisp = "U+%04x" % (mChar)
             else: mDisp = "-none-"
-            msg += "\\n".join([
+            msg += "\n".join([
                 fmtline("Numeric value", charInfo["NUMERICVALUE"]),
                 fmtline("Is Bidi",       charInfo["ISBIDI"]),
                 fmtline("Is Combining",  charInfo["ISCOMBINING"]),
@@ -1860,7 +1865,7 @@ def makeDisplay(n:int, full=True) -> str:
             if (not args.nomac and n>=128 and n <=255 and n in macRomanData):
                 macData = macRomanData[n]
                 macDescr = "%s (U+%04x)" % (macData[2], macData[0])
-                msg += "\\n" + fmtline("But on Mac:", macDescr)
+                msg += "\n" + fmtline("But on Mac:", macDescr)
 
     except KeyError as e:  # KeyError as e:
         print("KeyError raised in makeDisplay(0x%04x, full=%s): key: '%s'," %
@@ -1870,21 +1875,21 @@ def makeDisplay(n:int, full=True) -> str:
         msg = "[FAIL]"
 
     if (n in cp1252ToUnicode): msg += (
-        "\\n    WARNING: May be intended as CP1252. If so use U+%05x (%s)." % (
+        "\n    WARNING: May be intended as CP1252. If so use U+%05x (%s)." % (
         cp1252ToUnicode[n], unicodedata.name(cp1252ToUnicode[n])))
     elif (n == 0xFF): msg += (
-        "\\n    WARNING: 0XFF may be DELETE or LATIN SMALL LETTER Y WITH DIAERESIS")
+        "\n    WARNING: 0XFF may be DELETE or LATIN SMALL LETTER Y WITH DIAERESIS")
 
     if (n<32):
         lit = "(C0 control: " + C0Mnemonics[n]
         if (n>0 and n<26): lit += ", ^" + string.ascii_uppercase[n-1]
-        lit += ")\\n"
+        lit += ")\n"
         msg += lit
     elif (n>127 and n<160):
-        lit = "(C1 control: " + C1Mnemonics[n-128] + ")\\n"
+        lit = "(C1 control: " + C1Mnemonics[n-128] + ")\n"
         msg += lit
 
-    return msg + "\\n"
+    return msg + "\n"
 
 def protectDisplay(c, alt="[omitted]"):
     """See if the character is one that messes with display too much, and
@@ -2056,14 +2061,14 @@ if __name__ == "__main__":
                 nam = unicodedata.name(c0)
             except ValueError:
                 if (args.verbose): sys.stderr.write(
-                    "No name for char '%s' (U+%05x)\\n" % (c0, codePoint))
+                    "No name for char '%s' (U+%05x)\n" % (c0, codePoint))
                 continue
             if (args.python):
                 print("    ( 0x%05x, '%s',\t\"%s\" )," % (codePoint, c0, nam))
             else:
                 print("U+%05x: '%s' %s" % (codePoint, c0, nam))
             found += 1
-        print("\\nCharacters found in category '%s' (%s): %d." %
+        print("\nCharacters found in category '%s' (%s): %d." %
             (args.category, unicodeCategories[args.category], found))
         sys.exit()
 
