@@ -10,17 +10,14 @@ import argparse
 import unicodedata
 import re
 import string
+from enum import Enum
+from typing import List
 
-PY2 = sys.version_info[0] == 2
-if (PY2):
-    sys.stderr.write("Not thoroughly tested in Python 2.")
-else:
-    from urllib.parse import quote as urlquote
-    from urllib.parse import unquote as urlunquote
-    from urllib.request import urlopen
-    from html.entities import codepoint2name, name2codepoint
-    from html import unescape
-    def unichr(n): return chr(n)
+from urllib.parse import quote as urlquote
+from urllib.parse import unquote as urlunquote
+from urllib.request import urlopen
+from html.entities import codepoint2name, name2codepoint
+from html import unescape
 
 __metadata__ = {
     "title"        : "CharDisplay",
@@ -30,7 +27,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 2.7.6, 3.6",
     "created"      : "2018-04-21",
-    "modified"     : "2021-07-23",
+    "modified"     : "2023-02-21",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -152,6 +149,11 @@ Unicode code point for ''that'' is (unless you set `--nomac`).
 My `ord`, `chr`, `countChars`, `strfchr.py`.
 
 
+=To do=
+
+* Option to sanity-check types/values generated, via CProps info.
+
+
 =Rights=
 
 Copyright 2015 by Steven J. DeRose. This work is licensed under a Creative Commons
@@ -178,6 +180,8 @@ Add actual names for C0 control chars (not just mnemonics).
 or other troublesome ones.
 * 2021-07-23: Add MacRoman from Perl `chr`, display it when applicable, and provide
 --nomac to suppress.
+* 2023-02-21: Drop last Py2 support. Add POSIX regex categories. Switch
+charProperties to CProps enum.
 
 
 =Options=
@@ -373,7 +377,8 @@ for i in sorted(macRomanData.keys()):
     if (ent):
         cpOfEntity = name2codepoint[ent]
         if (cpOfEntity != ucp):
-            raise ValueError("macRomanData[%04x]: entity '%s' maps to %04x which is '%s', not %04x." %
+            raise ValueError(
+                "macRomanData[%04x]: entity '%s' maps to %04x which is '%s', not %04x." %
                 (i, ent, cpOfEntity, codepoint2name[cpOfEntity], ucp))
     if (not re.match(r"[- A-Z0-9]{5,}$", nam)):
         raise ValueError("macRomanData[%04x]: bad name '%s'." % (i, nam))
@@ -1462,7 +1467,7 @@ def script_cat(codepoint:int) -> (str, str):
     See https://stackoverflow.com/questions/9868792/
     """
     l = 0
-    #cat = unicodedata.category(unichr(codepoint))
+    #cat = unicodedata.category(chr(codepoint))
     r = len(script_data["idx"]) - 1
     while r >= l:
         m = (l + r) >> 1
@@ -1478,7 +1483,7 @@ def script_cat(codepoint:int) -> (str, str):
 
 def myCodepoint2name(n:int) -> str:
     if (not isinstance(n, int)): n = ord(n)
-    return unicodedata.name(unichr(n))
+    return unicodedata.name(chr(n))
 
 def myCodepoint2script(n:int) -> str:
     if (not isinstance(n, int)): n = ord(n)
@@ -1613,47 +1618,89 @@ unixJargon = {
 ###############################################################################
 # TODO: Finish sync with ord and strfchr
 #
-charProperties = {
+class CProps(Enum):
     #propname         ( typ, cat, description, ),
-    "ERROR":          ( str, 'E', "", ),
-    "CODEPOINT":      ( int, 'U', "code point", ),
-    "LITERAL":        ( str, 'U', "literal character", ),
+    ERROR =          ( str, 'E', "", ),
+    CODEPOINT =      ( int, 'U', "code point", ),
+    LITERAL =        ( str, 'U', "literal character", ),
 
     # Unicode info
-    "BLOCKNAME":      ( str, 'U', "block Name", ),
-    "CATEGORYABBR":   ( str, 'U', "category Abbreviation", ),
-    "CATEGORYNAME":   ( str, 'U', "category Name", ),
-    "PLANENAME":      ( str, 'U', "plane Name", ),
-    "PLANENUMBER":    ( int, 'U', "plane Number", ),
-    "SCRIPTNAME":     ( str, 'U', "script Name", ),
-    "UNAME" :         ( str, 'U', "Unicode name", ),
-    "UNORM" :         ( str, 'U', "Unicode name, as identifier", ),
-    "JARGON":         ( str, 'P', "jargon", ),
+    BLOCKNAME =      ( str, 'U', "block Name", ),
+    CATEGORYABBR =   ( str, 'U', "category Abbreviation", ),
+    CATEGORYNAME =   ( str, 'U', "category Name", ),
+    PLANENAME =      ( str, 'U', "plane Name", ),
+    PLANENUMBER =    ( int, 'U', "plane Number", ),
+    SCRIPTNAME =     ( str, 'U', "script Name", ),
+    #UNAME =          ( str, 'U', "Unicode name", ),
+    #UNORM =          ( str, 'U', "Unicode name, as identifier", ),
+    JARGON =         ( str, 'P', "jargon", ),
 
-    "EAWIDTH":        ( '?', 'P', "East Asian width", ),
-    "WIDTH":          ( '?', 'P', "Width", ),
-    "NUMERICVALUE":   ( float, 'P', "Numeric value, if any.", ),
+    EAWIDTH =        ( '?', 'P', "East Asian width", ),
+    WIDTH =          ( '?', 'P', "Width", ),
+    NUMERICVALUE =   ( float, 'P', "Numeric value, if any.", ),
 
-    "ISURI":          ( '?', 'P', "Is allowed in URIs?", ),
-    #"ISFPI":          ( '?', 'P', "Is allowed in FPIs?", ),
-    "ISBIDI":         ( '?', 'P', "Is bidirectional?", ),
-    "ISCOMBINING":    ( '?', 'P', "Is a combining character?", ),
-    "ISCOMBINED":     ( '?', 'P', "Is a combined character?", ),
-    "ISMIRROR":       ( '?', 'P', "Is part of a mirror pair?", ),
-    #"MIRROROF":
+    ISURI =          ( '?', 'P', "Is allowed in URIs?", ),
+    #ISFPI =          ( '?', 'P', "Is allowed in FPIs?", ),
+    ISBIDI =         ( '?', 'P', "Is bidirectional?", ),
+    ISCOMBINING =    ( '?', 'P', "Is a combining character?", ),
+    ISCOMBINED =     ( '?', 'P', "Is a combined character?", ),
+    ISMIRROR =       ( '?', 'P', "Is part of a mirror pair?", ),
+    #MIRROROF =
 
-    "DECOMP":         ( str, 'P', "decomp", ),
-    "NFC":            ( str, 'P', "NFC", ),
-    "NFKC":           ( str, 'P', "NFKC", ),
-    "NFD":            ( str, 'P', "NFD", ),
-    "NFKD":           ( str, 'P', "NFKD", ),
+    DECOMP =         ( str, 'P', "decomp", ),
+    NFC =            ( str, 'P', "NFC", ),
+    NFKC =           ( str, 'P', "NFKC", ),
+    NFD =            ( str, 'P', "NFD", ),
+    NFKD =           ( str, 'P', "NFKD", ),
 
     # Alternate representations
-    "URI":            ( str, 'F', "uri", ),
-    "DECENTITY":      ( str, 'F', "DECENTITY", ),
-    "HEXENTITY":      ( str, 'F', "HEXENTITY", ),
-    "NAMEDENTITY":    ( str, 'F', "HTML named entity reference", ),
-}
+    URI =            ( str, 'F', "uri", ),
+    DECENTITY =      ( str, 'F', "DECENTITY", ),
+    HEXENTITY =      ( str, 'F', "HEXENTITY", ),
+    NAMEDENTITY =    ( str, 'F', "HTML named entity reference", ),
+
+
+###############################################################################
+# POSIX regex category support
+#
+posixCategories = [
+    "alnum",  # \\w\\d          digits, letters
+    "alpha",  # \\w             letters
+    "ascii",  # [\\x00-\\x7F]   ASCII characters
+    "blank",  # [ \\t]          space and TAB only
+    "cntrl",  # [\\x00-\\x1F\\x80-\\x9F]  Control characters
+    "digit",  # \\d             digits
+    "graph",  #                 graphic characters
+    "lower",  #                 lowercase letters
+    "print",  #                 graphic characters and space
+    "punct",  #                 punctuation
+    "space",  # \\s             all whitespaces
+    "upper",  #                 uppercase letters
+    "word",   # \\w             word characters
+    "xdigit", #  [0-9a-fA-f]    hexadecimal digits
+]
+
+noRegex = False  # Have we tried and failed to import 'regex'?
+
+def getPosixCategories(c:chr) -> List:
+    """Return the list of POSIX regex character categories this char is in.
+    Python re doesn't currently support them, so we try to use regex and
+    warn if it can't be imported.
+
+    """
+    global noRegex
+    if (noRegex): return [ "???" ]
+    try:
+        import regex
+    except ImportError:
+        if (not args.quiet): sys.stderr.write(
+            "Cannot import 'regex' to determine POSIX categories. Install it?")
+        noRegex = True
+        return [ "???" ]
+    foundCats = []
+    for catName in posixCategories:
+        if (regex.match(r"[[:%s:]]" % catName, c)): foundCats.append(catName)
+    return foundCats
 
 
 ###############################################################################
@@ -1670,7 +1717,7 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
     if (n == 0xEFBFBD):
         raise ValueError("UTF-8 of U+FFFD (Replacement Character) 0xEFBFBD")
 
-    literal = charInfo["LITERAL"]  = unichr(n)
+    literal = charInfo["LITERAL"]  = chr(n)
 
     # Unicodedata does not return names for C0 controls....
     if (n < 32): charInfo["UNAME" ] = C0Names[n]
@@ -1710,27 +1757,24 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
 
     # Alternate forms
     # LITERAL, SLASH0/2/4/8
-    charInfo["DECENTITY"]       = "&#%d;" % (n)
-    charInfo["HEXENTITY"]       = "&#x%05x;" % (n)
+    charInfo["DECENTITY"]    = "&#%d;" % (n)
+    charInfo["HEXENTITY"]    = "&#x%05x;" % (n)
     # BININT, OCTINT, DECINT, HEXINT, UPLUS
     #print("type: %s" % (type(codepoint2name)))
     if (n in codepoint2name):
         charInfo["NAMEDENTITY"] = "  &%s;" % (codepoint2name[n])
     else:
         charInfo["NAMEDENTITY"] = None
-    if (PY2):
-        charInfo["UTF8"]        = "\\x" + literal.encode("utf-8").encode("hex")
-    else:
-        buf = "\\x"
-        myBytes = literal.encode("utf-8")
-        for b in myBytes: buf += "%02x" % (b)
-        charInfo["UTF8"]        = buf
-    charInfo["URI"]             = urlquote(literal.encode("utf-8"))
+    buf = "\\\\x"
+    myBytes = literal.encode("utf-8")
+    for b in myBytes: buf += "%02x" % (b)
+    charInfo["UTF8"]         = buf
+    charInfo["URI"]          = urlquote(literal.encode("utf-8"))
 
     if (n<=33): charInfo["MNEMONIC"] = C0Mnemonics[n]
     elif (n>=128 and n<=160): charInfo["MNEMONIC"] = C1Mnemonics[n-128]
     else: charInfo["MNEMONIC"] = ""
-    charInfo["CONTROLPIC"]      = chr(0x2400+n) if (n<32) else ""
+    charInfo["CONTROLPIC"] = chr(0x2400+n) if (n<32) else ""
 
     # Properties
     #
@@ -1746,14 +1790,15 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
     charInfo["NFD"]       = unicodedata.normalize("NFD",  literal)
     charInfo["NFKD"]      = unicodedata.normalize("NFKD", literal)
 
+    charInfo["POSIXCATS"] = getPosixCategories(literal)
     charInfo["JARGON"] = None
     if (literal in unixJargon): charInfo["JARGON"] = unixJargon[literal]
 
     if (args.verbose):
-        buf = "CharInfo for U+%05x:\n" % (n)
+        buf = "CharInfo for U+%05x:\\n" % (n)
         for k, v in charInfo.items():
-            buf += "    %-16s %s\n" % (k, v)
-        sys.stderr.write(buf+"    =======\n\n")
+            buf += "    %-16s %s\\n" % (k, v)
+        sys.stderr.write(buf+"    =======\\n\\n")
     return charInfo
 
 def makeDisplay(n:int, full=True) -> str:
@@ -1767,7 +1812,7 @@ def makeDisplay(n:int, full=True) -> str:
         return "???"
 
     try:
-        msg = "\n".join([
+        msg = "\\n".join([
             fmtline("Unicode Name",     charInfo["UNAME" ]),
             fmtline("Script",           charInfo["SCRIPTNAME"]),
             fmtline("Category",         "'%s' (%s)" % (
@@ -1783,17 +1828,17 @@ def makeDisplay(n:int, full=True) -> str:
             fmtline("Entities",         "%s  %s  %s" % (
                 charInfo["HEXENTITY"], charInfo["DECENTITY"], charInfo["NAMEDENTITY"])),
             fmtline("Unix jargon",      charInfo["JARGON"] or "")
-        ]) + "\n"
+        ]) + "\\n"
         if (full):
             if ("MIRROROF" in charInfo):
                 mChar = charInfo["MIRROROF"]
             else:
                 mChar = ""
                 if (not args.quiet):
-                    msg += "    ******* No MIRROROF property *******\n"
+                    msg += "    ******* No MIRROROF property *******\\n"
             if (mChar != ""): mDisp = "U+%04x" % (mChar)
             else: mDisp = "-none-"
-            msg += "\n".join([
+            msg += "\\n".join([
                 fmtline("Numeric value", charInfo["NUMERICVALUE"]),
                 fmtline("Is Bidi",       charInfo["ISBIDI"]),
                 fmtline("Is Combining",  charInfo["ISCOMBINING"]),
@@ -1810,11 +1855,12 @@ def makeDisplay(n:int, full=True) -> str:
                      protectDisplay(charInfo["NFD"]),  stringToHex(charInfo["NFD"]),
                      protectDisplay(charInfo["NFKD"]), stringToHex(charInfo["NFKD"])
                     )),
+                fmtline("Posix regex",   "[ " + ", ".join(charInfo["POSIXCATS"]) + " ]")
             ])
             if (not args.nomac and n>=128 and n <=255 and n in macRomanData):
                 macData = macRomanData[n]
                 macDescr = "%s (U+%04x)" % (macData[2], macData[0])
-                msg += "\n" + fmtline("But on Mac:", macDescr)
+                msg += "\\n" + fmtline("But on Mac:", macDescr)
 
     except KeyError as e:  # KeyError as e:
         print("KeyError raised in makeDisplay(0x%04x, full=%s): key: '%s'," %
@@ -1824,21 +1870,21 @@ def makeDisplay(n:int, full=True) -> str:
         msg = "[FAIL]"
 
     if (n in cp1252ToUnicode): msg += (
-        "\n    WARNING: May be intended as CP1252. If so use U+%05x (%s)." % (
+        "\\n    WARNING: May be intended as CP1252. If so use U+%05x (%s)." % (
         cp1252ToUnicode[n], unicodedata.name(cp1252ToUnicode[n])))
     elif (n == 0xFF): msg += (
-        "\n    WARNING: 0XFF may be DELETE or LATIN SMALL LETTER Y WITH DIAERESIS")
+        "\\n    WARNING: 0XFF may be DELETE or LATIN SMALL LETTER Y WITH DIAERESIS")
 
     if (n<32):
         lit = "(C0 control: " + C0Mnemonics[n]
         if (n>0 and n<26): lit += ", ^" + string.ascii_uppercase[n-1]
-        lit += ")\n"
+        lit += ")\\n"
         msg += lit
     elif (n>127 and n<160):
-        lit = "(C1 control: " + C1Mnemonics[n-128] + ")\n"
+        lit = "(C1 control: " + C1Mnemonics[n-128] + ")\\n"
         msg += lit
 
-    return msg + "\n"
+    return msg + "\\n"
 
 def protectDisplay(c, alt="[omitted]"):
     """See if the character is one that messes with display too much, and
@@ -1846,7 +1892,7 @@ def protectDisplay(c, alt="[omitted]"):
     c may be a character or an int code point.
     """
     if isinstance(c, int): c = chr(c)
-    if (re.match(r"[\s\x00-\x1F\x80-\x9F]", c, re.UNICODE)): return alt
+    if (re.match(r"[\\s\\x00-\\x1F\\x80-\\x9F]", c, re.UNICODE)): return alt
     return c
 
 def stringToHex(x) -> str:
@@ -1894,7 +1940,7 @@ def getCodePoint(cspec) -> int:
         0x02022       -- HEXINT (hex code point)
         U+02022       -- UPLUS
         %e2%80%a2     -- URI (escaped UTF8)
-        \xe2\x80\xa2  -- UTF8
+        \\xe2\\x80\\xa2  -- UTF8
         MNEMONIC
         BULLET        -- UNAME (Unicode character name)
         bull          -- NAMEDENTITY without delimiters   ??? TODO
@@ -1915,14 +1961,14 @@ def getCodePoint(cspec) -> int:
     if (cspec.isdigit()):                                  # OCTINT, DECINT
         if (cspec[0] == "0"): return int(cspec, 8)
         return int(cspec, 10)
-    if (re.match(r"0X[\dA-F]+$", uspec, re.I)):            # HEXINT
+    if (re.match(r"0X[\\dA-F]+$", uspec, re.I)):            # HEXINT
         return int(uspec[2:], 16)
-    if (re.match(r"U\+[\dA-F]+$", uspec, re.I)):           # UPLUS
+    if (re.match(r"U\\+[\\dA-F]+$", uspec, re.I)):           # UPLUS
         return int(uspec[2:], 16)
-    if (re.match(r"(%[\da-f][\dA-F])+$", uspec, re.I)):    # URI
+    if (re.match(r"(%[\\da-f][\\dA-F])+$", uspec, re.I)):    # URI
         return ord(urlunquote(uspec))
-    if (re.match(r"(\\x[\dA_F][\dA-F])+$", uspec, re.I)):  # UTF8
-        uriForm = re.sub(r"\\x", "%", uspec)
+    if (re.match(r"(\\\\x[\\dA_F][\\dA-F])+$", uspec, re.I)):  # UTF8
+        uriForm = re.sub(r"\\\\x", "%", uspec)
         return ord(urlunquote(uriForm))
     if (uspec in C0Mnemonics):                             # MNEMONIC
         return C0Mnemonics.index(uspec)
@@ -2003,21 +2049,21 @@ if __name__ == "__main__":
     if (args.category):
         found = 0
         for codePoint in (range(sys.maxunicode + 1)):
-            c0 = unichr(codePoint)
+            c0 = chr(codePoint)
             categ = unicodedata.category(c0)
             if (not categ.startswith(args.category)): continue
             try:
                 nam = unicodedata.name(c0)
             except ValueError:
                 if (args.verbose): sys.stderr.write(
-                    "No name for char '%s' (U+%05x)\n" % (c0, codePoint))
+                    "No name for char '%s' (U+%05x)\\n" % (c0, codePoint))
                 continue
             if (args.python):
                 print("    ( 0x%05x, '%s',\t\"%s\" )," % (codePoint, c0, nam))
             else:
                 print("U+%05x: '%s' %s" % (codePoint, c0, nam))
             found += 1
-        print("\nCharacters found in category '%s' (%s): %d." %
+        print("\\nCharacters found in category '%s' (%s): %d." %
             (args.category, unicodeCategories[args.category], found))
         sys.exit()
 
