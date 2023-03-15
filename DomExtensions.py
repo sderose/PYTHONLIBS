@@ -687,7 +687,9 @@ Add "tagToRuby".
 
 Reduce redundancy in traversers and generators.
 
-Rename 'maxidom'?
+Rename to 'maxidom'?
+
+Option to test/return nodeName always as localname or qname?
 
 For canonical XML, make getEscapedAttributeList() put namespace attrs first,
 and escape CR and all > in content.
@@ -696,6 +698,35 @@ and escape CR and all > in content.
 NodeIterator and TreeWalker [https://dom.spec.whatwg.org/#nodeiterator]
 and NodeFilters (latter is there as enum), DOMTokenList,...?
 
+* Find a better solution for getting this to be a true subclass. The main issue is functions
+that do constructions. They need to instantiate based on the fancier extended Node.
+I think the culprits are (see https://github.com/python/cpython/blob/main/Lib/xml/dom/minidom.py):
+    DOMImplementation.createDocument
+    DOMImplementation.createDocumentType
+    Document.createDocumentFragment
+    Document.createElement
+    Document.createTextNode
+    Document.createCDATASection
+    Document.createComment
+    Document.createProcessingInstruction
+    Document.createAttributec
+    Document.createElementNS
+    Document.createAttributeNS
+    Document._create_entity
+    Document._create_notation
+    
+** E.g.:
+    Make: class XNode(Node), class DOMImplementation(DOMImplementation)
+    Subclass all the subclasses of Node, to be based on XNode
+    Change all the methods that construct, like:
+        def createThing(self):
+            myType = type(self)
+            newThing = myType()
+            return newThing
+    *Except* that these are methods on (e.g.) Document, that create OTHER classes....
+    So probably easiest is just to explicitly construct XTextNode, etc -- though that
+    doesn't really solve the general problem.
+    
 * Make NamedNodeMap more Pythonic:
     ** dir(nnm) fails.
 
@@ -719,6 +750,7 @@ and NodeFilters (latter is there as enum), DOMTokenList,...?
 * Add insertPrecedingSibling, insertFollowingSibling, insertParent, insertAfter
 * Possibly support myNode[["P"]] to scan all descendants (by analogy
 with XPath "//" operator).
+* Possibly support entire XPath (though other solution integrate it, so maybe not).
 * Add a way to turn off all indenting for collectAllXml2 with one option.
 * Implement a few useful BS4 bits (see class BS4Features) (and add to help).
 * String to tag converter, like for quotes?
@@ -753,6 +785,7 @@ large documents.
 for escaping data correctly for each relevant context; knows about character
 references, namespaces, and the open-element context; has useful methods for
 inferring open and close tags to keep things in sync.
+
 
 =History=
 
@@ -1271,7 +1304,7 @@ def innerHTML(self:Node, cOptions=None, indent:str="    ", breakEndTags:bool=Fal
     for curNode in self.childNodes:
         ty = curNode.nodeType
         if (ty == Node.TEXT_NODE):
-            sys.stderr.write("#TEXT: %s" % (curNode.nodeValue))
+            #sys.stderr.write("#TEXT: %s" % (curNode.nodeValue))
             t += curNode.nodeValue
         elif (ty==Node.DOCUMENT_NODE or
               ty==Node.DOCUMENT_FRAGMENT_NODE or
@@ -1306,16 +1339,19 @@ def outerXML(self:Node, cOptions=None) -> str:
 def innerXML(self:Node, cOptions=None) -> str:
     return self.innerHTML(cOptions=cOptions)
 
-def innerText(self:Node, sep:str='') -> str:
+def innerText(self:Node, sep:str='', stripWS:bool=False) -> str:
     """Like usual innertext, but a function (instead of a property), and allows
     inserting something in between all the text nodes (typically a space,
     so text of list items etc. don't join up. But putting in spaces around
     HTML inlines like i and b, is occasionally wrong.
+    TODO: Should 'stripWS' only do XML WS?
     """
     if (self.nodeType == Node.TEXT_NODE or
         self.nodeType == Node.CDATA_SECTION_NODE):
-        #sys.stderr.write("innerText got '%s'.\n" % (self.nodeValue))
-        return self.nodeValue
+        #sys.stderr.write("innerText got '%s'.\n" % (self.nodeValue or ""))
+        txt = self.nodeValue or ""
+        if (stripWS): txt = txt.strip()
+        return txt
     if (self.nodeType != Node.ELEMENT_NODE):  # PI, comment
         return ""
     t = ""
@@ -2049,6 +2085,8 @@ def getEscapedAttributeList(self:Node, sortAttributes:bool=False, quoteChar:str=
     TODO: At least for canonical XML, put namespace attrs first.
     """
     assert self.nodeType==Node.ELEMENT_NODE, "We're at a %s, not an element." % (self.nameOfNodeType())
+    assert quoteChar in "'\""
+    
     buf = ""
     if (not (self)): return None
     alist = self.attributes
@@ -2378,6 +2416,15 @@ def findNonAttributable(root:Node, pname:NMToken, chname:NMToken, aname:NMToken)
 ###############################################################################
 # Generators for the various XPath axes.
 #
+def isWSN(self:Node):
+    """Return true if this is a white-space-only text node, or a null text node
+    (minidom can have text nodes whose data is None).
+    """
+    if (self.nodeType != Node.TEXT_NODE): return False
+    if (self.nodeValue is None): return True
+    if (self.nodeValue.strip() == ""): return True
+    return False
+    
 def eachNodeCB(self:Node, callbackA:Callable=None, callbackB:Callable=None, depth:int=1):
     """Traverse a subtree given its root, and call separate callbacks before
     and after traversing each subtree. Callbacks might, for example,
@@ -2413,13 +2460,14 @@ def eachNode(self:Node, wsn:bool=True, attributeNodes:bool=True, depth:int=1) ->
 
     # TODO Check, this isn't quite how to iterate through attribute *nodes*
     if (attributeNodes and self.attributes):
-        for attrNode in self.attributes:
-            yield attrNode
+        nAttrs = self.attributes.length
+        for i in range(nAttrs):
+            yield self.attributes.item(i)
 
     if (self.hasChildNodes()):
         for ch in self.childNodes:
             if (not wsn and ch.nodeType==Node.TEXT_NODE and
-                self.nodeValue.strip() == ''): continue
+                self.nodeValue is not None and self.nodeValue.strip() == ''): continue
             for chEvent in eachNode(ch, depth=depth+1):
                 yield chEvent
     return
@@ -2436,7 +2484,7 @@ def reversedEachNode(self:Node, wsn:bool=True, depth:int=1) -> Node:
             for chEvent in eachTextNode(ch, depth+1):
                 yield chEvent
     if (self.nodeType != Node.TEXT_NODE
-        or wsn or self.nodeValue.strip() != ''):
+        or wsn or (self.nodeValue is not None and self.nodeValue.strip() != '')):
         yield self
     return
 
