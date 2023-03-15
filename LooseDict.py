@@ -3,7 +3,6 @@
 # LooseDict.py: Enhance dict to handle case-ignorant or similar lookups.
 # 2018-09-04: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import argparse
 import unicodedata
@@ -18,7 +17,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2018-09-04",
-    'modified'     : "2021-07-08",
+    'modified'     : "2023-03-01",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -28,20 +27,26 @@ descr = """
 =Description=
 
 A subclass of `dict` that stores keys and values exactly as passed,
-but indexes them under a normalized form, such as folded to lowercase.
+but indexes them under a normalized form (for example, folded to lowercase).
 For example:
 
-    myDict = LooseDict(key=lower)
+    myDict = LooseDict(normFunc=lower)
     myDict['fooBar'] = 12
     print(myDict['FOOBAR'])
 
 prints "12". `lower` was specified here, so keys are normalized by
 passing them to `lower`(). This is also the default.
-You can specify some other function as needed.
-In particular, LooseDict.nfkd(), LooseDict.nfkdi(),
-LooseDict.nfc(), LooseDict.nfci() are provided, to do the eponymous
-Unicode normalizations, plus forcing to lower case for the "i" variants
-(see [https://www.unicode.org/faq/normalization.html].
+
+Other key-folding / normalization functions can be substituted.
+Functions are included to do the eponymous
+Unicode normalizations, and to do that plus forcing to lower case (the "i" variants):
+LooseDict.nfkd(), LooseDict.nfkdi(), LooseDict.nfc(), LooseDict.nfci()).
+Re. Unicode normalization see [https://www.unicode.org/faq/normalization.html].
+
+An additional feature is provide via findAbbrev(), which checks if a value is
+a unique abbreviation of some key (after normalization). If so, it returns
+the actual key; if it abbreviate no actual keys, or is ambiguous, findAbbrev()
+returns None. This is a typical behavior for interpreting command-line options.
 
 There are a few extra methods.
 For example, you can get the normalized form of a key:
@@ -50,6 +55,11 @@ For example, you can get the normalized form of a key:
 
 would print 'foobar'.
 
+==Managing real vs. normalized keys==
+
+LooseDict is a subclass of dict, and the "real" dict (owned by the parent class)
+holds the non-normalized / raw / real keys. A second dict, _normKeys,
+keeps the normalized keys, and points to their real-key equivalents.
 For any non-normalized key, you can find what (possibly different)
 key was last used to store data under the same '''normalized''' key. For example:
 
@@ -68,8 +78,8 @@ form. If you do:
     myDict['foobar'] = 10
     myDict['FOOBAR'] = 8
 
-The dict will have just one entry, whose normkey is 'foobar', realKey is 'FOOBAR'
-(because it was the last one explicitly set), and value is 8.
+then the dict will have just one entry, whose normkey is 'foobar' and
+realKey is 'FOOBAR' (because it was the last one explicitly set), and value is 8.
 
     for k, y in myDict.items()
         or
@@ -108,23 +118,24 @@ pairs in order of normalized keys (or reversed order if you also pass
 Changing the key-normalizing function on an existing instance is not supported.
 
 The normalizer function must be idempotent. That is, after being applied once,
-additional applications should make no further changes. Or in other words,
+additional applications should make no further changes;
 normalizing an already-normalized key should not denormalize it.
 
 
 =To do=
 
-* Add an option to find from unique abbreviation of key.
-Then integrate that for `strfchr.py`, `bibtex2html.py`, etc.
+* Integrate findAbbrev for `strfchr.py`, `bibtex2html.py`, etc.
 * Implement __cmp__.
 * Perhaps add `items()` variant that hands back actual vs. normalized key?
 * Perhaps add notion of explicit aliases (say, separate dict that just maps?)
+In the meantime, callers could build that into a custom normalization function.
 
 
 =History=
 
 2018-09-04: Written. Copyright by Steven J. DeRose.
 2021-07-18: Cleanup.
+2023-03-01: Add findAbbrev(), improve names and typehints.
 
 
 =Rights=
@@ -149,58 +160,71 @@ class LooseDict(dict):
     too). See also "Emulating container types":
     https://docs.python.org/2/reference/datamodel.html#emulating-container-types
     """
-    def __init__(self, key: Any = None, sorter: Callable = None):
+    def __init__(self, normFunc:Callable=None, sorter:Callable=None):
         super(LooseDict, self).__init__()
-        if (key): self.keyFunction = key
-        else: self.keyFunction = str.lower
+        if (normFunc): self.normFunc = normFunc
+        else: self.normFunc = str.lower
         if (sorter): self.sorter = sorter
         else: self.sorter = sorted
-        self.normKeys = {}  # Map from normalized to real keys
+        self._normKeys = {}  # Map from normalized to real keys
 
-    def __setitem__(self, someKey: Any, value: Any) -> None:
+    def __setitem__(self, someKey:Any, value:Any) -> None:
         normKey = self.getNormKey(someKey)
         print("in setitem for '%s', norm='%s', val='%s'." %
             (someKey, normKey, value))
-        if (normKey in self.normKeys):
-            oldRealKey = self.normKeys[normKey]
+        if (normKey in self._normKeys):
+            oldRealKey = self._normKeys[normKey]
             super(LooseDict, self).__delitem__(oldRealKey)
-        self.normKeys[normKey] = someKey
+        self._normKeys[normKey] = someKey
         super(LooseDict, self).__setitem__(someKey, value)
         return
 
-    def __getitem__(self, someKey: Any) -> Any:
+    def __getitem__(self, someKey:Any) -> Any:
         normKey = self.getNormKey(someKey)
-        realKey = self.normKeys[normKey]
+        realKey = self._normKeys[normKey]
         return super(LooseDict, self).__getitem__(realKey)
 
     def __delitem__(self, key) -> None:
         normKey = self.getNormKey(key)
-        realKey = self.normKeys[normKey]
+        realKey = self._normKeys[normKey]
         del self[realKey]
 
-    def getRealKey(self, someKey: Any):
-        normKey = self.keyFunction(someKey)
-        if (normKey not in self.normKeys): return None
-        return self.normKeys[normKey]
+    def getRealKey(self, someKey:Any):
+        normKey = self.normFunc(someKey)
+        if (normKey not in self._normKeys): return None
+        return self._normKeys[normKey]
 
-    def getNormKey(self, someKey: Any) -> Any:
-        return self.keyFunction(someKey)
+    def getNormKey(self, someKey:Any) -> Any:
+        return self.normFunc(someKey)
 
-    def __has_key__(self, someKey: Any) -> bool:
+    def __has_key__(self, someKey:Any) -> bool:
         normKey = self.getNormKey(someKey)
-        return normKey in self.normKeys
+        return normKey in self._normKeys
+
+    def findAbbrev(self, key:Any) -> Any:
+        """Find all the matches in the dict, that the given key abbreviates.
+        If there's exactly one, return it; otherwise return None (fail).
+        This is the typical behavior for matching command-line option names.
+        """
+        if (self.normFunc): normKey = self.normFunc(key)
+        else: normKey = key
+        matches = []
+        for k in self._normKeys:
+            if (k.startswith(normKey)): matches.append(k)
+        if (len(matches) == 1): return matches[0]
+        return None
 
     def clear(self):
-        self.normKeys.clear()
+        self._normKeys.clear()
         return super(LooseDict, self).clear()
 
     def copy(self):
-        newld = LooseDict(key=self.keyFunction)
+        newld = LooseDict(normFunc=self.normFunc)
         for kk in self.keys():
             newld[kk] = self[kk]
         return newld
 
-    def __iteritems__(self, sortNorm: bool = False, reverse: bool=False):
+    def __iteritems__(self, sortNorm:bool=False, reverse:bool=False):
         """Make Python 2 users happy....
         """
         if (sortNorm):
@@ -223,23 +247,23 @@ class LooseDict(dict):
     #    return self.__cmp__(self.__dict__, dict_)
 
     @staticmethod
-    def nfkd(s: str) -> str:
+    def nfkd(s:str) -> str:
         return LooseDict.unormalize(s, 'NFKD', ignoreCase=False)
 
     @staticmethod
-    def nfkdi(s: str) -> str:
+    def nfkdi(s:str) -> str:
         return LooseDict.unormalize(s, 'NFKD', ignoreCase=True)
 
     @staticmethod
-    def nfc(s: str) -> str:
+    def nfc(s:str) -> str:
         return LooseDict.unormalize(s, 'NFC', ignoreCase=False)
 
     @staticmethod
-    def nfci(s: str) -> str:
+    def nfci(s:str) -> str:
         return LooseDict.unormalize(s, 'NFC', ignoreCase=True)
 
     @staticmethod
-    def unormalize(s: str, form: str="NFC", ignoreCase: bool=True) -> str:
+    def unormalize(s:str, form:str="NFC", ignoreCase:bool=True) -> str:
         if (form == "NFKD"): s2 = unicodedata.normalize('NFKD', s)
         elif (form == "NFD"): s2 = unicodedata.normalize('NFD', s)
         elif (form == "NFKC"): s2 = unicodedata.normalize('NFKC', s)
@@ -277,7 +301,7 @@ class normdict(dict):
     def __init__(
         self,
         default=None,        # Like defaultdict
-        normalizer=None,     # Pass all keys through this before hashing
+        normFunc=None,     # Pass all keys through this before hashing
         sorter=None,         # Sort function to use (on norm or reg?)
 
         keyType=None,        # Keys must be of this type
@@ -286,12 +310,12 @@ class normdict(dict):
         super(normdict, self).__init__()
 
         self.default    = default
-        if (normalizer == "ignoreCase"):
-            self.normalizer = lambda x: x.lower()
-        elif (normalizer == "normSpace"):
-            self.normalizer = lambda x: re.sub(r'\s+', ' ', x.split())
+        if (normFunc == "ignoreCase"):
+            self.normFunc = lambda x: x.lower()
+        elif (normFunc == "normSpace"):
+            self.normFunc = lambda x: re.sub(r'\s+', ' ', x.split())
         else:
-            self.normalizer = None
+            self.normFunc = None
 
         self.sorter     = sorter
         self.keyType    = keyType
@@ -314,10 +338,16 @@ class normdict(dict):
         self.dataLocked = False
 
     def findAbbrev(self, key: Any) -> Any:
-        if (self.normalizer): normKey = self.normalizer(key)
+        """Find all the matches in the dict, that the given key abbreviates.
+        If there's exactly one, return it; otherwise return None (fail).
+        This is the typical behavior for matching command-line option names.
+        """
+        if (self.normFunc): normKey = self.normFunc(key)
         else: normKey = key
+        matches = []
         for k in self.theDict.keys():
-            if (k.startswith(normKey)): return k
+            if (k.startswith(normKey)): matches.append(k)
+        if (len(matches) == 1): return matches[0]
         return None
 
     def matchingKeys(self, regexpr) -> List:
@@ -341,7 +371,7 @@ class normdict(dict):
         return len(self.theDict)
 
     def __getitem__(self, key: Any) -> Any:
-        if (self.normalizer): normKey = self.normalizer(key)
+        if (self.normFunc): normKey = self.normFunc(key)
         else: normKey = key
         if (self.keyType and isinstance(key, self.keyType)):
             raise TypeError
@@ -353,7 +383,7 @@ class normdict(dict):
             raise KeyError
 
     def __setitem__(self, key: Any, value: Any) -> None:
-        if (self.normalizer): normKey = self.normalizer(key)
+        if (self.normFunc): normKey = self.normFunc(key)
         else: normKey = key
         if (self.keyType and not isinstance(key, self.keyType) or
             self.valueType and not isinstance(value, self.valueType)):
@@ -367,7 +397,7 @@ class normdict(dict):
     def __delitem__(self, key: Any) -> None:
         """Should keysLocked prevent deletion, too?
         """
-        if (self.normalizer): normKey = self.normalizer(key)
+        if (self.normFunc): normKey = self.normFunc(key)
         else: normKey = key
         if (normKey in self.theDict):
             del self.theDict[normKey]
@@ -378,7 +408,7 @@ class normdict(dict):
         return LooseDictIterator(self)
 
     def __contains__(self, key):
-        if (self.normalizer): normKey = self.normalizer(key)
+        if (self.normFunc): normKey = self.normFunc(key)
         else: normKey = key
         return normKey in self.theDict
 
@@ -421,4 +451,3 @@ if __name__ == "__main__":
 
     if (not args.quiet):
         sys.stderr.write("Done.\n")
-
