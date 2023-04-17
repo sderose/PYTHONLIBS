@@ -1006,6 +1006,7 @@ class TraversalState(list):
             "ignoredByExcludePaths"      : 0,
             "ignoredByExcludeFileInfos"  : 0,
             "ignoredByIncludeExtensions" : 0,
+            "ignoredByGitStatus"         : 0,
             "ignoredByIncludeNames"      : 0,
             "ignoredByIncludePaths"      : 0,
             "ignoredByIncludeFileInfos"  : 0,
@@ -1170,6 +1171,7 @@ class PowerWalk:
         "exceptions"          : bool,
         "followLinks"         : PWDisp,
         "followWeblocs"       : PWDisp,
+        "gitStatus"           : str,
         "hidden"              : bool,
         "ignorables"          : bool,
         "maxDepth"            : int,            # TODO -> find-style?
@@ -1234,6 +1236,7 @@ class PowerWalk:
             "followLinks"         : PWDisp.IGNORE,
             "followWeblocs"       : PWDisp.IGNORE,
 
+            "gitStatus"           : "",
             "hidden"              : False,
             "ignorables"          : False,    # Events even for ignored stuff?
             "maxDepth"            : 0,
@@ -1390,7 +1393,7 @@ class PowerWalk:
             help="Follow MacOS .webloc links to the destination.")
         gitStatuses = " MADRCU?!"
         parser.add_argument(
-            "--gitstatus", "--git-status", type=str, default="",
+            "--gitStatus", "--git-status", type=str, default="",
             choices = [ x for x in gitStatuses ],
             help="Git status as for git -s [%s]. UNFINISHED." % (gitStatuses))
         parser.add_argument(
@@ -1766,8 +1769,8 @@ class PowerWalk:
             not re.search(self.options["includeExtensions"], extPart)):
             self.recordEvent(trav, "ignoredByIncludeExtensions")
 
-        elif (self.options["gitstatus"] and
-            getGitStatus(path) != self.options["gitstatus"]):
+        elif (self.options["gitStatus"] and
+            getGitStatus(path) != self.options["gitStatus"]):
             self.recordEvent(trav, "ignoredByGitStatus")
         elif (self.options["excludeNames"] and
             re.search(self.options["excludeNames"], tail)):
