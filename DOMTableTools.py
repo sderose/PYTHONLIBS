@@ -3,10 +3,12 @@
 # DOMTableTools.py: Do fancy table stuff with *ML tables.
 # 2022-01-30: Written by Steven J. DeRose.
 #
+#pylint: disable=E1101
+#
 import sys
 import codecs
 from enum import Enum
-#from typing import List, Union  #, IO, Dict
+from typing import List, Union, Dict, Callable  #, IO
 import logging
 
 from xml.dom.minidom import Node  # , Element, Document
@@ -77,7 +79,7 @@ areas or arrangements. Some differences are:
     ** It makes sense to sort (at least) columns
     ** Rowspans and colspans don't make sense
     ** all rows should have the same number and sequence of columns
-    (except perhaps a header row, which is special)
+    (except perhaps a head row, which is special)
     ** each column typically has a meaningful name and often a datatype.
     ** nested tables don't make sense (except perhaps in a case described below).
 
@@ -87,10 +89,10 @@ Normalized tables can be used in many ways that non-normalized tables can't
 Normalized tables are specifically designed to be a compromise between RDB
 tables and HTML tables, for the "kind" of data they have in common. Thus, it requires:
     * no colspans or rowspans
-    * exactly one header row, which defines a name for each column, unique within that table
+    * exactly one head row, which defines a name for each column, unique within that table
     * all rows have to have the same number of columns, and if their cells
 specify their own names (which can be awfully useful for readability and
-regex-matching), they must match the corresponding header hame
+regex-matching), they must match the corresponding head hame
     * nested tables are prohibited, *except* for one special case that maps
 directly to a common RDB and statistics scenario for which it can be kept
 clean (more on that below).
@@ -248,14 +250,34 @@ Although we use patchDOM to attach a bunch of methods to Node and
 to NormTable, pylint doesn't seem to realize it, so it still reports
 issues like E1101: NormTable has no 'xxx' member.
 
+
 =To do=
 
 Find a way to get pylint to see DomExtensions when subclassing Node to NormTable.
 See [https://stackoverflow.com/questions/60560093/monkey-patching-class-with-inherited-classes-in-python].
 
+* Add way to get applicable alignment for a table cell or column
+    ** @align or @style on the cell
+    ** <col>?
+    ** CSS (at least if explicit in an HTML header)
+    ** scan column, if all numeric (except header) use right, else left; header center?
+    ** Pull in table and style features from html2latex.py.
+
+* Possibly extend support for proper matrices?
+    ** Ensure datatypes
+    ** Convert to/from numpy (let it do the math!)
+
+
 =History=
 
-* 2022-01-30: Written by Steven J. DeRose.
+* 2022-01-30: Written by Steven J. DeRose (draft, really).
+* 2023-04-28: Move in table stuff from DomExtensions. Split out TableOptions class.
+Make main class a wrapper that owns a table Node and a TableOptions.
+Organize methods by components of a table. Decide to require clean (no nesting,
+always has thead/tbody, one thead/tr, no spans, co-indexed column members.
+Decided to number rows and columns from 1 (that's how everybody talks with tables,
+and these really aren't array indexes since there can be text nodes and PIs
+and stuff in there).
 
 
 =Rights=
@@ -285,10 +307,18 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 ELEM = Node.ELEMENT_NODE
 ATTR = Node.ATTRIBUTE_NODE
 
+def getChildByName(node:Node, name:str):
+    for ch in node.childNodes:
+        if (ch.nodeType == node.ELEMENT_NODE and
+            ch.nodeName == name): return ch
+    return None
+
 
 ###############################################################################
 #
 class CellDataTypes(Enum):
+    """A list of common data types in cells, mainly to help formats them.
+    """
     NONE        = 0
 
     BOOL        = 1
@@ -299,12 +329,12 @@ class CellDataTypes(Enum):
     YEAR        = 10
     DATE        = 11
     TIME        = 12
-    DATIME      = 13
+    DATETIME    = 13
     TIMESTAMP   = 14
 
     CHAR        = 20
-    NMTOKEN     = 21  # (= SQL Enum?)
-    NMTOKENS    = 22  # (= SQL SET)
+    NMTOKEN     = 21  # (-> SQL Enum?)
+    NMTOKENS    = 22  # (-> SQL SET?)
     URL         = 23
     GUID        = 24
     STR         = 25
@@ -314,6 +344,10 @@ class CellDataTypes(Enum):
     VECTOR      = 32
     VIDEO       = 33
     APPDATA     = 34
+
+    XML         = 50
+
+    BLOB        = 99
 
     @staticmethod
     def isKnown(s:str) -> bool:
@@ -327,13 +361,16 @@ class CellDataTypes(Enum):
 
 ###############################################################################
 #
-class NormComponents:
-    """Define how each meaningful component is mapped to XML/HTML. As in,
-    is it represented as an element, an attribute OF an element, or a value
-    within element content or attribute value?
+class TableOptions:
+    """Define how each meaningful component is named and mapped to XML/HTML,
+    and provide a method to turn CSV-ish stuff into it.
+    TODO: Support swapping things between element/attribute?
     """
     def __init__(self):
-        #               (element attr val)
+        self.setDefaults()
+
+    def setDefaults(self):
+        # Table elements
         self.TABLE    = "table"
         self.THEAD    = "thead"
         self.TBODY    = "tbody"
@@ -342,207 +379,545 @@ class NormComponents:
         self.TD       = "td"
         self.TH       = "th"
 
+        # Attributes
         self.CLASS    = "class"
         self.COLSPAN  = "colspan"
         self.ROWSPAN  = "rowspan"
 
-        # TODO: Change following; caller changes the values above.
-        self.COLNAME    = ("td", "class", "")
-        self.COLNAMEDEF = ("th", "class", "")
-        self.ISKEY      = ("th", "iskey", "")
-        self.SORTFLAG   = ("th", "class", "SORTABLE")
+        self.TYPE     = "dtype"    # On header, datatype of column entries (?)
 
-    def csv2norm(self, path:str, hasHeader:bool=True):
-        """Load a CSV file and create a NormTable out of it.
-        First record better be field names; each name may also
-        have a colon and a datatype name appended.
-        """
-        fsplitArgs = { "quote":'"', "delim":"," }
-        doc = minidom.Document()
-        tbl = doc.createElement("table")
-        doc.appendChild(tbl)
-        headRow = doc.createElement(nc.TR)
-        tbl.appendChild(headRow)
+        # Constants
+        self.ROW_0    = "row0"  # @CLASS token for rowspan dummy
+        self.COL_0    = "col0"  # @CLASS token for rowspan dummy
+        self.SORT     = "sortable"
 
-        ifh = codecs.open(path, "rb", encoding="utf-8")
-
-        # Process the header
-        colNames = []
-        colTypes = []
-        if (hasHeader):
-            headRec = ifh.readline()
-            colNames = []
-            headFds = fsplit(headRec, fsplitArgs)
-            for headFd in headFds:
-                if (":" in headFd):
-                    nm, typ = headFd.split(sep=":")
-                else:
-                    nm = headFd
-                    typ = None
-                colNames.append(nm)
-                colTypes.append(typ)
-                colElem = doc.createElement(nc.TH)
-                colElem.setAttribute(nc.CLASS, nm)
-                if (typ): colElem.setAttribute("typeName", typ)
-                headRow.appendChild(colElem)
-
-        # Process the data
-        recnum = 1
-        for rec in ifh.readlines():
-            recnum += 1
-            fds = fsplit(rec, fsplitArgs)
-            dataRow = doc.createElement(nc.TR)
-            tbl.appendChild(dataRow)
-            for i, fd in enumerate(fds):
-                colElem = doc.createElement(nc.TD)
-                colElem.setAttribute(nc.CLASS, colNames[i])
-                colElem.innerHtml = XMLStrings.escapeText(fd)
-
-nc = NormComponents()
+        # Places to put special data
+        # TODO: Abstract following; caller changes the values above.
+        self.COLIDENTUSE = "class"  # Use of column ident
+        self.COLIDENTDEF = "class"  # Definition of column ident
+        #self.ISKEY       = "iskey"  # ???
 
 
 ###############################################################################
 #
-class Condition:
-    """A condition such as used by select, join, where-clauses in general.
+#
+def CreateTableFromMatrix(self, theMatrix:List[List], hasHeader:bool=True):
+    """Construct from list of lists. First row can be header if desired.
     """
-    def __init__(self, expr:str):
-        """Create an interpretable AST from some syntax.
+    if (not self.topt): self.topt = TableOptions()
+
+    nCols = len(theMatrix[0])
+    colIds = []
+    if (hasHeader):
+        colIds = [ str(theMatrix[0][x]) for x in nCols ]
+    else:
+        colIds = [ ("col_%02d" % (i+1)) for i in range(nCols) ]
+
+    self.tbl = NormTable(colIds)
+    for i in range(1, len(theMatrix)):
+        row = theMatrix[i]
+        rowLen = len(row)
+        if (rowLen != nCols):
+            lg.warning("Row %d has %d items, expecting %d.", i, rowLen, nCols)
+        self.tbl.appendRow()
+        for colNum in range(rowLen):
+            self.tbl.setField(i, colNum, row[colNum])
+    return self.tbl
+
+
+###############################################################################
+# Construct from CSV
+#
+def CreateTableFromCSV(self, path:str, hasHeader:bool=True, fsplitArgs:Dict=None):
+    """Load a CSV file and create a NormTable out of it.
+    First record better be field names; each name may also
+    have a colon and a datatype name appended.
+    """
+    if (not fsplitArgs):
+        fsplitArgs = { "quote":'"', "delim":"," }
+
+    ifh = codecs.open(path, "rb", encoding="utf-8")
+
+
+    # Process the head
+    colIds = None
+    if (hasHeader):
+        colIds, colTypes = self.doCSVHeader(ifh, fsplitArgs)
+
+    # Process the data
+    recnum = 1
+    for rec in ifh.readlines():
+        recnum += 1
+        fds = fsplit(rec, fsplitArgs)
+        dataRow = self.ownerDocument.createElement(self.topt.TR)
+        self.tbl.appendChild(dataRow)
+        for i, fd in enumerate(fds):
+            colElem = self.ownerDocument.createElement(self.topt.TD)
+            colElem.setAttribute(self.topt.CLASS, colIds[i])
+            colElem.innerHtml = XMLStrings.escapeText(fd)
+    return self.tbl
+
+def doCSVHeader(self, ifh, fsplitArgs):
+    colIds = []
+    colTypes = []
+    headRec = ifh.readline()
+    colIds = []
+    headFds = fsplit(headRec, fsplitArgs)
+    for headFd in headFds:
+        if (":" in headFd):
+            nm, typ = headFd.split(sep=":")
+        else:
+            nm = headFd
+            typ = None
+        colIds.append(nm)
+        colTypes.append(typ)
+        colElem = self.ownerDocument.createElement(self.topt.TH)
+        colElem.setAttribute(self.topt.CLASS, nm)
+        if (typ): colElem.setAttribute("typeName", typ)
+        self.appendColumn(colElem)
+    return colIds, colTypes
+
+
+###############################################################################
+#
+def checkNorm(tbl:Node, topt:TableOptions=None):
+    if (not topt): topt = TableOptions()
+
+    errCount = 0
+
+    trHead = tbl.getElementsByTagName(topt.TR)
+    if (not trHead):
+        errCount += 1
+        lg.warning("    no rows found.")
+        return errCount
+
+    colIds = []
+    colTypes = []
+    for headCell in trHead.childNodes:
+        if (headCell.nodeType != Node.ELEMENT_NODE): continue
+        if (headCell.nodeName != topt.TH):
+            errCount += 1
+            lg.warning("    Non-head cell '%s' found in heading row" %
+                (headCell.nodeName))
+        if (not headCell.hasAttribute(topt.CLASS)):
+            errCount += 1
+            lg.warning("    Head cell lacks @class.")
+            colIds.append(None)
+        else:
+            colIds.append(headCell.getAttribute(topt.CLASS))
+        if (not headCell.hasAttribute("typeName")):
+            errCount += 1
+            lg.warning("    Head cell lacks @typeName.")
+            colTypes.append(None)
+        elif (headCell.getAttribute("typeName") not in CellDataTypes):
+            errCount += 1
+            lg.warning("    Head cell @typeName '%s' not known." %
+                (headCell.getAttribute("typeName")))
+            colTypes.append(None)
+        else:
+            colTypes.append(headCell.getAttribute("typeName"))
+
+    for e in tbl.eachElement():
+        if (e.hasAttribute("rowspan")):
+            errCount += 1
+            lg.warning("    rowspan attribute found")
+        if (e.hasAttribute("colspan")):
+            errCount += 1
+            lg.warning("    colspan attribute found")
+        if (not e.hasAttribute(topt.CLASS)):
+            errCount += 1
+            lg.warning("    class attribute missing")
+        if (e.nodeType == topt.TH and
+            e.selectAncestor(topt.TR) != trHead):
+            errCount += 1
+            lg.warning("    th found outside first (heading row)")
+
+    # Check for nesting
+    errCount +=  tbl.checkNesting()
+
+    return errCount
+
+
+###############################################################################
+# Normalizers
+#
+def unspan(self, attrValue:str="td-nil") -> None:
+    """Expand colspans and rowspans by adding empty cells as needed.
+    If 'attrName' is not empty, 'attrValue' is added as a class token
+    to that attribute on all the new empty cells.
+    """
+    for tr in self.getRows():
+        for cell in tr.childNodes:
+            if (cell.nodeName not in [ self.topt.TD, self.topt.TH ]): continue
+            try:
+                cspan = cell.getAttribute(self.topt.COLSPAN)
+                cspan = int(cspan.strip()) if cspan else 1
+                while cspan > 1:
+                    cell.insertDummyCell(self.topt.TD, attrValue)
+                    cspan -= 1
+            except TypeError:
+                pass
+    return
+
+def insertDummyCell(self, node:Node, colName:str="td-nil") -> Node:
+    """Create a dummy cell (generally to take the place of a moribund span),
+    and insert it after the given cell.
+    """
+    dum = self.ownerDocument.createElement(self.topt.TD)
+    dum.setAttribute(self.topt.CLASS, colName)
+    fsib = self.followingSibling
+    if (fsib):
+        node.parentNode.insertBefore(fsib, dum)
+    else:
+        node.parentNode.appendChild(fsib)
+    return dum
+
+def eliminateSpans(self):
+    """Insert extra cells (empty, or copies of 'filler'), to obviate
+    spans within the table.
+    """
+    theDoc = self.tbl.getDocument()
+
+    # The colspans
+    for node in self.tbl.eachElement():
+        cs = node.getAttribute(self.topt.COLSPAN)
+        if (cs and int(cs) > 1):
+            cs = int(cs)
+            node.setAttribute(self.topt.COLSPAN, 1)
+            nn = node.nodeName
+            row = node.parentNode
+            while (cs > 1):
+
+                cs -= 1
+
+            for i in range(int(rs)):
+                newNode = theDoc.createElement(nn)
+                node.insertFollowingSibling(newNode)
+
+    # The rowspans
+    for node in self.generateRows():
+        rs = node.getAttribute(self.topt.ROWSPAN)
+        if (rs and int(rs) > 1):
+            rs = int(rs)
+            node.setAttribute(self.topt.ROWSPAN, 1)
+            nn = node.nodeName
+            while (rs > 1):
+                newNode = theDoc.createElement(nn)
+                node.insertFollowingSibling(newNode)
+                rs -= 1
+
+def unnest(self):
+    nRemoved = 0
+    for subtable in self.tbl.eachNode(self.topt.TABLE):
+        if (subtable == self.tbl): continue
+        subtable.parentNode.removeChild(subtable)
+        nRemoved += 1
+    return nRemoved
+
+def hasSubTable(self):
+    """Is there a table within this table?
+    """
+    st = self.tbl.getDescendant(self.topt.TABLE)
+    return (st is not None)
+
+def ensureOuters(self):
+    th = self.getHead()
+    if (not th): self.addHead()
+    tb = self.getBody()
+    if (not tb): self.addBody()
+
+def ensureAllColumnIdents(self) -> int:
+    nFailedColumns = 0
+    for colNum, col in enumerate(self.generateColumns()):
+        nFailedCells = self.ensureColumnIdents(colNum, col)
+        if (nFailedCells): nFailedColumns += 1
+    return nFailedColumns
+
+def ensureColumnIdents(self:TableOptions, colNum:int, ) -> list:
+    """Scan the table by column, and return a list of all the cell
+    (row, col) coordinates where there's a column-id problem. If the
+    returned list is empty, everything's ok.
+    For purposes of this call, the hea row is considered to be row 0.
+    """
+    badCoords = ()
+
+    theIDs = ()
+    for row in self.getHeadRow():
+        thisColId = theIDs.append(self.getAttribute(row, self.topt.CLASS))
+        if (not thisColId): badCoords.append( (0, colNum) )
+
+    for colNum, col in enumerate(self.generateColumns()):
+        colId = None
+        for rowNum in range(1, self.getNumRows()):
+            cell = self.getCellByRowColumn(rowNum, colNum=colNum)
+            thisColId = cell.getAttribute(self.topt.CLASS)
+            if (thisColId != theIDs[colNum]):
+                badCoords.append( (rowNum, colNum) )
+    return badCoords
+
+
+###############################################################################
+# Tabular structure support (TODO: Integrate)
+#
+def getColumn(self:Node, onlyChild:str="tbody", colNum:int=1, colSpanAttr:str=None) -> list:
+    """Called on the root of table-like structure, return a list of
+    the colNum-th child element of each child element. That should amount
+    to the colNum-th column.
+    @param onlyChild: If not "", look for a child of self of that type,
+    and treat it as the container-of-rows.
+    @param colSpanAttr: If set, treat that attribute name like HTML "colspan".
+    """
+    if (onlyChild):
+        base = self.selectChild(onlyChild)
+    else:
+        base = self
+    if (not base or base.nodeType != Node.ELEMENT_NODE): return None
+    cells = []
+    for row in base.childNodes:
+        if (row.nodeType != Node.ELEMENT_NODE): continue
+        cells.append(row.getCellOfRow(colNum=colNum, colSpanAttr=colSpanAttr))
+    return cells
+
+def generateColumn(self):
+    assert False
+
+def getCellOfRow(self:TableOptions, row:Node, colNum:int=1, colSpanAttr:str=None) -> Node:
+    """Pretty much like getElementChild(), but can account for horizontal
+    spans (this does not yet adjust for vertical/row spans!).
+    """
+    found = 0
+    for ch in self.childNodes:
+        if (ch.nodeType != Node.ELEMENT_NODE): continue
+        found += 1
+        if (found == colNum): return ch
+        if (colSpanAttr):
+            cspan = int(ch.getAttribute(colSpanAttr))
+            if (cspan > 1): found += cspan-1
+    return None
+
+
+###############################################################################
+#
+class NormTable:
+    """Manage a DOM table, with a wrapper and a ton of operations.
+    Typically, we assume the table has been normalized:
+        No rowspans or colspans
+        No nested tables
+        Always THEAD and TBODY
+        One row in THEAD
+        All cells have a column-name set in @CLASS, unique per column.
+    On the other hand, actual tag names are always indirected through an
+    instance of TableOptions.
+    """
+    def __init__(self, topt:TableOptions=None, fromTable:Node=None):
+        if (topt): self.topt = topt
+        else: self.topt = TableOptions()
+
+        if (fromTable is None):
+            self.tbl = self.makeDOMTable()
+        else:
+            self.tbl = fromTable
+            if (fromTable.nodeName != topt.TABLE): lg.critical(
+                "Table node is named '%s', not '$s'.", fromTable.nodeName, self.topt.TABLE)
+            self.tbl.unspan()
+            self.tbl.unnest()
+            self.tbl.ensureOuters()
+            self.tbl.ensureColumnIdents()
+
+    def makeDOMTable(self):
+        """Make an empty starter table.
+        """
+        doc = minidom.Document()
+        tbl = doc.createElement(self.topt.TABLE)
+        doc.appendChild(tbl)
+        headRow = doc.createElement(self.topt.TR)
+        thead = doc.createElement(self.topt.THEAD)
+        thead.appendChild(headRow)
+        tbl.appendChild(thead)
+        tbody = doc.createElement(self.topt.TBODY)
+        tbl.appendChild(tbody)
+        return tbl
+
+    def makeElement(self, name:str, attrs:Dict=None, text:str=None):
+        doc = self.tbl.ownerDocument
+        el = doc.createElement(name)
+        if (attrs):
+            for k, v in attrs:
+                el.setAttribute(k, v)
+        if (text):
+            el.appendChild(doc.createTextNode(text))
+        return el
+
+
+    ##################################################### TABLE OPERATIONS
+    #
+    def getShape(self):
+        return self.countRows(), self.countColumns()
+
+    def ownerTable(self, node:Node):
+        """Return the containing table (if any) given any node.
+        Could also just return self.tbl....
+        """
+        anc = node.tbl
+        while (anc):
+            if (anc.nodeName == self.topt.TABLE): return anc
+            anc = anc.parentNode
+        return None
+
+    def clearTable(self):
+        # Should this leave same as makeDOMTable?
+        while (self.tbl.childNodes):
+            self.removeChild(self.tbl.firstChild)
+        return self
+
+    def sortBy(self, keyCols:List):
+        """How best to specify keys?
+        """
+        assert False
+
+    def transpose(self, replace:bool=False):
+        """This makes a transposed copy of the table.
+        TODO Ewww, what to do with the header?
+        If 'replace' is True, it is spliced in to replace the original.
+        In any case, the root of the new transposed thing is returned.
+        """
+        self.unspan()  # Just in case...
+
+        # Make a destination table
+        doc = self.ownerDocument
+        t2 = doc.createElement(self.topt.TABLE)
+        b2 = doc.createElement(self.topt.TBODY)
+        t2.appendChild(b2)
+
+        # Make as many new rows, as the starting table has columns
+        nCols = self.getRow(0).countColumns()
+        for _i in range(nCols):
+            tr2 = doc.createElement(self.topt.TR)
+            b2.appendChild(tr2)
+
+        for tr in self.getRows():
+            cNum = 0
+            for cell in tr.childNodes:
+                if (cell.nodeName not in [ self.topt.TD, self.topt.TH ]): continue
+                cell2 = cell.cloneNode()()
+                b2.childNodes[cNum].appendChild(cell2)
+                cNum += 1
+
+        if (replace):
+            self.parentNode.replaceChild(t2, self)
+        return t2
+
+
+    ##################################################### HEAD/BODY/FOOT OPERATIONS
+
+    def getHead(self):
+        return getChildByName(self.tbl, self.nc.THEAD)
+
+    def getHeadRow(self):
+        h = getChildByName(self.tbl, self.nc.THEAD)
+        if (h): return getChildByName(h, self.nc.TR)
+        return None
+
+    def addHead(self, labels:List=None, fromAttr:str=None,
+        numbered:str=None, moveRow:bool=False):
+        """Add a table head and head row, and hopefully column labels.
+        If there's already a thead, do nothing and return None.
+        Labels can be sourced from:
+            * labels: A list of strings
+            * moveRow: moving the first row into the new THEAD
+            * fromAttr: Copying this attribute from each cell of the first row
+            * numbered: This string plus a number
+            * [otherwise]: Do nothing
+        """
+        if (self.getHead()): return None
+        thead = self.tbl.ownerDocument.createElement(self.topt.THEAD)
+        self.tbl.insertBefore(self.tbl.childNodes[0], thead)
+        if (labels):
+            for lab in labels:
+                thead.appendChild(self.makeElement(self.topt.TH, text=lab))
+        elif moveRow:
+            theRow = self.tbl.getRow(0)
+
+    def getcolIds(self:Node) -> List:
+        colIds = []
+        for th in self.getHeadRow().childNodes:
+            colIds.append(th.getAttribute(self.topt.CLASS))
+        return colIds
+
+    ####### TODO Distinguish column IDENT from column LABEL.
+    ####### TODO Support HTML5-ish LABELs.
+
+    def setcolIds(self, colIds:list, alone:bool=True):
+        """Given a list of names, assign them by setting an attribute
+        on each instance. If 'alone' is True, the attribute is assigned
+        that name only; otherwise, the name is appended as a space-separated
+        token if not already there, and any prior tokens remain.
         """
         raise NotImplementedError
 
-
-###############################################################################
-#
-class NormTable(Node):
-    """This doesn't see the monkey-patched methods from DomExtensions....
-    """
-    def __init__(self, *args1, **kwargs):
-        self.nestedOk = False
-        super(NormTable, self).__init__(*args1, **kwargs)
-
-    @staticmethod
-    def warn(msg):
-        if (args.quiet): return
-        lg.warning(msg)
-
-    def checkNorm(self, nestedOk:bool=False):
-        self.nestedOk = nestedOk
-        errCount = 0
-
-        trHead = self.getElementsByTagName(nc.TR)
-        if (not trHead):
-            errCount += 1
-            self.warn("    no rows found.")
-            return errCount
-
-        colNames = []
-        colTypes = []
-        for headCell in trHead.childNodes:
-            if (headCell.nodeType != Node.ELEMENT_NODE): continue
-            if (headCell.nodeName != nc.TH):
-                errCount += 1
-                self.warn("    Non-head cell '%s' found in heading row" %
-                    (headCell.nodeName))
-            if (not headCell.hasAttribute(nc.CLASS)):
-                errCount += 1
-                self.warn("    Head cell lacks @class.")
-                colNames.append(None)
-            else:
-                colNames.append(headCell.getAttribute(nc.CLASS))
-            if (not headCell.hasAttribute("typeName")):
-                errCount += 1
-                self.warn("    Head cell lacks @typeName.")
-                colTypes.append(None)
-            elif (headCell.getAttribute("typeName") not in CellDataTypes):
-                errCount += 1
-                self.warn("    Head cell @typeName '%s' not known." %
-                    (headCell.getAttribute("typeName")))
-                colTypes.append(None)
-            else:
-                colTypes.append(headCell.getAttribute("typeName"))
-
-        for e in self.eachElement():
-            if (e.hasAttribute("rowspan")):
-                errCount += 1
-                self.warn("    rowspan attribute found")
-            if (e.hasAttribute("colspan")):
-                errCount += 1
-                self.warn("    colspan attribute found")
-            if (not e.hasAttribute(nc.CLASS)):
-                errCount += 1
-                self.warn("    class attribute missing")
-            if (e.nodeType == nc.TH and
-                e.selectAncestor(nc.TR) != trHead):
-                errCount += 1
-                self.warn("    th found outside first (heading row)")
-
-        # Check for nesting
-        errCount +=  self.checkNesting()
-
-        return errCount
-
-    def getRow(self:Node, n:int) -> Node:
-        """Get the n-th row.
-        Cannot do negatives.
+    def setColName(self, col:Union[int, str], name:str, alone:bool=True):
+        """Setting the assigned attribute (typically "CLASS") on the column
+        header and all cells in the column.
+        If 'alone' is True, the attribute is assigned
+        that name only; otherwise, the name is added as a space-separated
+        token if not already there, and any prior tokens remain.
         """
-        nFound = 0
-        for ch in self.childNodes:
-            if (ch.nodeName == nc.TR):
-                nFound += 1
-                if (nFound >= n): return ch2
-            elif (ch.nodeName in [ nc.THEAD, nc.TBODY, nc.TFOOT ]):
-                for ch2 in ch.childNodes:
-                    if (ch2.nodeName == nc.TR):
-                        nFound += 1
-                        if (nFound >= n): return ch2
-        return None
+        theCol = self.getColumn(col)
+        theCol.setAttribute(self.topt.CLASS, name)
 
-    def countRows(self:Node) -> int:
+    def getBody(self):
+        return getChildByName(self.tbl, self.topt.TBODY)
+
+    def getFoot(self):
+        return getChildByName(self.tbl, self.topt.TFOOT)
+
+
+
+    ##################################################### ROW OPERATIONS
+
+    def countRows(self) -> int:
         """Find out how many rows there are.
         """
         nFound = 0
-        for _tr in self.getRows(): nFound += 1
+        for _tr in self.tbl.getRows(): nFound += 1
         return nFound
 
-    def getRows(self:Node) -> Node:
-        """Generate all row elements of this (but not of nested) table.
-        They may be at top level, or inside thead/tbody/tfoot, but no deeper.
-        Or, you can pass it a tbody etc. to just get the locals (though if
-        there were to be a directly nested thead/tbody/tfoot in that tbody,
-        its rows would also get counted.... Let's assume that doesn't happen.
+    def getRows(self) -> Node:
+        """Get all (body) row elements of this (but not of nested) table.
         """
-        for ch in self.childNodes:
-            if (ch.nodeName == nc.TR):
-                yield ch
-            elif (ch.nodeName in [ nc.THEAD, nc.TBODY, nc.TFOOT ]):
-                for ch2 in ch.childNodes:
-                    if (ch2.nodeName == nc.TR): yield ch
+        rows = []
+        for row in self.generateRows():
+            rows.append(row)
+        return rows
+
+    def generateRows(self) -> Node:
+        bod = self.tbl.getBody()
+        for ch in bod.childNodes:
+            if (ch.nodeName == self.topt.TR): yield ch
         return
 
-    def getHeadRow(self:Node) -> Node:
-        """Given any node in a table, return the header tr.
+    def getRow(self, n:int) -> Node:
+        """Get the n-th row (counting from 1 -- is that best for this or not?).
+        TODO Provide a get-by-key?
         """
-        tbl:Node = self.selectAncestorOrSelf("table")
-        return tbl.getElementsByTagName(nc.TR)[0]
+        assert n != 0
+        if (n < 0):
+            rows = self.getRows()
+            tgtRow = len(rows) + n
+            if (tgtRow < 0): return None
+            return rows[tgtRow]
+        else:
+            nFound = 0
+            for row in self.generateRows():
+                nFound += 1
+                if (nFound >= n): return row
+        return None
 
-    def getColumns(self:Node) -> Node:
-        """Generate the columns in a given row.
-        """
-        assert self.nodeName == nc.TR
-        for cell in self.childNodes:
-            if (cell.nodeName in [ nc.TD, nc.TH ]): yield cell
-        return
 
-    # TODO: col num<>name > dtype <cell
-    def getColumnHeaderForCell(self:Node) -> Node:
-        assert self.nodeName == nc.TD
-        cnum = self.getColumnNum()
-        return self.getColumnHeaderByNumber(cnum)
+    ##################################################### COLUMN OPERATIONS
 
-    def getColumnHeaderByNumber(self:Node, n) -> Node:
-        """Needs some node of the table so it can find the head row...
-        Can find by name or number.
+    def getColHeader(self, n:Union[int, str]) -> Node:
+        """Can find by name or number.
         """
         # TODO Add methods to get from
         if (isinstance(n, int)):
@@ -555,12 +930,96 @@ class NormTable(Node):
         elif (isinstance(n, str)):
             for th in self.getHeadRow().childNodes:
                 if (th.nodeType != Node.ELEMENT_NODE): continue
-                if (th.getAttribute(nc.CLASS) == n): return th
+                if (th.getAttribute(self.topt.CLASS) == n): return th
             return None
         else:
-            raise TypeError("getColumnHeaderByNumber: must be string or int.")
+            raise TypeError("getColHeader: must be string or int.")
 
-    def getColumnNum(self:Node) -> int:
+    def insertColBefore(self, n:Union[int, str], ident:str):
+        assert False
+
+    def appendCol(self, ident:str):
+        thead = self.getHead()
+        th = self.makeElement(self.topt.TH, { self.topt.CLASS:ident }, text=ident)
+        thead.appendChild(th)
+
+        for row in self.generateRows():
+            cell = self.makeElement(self.topt.TD, { self.topt.CLASS:ident })
+            row.appendChild(cell)
+        return
+
+    def deleteCol(self, n:Union[int, str]):
+        assert False
+
+    def moveColBefore(self, fromCol:Union[int, str], toCol:Union[int, str]):
+        assert False
+
+    def swapCol(self, fromCol:Union[int, str], toCol:Union[int, str]):
+        assert False
+
+    def setColIdent(self:Node, colNum:int, newColId:str, alone:bool=True):
+        """Given a list of names, assign them by setting the given attribute
+        on each instance. If 'alone' is True, the attribute is assigned
+        that name only; otherwise, the name is added as a space-separated
+        token if not already there, and any prior tokens remain.
+        TODO: Generalize to allow setting any attribute on all cells of column.
+        TODO: Way to remove an old ID token.
+        """
+        if (not attrName): attrName = self.topt.CLASS
+        for cell in self.generateCellsOfCol(colNum):
+            if (alone):
+                cell.setAttribute(self.topt.CLASS, newColId)
+            else:
+                cell.setAttributeToken(self.topt.CLASS, newColId)
+        raise NotImplementedError
+
+
+    ##################################################### CELL OPERATIONS
+
+    def countCells(self, row:Node) -> int:
+        """Return the number of column in a given row.
+        This accounts for colspans.
+        """
+        assert self.nodeName == self.topt.TR
+        nCols = 0
+        for cell in row.childNodes:
+            if (cell.nodeName not in [ self.topt.TD, self.topt.TH ]): continue
+            try:
+                cspan = cell.getAttribute(self.topt.COLSPAN)
+                cspan = int(cspan.strip()) if cspan else 1
+                nCols += cspan
+            except TypeError:
+                pass
+        return nCols
+
+
+    def getCells(self) -> Node:
+        assert False
+
+    def generateCells(self) -> Node:
+        """Generate the cells in a given row.
+        """
+        assert self.nodeName == self.topt.TR
+        for cell in self.childNodes:
+            if (cell.nodeName in [ self.topt.TD, self.topt.TH ]): yield cell
+        return
+
+    def _insertCellBefore(self, row:int, col:Union[int, str], colData:any):
+        refCell = self.getCellByRowCol(row, col)
+        assert refCell
+        newCell = self.tbl.ownerDocument.createElement(self.topt.TD)
+        newCell.innerText = colData
+        refCell.parentNode.insertBefore(newCell, refCell)  # TODO: Arg order?
+        return refCell
+
+    # TODO: col num<>name > dtype <cell
+    def getColHeaderForCell(self, node:Node) -> Node:
+        assert node.nodeName == self.topt.TD
+        cnum = self.getColNum()
+        # Or node.getAttribute(self.topt.CLASS)...
+        return self.getColHeader(cnum)
+
+    def getColNumOfCell(self:Node) -> int:
         # TODO: rowspans
         n = 1
         cur = self
@@ -575,37 +1034,16 @@ class NormTable(Node):
                     n += 1
         return n
 
-    def countColumns(self:Node) -> int:
-        """Return the number of column in a given row.
-        This accounts for colspans.
+
+    def _insertCellBefore(self, n:Union[int, str], ident:str):
+        """This should only be called by insertColBefore.
         """
-        assert self.nodeName == nc.TR
-        nColumns = 0
-        for cell in self.childNodes:
-            if (cell.nodeName not in [ nc.TD, nc.TH ]): continue
-            try:
-                cspan = cell.getAttribute(nc.COLSPAN)
-                cspan = int(cspan.strip()) if cspan else 1
-                nColumns += cspan
-            except TypeError:
-                pass
-        return nColumns
 
-    def getColumnNames(self:Node) -> list:
-        colNames = []
-        for th in self.getHeadRow().childNodes:
-            colNames.append(th.getAttribute(nc.CLASS))
-        return colNames
+        assert False
 
-    def getColumnTypes(self:Node) -> list:
-        colTypes = []
-        for th in self.getHeadRow().childNodes:
-            colTypes.append(th.getAttribute("typeName"))
-        return colTypes
 
-    def getSchemaName(self:Node) -> str:
-        raise NotImplementedError
-
+    ###########################################################################
+    #
     def checkNesting(self:Node) -> int:
         """Check whether nested tables, if any, obey NormTable restrictions.
         @return Number of errors found.
@@ -615,13 +1053,13 @@ class NormTable(Node):
         if (not nestedTables): return 0
         if (not self.nestedOk):
             errCount += 1
-            self.warn("    %d nested tables found." % (len(nestedTables)))
+            lg.warning("    %d nested tables found.", len(nestedTables))
         else:
             for nt in nestedTables:
                 # TODO: Allow WSN
                 if (nt.previousSibling or nt.nextSibling):
                     errCount += 1
-                    self.warn("    nested table is not alone.")
+                    lg.warning("    nested table is not alone.")
         return errCount
 
     def checkKeys(self:Node):
@@ -631,37 +1069,6 @@ class NormTable(Node):
     ###########################################################################
     # Manipulate existing tables toward norm
     #
-    def unspan(self:Node, attrName:str=nc.CLASS, attrValue:str="td-nil") -> None:
-        """Expand colspans and rowspans by adding empty cells as needed.
-        If 'attrName' is not empty, 'attrValue' is added as a class token
-        to that attribute on all the new empty cells.
-        """
-        for tr in self.getRows():
-            for cell in tr.childNodes:
-                if (cell.nodeName not in [ nc.TD, nc.TH ]): continue
-                try:
-                    cspan = cell.getAttribute(nc.COLSPAN)
-                    cspan = int(cspan.strip()) if cspan else 1
-                    while cspan > 1:
-                        cell.insertDummyCell(attrName, attrValue)
-                        cspan -= 1
-                except TypeError:
-                    pass
-        return
-
-    def insertDummyCell(self:Node, attrName:str=nc.CLASS, attrValue:str="td-nil") -> Node:
-        """Create a dummy cell (generally to take the place of a moribund span),
-        and insert it after the given cell.
-        """
-        dum = self.ownerDocument.createElement(nc.TD)
-        if (attrName): dum.setAttribute(attrName, attrValue)
-        fsib = self.followingSibling
-        if (fsib):
-            self.parentNode.insertBefore(fsib, dum)
-        else:
-            self.parentNode.appendChild(fsib)
-        return dum
-
     def nukeThead(self:Node, promote:bool=True):
         """If 'promote' is True, move any thead row into tbody.
         Otherwise, delete them.
@@ -672,39 +1079,19 @@ class NormTable(Node):
     def nukeTfoot(self:Node, promote:bool=True):
         raise NotImplementedError
 
-    def setColumnNames(self:Node, names:list, attrName:str=nc.CLASS, alone:bool=True):
-        """Given a list of names, assign them by setting the given attribute
-        on each instance. If 'alone' is True, the attribute is assigned
-        that name only; otherwise, the name is added as a space-separated
-        token if not already there, and any prior tokens remain.
+    def attrToCol(self:Node, attrName:str, colIdent:str, colNum:int):
+        """Promote one attribute of cells in a column, to form a new column.
         """
         raise NotImplementedError
 
-    def unjoin(self:Node):
-        raise NotImplementedError
-
-    def attrToColumn(self:Node, attrName:str, colName:str, colNum:int):
-        raise NotImplementedError
-
-    def columnToAttr(self:Node, colName:str, attrName:str):
+    def colToAttr(self:Node, colIdent:str, attrName:str):
         raise NotImplementedError
 
 
     ###########################################################################
     # Format support
     #
-    def strftime(self:Node, ifmtString:str, ofmtString:str):
-        """Convert a string from one date/time format to another.
-        Strictly speaking, this has no necessary connection to tables.
-        TODO: doesn't need a Node or Document, so move to XMLStrings?
-        """
-        from datetime import datetime
-        origText = self.collectText()
-        tstr = datetime.strptime(origText, ifmtString)
-        newText = datetime.strftime(tstr, ofmtString)
-        self.innerHTML = newText
-
-    def reorderColumns(self:Node, sortSpec:list):
+    def reorderCols(self:Node, sortSpec:list):
         """ways to sort:
             by a list of names
             by value in col (using explicit datatype?)
@@ -715,7 +1102,7 @@ class NormTable(Node):
         """
         raise NotImplementedError
 
-    def moveColumn(self:Node, columnToMove, target):
+    def moveCol(self:Node, colToMove, target):
         """Move a column, identified by number or @class name, to a new place.
         """
         raise NotImplementedError
@@ -726,45 +1113,10 @@ class NormTable(Node):
         raise NotImplementedError
 
 
-    ###########################################################################
-    # Edit tables (These should be available as bbedit tools)
-    #
-    def transposed(self:'NormTable', replace:bool=False):
-        """This makes a transposed copy of everything under the passed node.
-        So if only the tbody counts, pass *it*, not the table itself.
-        If 'replace' is True, it is spliced in to replace the original.
-        In any case, the root of the new transposed thing is returned.
-        """
-        self.unspan()
-
-        # Make a destination table
-        doc = self.ownerDocument
-        t2 = doc.createElement(nc.TABLE)
-        b2 = doc.createElement(nc.TBODY)
-        t2.appendChild(b2)
-
-        # Make as many new rows, as the starting table has columns
-        nCols = self.getRow(0).countColumns()
-        for _i in range(nCols):
-            tr2 = doc.createElement(nc.TR)
-            b2.appendChild(tr2)
-
-        for tr in self.getRows():
-            cNum = 0
-            for cell in tr.childNodes:
-                if (cell.nodeName not in [ nc.TD, nc.TH ]): continue
-                cell2 = cell.cloneNode()()
-                b2.childNodes[cNum].appendChild(cell2)
-                cNum += 1
-
-        if (replace):
-            self.parentNode.replaceChild(t2, self)
-        return t2
-
-    def InsertColumn(self:'NormTable'):  # As number N, or before/after name?
+    def InsertCol(self:'NormTable'):  # As number N, or before/after name?
         raise NotImplementedError
 
-    def DeleteColumn(self:'NormTable'):  # By number or name
+    def DeleteCol(self:'NormTable'):  # By number or name
         raise NotImplementedError
 
     def DeleteRow(self:'NormTable'):     # By number
@@ -773,49 +1125,52 @@ class NormTable(Node):
     def InsertRow(self:'NormTable'):     # As number N
         raise NotImplementedError
 
-    def CreateTable(
-        self:Node, nRows:int, nCols:int,
-        thead:bool=True, tfoot:bool=True, cellClasses:list=None):
-        """Make an entire n*m table, optionally with thead and tfoot.
+    def CreateTable(self, nRows:int, nCols:int, cellClasses:list=None):
+        """Make an entire n*m table.
         If cellClasses is given it must be a list of length nCols, and its values
         must be strings to be put into @CLASS of the respective cell elements.
-        TODO: Perhaps add a callback to provide content to insert?
         """
         if (cellClasses): assert len(cellClasses) == nCols
 
         doc = self.ownerDocument
-        t2 = doc.createElement(nc.TABLE)
-        if (thead):
-            h2 = doc.createElement(nc.THEAD)
-            t2.appendChild(h2)
-            h2.appendChild(self.CreateRow(nCols, th=True, cellClasses=cellClasses))
+        t2 = doc.createElement(self.topt.TABLE)
 
-        b2 = doc.createElement(nc.TBODY)
+        h2 = doc.createElement(self.topt.THEAD)
+        t2.appendChild(h2)
+        h2.appendChild(self.CreateRow(nCols, th=True, cellClasses=cellClasses))
+
+        b2 = doc.createElement(self.topt.TBODY)
         t2.appendChild(b2)
         for _i in range(nRows):
             b2.appendChild(self.CreateRow(nCols, th=False, cellClasses=cellClasses))
 
-        if (tfoot):
-            f2 = doc.createElement(nc.TFOOT)
-            t2.appendChild(f2)
-            f2.appendChild(self.CreateRow(nCols, th=True, cellClasses=cellClasses))
+        f2 = doc.createElement(self.topt.TFOOT)
+        t2.appendChild(f2)
+        f2.appendChild(self.CreateRow(nCols, th=True, cellClasses=cellClasses))
 
+        self.tbl = t2
         return t2
 
-    def CreateRow(self:Node, nCols:int, th:bool=False, cellClasses:list=None) -> Node:
-        """Create a row with nCols cells, all empty.
-        TODO: Perhaps add a callback to provide content to insert?
+    def InsertRowBefore(self, before:Union[Node, int]) -> Node:
+        """Create a row with nCols cells, all empty, and insert it before
+        the given row (specified by reference or rowNum).
         """
+        cellIds = self.getcolIds()
+        nCols = len(cellIds)
         doc = self.ownerDocument
-        cellNodeName = nc.TH if th else nc.TD
-        tr = doc.createElement(nc.TR)
+        newRow = doc.createElement(self.topt.TR)
         for i in range(nCols):
-            cell = doc.createElement(cellNodeName)
-            if (cellClasses): cell.setAttribute(nc.CLASS, cellClasses[i])
-            tr.appendChild(cell)
-        return tr
+            cell = doc.createElement(self.topt.TD)
+            cell.setAttribute(self.topt.CLASS, cellIds[i])
+            newRow.appendChild(cell)
+        if (isinstance(before, int)):
+            refRow = self.getRow(before)
+        else:
+            refRow = before
+        self.tbl.insertBefore(newRow, refRow)  # TODO: Check order vs. DOM
+        return newRow
 
-    def ListList2Table(self:Node, data:list) -> Node:
+    def ListList2Table(self, data:list) -> Node:
         """Make a new table from a list of lists of data. Better be rectangular.
         """
         nCols=len(data[0])
@@ -830,25 +1185,54 @@ class NormTable(Node):
     def DeleteTable(self:'NormTable'):  # TODO: Drop?
         raise NotImplementedError
 
-    def SetColumn(self:'NormTable'):  # TODO: Drop? Or change to SetColumnDatatype?
+    def SetCol(self:'NormTable'):  # TODO: Drop? Or change to SetColDatatype?
         raise NotImplementedError
 
     def RenameTable(self:'NormTable'):  # TODO: Drop?
         raise NotImplementedError
 
-    def RenameColumn(self:'NormTable'):  # TODO: Drop?
+    def RenameCol(self:'NormTable'):  # TODO: Drop?
         raise NotImplementedError
 
 
-    ###########################################################################
-    # Do SQL on these
+###########################################################################
+# Do SQL on these
+#
+class SQLTable(NormTable):
+    """Add basic RDB operations.
+    See various other methods above, like sortBy, transpose, insertCol...
+    """
+    INNER = 1
+    OUTER = 2
+    LEFT  = 3
+    RIGHT = 4
+
+    def project(self:'NormTable', cols:List):
+        """Extract the given columns, in the given order.
+        """
+        raise NotImplementedError
+
+    def select(self:'NormTable', rowChecker:Callable):
+        """Iterates over the row, and extracts the cell values from each.
+        They are copied into a dict, keyed by column name. Then the
+        rowChecker is called with the NormTable object and the dict.
+        If it returns Truish, the row will be copied to the output table.
+        """
+        raise NotImplementedError
+
+    def join(
+        self:'NormTable', other:'NormTable',
+        selfCols:list, otherCols:list, joinType:int=SQLTable.INNER):
+        """Given two tables, generate the result of joining them....
+        What's the easiest way to pass a join condition?
+        Probably start with a list of field-name pairs, and compare ops?
+        Then add an eval-able or callback that can generate temp-fields (and
+        let the temp fields be named in the join, too)?
+        """
+        raise NotImplementedError
+
+    # Set ops, too?
     #
-    def project(self:'NormTable', columns:list):
-        raise NotImplementedError
-
-    def select(self:'NormTable'):
-        raise NotImplementedError
-
     def union(self:'NormTable'):
         raise NotImplementedError
 
@@ -861,10 +1245,18 @@ class NormTable(Node):
     def symdiff(self:'NormTable'):
         raise NotImplementedError
 
-    def join(
-        self:'NormTable', other:'NormTable',
-        selfColumns:list, otherColumns:list, where:Condition):
+
+###############################################################################
+#
+class Condition:
+    """A condition such as used by SQL select, join, where-clauses in general.
+    """
+    def __init__(self, expr:str):
+        """Create an interpretable AST from some syntax.
+        """
         raise NotImplementedError
+
+
 
 # Make sure the right methods get monkey-patched onto our subclass?? TODO: Check
 #
@@ -908,7 +1300,7 @@ if __name__ == "__main__":
     ###########################################################################
     #
     args = processOptions()
-    tags = NormComponents()
+    tags = TableOptions()
 
     DomExtensions.patchDom(NormTable)
 
