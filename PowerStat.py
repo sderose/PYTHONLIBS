@@ -50,7 +50,7 @@ rather than just single letters to specify the datum desired.
 ==Usage as Command==
 
     PowerStat.py [file]
-    
+
 This will do the same thing as `stat [file]'. Except it isn't right yet.
 It does have `-x` to display a more readable form.
 
@@ -97,7 +97,7 @@ Python `format()` [https://docs.python.org/3.9/library/string.html#formatspec].
     -  Left-align (vs. '<' in Python)
     0  Left-pad with 0 instead of space
        (space) -- Puts a space in the sign columns ('+' overrides ' ')
-    
+
 * (Python adds ',' and '_' to manage thousands-separator in integers.
 May also want a modifier to magnitude suffixes, like `-H` for many commands.
 
@@ -105,7 +105,7 @@ May also want a modifier to magnitude suffixes, like `-H` for many commands.
 
 * precision ("." + digits)
 
-* fmtCode 
+* fmtCode
     D  decimal
     O  octal
     U  unsigned decimal
@@ -117,12 +117,12 @@ For some fields, like 'u' for user, the 'S' form is a name, and the H form is th
 S for dates uses `strftime` formats.
 
 Python also has 'b' for binary, 'c' for char conversion of an int, 'x' vs. 'X' to
-control the case of [A-F], and 'n' to insert number separators. Also, they're 
+control the case of [A-F], and 'n' to insert number separators. Also, they're
 lower case except for 'X'. For floats, [eEfFgGn%] are added.
 
 Truncation (max width) would also be nice, esp. for strings.
 
-* sub [HML] only applies to p (permissions), d (device a file is on), 
+* sub [HML] only applies to p (permissions), d (device a file is on),
 r (device number for specials), and T (file type like `ls -F`). `sub` selects the
 "High", "Middle", or "Low" aspect
 
@@ -152,17 +152,17 @@ r (device number for specials), and T (file type like `ls -F`). `sub` selects th
 Added items:
     x  extension    file extension (not including the '.')
                     base name without extension
-                    
+
 ??? The preceding fields also get synonyms? space sep inside the ()?
 
-    
+
 You can also use, for any of these, the mnemonic name shown above, instead of just
 a single letter.
 
 For example, instead of
 
     stat -f "-%Hu%Mu%Lu%Hg%Mg%Lg%Ho%Mo%Lo  %8su %8sg %6ds %12sm %sn"
-    
+
 you could say:
 
     stat -f "-%(Hu)%(Mu)%(Lu)%(Hg)%(Mg)%(Lg)%(Ho)%(Mo)%(Lo  )%(8su )%(8sg )%(6ds )%(12sm )%sn"
@@ -178,7 +178,7 @@ you could say:
 
 *nix `stat` has a "-r" ("raw") option, with output like:
     16777221 1152921500312764962 0120755 1 0 0 0 11 1577865600 1577865600 1577865600 1577865600 4096 0 557056 [path]
-    
+
 This option is also available here. `man stat` (at least on MacOS) does not explain
 the format. It is all decimal fields except for the third field, which is octal
 (as usual for permissions bits). The fields in order represent (afaict):
@@ -200,7 +200,7 @@ the format. It is all decimal fields except for the third field, which is octal
         st.st_rdev
         path
 
-Other fields may exist on various OSes, for example:       
+Other fields may exist on various OSes, for example:
         st.st_atime_ns
         st.st_mtime_ns
         st.st_ctime_ns
@@ -329,7 +329,7 @@ statFormats:Dict[str, str] = {
 #
 class Epoch(float):
     pass
-    
+
 class Unsigned(int):
     pass
 
@@ -692,7 +692,7 @@ class StatItem:
         if (stat.S_ISWHT(mode)):  return "Whiteout"
         if (stat.S_ISREG(mode)):  return "Rgular file"
         raise ValueError("Could not identify type of file '%s'." % (st.__name__))
-        
+
     @staticmethod
     def readableUserId(uid:int) -> str:
         """Numeric to string user id.
@@ -715,8 +715,8 @@ class StatItem:
         if (local): structTime = time.localtime(epochTime)
         else: structTime = time.gmtime(epochTime)
         return time.asctime(structTime)
-        
-        
+
+
 ###############################################################################
 #
 class PowerStat:
@@ -790,11 +790,11 @@ Change: %s"""
 def getLinuxFormat(path, st:os.stat_result) -> str:
     if (args.human): sizeStr = StatItem.readableFileSize(st[stat.ST_SIZE])
     else: sizeStr = "%s" % (st[stat.ST_SIZE])
-    
+
     buf = linuxFormat % (
         path,
         sizeStr, StatItem.readableFileType(md, st),
-        mdLow, stat.filemode(md), 
+        mdLow, stat.filemode(md),
         st[stat.ST_UID], StatItem.readableUserId(st[stat.ST_UID]),
         st[stat.ST_GID], StatItem.readableGroupId(st[stat.ST_GID]),
         st[stat.ST_DEV], st[stat.ST_INO], st[stat.ST_NLINK],
@@ -816,15 +816,15 @@ def getRawFormat(path:str, st:os.stat_result) -> str:
     #for k in dir(st):
     #    if (k.startswith("__")): continue
     #    print("    %-16s -- %s" % (k, getattr(st, k)))
-    
+
     modeStr = "%06o" % (st.st_mode)
     buf = rawFormat % (
-        st[stat.ST_DEV], 
+        st[stat.ST_DEV],
         st[stat.ST_INO],
         modeStr,
         st[stat.ST_NLINK],
-        st[stat.ST_UID], 
-        st[stat.ST_GID], 
+        st[stat.ST_UID],
+        st[stat.ST_GID],
         0,  # ?????
         st[stat.ST_SIZE],
         st[stat.ST_ATIME],    # Also st_atime_ns, etc?
@@ -835,7 +835,7 @@ def getRawFormat(path:str, st:os.stat_result) -> str:
         st.st_blksize,        # No ST_ alias
         st.st_blocks,         # No ST_ alias  # TODO Could be swapped w/ rdev?
         st.st_rdev,           # No ST_ alias
-        
+
         #st.st_flag,          # No ST_ alias
         #st.st_gen,           # FreeBSD?
         #st.st_fstype,        # Solaris
@@ -870,7 +870,7 @@ if __name__ == "__main__":
             help='Colorize the output.')
         # "flags", "-f", action='store_true',
         parser.add_argument(
-            "--format", "-f", "--outputFormat", "--output-format", "--oformat", 
+            "--format", "-f", "--oformat", "--outputFormat", "--output-format",
             type=str, default="plain",
             choices = [ "plain", "html", "xsv", "csv", "tsv" ],
             help='Record/field syntax for output.')
@@ -908,7 +908,7 @@ if __name__ == "__main__":
         parser.add_argument(
             "-x", action='store_true',
             help="Output a more readable, but old, Linux-y format.")
-        
+
         parser.add_argument(
             'files', type=str,
             nargs=argparse.REMAINDER,
@@ -928,7 +928,7 @@ if __name__ == "__main__":
     #
     args = processOptions()
     ender = "" if (args.no_newline) else "\n"
-    
+
     if (not args.quiet):
         warning0("Stat format spec is: '%s'" % (args.statFormat))
     ps = PowerStat(args.statFormat, args.timeFormat)
@@ -946,7 +946,7 @@ if __name__ == "__main__":
         except IOError as e0:
             sys.stderr.write("Error statting '%s':\n    %s" % (f0, e0))
             continue
-            
+
         buf0 = ""
         if (args.x):
             buf0 = getLinuxFormat(f0, st0)
