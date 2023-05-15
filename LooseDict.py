@@ -61,14 +61,16 @@ LooseDict is a subclass of dict, and the "real" dict (owned by the parent class)
 holds the non-normalized / raw / real keys. A second dict, _normKeys,
 keeps the normalized keys, and points to their real-key equivalents.
 For any non-normalized key, you can find what (possibly different)
-key was last used to store data under the same '''normalized''' key. For example:
+key was last used to store data under the same '''normalized''' key. For example,
+assuming the normalization function used is `lower()`:
 
     myDict['fooBar'] = 2
     myDict['FoobaR'] = 4
     print(myDict.getRealKey('fOOBAr'))
 
 would print 'FoobaR', since all these arguments normalized to the same
-normKey ('foobar').
+normKey ('foobar'). At this point, the key 'fooBar' (not normalized) is not
+in the dict; only 'FoobaR'.
 
 Note that entries must still be unique with respect to their ''normalized''
 form. If you do:
@@ -120,13 +122,17 @@ Changing the key-normalizing function on an existing instance is not supported.
 The normalizer function must be idempotent. That is, after being applied once,
 additional applications should make no further changes;
 normalizing an already-normalized key should not denormalize it.
+Common normalizations such as case-folding and white-space removal are idempotent.
 
 
 =To do=
 
 * Integrate findAbbrev for `strfchr.py`, `bibtex2html.py`, etc.
 * Implement __cmp__.
-* Perhaps add `items()` variant that hands back actual vs. normalized key?
+* Considering switching to storing by the normalized keys, with an index to map those
+to what real key was last used. That's a little simpler, but I tend to think callers
+want the real keys still around, and keeping them in the "real" dict seems clearest.
+* Add `items()` variant that hands back actual vs. normalized key?
 * Perhaps add notion of explicit aliases (say, separate dict that just maps?)
 In the meantime, callers could build that into a custom normalization function.
 
@@ -159,6 +165,15 @@ class LooseDict(dict):
     """A dict also indexable by *normalized* keys (but it keeps the exact keys,
     too). See also "Emulating container types":
     https://docs.python.org/2/reference/datamodel.html#emulating-container-types
+    
+    The keys passed in are called the 'real' keys, and items are stored in 
+    the actual dict, under the real keys used to set them.
+    
+    However, each real key is also normalized by 'normFunc'.
+    The normalized keys are added to a map in 'normKeys', which maps them
+    to the real key from which they were normalized. So a lookup involves using
+    that map on the key requested, to get the actual stored/real key, which is
+    then sought in the dict.
     """
     def __init__(self, normFunc:Callable=None, sorter:Callable=None):
         super(LooseDict, self).__init__()
@@ -167,8 +182,13 @@ class LooseDict(dict):
         if (sorter): self.sorter = sorter
         else: self.sorter = sorted
         self._normKeys = {}  # Map from normalized to real keys
+        self.aliases = {}    # Map from alias to real keys
 
     def __setitem__(self, someKey:Any, value:Any) -> None:
+        """This stores the item under the real key the caller passed; but it also
+        needs to delete any entry that might exist under a different real key that
+        happens to normalize to the same thing.
+        """
         normKey = self.getNormKey(someKey)
         print("in setitem for '%s', norm='%s', val='%s'." %
             (someKey, normKey, value))
@@ -190,11 +210,19 @@ class LooseDict(dict):
         del self[realKey]
 
     def getRealKey(self, someKey:Any):
+        """Returns the real key which was (last) used to set a given dict entry.
+        There are typically many real keys that normalize to the same norm key.
+        The passed key is normalized, then the norm key is looked up to get
+        the real key (if any) that's really in the main dict.
+        """
         normKey = self.normFunc(someKey)
         if (normKey not in self._normKeys): return None
         return self._normKeys[normKey]
 
     def getNormKey(self, someKey:Any) -> Any:
+        """Just applies the normalization function to the key passed and returns
+        the result.
+        """
         return self.normFunc(someKey)
 
     def __has_key__(self, someKey:Any) -> bool:
@@ -202,9 +230,12 @@ class LooseDict(dict):
         return normKey in self._normKeys
 
     def findAbbrev(self, key:Any) -> Any:
-        """Find all the matches in the dict, that the given key abbreviates.
+        """Finds all the matches in the dict, that the given key abbreviates.
         If there's exactly one, return it; otherwise return None (fail).
         This is the typical behavior for matching command-line option names.
+        
+        TODO: Add a way to get all the existing keys that a given key abbreviates,
+        even if ambiguous.
         """
         if (self.normFunc): normKey = self.normFunc(key)
         else: normKey = key
