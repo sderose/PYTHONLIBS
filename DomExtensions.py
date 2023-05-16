@@ -3,8 +3,7 @@
 # DomExtensions: A bunch of (hopefully) useful additions to the DOM API.
 # 2010-01-10: Written by Steven J. DeRose.
 #
-#pylint: disable=W0613, W0212
-#pylint: disable=E1101
+#pylint: disable=W0613, W0212, E1101
 #
 import sys
 import re

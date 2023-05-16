@@ -762,20 +762,39 @@ class ALogger:
         """
         return(self.options[name])
 
-    def setVerbose(self, v:int):
+
+    ###########################################################################
+    # Handle verbosity level like *nix -- number of '-v' options.
+    # Translate this to logging's INFO range: descending from 20.
+    #
+    def setVerbose(self, v:int) -> int:
         """Set the degree of verbosity for messages to be reported.
         This is NOT the same as the logging package "level"!
         """
+        assert v >= 0 and v < 10
         v = int(v)
         if (v>0 and not self.lg.isEnabledFor(20)):
             self.lg.setLevel(20)
         return(self.setALoggerOption("verbose", v))
 
-    def getVerbose(self):
+    def getVerbose(self) -> int:
         """Return the verbosity threshold.
         """
         return(self.getALoggerOption("verbose"))
 
+    # Also provide setLevel() to act just like logging's, for compatibility.
+    #
+    _levelNames = { "CRITICAL":50, "ERROR":40, "WARNING":30, 
+                   "INFO":20, "DEBUG":10, "NOTSET":0,
+                   "V1":19, "V2":18, "V3":17, "V4":16, "V5":15 }
+                   
+    def setLevel(self, pLevel:int) -> None:
+        if (pLevel in self._levelNames): pLevel = self._levelNames[pLevel]
+        self.lg.setLevel(pLevel)
+        
+
+    ###########################################################################
+    #
     def showInvisibles(self, s):
         """Return "s" with non-ASCII and control characters replaced by
         hexadecimal escapes such as \\uFFFF.
@@ -791,9 +810,6 @@ class ALogger:
             sys.stderr.write("Regex error: %s\n" % (e))
         return(s)
 
-
-    ###########################################################################
-    #
     def getPickedColorString(self, argColor:str, msgType:str=None):
         """Return color escape codes (not name!) -- the requested color if any,
         else the default color for the message type.
@@ -877,10 +893,6 @@ class ALogger:
             if (not self.colorManager): msg += " (color not enabled)"
             else: msg = self.colorManager.colorize(kwargs["color"])
         sys.stderr.write(msg)
-
-    # Pass through a few useful methods?
-    def setLevel(self, lvl) -> None:
-        self.lg.setLevel(lvl)
 
     # Add fatal(): level 60, and raise exception after.
     #
