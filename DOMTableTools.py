@@ -10,6 +10,7 @@ import codecs
 from enum import Enum
 from typing import List, Union, Dict, Callable  #, IO
 import logging
+import re
 
 from xml.dom.minidom import Node  # , Element, Document
 from xml.dom import minidom
@@ -301,18 +302,40 @@ def info2(msg:str) -> None: log(2, msg)
 def error(msg:str) -> None: log(0, msg)
 def fatal(msg:str) -> None: log(0, msg); sys.exit()
 
-
+    
 ###############################################################################
 #
 ELEM = Node.ELEMENT_NODE
 ATTR = Node.ATTRIBUTE_NODE
 
-def getChildByName(node:Node, name:str):
+def getChildByName(node:Node, name:str, ns:str="", case:bool=True):
+    """Return the first child of the given node, which is an element of
+    the given type. 
+        If 'case' is set to False, the nodeName is matched ignoring case.
+        If 'ns' is not set, only the localName (not the namespace) is checked.
+        If 'ns' is set, whether it test the prefix or URL may depend on the
+        underlying DOM implementation.... though it shouldn't.
+    """
+    assert node.nodeType == Node.ELEMENT_NODE
+    name = re.sub("^.*:", "", name)
     for ch in node.childNodes:
-        if (ch.nodeType == node.ELEMENT_NODE and
-            ch.nodeName == name): return ch
+        if (ch.nodeType != node.ELEMENT_NODE): continue
+        if (ns):
+            nsPart = re.sub(r":.*", "", ch.nodeName)
+            if strcmp(nsPart, ns,case) != 0: continue
+        if strcmp(ch.localName, name, case) == 0: return ch
     return None
 
+def strcmp(s1:str, s2:str, case:bool=True):
+    """Compare the strings, ignoring case unless 'case' is Trueish.
+    """
+    if (not case): 
+        s1 = s1.lower()
+        s2 = s2.lower()
+    if s1 < s2: return -1
+    if s1 > s2: return 1
+    return 0
+    
 
 ###############################################################################
 #
@@ -497,8 +520,8 @@ def checkNorm(tbl:Node, topt:TableOptions=None):
         if (headCell.nodeType != Node.ELEMENT_NODE): continue
         if (headCell.nodeName != topt.TH):
             errCount += 1
-            lg.warning("    Non-head cell '%s' found in heading row" %
-                (headCell.nodeName))
+            lg.warning("    Non-head cell '%s' found in heading row",
+                headCell.nodeName)
         if (not headCell.hasAttribute(topt.CLASS)):
             errCount += 1
             lg.warning("    Head cell lacks @class.")
@@ -511,8 +534,8 @@ def checkNorm(tbl:Node, topt:TableOptions=None):
             colTypes.append(None)
         elif (headCell.getAttribute("typeName") not in CellDataTypes):
             errCount += 1
-            lg.warning("    Head cell @typeName '%s' not known." %
-                (headCell.getAttribute("typeName")))
+            lg.warning("    Head cell @typeName '%s' not known.",
+                headCell.getAttribute("typeName"))
             colTypes.append(None)
         else:
             colTypes.append(headCell.getAttribute("typeName"))
@@ -587,10 +610,11 @@ def eliminateSpans(self):
             nn = node.nodeName
             row = node.parentNode
             while (cs > 1):
-
+                # TODO: Finish!
+                assert False
                 cs -= 1
 
-            for i in range(int(rs)):
+            for i in range(int(cs)):
                 newNode = theDoc.createElement(nn)
                 node.insertFollowingSibling(newNode)
 
@@ -718,7 +742,7 @@ class NormTable:
         else:
             self.tbl = fromTable
             if (fromTable.nodeName != topt.TABLE): lg.critical(
-                "Table node is named '%s', not '$s'.", fromTable.nodeName, self.topt.TABLE)
+                "Table node is named '%s', not '%s'.", fromTable.nodeName, self.topt.TABLE)
             self.tbl.unspan()
             self.tbl.unnest()
             self.tbl.ensureOuters()

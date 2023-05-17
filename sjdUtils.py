@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
 # sjdUtils: some generally useful stuff.
+# 2011-12-09: Written by Steven J. DeRose.
 #
 import sys
 import os
@@ -41,15 +42,7 @@ timing, and handling error messages.
     ...
 
 Messaging support is now in `alogging`, which works a lot like Python's
-`logging.Logger`, but has nicer layout (I think), support for -v levels,
-statistics, color, and a simpler (although much less flexible) structure:
-
-    from alogging import ALogger   # For messaging/logging features
-    lg = ALogger(1)
-    lg.warn(msg)
-    lg.vMsg(args.verbose, msg)
-    lg.vIndent()
-    ...
+`logging.Logger`, but has nicer layout (I think), support for -v levels, etc.
 
 A nearly identical `sjdUtils.pl` is also available for Perl.
 

@@ -354,10 +354,10 @@ class Datatypes:
             try:
                 self.exprs[k2] = re.compile(r'^(' + v[0] + r')$')
             except Exception as e0:
-                self.warn("Datatypes: Bad regex for %-20s '%s':\n    %s" %
+                self.warning("Datatypes: Bad regex for %-20s '%s':\n    %s" %
                     (k2, v[0], e0))
 
-    def warn(self, msg):
+    def warning(self, msg):
         if (self.options["quiet"]): return
         sys.stderr.write(msg+"\n")
 
@@ -488,8 +488,7 @@ if __name__ == "__main__":
             help='Display version information, then exit.')
 
         parser.add_argument(
-            'strings', type=anyInt,
-            nargs=argparse.REMAINDER,
+            'strings', type=anyInt, nargs=argparse.REMAINDER,
             help='Strings to try against datatypes.')
 
         args0 = parser.parse_args()

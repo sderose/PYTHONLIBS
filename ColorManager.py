@@ -35,10 +35,10 @@ disregarding color escapes, etc.
 ==Color names==
 
 Color names are of the form ''foreground/background/effect'', with all
-items options. For example:
+items optional. For example:
 
     red/italic produces red italic text on default background
-    /blue/bold produces default color but bold text on blue background (broken)
+    /blue/bold produces default foreground color but bold, on blue background (broken)
     yellow/black/underline produces underscored yellow text on black background
 
 The colors are: "black", "red", "green", "yellow",
@@ -46,16 +46,18 @@ The colors are: "black", "red", "green", "yellow",
 
 The effect names are as shown below, but support varies widely from one
 terminal program to another:
-"bold" (aka 'bright'),
-"faint",
-"italic" (rare),
-"underline",
-"blink",
-"fblink" (aka 'fastblink' (rare)),
-"reverse" (aka 'inverse'),
-"concealed" (aka 'invisible' or 'hidden'),
-"strike" (aka 'strikethru' or 'strikethrough'),
-"plain" (no special effect)
+    "bold" (aka 'bright'),
+    "faint",
+    "italic" (rare),
+    "underline",
+    "blink",
+    "fblink" (aka 'fastblink' (rare)),
+    "reverse" (aka 'inverse'),
+    "concealed" (aka 'invisible' or 'hidden'),
+    "strike" (aka 'strikethru' or 'strikethrough'),
+    "plain" (no special effect)
+
+Prefix "!" to an effect name to turn it off, but some terminals may not support that.
 
 Names passed as arguments are forced to lower-case before lookup.
 
@@ -68,7 +70,7 @@ For information on the ANSI codes, see for example
     from ColorManager import ColorManager
     cm = ColorManager()
     ...
-    print(cm.colorize(myMessage, 'red/white')
+    print(cm.colorize(myMessage, "red/white")
 
 ==Usage from shell==
 
@@ -87,15 +89,15 @@ Copy stdin to stdout, but removing any color escapes.
 * ColorManager.py --testEffects
 
 Show samples with the supported effects, which is a good way to see which ones
-your terminal programs supports.
+your terminal programs supports (currently has problems...)
 
 
 =Methods=
 
 * '''__init__(effects=None)'''
 
-Set up the color manager. ''effects'' is merely passed down to
-''setupColors()''.
+Set up the color manager.
+See ''setupColors()'' re. how to use ''effects''.
 
 * '''setupColors(effects=None)'''
 
@@ -110,7 +112,7 @@ Adds a synonym for an existing color.
 
 * '''isColorName(name)'''
 
-Returns True iff ''name'' is a known color name.
+Returns True iff ''name'' is a known color name (fg/bg/ef)
 
 * '''getColorString(name)'''
 
@@ -119,7 +121,7 @@ Returns the ANSI terminal escape string to switch to the named color.
 * '''getColorStrings(paramColor, defaultColor)'''
 
 Returns a dict mapping color names (such as "red/white") to
-the escape strings needed to get them.
+the ANSI terminal escape strings needed to achieve them.
 
 * '''tostring(sampleText='sample', filter=None)'''
 
@@ -139,7 +141,7 @@ the ANSI terminal escape sequences to display it in the specified
 ''argColor'' added at the start, and the escape to switch to color ''endAs''
 added at the end.
 
-* '''uncolorize>I<(s)'''
+* '''uncolorize(s)'''
 
 Remove any ANSI terminal color escapes from ''s''.
 
@@ -178,7 +180,7 @@ ColorManager has no support (yet) for 256-color terminals.
 
 * Primary and alternate fonts (see `mathAlphanumerics.py`).
 
-* Perhaps allow color synonyms like CSS?
+* Perhaps allow RGB colors like CSS?
     0 black   -- #000
     1 red     -- #F00
     2 green   -- #0F0
@@ -192,24 +194,30 @@ ColorManager has no support (yet) for 256-color terminals.
 =Related commands=
 
 There is a Perl version in `ColorManager.pm`,
-and wrappers in `uncolorize` and `colorstring`.
+and there are command-line wrappers in `uncolorize` and `colorstring`.
 
-My `hilite` uses that Perl version, and lets you specify any number of regexes,
+My `hilite` uses that Perl version, and lets you specify any number of regexes
 with colors to highlight their matches in.
 
-My [https://github.com/sderose/PYTHONLIBS/blob/master/sjdUtils.py] forwards several `ColorManager.py` methods,
-so when color is enabled you can just
+There is some similar functionality for zsh and bash in my `ShellSetup/setupColors`,
+and very basic shell functions such as `echoc` and `makeColorEscape` 
+in `ShellSteup/-setupTracing`.
+
+My [https://github.com/sderose/PYTHONLIBS/blob/master/sjdUtils.py] forwards 
+several `ColorManager.py` methods so when color is enabled you can just
 call them as if they were methods of `sjdUtils.py` itself.
 
 My [https://github.com/sderose/Color.git/blob/master/uncolorize] is a wrapper
-for some ColorManager.py functionality.
+for some `ColorManager.py` functionality.
 
 Pypi has an `ansicolors` package (by Jonathan Eunice) at
 [https://pypi.org/project/ansicolors/] which is similar to this.
 
-See [https://stackoverflow.com/questions/287871] on "How to print colored text in terminal in python." It references Python modules ''termcolor'' (apparently
+See [https://stackoverflow.com/questions/287871] on "How to print colored text
+in terminal in python." It references Python modules ''termcolor'' (apparently
 no longer maintained?), ''chromalog'', ''Colorama'', and others.
-For information on these codes, see for example
+
+For information on the codes themselves, see for example
 [https://en.wikipedia.org/wiki/ANSI_escape_code].
 
 
@@ -226,7 +234,7 @@ Clean up doc. Move effects to end, not beginning per ColorNames.md.
 `--testEffects`. Make `--text` and stdin work the same way.
 * 2020-12-14: Start support for HTML output.
 * 2021-07-01: Sync args to `colorize()` with `colorstring.py`.
-
+* 2023-05-16: Factor out color-name parsing. Not used yet.
 
 =Rights=
 
@@ -268,7 +276,7 @@ class ColorManager:
         "default" : 9,
     }
 
-    effectNumbers = {
+    effectNumbers = {  # +0 to turn on, +20 to turn off
         "bold"       : 1,
         "faint"      : 2,
         "italic"     : 3,
@@ -291,6 +299,40 @@ class ColorManager:
         self.offColor = chr(27) + "[m"  # ANSI to turn off colors
         self.setupColors(effects=effects)
 
+    def parseColorName(self, name:str) -> (str, str, str):  # TODO: Integrate this
+        """Parse up a long color name such as "red/blue/!italic".
+        Return the normalized (lowe-case) names, in a tuple of (fg, bg, ef).
+        The effect (only) may have a prefixed "!" for negation (which stays).
+        """
+        tokens = name.lower().split("/")
+        if (len(tokens) > 3): return (None, None, None)
+        fg = bg = ef = None
+        for token in tokens:            
+            # Assign to right item of (fg, bg, ef)
+            if (token in self.effectNumbers or
+                (token.startswith("!") and token[1:] in self.effectNumbers)):
+                if (ef is not None): 
+                    warning("Too many effects: '%s' and '%s'." % (ef, token))
+                    return (None, None, None)
+                ef = token
+            elif (token in self.colorNumbers):
+                if (bg is not None):
+                    warning("Too many colors: '%s', '%s', '%s'." % (fg, bg, token))
+                    return (None, None, None)
+                elif (fg is not None):
+                    bg = token
+                else:
+                    fg = token
+            elif (token == ""):
+                if (fg is not None):
+                    warning("Unexpected empty token.")
+                    return (None, None, None)
+                fg = ""
+            else:
+                warning("Unrecognized color or effect name: '%s'." % (token))
+                return (None, None, None)
+        return (fg, bg, ef)
+                    
     def setupColors(self, effects: Union[bool, list] = None):
         """Work out all known color, effect, and combination names, and
         put them in a hash that maps them to their escape sequences.
@@ -347,7 +389,7 @@ class ColorManager:
                             "%s%d;%d;%dm" % (eb, en, 30+cn, 40+c2n))
         except KeyError as err:
             warning("KeyError in color setup: %s\n" % (err))
-        return()
+        return
 
     def addColor(self, newName: str, oldName: str) -> bool:
         """Add `newName` to the color table, so it can be passed to ''vMsg''.
@@ -441,7 +483,7 @@ class ColorManager:
 
     def toName(self, num) -> str:
         if (ColorManager.numbers2Names is None):
-            for nam, num2 in self.colorStrings.items():
+            for nam, num in self.colorStrings.items():
                 ColorManager.numbers2Names[num] = nam
         return ColorManager.numbers2Names[num] or None
 

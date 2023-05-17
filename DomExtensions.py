@@ -15,7 +15,8 @@ from collections import namedtuple
 import xml.dom
 import xml.dom.minidom
 from xml.dom.minidom import Node, NamedNodeMap, Element, Document
-import logging as lg
+import logging
+lg = logging.getLogger("DomExtensions.py")
 
 from html.entities import codepoint2name, name2codepoint
 
