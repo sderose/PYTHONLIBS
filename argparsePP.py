@@ -57,6 +57,7 @@ Unfinished.
 
 =To do=
 
+* Add option to always accept aliases that add/subtract internal hyphens/underscores.
 * Make a way to suppress an argument(s) from having their help displayed
 with default `-h`.
 Esp. useful for imported args, like PowerWalk.py's.

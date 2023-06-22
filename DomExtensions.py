@@ -824,6 +824,7 @@ element is really an element. Improve handling for bool and for multi-token valu
 in getAttributeAs(). Turn off default of appending id comment in getEndTag().
 * 2023-02-06: Clean up parent/sibling insert/wrap methods.
 * 2023-04-28; Move table stuff to DOMTableTools.py. Implement comparison operators.
+* 2023-07-21: Fix getFQGI(), getContentType(). Add getTextLen().
 
 
 =Rights=
@@ -1735,19 +1736,28 @@ def getDepth(self:Node) -> int:
         cur = cur.parentNode
     return d
 
-def getFQGI(self:Node, sep:str="/") -> Union[str, list]:
+def getFQGI(self:Node, sep:str="/", leaf:bool=False, levelMax:int=0, prefix:bool=True) -> Union[str, list]:
     """Return the sequence of element type names of all ancestors, in
     document order, separated by `sep`.
     If `sep` is falsish ("", None, etc), return a list, outermost first.
+    If `leaf` is set, "#text", "#pi", etc. is included if applicable.
+    if `levelMax` > 0, only that many levels are gathered (working upwards).
+    If `prefix` is set to False, namespace prefixes are removed.
     """
     cur = self
     flist = []
+    levelsDone = 0
     if (cur.nodeType != Node.ELEMENT_NODE):
         f = cur.nodeName  # Such as "#text", #document"
-        if (f): flist.insert(0, f)
+        if (f and leaf):
+            flist.insert(0, f)
+            levelsDone += 1
         cur = cur.parentNode
-    while (cur):
-        flist.insert(0, self.nodeName)
+    while (cur and (levelMax==0 or levelMax>levelsDone)):
+        nn = cur.nodeName
+        if (not prefix): nn = re.sub(r"^[^:]*:", "", nn)
+        flist.insert(0, nn)
+        levelsDone += 1
         cur = cur.parentNode
     if (sep):
         return sep.join(flist)
@@ -1756,10 +1766,11 @@ def getFQGI(self:Node, sep:str="/") -> Union[str, list]:
 def isWithinType(self:Node, nodeSel:NodeSel) -> bool:
     """Test whether a node has an ancestor of a specified element type.
     You can do this equally well with selectAncestor().
+    TODO: Rename to hasAncestor()?
     """
     cur = self
     while (cur):
-        if (cur.nodeName == nodeSel): return True
+        if (cur.nodeName == nodeSel): return True  # TODO Fix
         cur = cur.parentNode
     return False
 
@@ -1776,11 +1787,14 @@ def isWithin(self:Node, node:Node) -> bool:
 isDescendantOf = isWithin
 
 CONTENT_EMPTY = 0
-# CONTENT_WSO ?? whitespace only
-CONTENT_TEXT = 1
-CONTENT_ELEMENT = 2
-CONTENT_MIXED = 3
-CONTENT_ODD = 4
+#CONTENT_WSN = 1
+CONTENT_TEXT = 2
+#CONTENT_TEXT_WSN = 3
+CONTENT_ELEMENT = 4
+#CONTENT_ELEMENT_WSN = 5
+CONTENT_MIXED = 6
+#CONTENT_ELEMENT_TEXT_WSN = 7
+CONTENT_ODD = 8
 
 def getContentType(self) -> int:
     """Test whether this elements has text and/or element children. Returns one of:
@@ -1789,16 +1803,17 @@ def getContentType(self) -> int:
         CONTENT_ELEMENT -- only ELEMENT child nodes
         CONTENT_MIXED   -- mixed content (TEXT and ELEMENT child nodes)
         CONTENT_ODD     -- child nodes include non-TEXT, non-ELEMENT nodes
-            (such as PI, COMMENT, CATA)
-    TODO: perhaps CDATA should count as just text?
+            (such as PI, COMMENT, CDATA)
+    TODO: Perhaps CDATA should count as just text?
+    TODO: Perhaps treat WSN as if absent?
     """
-    if (len(self.childNodes) == 0): return self.CONTENT_EMPTY
-    eChild = self.selectChild(n=0, nodeSel='*')
-    tChild = self.selectChild(n=0, nodeSel='#text')
-    if (eChild):
-        if tChild: return self.CONTENT_MIXED
-        else: return self.CONTENT_ELEMENT
-    if (tChild): return self.CONTENT_TEXT
+    nChildNodes = len(self.childNodes)
+    if (nChildNodes == 0): return self.CONTENT_EMPTY
+    eChilds = self.selectChild(n=0, nodeSel='*')
+    tChilds = self.selectChild(n=0, nodeSel='#text')
+    if (len(eChilds) == nChildNodes): return self.CONTENT_ELEMENT
+    if (len(tChilds) == nChildNodes): return self.CONTENT_TEXT
+    if (len(eChilds)+ len(tChilds) == nChildNodes): return self.CONTENT_MIXED
     return self.CONTENT_ODD
 
 
@@ -1834,8 +1849,8 @@ def getXPointerToNode(self:Node, idAttrName:NMToken="id", nodeSel:NodeSel=None) 
         specific selector, such as "*" (for just elements).
 
     If `idAttrName` is not empty (it defaults to "id"), and that attribute
-    is set on an ancestor(s), then the XPointer will use the innermost such ID
-    as the leading component, and go no further up, e.g. myId/4/1.
+    is set on an ancestor(s), then the XPointer will use the innermost such value
+    as the leading component and go no further up, e.g. myId/4/1.
     """
     f = ""
     cur = self
@@ -1844,7 +1859,7 @@ def getXPointerToNode(self:Node, idAttrName:NMToken="id", nodeSel:NodeSel=None) 
         if (idValue):
             f = idValue + "/" + f
             break
-        f = str(cur.getChildNumber(nodeSel)+1) + "/" + f
+        f = str(getChildNumber(cur, nodeSel)+1) + "/" + f
         cur = cur.parentNode
     return f
 
@@ -2113,11 +2128,12 @@ def getAttributeAs(
     ) -> Any:
     """Get the attribute, and cast/convert it to the specified type.
     If absent, or present as "" and 'nilOK' is set, return the default.
-    If present but casting fails, raise ValueError (booleans are looser).
-    If 'split', the attribute is split on whitespace, the pieces are cast,
-        and a list is returned.
+    If present but casting fails, raise ValueError (booleans are looser --
+    any value in __falseBooleanValues__ is False, others True).
+    If 'split', the attribute is stripped and split on whitespace,
+        the pieces are cast to the given typ, and a list is returned.
     TODO: Should define and support NMTOKEN, NUMTOKEN, etc.
-    TODO: add arg to specify True and False strings for boolean?
+    TODO: add arg to specify True and False strings to accept for boolean?
     """
     val = self.getAttribute(name)
     if (val is None): return default
@@ -2679,6 +2695,24 @@ def collectAllText(self:Node, delim:str=" ", depth:int=1) -> str:
             textBuf = textBuf + collectAllText(ch, delim, depth+1)
     return textBuf
 
+def getTextLen(self:Node, includeWSN:bool=True) -> int:
+    """Return the total length of all text node descendants of a node.
+    This should be much faster than doing len(collectAllText), because
+    it avoids all that string copying and catting.
+    """
+    if (not (self)):
+        return 0
+    if (self.nodeType == Node.TEXT_NODE):
+        if (self.data): return 0
+        if (not includeWSN and self.data.isspace()): return 0
+        return len(self.data) 
+    if (self.hasChildNodes()):
+        tot = 0
+        for ch in self.childNodes:
+            tot += getTextLen(ch)
+        return tot
+    return 0
+    
 
 ###############################################################################
 #
@@ -3475,6 +3509,8 @@ class DomExtensions:
 
             # Collect/export
             toPatch.collectAllText          = collectAllText
+            toPatch.getTextLen              = getTextLen
+            
             # getTextNodesIn
             toPatch.collectAllXml2          = collectAllXml2
             toPatch.collectAllXml2r         = collectAllXml2r

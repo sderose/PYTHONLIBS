@@ -66,15 +66,32 @@ to keep and report error statistics
 
     import alogging
     lg = alogging.ALogger()
+    
+    ...
+    parser.add_argument(
+        "--verbose", "-v", action="count", default=0,
+        help="Add more messages (repeatable).")
 
-    lg.warn(msg)
+    ...    
+    if (args.verbose): lg.setVerbose(args.verbose)    
+    ...
+    
+    lg.warning(msg)
     lg.vMsg(2, msg1, msg2, color="red", stat='Input too long')
+
+`warning`, `info`, `error`, `fatal`, `exception`, and `critical` work
+like in Python `logging.warn()`, except that there is only one context,
+and they accept an optional `stat` parameter (see below).
+
+There are also info0, info1, info2, info3, and info4 methods (and similar warn0... ones), 
+which will only appear if setVerbose() was
+called with at least the corresponding number (typically because that many -v options
+were specified (as shown above).
+
+To display a nicely-formatted rendition of a Python data structure:
 
     print(lg.formatRec(myBigDataThing))
 
-`warn`, `info`, `error`, `fatal`, `exception`, and `critical` work
-like in Python `logging.warn()`, except that there is only one context,
-and they accept an optional `stat` parameter (see below).
 
 ==vMsg() and its kin==
 
@@ -195,7 +212,10 @@ for production. See the discussion at
 * ''setVerbose(v)''
 
 The initial verbosity level can be set as a parameter to the constructor.
-This method lets you reset it later.
+This method lets you reset it later. It also calls the Pythong logging
+instance's setLevel() method, for 20-v, which is the level used for 
+info messages by this package (where v should be the number of -v options given).
+
 Otherwise, messages whose first argument's magnitude
 is greater than ''v'' are discarded (verbosity levels are perhaps best
 thought of as priorities). This means that verbosity runs like `-v` flags in
@@ -207,6 +227,7 @@ many *nix programs, but opposite from Python `logging` levels.
 
 Return the current verbosity level (see ''setVerbose'').
 This is just shorthand for ''getOption("verbose")''.
+This is not the same as the Python logging .level value.
 
 * '''findCaller(self)
 
@@ -437,7 +458,7 @@ This package adds several more calls. The first is simply ''fatal'',
 which issues a ''log''() message with level 60 and then raises an
 exception (if uncaught, this will lead to a stack trace and termination).
 
-The numbers message methods, such as ''info1'' check the verbosity level
+The numbered message methods, such as ''info1'' check the verbosity level
 (set via ''setVerbose()''), and discard the message if it is not at least
 as high as the number at the end of the method name.
 This supports the common *nix command-line usage, where the
@@ -484,7 +505,6 @@ Sets the name of the character encoding to be used (default `utf-8`).
 
 This is just passed along to the like-named argument of the
 Python ''logging.basicConfig''() method, and controls where messages go.
-It defaults to `sys.stderr`.
 
 * ''Option'':''noMoreStats''
 
@@ -518,7 +538,7 @@ My `ColorManager.py`: provides color support when requested.
 If you don't call the constructor (or `setVerbose()`) with a non-zero argument,
 nothing will be printed.
 
-This package is not integrated with the Python ''logging''
+This package is not especially integrated with the Python ''logging''
 package's hierarchical loggers model.
 
 There is not yet an option to remove the default text that ''logging''
@@ -549,6 +569,7 @@ Seems to be a problem with `maxItems`, and with suppressing callables in `format
     drop hMsg in favor of "====" prefix
 
 setVerbose does:
+    logging.basicConfig(self.level)
     lg.setLevel(20-args.verbose)
 
 Then message levels 0...9 do the same translation.
@@ -611,6 +632,8 @@ of passing down. Add FormatBuf class, to replace mongo string 'buf' (for the
 moment, have both, but clean up how they're built). Drop remaining defineMsgType.
 >>>>>>> 6f2e866 (logging updates. improve alogging.formatRec().)
 * 2022-09-30: Fiddle with levels and level defaults. Drop MsgPush, MsgPop, etc.
+* 2023-05-17: Move ALogger options out of dict into main object. Add .level for
+regular Python 'logging' compatibility.
 
 
 =Rights=
@@ -642,81 +665,90 @@ class ALogger:
     """
     verboseDefault = 0
 
+    optionTypes = {
+        "verbose"        : int,
+        "color"          : bool,
+        "filename"       : str,
+        "encoding"       : str,
+        "level"          : int,
+        "badChar"        : str,
+        "controlPix"     : bool,
+        "indentString"   : str,
+        "noMoreStats"    : bool,
+        "plineWidth"     : int,
+        "displayForm"    : str,  # Really an enum...
+    }
+
+    # For converting hex-escaped chars
+    unescapeExpr   = re.compile(r'_[0-9a-f][0-9a-f]')
+
     def __init__(self,
-        verbose:int  = None,       # Level of detail for "info" messages.
-        color        = None,
-        filename:str = None,
+        verbose:int  = None,       # Number of -v's in effect.
+        color:bool   = None,       # Try to use ANSI terminal color?
+        filename:str = None,       # Write log somewhere?
         encoding:str = 'utf-8',
-        options:dict = None
+        options:dict = None        # TODO: other options in here?
         ):
 
+        # First, set up the regular Python 'logging' package as desired
+        #
+        if (filename):
+            logging.basicConfig(filename=filename,
+                                format='%(message)s')
+        else:
+            logging.basicConfig(format='%(message)s')
+            
+        self.lg             = logging.getLogger()
+        self.level          = self.lg.level
+        if (verbose is None): verbose = ALogger.verboseDefault
+        self.setVerbose(verbose)
+        self.filename       = filename
+
+        # Now add all our own stuff
         if (color is None):
             color = ("CLI_COLOR" in os.environ)
 
         if (verbose is None):
             verbose = ALogger.verboseDefault
 
-        self.options = {
-            "verbose"        : verbose,     # Verbosity level
-            "color"          : color,       # Using terminal color?
-            "filename"       : filename,    # For logging pkg
-            "encoding"       : encoding,    # Assumed char set
-            # Set a level that doesn't hide too much:
-            # CRITICAL 50, ERROR 40, WARNING 30, INFO 20, DEBUG 10, NOTSET 0
-            "level"          : ALogger.verboseDefault, # For logging filtering
+        # Copy/default options
+        self.verbose        = verbose     # Verbosity level (see below for .level)
+        self.useColor       = color       # Using terminal color?
+        self.encoding       = encoding    # Assumed char set
 
-            "badChar"        : "?",         # Substitute for undecodables
-            "controlPix"     : True,        # Show U+24xx for control chars?
-            "indentString"   : "  ",        # For pretty-printing
-            "noMoreStats"    : False,       # Warn on new stat names
-            "plineWidth"     : 30,          # Columns for label for pline()
-            "displayForm"    : "SIMPLE",    # UNICODE, HTML, or SIMPLE
-        }
+        self.badChar        = "?"         # Substitute for undecodables
+        self.controlPix     = True        # Show U+24xx for control chars?
+        self.indentString   = "  "        # For pretty-printing
+        self.noMoreStats    = False       # Warn on new stat names
+        self.plineWidth     = 30          # Columns for label for pline()
+        self.displayForm    = "SIMPLE"    # UNICODE, HTML, or SIMPLE
 
-        self.optionTypes = {
-            "verbose"        : int,
-            "color"          : bool,
-            "filename"       : str,
-            "encoding"       : str,
-            "level"          : int,
-            "direct"         : bool,
-
-            "badChar"        : str,
-            "controlPix"     : bool,
-            "indentString"   : str,
-            "noMoreStats"    : bool,
-            "plineWidth"     : int,
-        }
-
+        # Manage any options passed as **kwargs
         if (options is not None):
             for k, v in options.items():
-                if (k not in self.options):
+                if (k not in self.optionTypes):
                     raise KeyError("Unrecognized option '%s'." % (k))
-                self.options[k] = self.optionTypes[k](v)
+                setattr(self, k, self.optionTypes[k](v))
 
-        if (filename):
-            logging.basicConfig(level=self.options["level"],
-                                filename=self.options["filename"],
-                                format='%(message)s')
-        else:
-            logging.basicConfig(level=self.options["level"],
-                                format='%(message)s')
-        self.lg             = logging.getLogger()
-
+        # Init bookkeeppiinngg
         self.msgStats       = {}
         self.errorCount     = 0   # Total number of errors logged
         self.plineCount     = 1   # pline() uses for colorizing
 
-        self.unescapeExpr   = re.compile(r'_[0-9a-f][0-9a-f]')
-
         # Also available via ColorManager.uncolorizer()
         self.colorRegex     = re.compile(r'\x1b\[\d+(;\d+)*m')
         self.colorManager   = None
-        if (self.options["color"]): self.setupColor()
+        if (self.useColor): self.setupColor()
 
-        return(None)
+        return
 
-    def setColors(self, activate=True):
+    def loggingError(self, msg):
+        """Issue a message for an error generated here. By default this just goes
+        unconditionally to stderr, but callers can override this method as desired.
+        """
+        sys.stderr.write(msg)
+        
+    def setColors(self, activate:bool=True):
         """Obsolete but kept for backward compatibilit
         """
         if (activate): self.setupColor()
@@ -729,10 +761,10 @@ class ALogger:
             self.colorStrings = self.colorManager.getColorStrings()
             #print("Color count: %d" % (len(self.colorStrings)))
         except ImportError as e:
-            sys.stderr.write("Cannot import ColorManager:\n    %s" % (e))
+            self.loggingError("Cannot import ColorManager:\n    %s" % (e))
             self.colorStrings = { "bold": '*', "off":'*' }
 
-    def colorize(self, argColor="red", s="", endAs="off",
+    def colorize(self, argColor:str="red", s:str="", endAs:str="off",
         fg='', bg='', effect=''):
         if (self.colorManager):
             return self.colorManager.colorize(argColor=argColor, msg=s,
@@ -743,29 +775,30 @@ class ALogger:
     ###########################################################################
     # Options
     #
-    def setALoggerOption(self, name, value=1):
+    def setALoggerOption(self, name:str, value:Any=1):
         return(self.setOption(name, value))
 
-    def setOption(self, name, value=1):
+    def setOption(self, name:str, value:Any=1) -> bool:
         """Set option ''name'' to ''value''.
         """
-        if (name not in self.options):
-            return(None)
-        self.options[name] = self.optionTypes[name](value)
-        return(1)
+        if (name not in self.optionTypes):
+            return False
+        setattr(self, name, self.optionTypes[name](value))
+        return True
 
-    def getALoggerOption(self, name):
+    def getALoggerOption(self, name:str) -> Any:
         return(self.getOption(name))
 
-    def getOption(self, name):
+    def getOption(self, name:str) -> Any:
         """Return the current value of an option (see setOption()).
         """
-        return(self.options[name])
+        return(getattr(self, name))
 
 
     ###########################################################################
     # Handle verbosity level like *nix -- number of '-v' options.
     # Translate this to logging's INFO range: descending from 20.
+    # For compatibility with Python 'logging' pkg, we also store that as .level.
     #
     def setVerbose(self, v:int) -> int:
         """Set the degree of verbosity for messages to be reported.
@@ -774,7 +807,9 @@ class ALogger:
         assert v >= 0 and v < 10
         v = int(v)
         if (v>0 and not self.lg.isEnabledFor(20)):
-            self.lg.setLevel(20)
+            self.level = 20 - v
+            #logging.basicConfig(self.level)
+            self.lg.setLevel(self.level)
         return(self.setALoggerOption("verbose", v))
 
     def getVerbose(self) -> int:
@@ -790,6 +825,8 @@ class ALogger:
                    
     def setLevel(self, pLevel:int) -> None:
         if (pLevel in self._levelNames): pLevel = self._levelNames[pLevel]
+        self.level = pLevel
+        #logging.basicConfig(self.level)
         self.lg.setLevel(pLevel)
         
 
@@ -799,7 +836,7 @@ class ALogger:
         """Return "s" with non-ASCII and control characters replaced by
         hexadecimal escapes such as \\uFFFF.
         """
-        cp = self.options["controlPix"]
+        cp = self.controlPix
         try:
             s = re.sub(r'([%[:ascii:]]|[[:cntrl:]])',
                 lambda x: (
@@ -807,19 +844,19 @@ class ALogger:
                     else (u"\\u%04x;" % (ord(x.group(1))))),
                 s)
         except re.error as e:
-            sys.stderr.write("Regex error: %s\n" % (e))
-        return(s)
+            self.loggingError("Regex error: %s\n" % (e))
+        return s
 
     def getPickedColorString(self, argColor:str, msgType:str=None):
         """Return color escape codes (not name!) -- the requested color if any,
         else the default color for the message type.
         """
         assert not msgType
-        if (not self.options["color"]):
-            return("","")
+        if (not self.useColor):
+            return("", "")
         if (argColor and argColor in self.colorStrings):
             return(self.colorStrings[argColor], self.colorStrings["off"])
-        return("","")
+        return ("", "")
 
 
     ###########################################################################
@@ -836,7 +873,7 @@ class ALogger:
     #
     def log(self, level, msg, stat=None, **kwargs):  # ARGS!
         if (stat): self.bumpStat(stat)
-        if (self.options["verbose"] < level): return
+        if (self.verbose < level): return
         self.directMsg(msg, **kwargs)
     def debug(self, msg, stat=None, **kwargs):         # level = 10
         if (stat): self.bumpStat(stat)
@@ -919,7 +956,7 @@ class ALogger:
         ) -> None:
         """Issue a "verbose" (msgType "v") info message.
         """
-        if (self.options["verbose"] < verbose): return
+        if (self.verbose < verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, indent=indent)
         self.info(m)
 
@@ -935,7 +972,7 @@ class ALogger:
         """Issue an error message.
         """
         self.errorCount += 1
-        if (self.options["verbose"] < verbose): return
+        if (self.verbose < verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, indent=indent)
         self.info(m)
         if (verbose<0):
@@ -952,7 +989,7 @@ class ALogger:
         """Issue a "heading" (msgType "h") message.
         DEPRECATED in favor of prefixing "====" to other messages.
         """
-        if (self.options["verbose"] < verbose): return
+        if (self.verbose < verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, indent=indent)
         self.info(m)
 
@@ -995,7 +1032,7 @@ class ALogger:
         """
         assert False, "Don't use Msg() any more!"
         if (stat!=""): self.bumpStat(stat)
-        if (self.options["verbose"]<verbose): return
+        if (self.verbose<verbose): return
         m = self.assembleMsg(m1=m1, m2=m2, color=color, escape=escape)
         self.lg.log(logging.INFO - level, m)
         return
@@ -1060,7 +1097,7 @@ class ALogger:
         try:
             s2 = s.decode(encoding='latin-1')
         except UnicodeDecodeError:
-            s2 = re.sub(r'[\x80-\xFF]', self.options["badChar"], s)
+            s2 = re.sub(r'[\x80-\xFF]', self.badChar, s)
         return s2
 
 
@@ -1081,7 +1118,7 @@ class ALogger:
         """
         if (stat in self.msgStats):
             self.msgStats[stat] += amount
-        elif (self.options["noMoreStats"]):
+        elif (self.noMoreStats):
             self.error(0, "alogging.bumpStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = amount
@@ -1091,7 +1128,7 @@ class ALogger:
         """
         if (stat in self.msgStats):
             self.msgStats[stat].append(datum)
-        elif (self.options["noMoreStats"]):
+        elif (self.noMoreStats):
             self.error(0, "alogging.appendStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = [ datum ]
@@ -1101,7 +1138,7 @@ class ALogger:
         """
         if (stat in self.msgStats):
             self.msgStats[stat] = value
-        elif (self.options["noMoreStats"]):
+        elif (self.noMoreStats):
             self.error(0, "alogging.setStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = value
@@ -1216,7 +1253,7 @@ class ALogger:
                 ratio = "%12s" % ("NaN")
             valueField += "   " + ratio
 
-        wid = width or self.options["plineWidth"]
+        wid = width or self.plineWidth
         if (not dotfill or self.plineCount % dotfill != 0):
             uncolorized = re.sub(self.colorRegex, '', label)
             padlen = wid - len(uncolorized)
@@ -1322,7 +1359,7 @@ class FormatRec:
         if (logger): self.lg = logger
         else: self.lg = ALogger()
 
-        self.options = {
+        self.options = {  # TODO: Move this into the main object
             "depthMessage": "deeper",   # Show in place of deeper objects
             "displayForm":  "UNICODE",
             "indentSize":   4,          # Spaces per indent level
@@ -1729,7 +1766,7 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--color",  # Don't default. See below.
+            "--color", action="store_true",  # Don't default. See below.
             help="Colorize the output.")
         parser.add_argument(
             "--quiet", "-q", action="store_true",
