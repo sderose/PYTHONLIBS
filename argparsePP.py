@@ -37,12 +37,13 @@ An improved ArgumentParser and argparse:
 * Hooks up BlockFormatter for better help formatting
 * Adds a `showDefaults` option
 * Adds a `shortMetavars` option
-* Supports alternative hyphen conventions
+* Supports alternative hyphen conventions (option to auto-alias "--long-form" vs. "--longform"
 * Supports adding "toggle" attributes, with changeable "--no-" prefix (`add_toggle()`)
-* Adds several useful attribute types, including ones useful with
+* Adds several attribute types, including ones useful with
 Unicode, XSD, and other widely-used standards
 * Can automatically expand "choices" values to one-hot separate attributes (`add_enum()`)
-* Can ignore case for option names
+* Can ignore case for option names, choices values.
+* Option to auto-shorten metavars
 
 
 =Related Commands=
@@ -57,18 +58,29 @@ Unfinished.
 
 =To do=
 
-* Add option to always accept aliases that add/subtract internal hyphens/underscores.
-* Make a way to suppress an argument(s) from having their help displayed
+==Top==
+
+* Option to pipe to $PAGER.
+* Auto hyphen/underscore convention
+* Auto shortening of metavars
+* toggles
+* Arg that takes 2 following values, or a name=value pair?
+
+==Misc==
+
+* Option to accept aliases that add/subtract internal hyphens/underscores
+(maybe use my LooseDict.py).
+* Option to suppress an argument(s) from having their help displayed
 with default `-h`.
 Esp. useful for imported args, like PowerWalk.py's.
-Perhaps hide them under a secondary command, such as -h-PowerWalk.
+Perhaps hide them under a secondary command, such as --help-all.
 * Add an option to write out a zsh auto-completion file.
 
 ==More types==
 
+* braced group? paren/brack/brace, goes to balance (mod \\)
 * dict? works like append but add to a dict, with const value or serial num.
 * tuples?
-* Arg that takes 2 following values, or a name=value pair?
 * XSD types via `Datatypes.py`
 * type "type", that accepts defined type names.
 * "globbable"?
@@ -80,7 +92,20 @@ Possibly allow .lt. etc; certainly allow Unicode symbols.
 or `-x "foo bar"`, or mix the two.
 * string with \\-codes expanded
 * -exec support: takes a command (test -x), and '{}' fill-in. Maybe adds a standard
-arg to redefine the '{}' string.
+arg to redefine the '{}' string?
+
+==Types for files/paths==
+
+===What is a sensible set of cases?===
+    * File that exists (input)
+    * Dir that exists (output)
+    * Dir exists, but actual file doesn't yet exist there (maybe "!" to force?)
+    * If file exists but is to be written:
+        ** Append; inquire; append serial number; skip;
+===Other factors===
+    * Permission? Stdin/stdout? PAGER?
+    * Plurals/globs?
+    * Output file copy name (but not extension?) of current input file
 
 ==Expressions?==
 
@@ -115,7 +140,7 @@ to set --openQuote and --closeQuote.
 esp. useful for added groups like with PowerWalk.py).
 * Ignore case
 * append that does a split() then extend()?
-* encoding (how to test if known?)
+* encoding (codecs.lookup(encoding))
 * folded string
 * See 'condition' type?
 * Add way to limit range for int and float (-zorkRange [1:20])
@@ -155,6 +180,7 @@ and make entailments automatic.
 * 2020-10-22: Add types for class, type, exception, hInt, slice, datetime,
 keyword, identifier.
 Fix percentage.
+
 
 =Rights=
 
@@ -444,10 +470,11 @@ dt.checkValueForType("int", "12")
 ###############################################################################
 #
 class ArgumentParserPP(argparse.ArgumentParser):
-    """Improved argparse. Mostly just like the regular one, however
-    * adds a notion of boolean "toggles"
-    * automatic metavar shortening
-    * default to use BlockFormatter.
+    """Improved argparse. But main diffs:
+        * A bunch of pre-defined types, including boolean toggles
+        * Better help, incl. formatter, short metavars, exclude-from-summary
+        * Auto-aliasing to cover Gnu vs. Posix hyphenation, etc.
+        * 'choices' can be case-insensitive
     """
     def __init__(self,
         # argparse's usual options
