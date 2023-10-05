@@ -441,13 +441,14 @@ class ColorManager:
             fg="red", bg="blue", effect="bold"
         `endAs` is the color that will be changed to at the end.
         """
+        endEsc = self.colorStrings[endAs.lower()]
         if (not argColor):
             argColor = fg
             if (bg): argColor += "/" + bg
             if (effect): argColor += "/" + effect
         argColor = argColor.lower()
         if (argColor in self.colorStrings):
-            buf = self.colorStrings[argColor] + msg + self.colorStrings[endAs.lower()]
+            buf = self.colorStrings[argColor] + msg + endEsc
         else:
             warning("Unknown color name '%s'." % (argColor))
             buf = "<%s>%s</%s>" % (argColor, msg, argColor)

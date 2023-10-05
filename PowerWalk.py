@@ -1315,7 +1315,7 @@ class PowerWalk:
         for k, v in argsObj.__dict__.items():
             qname = prefix+k
             if (qname in self.options): self.setOption(qname, v, strict=False)
-        showOptions(argsObj)
+        #showOptions(argsObj)
 
     @staticmethod
     def addOptionsToArgparse(parser, prefix:str="", singletons:bool=True):
