@@ -289,7 +289,7 @@ class ColorManager:
     }
 
     offNumbers = {
-        "default"    : 0,
+        #"default"    : 0,
         "off"        : 0,
     }
 
@@ -345,6 +345,7 @@ class ColorManager:
         #    warning("Color not supported? 'tput colors' says '%s'." % (nc))
         self.colorStrings = {}
 
+
         # Be nice to blink-sensitive folks
         if ('NOBLINK' not in os.environ):
             ColorManager.effectNumbers["blink"] = 5
@@ -358,7 +359,8 @@ class ColorManager:
         fmt2 = "%s%d;%dm"
 
         try:
-
+            self.colorStrings["default"] = eb + "m"  # TODO: Check
+            
             for c in ColorManager.offNumbers:
                 cn = ColorManager.offNumbers[c]
                 self.colorStrings[c] = eb + str(0 +cn) + "m"
@@ -441,7 +443,11 @@ class ColorManager:
             fg="red", bg="blue", effect="bold"
         `endAs` is the color that will be changed to at the end.
         """
-        endEsc = self.colorStrings[endAs.lower()]
+        endAs = endAs.lower()
+        if (endAs in self.colorStrings):
+            endEsc = self.colorStrings[endAs]
+        else:
+            endEsc = ""  # TODO: Warn or assert or something....
         if (not argColor):
             argColor = fg
             if (bg): argColor += "/" + bg
