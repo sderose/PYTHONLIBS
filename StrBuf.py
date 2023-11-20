@@ -22,7 +22,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2021-08-03",
-    "modified"     : "2022-02-05",
+    "modified"     : "2023-08-05",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -69,6 +69,8 @@ mutable.
 
 
 =Related Commands=
+
+`StrBufTest.py`.
 
 See [https://stackoverflow.com/questions/7255655/how-to-subclass-str-in-python].
 
@@ -178,7 +180,8 @@ class StrBuf(str):
     Break the string into a list of moderate-sized chunks.
     Python strings are very good for many things, but if you're making lots of
     changes (other than purely appends, which are remarkably quick), they can
-    easily go south.
+    easily go south; bytearray, [char[, and IOStream have other drawbacks,
+    such as overhead, lack of most string methods, etc.
 
     What has to be implmented the hard way?
         https://stackoverflow.com/questions/3820506/location-of-python-string-class-in-the-source-code
@@ -201,6 +204,8 @@ class StrBuf(str):
         self.append(s)
 
     def copy(self):
+        """Should this copy the exact part-split, or just the data?)
+        """
         newSB = StrBuf(partMax=self.partMax, partDft=self.partDft)
         newSB.parts = self.parts.copy()
         newSB.lens = self.lens.copy()
@@ -256,20 +261,6 @@ class StrBuf(str):
         if s2 == o2: return 0
         if s2 < o2: return -1
         return +1
-
-    def __mul__(self, n: int):
-        if (n<=0): return StrBuf()
-        s1 = str(self)
-        s2 = StrBuf()
-        for _i in range(n):
-            s2.append(s1)
-        return s2
-
-    def __add__(self, other, inplace = True):
-        if (inplace): toChange = self
-        else: toChange = self.copy()
-        toChange.append(other)
-        return toChange
 
     # Searching for various content
     #
@@ -436,6 +427,18 @@ class StrBuf(str):
         if (curPos < slen):
             self.prependShort(pnum+1, str(s[curPos:]))
 
+    def join(self, iterable: Iterable):
+        """Join is called on the inserted delimiter, not the iterable. So the iterable
+        might contain strings or StrBufs or whatever. For the moment, we always construct
+        a StrBuf for the result, on the theory that if the delimiter is big enough to
+        justify being a StrBuf, a whole bunch of them with other strings too, also is.
+        """
+        s2 = StrBuf()
+        for i, thing in enumerate(iterable):
+            if i>0: s2.append(self)
+            s2.append(str(thing))
+        return s2
+
     def splitPart(self, pnum: int, offset: int = None):
         """Split the given part at the offset, putting the second half into the next
         part if it fits, otherwise in a new part.
@@ -596,19 +599,6 @@ class StrBuf(str):
         s.append(str(self.parts[ePnum][0:eOffset]))
         return s
 
-    def join(self, iterable: Iterable):
-        """Join is called on the inserted delimiter, not the iterable. So the iterable
-        might contain strings or StrBufs or whatever. For the moment, we always construct
-        a StrBuf for the result, on the theory that if the delimiter is big enough to
-        justify being a StrBuf, a whole bunch of them with other strings too, also is.
-        """
-        s2 = StrBuf()
-        for i, thing in enumerate(iterable):
-            if i>0: s2.append(self)
-            s2.append(str(thing))
-        return s2
-
-
     ### Methods specific to this approach
     ###
     def availInPart(self, pnum: int, forDft: bool = False) -> int:
@@ -728,6 +718,19 @@ class StrBuf(str):
             if (m is None or thisMin < m): m = thisMin
         return thisMin
 
+    def __mul__(self, n: int, inplace: bool = True):
+        if (n<=0): return StrBuf()
+        s1 = str(self)
+        s2 = StrBuf()
+        for _i in range(n):
+            s2.append(s1)
+        return s2
+
+    def __add__(self, other, inplace: bool = True):
+        if (inplace): toChange = self
+        else: toChange = self.copy()
+        toChange.append(other)
+        return toChange
 
     ####### Trivial cases: apply to all the parts, just first/last,....
     #
@@ -739,12 +742,12 @@ class StrBuf(str):
         if (needed > 0): self += fillchar * needed
         return self
 
-    def rjust(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: i
+    def rjust(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: inplace
         needed = width - len(self)
         if (needed > 0): self.insert(0, fillchar * needed)
         return self
 
-    def center(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: i
+    def center(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: inplace
         needed = width - len(self)
         if (needed > 0):
             self.insert(0, fillchar * math.floor(needed/2.0))
@@ -800,6 +803,8 @@ class StrBuf(str):
     # title -- matters whether part boundary is word boundary!  TODO fix edge case
     def title(self, inplace: bool = True):
         return self.applyToAllParts(str.title, inplace=inplace)
+
+    # TODO: write maketrans()
     def translate(self, table, inplace: bool = True):
         if (inplace): toChange = self
         else: toChange = self.copy()  # TODO add args
@@ -826,28 +831,25 @@ if __name__ == "__main__":
     import gc
     import random
 
+    w1 = (
+        "Adam Beth Cris Dave ever fond grow high isle jump " +
+        "knot lamp melt nope Owen Paul quit rope sees test " +
+        "Urdo vent wrap Xeno yurt zoom " )
+    words = []
+    nwords = 0
+
     def smoketest():
-        w1 = (
-            "Adam Beth Cris Dave ever fond grow high isle jump " +
-            "knot lamp melt nope Owen Paul quit rope sees test " +
-            "Urdo vent wrap Xeno yurt zoom " )
-        x1 = " Some additional text"
         s = StrBuf(w1)
         w2 = s.tostring()
         if (w2 != w1):
-            print("Initial bad:\n    %s\n    %s" % (w1, w2))
+            print("Initial mismatch:\n    %s\n    %s" % (w1, w2))
         if (len(s) != len(w1)):
             print("Initial len %d vs. %d" % (len(s), len(w1)))
 
-        i = 0
-        for c in w1:
-            assert c == w1[i]
-            i += 1
+        for i, c in enumerate(w1):
+            assert c == w2[i]
 
-        if (s[0] != "A"):
-            print("expecting A at [0] but got '%s' (%s)." % (s[0], type(s[0])))
-        if (str(s[50:54]) != "knot"):
-            print("expecting knot at 50:54 but got '%s'." % (str(s[50:54])))
+        x1 = " Some additional text"
 
         p, o = s.findCharN(3)
         print("findCharN(3) gives part %d, offset %d (total len %d)." % (p, o, len(s)))
@@ -868,8 +870,8 @@ if __name__ == "__main__":
             print("wrong index for 'knot', StrBuf thinks it's at %d." % (s.index(tgt)))
             print("    strbuf has:\n%s" % (str(s)))
 
-        assert s.startswith("Adam Beth")
-        assert not s.startswith("a")
+        assert s.startswith(w1[0:10])
+        assert not s.startswith("xyzzy")
         if (not s.endswith("text")):
             print("Didn't find 'text' at end, StrBuf has:\n%s" % (str(s)))
         assert not s.endswith("zoom")
@@ -889,8 +891,11 @@ if __name__ == "__main__":
 
         if (str(s.upper()) != w1.upper()):
             print("upper failed:\n    %s\n    %s" % (w1, w2))
+        if (str(s.lower()) != w1.lower()):
+            print("lower failed:\n    %s\n    %s" % (w1, w2))
 
-    # TODO This doesn't work....
+
+    # TODO reportMissing() doesn't work....
     def reportMissing():
         for x in dir(str):
             xs = str(x)

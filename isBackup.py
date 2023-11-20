@@ -3,7 +3,6 @@
 # isBackup
 # 2020-09-15: Written by Steven J. DeRose (just forwards to PowerWalk).
 #
-from __future__ import print_function
 import sys
 
 import PowerWalk
@@ -76,8 +75,6 @@ or [https://github.com/sderose].
 #
 if __name__ == "__main__":
     import argparse
-    def anyInt(x):
-        return int(x, 0)
 
     def processOptions():
         try:
@@ -88,21 +85,20 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--quiet", "-q",      action='store_true',
+            "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
         parser.add_argument(
-            "--recursive",        action='store_true',
+            "--recursive", action='store_true',
             help='Descend into subdirectories.')
         parser.add_argument(
-            "--verbose", "-v",    action='count',       default=0,
+            "--verbose", "-v", action='count', default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
             "--version", action='version', version=__version__,
             help='Display version information, then exit.')
 
         parser.add_argument(
-            'files',             type=str,
-            nargs=argparse.REMAINDER,
+            'files', type=str, nargs=argparse.REMAINDER,
             help='Path(s) to input file(s)')
 
         args0 = parser.parse_args()

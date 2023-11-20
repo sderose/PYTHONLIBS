@@ -759,6 +759,7 @@ I think the culprits are (see https://github.com/python/cpython/blob/main/Lib/xm
 * Finish type-hinting.
 * Add access for items in NamedNodeMaps via [] notation.
 * Option for innerXml/outerXml to guarantee Canonical result (in progress).
+* Promote attribute to element type?
 
 ==Lower priority==
 

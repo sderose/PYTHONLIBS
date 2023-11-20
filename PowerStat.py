@@ -232,7 +232,7 @@ extra bits are for, yet. But they're stripped with -x so the output matches
 Does not catch and report %-codes that violate the syntax rules. They're just
 ignored.
 
-Finish `--outputFormat`.
+Finish `--oFormat`.
 
 
 =History=
@@ -285,7 +285,7 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 #    -n    Display user and group IDs numerically in a long (-l) output.
 #    -O    Include the file flags in a long (-l) output.
 #    -o    List in long format, but omit the group id.
-#    -s    Display the number of blocks actually used by each file, in units of 512 bytes, rounded up.
+#    -s    Display the number of blocks used by each file, in units of 512 bytes, rounded up.
 #
 # Times:
 #    -c    Use time when file status was last changed for sorting (-t) or long printing (-l).
@@ -299,13 +299,13 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 #          as \xxx, where xxx is the numeric value of the character in octal.
 #    -b    As -B, but use C escape codes whenever possible.
 #    -q    Force printing of non-graphic characters in file names as `?'; default for a terminal.
-#    -v    Force unedited printing of non-graphic characters; default when output is not to a terminal.
-#    -w    Force raw printing of non-printable characters.  Default when output is not to a terminal.
+#    -v    Raw printing of non-graphic characters; default when output is not to a terminal.
+#    -w    Raw printing of non-printable characters.  Default when output is not to a terminal.
 #
 # Flags:
-#    -F    Display a slash (`/') after each pathname that is a directory, an asterisk (`*') for
-#          executable, an at sign (`@') for symbolic link, an equals sign (`=') for socket, a percent
-#          sign (`%') for whiteout, and a vertical bar (`|') for FIFO.
+#    -F    Display slash (`/') after each pathname that is a directory, asterisk (`*') for
+#          executable, at sign (`@') for symlink, equals sign (`=') for socket, percent
+#          sign (`%') for whiteout, and vertical bar (`|') for FIFO.
 #    -p    Write a slash (`/') after each filename if that file is a directory.
 #    -%    Distinguish dataless files and directories with a '%' character.
 #
@@ -870,9 +870,9 @@ if __name__ == "__main__":
             help='Colorize the output.')
         # "flags", "-f", action='store_true',
         parser.add_argument(
-            "--format", "-f", "--oformat", "--outputFormat", "--output-format",
-            type=str, default="plain",
+            "--oformat", "--outputFormat", "--output-format", type=str,
             choices = [ "plain", "html", "xsv", "csv", "tsv" ],
+            default="plain",
             help='Record/field syntax for output.')
         parser.add_argument(
             "--human", "-H", action='store_true',

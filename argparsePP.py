@@ -75,6 +75,7 @@ with default `-h`.
 Esp. useful for imported args, like PowerWalk.py's.
 Perhaps hide them under a secondary command, such as --help-all.
 * Add an option to write out a zsh auto-completion file.
+* Some way to support args like editors' "+999" for scroll-to-line.
 
 ==More types==
 
@@ -513,7 +514,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
         self.negationPrefix     = negationPrefix
         self.showDefaults       = showDefaults
         self.shortMetavars      = shortMetavars
-        self.pager              = {}
+        self.pager              = pager
         self.gnuStyle           = False
         self.entailments        = {}
 
@@ -550,13 +551,14 @@ class ArgumentParserPP(argparse.ArgumentParser):
         """
         basename = theArgs[0].strip(" \t-_")
         if (self.showDefaults and kwargs["default"] is not None):
-            if (kwargs["help"] is None): help=""
-            help += " Default: " + str(kwargs["default"])
-        if (kwargs["metavar"] is None):
+            help=""
+            if (kwargs["help"] is not None):
+                help += " Default: " + str(kwargs["default"])
+        if ("metavar" in kwargs and kwargs["metavar"] is None):
             kwargs["metavar"] = basename.upper()
             if (self.shortMetavars):
                 kwargs["metavar"] = kwargs["metavar"][0:1]
-        if (kwargs["dest"] is None):
+        if ("dest" in kwargs and kwargs["dest"] is None):
             kwargs["dest"] = re.sub("-", "_", basename)
 
         # For gnu style, always add "-" synonym for "--" form
@@ -657,17 +659,21 @@ class ArgumentParserPP(argparse.ArgumentParser):
     #    Rfile = argparse.FileType("r")
     #    Wfile = argparse.FileType("w")
 
+    okPagers = [ "less", "more", ]
+
     def print_help(self, file=None):
         """Override argparse version, to respond to "pager" option.
         """
-        if (self.pager == "less"):
-            subprocess.run(
-                [ "/usr/bin/less" ],
-                input=self.format_help(),
-                check=True
-            )
-        else:
-            super().print_help(file=file)
+        if (self.pager and self.pager in self.okPagers):
+            cmdPath = "/usr/bin/"+self.pager
+            if (os.path.exists(cmdPath)):
+                subprocess.run(
+                    [ "/usr/bin/less" ],
+                    input=self.format_help(),
+                    check=True
+                )
+                return
+        super().print_help(file=file)
 
 
 ###############################################################################

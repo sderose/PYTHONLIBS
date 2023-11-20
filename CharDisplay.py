@@ -19,6 +19,9 @@ from urllib.request import urlopen
 from html.entities import codepoint2name, name2codepoint
 from html import unescape
 
+import logging
+lg = logging.getLogger("CharDisplay")
+
 __metadata__ = {
     "title"        : "CharDisplay",
     "description"  : "Show tons of info about a character(s).",
@@ -187,6 +190,7 @@ or other troublesome ones.
 --nomac to suppress.
 * 2023-02-21: Drop last Py2 support. Add POSIX regex categories. Switch
 charProperties to CProps enum.
+* 2023-09-20: Clean up error handling. Fix command-line processing.
 
 
 =Options=
@@ -370,14 +374,15 @@ macRomanData = {
     0xFF : ( 0x02C7, "",       'CARON', ),
 } # macRomanData
 
+assert len(macRomanData) == 128
+
 # TODO: Move to separate test process
 for i in sorted(macRomanData.keys()):
+    if (i<128 or i>255 or len(macRomanData[i]) != 3):
+        lg.critical("macRomanData table error, entry %d is %s" % (i, repr(macRomanData[i])))
+        sys.exit()
     ucp, ent, nam = macRomanData[i]
-    if (i<128 or i>255):
-        raise ValueError("macRomanData[%04x]: key out of range." % (i))
-    if (ucp is None):
-        continue
-    if (ucp < 0XA0 or ucp > 0xFB02):
+    if ((not isinstance(ucp, int)) or ucp < 0XA0 or ucp > 0xFB02):
         raise ValueError("macRomanData[%04x]: Unicode equivalent %04x out of range." % (i, ucp))
     if (ent):
         cpOfEntity = name2codepoint[ent]
@@ -386,7 +391,7 @@ for i in sorted(macRomanData.keys()):
                 "macRomanData[%04x]: entity '%s' maps to %04x which is '%s', not %04x." %
                 (i, ent, cpOfEntity, codepoint2name[cpOfEntity], ucp))
     if (not re.match(r"[- A-Z0-9]{5,}$", nam)):
-        raise ValueError("macRomanData[%04x]: bad name '%s'." % (i, nam))
+        raise ValueError("macRomanData for %04x: bad name '%s'." % (i, nam))
 
 ASCII = [
     #Dec, Lit|Mnem, Name,                Hex, fpiOK,uriOK
@@ -536,6 +541,11 @@ ASCII = [
     [ 127, '\xFF', 'DELETE or Y WITH DIAERESIS', 0x7F, "-", '-' ],
 ]
 
+for i in range(0, 128):
+    if (ASCII[i][0] != i or len(ASCII[i]) != 6):
+        lg.error("ASCII table error, entry %d is %s" % (i, repr(ASCII[i])))
+        sys.exit()
+
 C0Names = [  # Not in unicodedata.name...
     "NULL",
     "START OF HEADING",
@@ -571,11 +581,6 @@ C0Names = [  # Not in unicodedata.name...
     "INFORMATION SEPARATOR ONE",
 ]
 assert len(C0Names) == 32
-
-for i in range(0, 128):
-    if (ASCII[i][0] != i or len(ASCII[i]) != 6):
-        sys.stderr.write("ASCII table error, entry %d." % (i))
-        sys.exit()
 
 # Second string here has special, reserved, etc. chars.
 okInUriExpr = r"[%s]" % ("!$'()*+-._0-9A-Za-z" + r'"%&/:;<=>\?@]')
@@ -655,7 +660,7 @@ unicodeCategories = {  # Replaces categoryAbbr2Name
     "Zs":  "Separator, Space",
 }
 if (len(unicodeCategories) != 38):
-    sys.stderr.write("Bad item count for unicodeCategories: %d." % (len(unicodeCategories)))
+    lg.critical("Bad item count for unicodeCategories: %d." % (len(unicodeCategories)))
     sys.exit()
 
 _blocks = []
@@ -1453,15 +1458,15 @@ script_data = {
 # Sanity-check
 nsn = len(script_data["scriptNames"])
 if (nsn != 102):
-    sys.stderr.write("Bad entry count for scriptNames: %d." % (nsn))
+    lg.critical("Bad entry count for scriptNames: %d." % (nsn))
     sys.exit()
 ncn = len(script_data["categoryAbbrs"])
 if (ncn != 25):
-    sys.stderr.write("Bad entry count for categoryAbbrs: %d." % (ncn))
+    lg.critical("Bad entry count for categoryAbbrs: %d." % (ncn))
     sys.exit()
 nidx = len(script_data["idx"])
 if (nidx != 1637):
-    sys.stderr.write("Bad entry count for idx: %d." % (nidx))
+    lg.critical("Bad entry count for idx: %d." % (nidx))
     sys.exit()
 
 
@@ -1694,14 +1699,15 @@ def getPosixCategories(c:chr) -> List:
 
     """
     global noRegex
-    if (noRegex): return [ "???" ]
+    if (noRegex):
+        return [ "" ]
     try:
         import regex
     except ImportError:
-        if (not args.quiet): sys.stderr.write(
-            "Cannot import 'regex' to determine POSIX categories. Install it?")
+        if (not args.quiet): lg.error(
+            "Cannot import 'regex' to determine POSIX categories. Install it.")
         noRegex = True
-        return [ "???" ]
+        return [ "" ]
     foundCats = []
     for catName in posixCategories:
         if (regex.match(r"[[:%s:]]" % catName, c)): foundCats.append(catName)
@@ -1717,19 +1723,23 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
     charInfo = { "n": n, "ERROR": None }
 
     if (n > 0x1FFFF):
-        raise ValueError("[Out of range (0x%06x)]" % (n))
+        raise ValueError("[getCharInfo: Out of range (0x%06x)]" % (n))
 
     if (n == 0xEFBFBD):
-        raise ValueError("UTF-8 of U+FFFD (Replacement Character) 0xEFBFBD")
+        raise ValueError("getCharInfo: UTF-8 of U+FFFD (Replacement Character) 0xEFBFBD")
 
     literal = charInfo["LITERAL"]  = chr(n)
 
     # Unicodedata does not return names for C0 controls....
-    if (n < 32): charInfo["UNAME" ] = C0Names[n]
-    else: charInfo["UNAME" ] = unicodedata.name(literal)
-    if (not charInfo["UNAME"]):  # Includes private use chars.
-        charInfo["ERROR"] = "Cannot find name for U+%05x." % (n)
-        charInfo["UNAME" ] = "[???]"
+    if (n < 32):
+        charInfo["UNAME" ] = C0Names[n]
+    else:
+        try:
+            charInfo["UNAME" ] = unicodedata.name(literal)
+        except Exception as e:
+            lg.critical("unicodedata.name() failed for '%s'.", literal)
+            charInfo["UNAME" ] = "???"
+    assert charInfo["UNAME"]
 
     # Unicode info
     charInfo["BLOCKNAME"]    = myCodepoint2block(n)
@@ -1803,7 +1813,7 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
         buf = "CharInfo for U+%05x:\n" % (n)
         for k, v in charInfo.items():
             buf += "    %-16s %s\n" % (k, v)
-        sys.stderr.write(buf+"    =======\n\n")
+        lg.info(buf+"    =======\n\n")
     return charInfo
 
 def makeDisplay(n:int, full=True) -> str:
@@ -1813,7 +1823,7 @@ def makeDisplay(n:int, full=True) -> str:
     try:
         charInfo = getCharInfo(n)
     except ValueError as e:
-        sys.stderr.write("%s" % (e))
+        raise ValueError from e  #("getCharInfo() failed: %s" % (e))
         return "???"
 
     try:
@@ -1874,9 +1884,10 @@ def makeDisplay(n:int, full=True) -> str:
             print("    %-20s  %s" % ('"'+k+'"', charInfo[k]))
         msg = "[FAIL]"
 
-    if (n in cp1252ToUnicode): msg += (
-        "\n    WARNING: May be intended as CP1252. If so use U+%05x (%s)." % (
-        cp1252ToUnicode[n], unicodedata.name(cp1252ToUnicode[n])))
+    if (n in cp1252ToUnicode):
+        lg.info("CP1252 warning for %d.", n)
+        msg += ("\n    WARNING: May be intended as CP1252. If so use U+%05x (%s)."
+            % (cp1252ToUnicode[n], unicodedata.name(cp1252ToUnicode[n])))
     elif (n == 0xFF): msg += (
         "\n    WARNING: 0XFF may be DELETE or LATIN SMALL LETTER Y WITH DIAERESIS")
 
@@ -1992,6 +2003,7 @@ def getCodePoint(cspec) -> int:
 #
 if __name__ == "__main__":
     def anyInt(x):
+        lg.info("Parsing arg '%s'.", x)
         try:
             return int(x, 0)
         except ValueError:
@@ -2014,6 +2026,12 @@ if __name__ == "__main__":
             "--help-categories", action="store_true",
             help="Display a list of character categories and exit.")
         parser.add_argument(
+            "--maxChar", type=int, default=sys.maxunicode,
+            help="When displaying a range of code points, skip any above this.")
+        parser.add_argument(
+            "--minChar", type=int, default=0,
+            help="When displaying a range of code points, skip any below this.")
+        parser.add_argument(
             "--nomac", action="store_true",
             help="Suppress 'but on Mac' line for ccode points 128-255.")
         parser.add_argument(
@@ -2031,8 +2049,7 @@ if __name__ == "__main__":
             help="Display version information, then exit.")
 
         parser.add_argument(
-            "charSpecs", type=anyInt,
-            nargs=argparse.REMAINDER,
+            "charSpecs", type=anyInt, nargs=argparse.REMAINDER,
             help="Unicode code point numbers (base 8, 10, or 16).")
 
         args0 = parser.parse_args()
@@ -2042,6 +2059,9 @@ if __name__ == "__main__":
             for k, v in unicodeCategories.items():
                 print("    %-2s  %s" % (k, v))
             sys.exit()
+
+        if (lg and args0.verbose):
+            logging.basicConfig(level=logging.INFO - args0.verbose)
 
         return(args0)
 
@@ -2053,14 +2073,14 @@ if __name__ == "__main__":
 
     if (args.category):
         found = 0
-        for codePoint in (range(sys.maxunicode + 1)):
+        for codePoint in (range(args.minChar, args.maxChar + 1)):
             c0 = chr(codePoint)
             categ = unicodedata.category(c0)
             if (not categ.startswith(args.category)): continue
             try:
                 nam = unicodedata.name(c0)
             except ValueError:
-                if (args.verbose): sys.stderr.write(
+                if (args.verbose): lg.info(
                     "No name for char '%s' (U+%05x)\n" % (c0, codePoint))
                 continue
             if (args.python):

@@ -52,7 +52,7 @@ There are several tokenizers included:
 * The ''SimpleTokenizer'' class is quick and should be adequate for
 many uses. It drops soft/optional hyphens, normalizes Unicode (accents,
 ligatures, etc.), then applyies a few regexes to insert
-extra spaces (such as before the apostrophe of contractions, around emdashes, 
+extra spaces (such as before the apostrophe of contractions, around emdashes,
 after opening punctuation, etc.), and then splits on space-runs.
 It offers an option to use ''TokensEN.py'' for contractions, but
 otherwise applies a simplified rule for them.
@@ -83,7 +83,7 @@ makes a few adjustments. Usage is the same as just shown,
 just substitute "NLTKTokenizerPlus".
 
 * ''HeavyTokenizer'' provides a variety of useful but complex steps, and
-can do a lot of manipulation to help when gathering lexicostatistics. 
+can do a lot of manipulation to help when gathering lexicostatistics.
 Usage is the same as just shown, just substitute "HeavyTokenizer". However, you'll
 probably want to use ''setOption''() to pick exactly what behaviors you want.
 
@@ -117,7 +117,7 @@ character references like &quot; or &#65; in HTML and XML, and so on. These are
 very often found in lexical databases, and are often handled incorrectly.
 
 * Less-common characters such as ligatures, accents,
-non-Latin digits, fractions, hyphens and dashes, quotes, and spaces, 
+non-Latin digits, fractions, hyphens and dashes, quotes, and spaces,
 presentation variants, footnote markers, angstrom vs. a-with-ring, etc.
 
 Very many of the NLP systems I've examined fail on quite common cases such as
@@ -701,8 +701,8 @@ apart from their constructs. Use `dropXMLtags` is necessary first.
 
 =Related commands and data=
 
-This uses the "regex" library [https://pypi.org/project/regex] instead of 
-the built-in Python "re". It adds support for \\p{}. 
+This uses the "regex" library [https://pypi.org/project/regex] instead of
+the built-in Python "re". It adds support for \\p{}.
 
 This Python program is mostly a port of a much earlier Perl one, which is also
 available.
@@ -764,7 +764,7 @@ Ported from Tokenizer.pm (also) by Steven J. DeRose.
 * 2012: Written by Steven J. DeRose, in Perl.
 * ????: Ported to Python.
 * 2020-03-04: Fixes.
-* 2021-04-09: Clean up. Spell NKFD right. Re-sync versions.
+* 2021-04-09: Clean up. Spell NFKD right. Re-sync versions.
 Clean up handling of `dispTypes`, quotes and general lint.
 * 2022-03-11: Drop Python2. Lint.
 

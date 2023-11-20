@@ -224,10 +224,14 @@ or [https://github.com/sderose].
 ###############################################################################
 #
 class Datatypes:
-    """Define the named datatypes (mostly from XML Schema).
+    """Support named datatypes (mostly from XML Schema).
     A few local (non-XML-Schema) types can be added, all starting with "X-".
     Of those, "X-Enum" and "X-Match" are validated specially.
     Each appends an expression used to check it.
+
+    TODO: Ensure Python types:
+        bool int float complex None
+        list dict set tuple namedtuple?
 
     See: [https://www.w3.org/TR/xmlschema-2/] ("Datatypes Second Edition")
     """

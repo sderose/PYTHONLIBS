@@ -10,7 +10,6 @@ import codecs
 from enum import Enum
 from typing import List, Union, Dict, Callable  #, IO
 import logging
-import re
 
 from xml.dom.minidom import Node  # , Element, Document
 from xml.dom import minidom
@@ -210,7 +209,7 @@ XML:sexp::SQL:CSV
 
 Key normalizations vs. general HTML tables:
     * No colspans or rowspans
-    * Cols are all named
+    * Columns are all named
     * Headings are always and only the first row, and all/only 'th's
     * Col heads are unique to one column, and always on all children.
     * Nested table only allowed with join-like restrictions
@@ -302,7 +301,7 @@ def info2(msg:str) -> None: log(2, msg)
 def error(msg:str) -> None: log(0, msg)
 def fatal(msg:str) -> None: log(0, msg); sys.exit()
 
-    
+
 ###############################################################################
 #
 ELEM = Node.ELEMENT_NODE
@@ -335,7 +334,7 @@ def strcmp(s1:str, s2:str, case:bool=True):
     if s1 < s2: return -1
     if s1 > s2: return 1
     return 0
-    
+
 
 ###############################################################################
 #
@@ -497,7 +496,7 @@ def doCSVHeader(self, ifh, fsplitArgs):
         colElem = self.ownerDocument.createElement(self.topt.TH)
         colElem.setAttribute(self.topt.CLASS, nm)
         if (typ): colElem.setAttribute("typeName", typ)
-        self.appendCol(colElem)
+        self.appendColumn(colElem)
     return colIds, colTypes
 
 
@@ -520,8 +519,8 @@ def checkNorm(tbl:Node, topt:TableOptions=None):
         if (headCell.nodeType != Node.ELEMENT_NODE): continue
         if (headCell.nodeName != topt.TH):
             errCount += 1
-            lg.warning("    Non-head cell '%s' found in heading row",
-                headCell.nodeName)
+            lg.warning("    Non-head cell '%s' found in heading row" %
+                (headCell.nodeName))
         if (not headCell.hasAttribute(topt.CLASS)):
             errCount += 1
             lg.warning("    Head cell lacks @class.")
@@ -534,8 +533,8 @@ def checkNorm(tbl:Node, topt:TableOptions=None):
             colTypes.append(None)
         elif (headCell.getAttribute("typeName") not in CellDataTypes):
             errCount += 1
-            lg.warning("    Head cell @typeName '%s' not known.",
-                headCell.getAttribute("typeName"))
+            lg.warning("    Head cell @typeName '%s' not known." %
+                (headCell.getAttribute("typeName")))
             colTypes.append(None)
         else:
             colTypes.append(headCell.getAttribute("typeName"))
@@ -610,8 +609,7 @@ def eliminateSpans(self):
             nn = node.nodeName
             row = node.parentNode
             while (cs > 1):
-                # TODO: Finish!
-                assert False
+
                 cs -= 1
 
             for i in range(int(cs)):
@@ -650,14 +648,14 @@ def ensureOuters(self):
     tb = self.getBody()
     if (not tb): self.addBody()
 
-def ensureAllColIdents(self) -> int:
-    nFailedCols = 0
-    for colNum, col in enumerate(self.generateCols()):
-        nFailedCells = self.ensureColIdents(colNum, col)
-        if (nFailedCells): nFailedCols += 1
-    return nFailedCols
+def ensureAllColumnIdents(self) -> int:
+    nFailedColumns = 0
+    for colNum, col in enumerate(self.generateColumns()):
+        nFailedCells = self.ensureColumnIdents(colNum, col)
+        if (nFailedCells): nFailedColumns += 1
+    return nFailedColumns
 
-def ensureColIdents(self:TableOptions, colNum:int, ) -> list:
+def ensureColumnIdents(self:TableOptions, colNum:int, ) -> list:
     """Scan the table by column, and return a list of all the cell
     (row, col) coordinates where there's a column-id problem. If the
     returned list is empty, everything's ok.
@@ -670,10 +668,10 @@ def ensureColIdents(self:TableOptions, colNum:int, ) -> list:
         thisColId = theIDs.append(self.getAttribute(row, self.topt.CLASS))
         if (not thisColId): badCoords.append( (0, colNum) )
 
-    for colNum, col in enumerate(self.generateCols()):
+    for colNum, col in enumerate(self.generateColumns()):
         colId = None
         for rowNum in range(1, self.getNumRows()):
-            cell = self.getCellByRowCol(rowNum, colNum=colNum)
+            cell = self.getCellByRowColumn(rowNum, colNum=colNum)
             thisColId = cell.getAttribute(self.topt.CLASS)
             if (thisColId != theIDs[colNum]):
                 badCoords.append( (rowNum, colNum) )
@@ -683,7 +681,7 @@ def ensureColIdents(self:TableOptions, colNum:int, ) -> list:
 ###############################################################################
 # Tabular structure support (TODO: Integrate)
 #
-def getCol(self:Node, onlyChild:str="tbody", colNum:int=1, colSpanAttr:str=None) -> list:
+def getColumn(self:Node, onlyChild:str="tbody", colNum:int=1, colSpanAttr:str=None) -> list:
     """Called on the root of table-like structure, return a list of
     the colNum-th child element of each child element. That should amount
     to the colNum-th column.
@@ -702,7 +700,7 @@ def getCol(self:Node, onlyChild:str="tbody", colNum:int=1, colSpanAttr:str=None)
         cells.append(row.getCellOfRow(colNum=colNum, colSpanAttr=colSpanAttr))
     return cells
 
-def generateCol(self):
+def generateColumn(self):
     assert False
 
 def getCellOfRow(self:TableOptions, row:Node, colNum:int=1, colSpanAttr:str=None) -> Node:
@@ -742,11 +740,11 @@ class NormTable:
         else:
             self.tbl = fromTable
             if (fromTable.nodeName != topt.TABLE): lg.critical(
-                "Table node is named '%s', not '%s'.", fromTable.nodeName, self.topt.TABLE)
+                "Table node is named '%s', not '$s'.", fromTable.nodeName, self.topt.TABLE)
             self.tbl.unspan()
             self.tbl.unnest()
             self.tbl.ensureOuters()
-            self.tbl.ensureColIdents()
+            self.tbl.ensureColumnIdents()
 
     def makeDOMTable(self):
         """Make an empty starter table.
@@ -776,7 +774,7 @@ class NormTable:
     ##################################################### TABLE OPERATIONS
     #
     def getShape(self):
-        return self.countRows(), self.countCols()
+        return self.countRows(), self.countColumns()
 
     def ownerTable(self, node:Node):
         """Return the containing table (if any) given any node.
@@ -814,7 +812,7 @@ class NormTable:
         t2.appendChild(b2)
 
         # Make as many new rows, as the starting table has columns
-        nCols = self.getRow(0).countCols()
+        nCols = self.getRow(0).countColumns()
         for _i in range(nCols):
             tr2 = doc.createElement(self.topt.TR)
             b2.appendChild(tr2)
@@ -886,7 +884,7 @@ class NormTable:
         that name only; otherwise, the name is added as a space-separated
         token if not already there, and any prior tokens remain.
         """
-        theCol = self.getCol(col)
+        theCol = self.getColumn(col)
         theCol.setAttribute(self.topt.CLASS, name)
 
     def getBody(self):
