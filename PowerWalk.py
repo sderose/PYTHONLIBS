@@ -17,7 +17,7 @@ from os.path import getatime, getctime, getmtime, getsize, splitext
 from enum import Enum
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
-from typing import Dict, Any, Union, Callable, List
+from typing import Dict, Any, Union, List  # , Callable
 
 # Libraries for particular file "formats":
 import codecs
@@ -107,8 +107,36 @@ PowerWalk can also:
 
 If run on its own, `PowerWalk` displays the paths of selected
 files under the specified
-directory(s), or the current directory if none are specified. Several
-special options apply in that case:
+directory(s), or the current directory if none are specified (with `-r`
+you must specify "*", sorry).
+
+The default output format is pretty much like 'ls'. Thus, a recursive list
+comes out with a heading for each directory, like this:
+    subDir1        file1           subdir2        file2
+
+    ./subDir1:
+    file1.1    file1.2...
+
+    ./subDir2:
+    file2.1          file2.2...
+
+Slightly unlike "ls", you can get recursion via "-r" or "--recursive"
+as well as "-R". With "ls", "-r" gets reverse sorting; in PowerWalk get
+that with "--reverseSort" (or abbreviations such as "--rev"), or various
+other sorts with "--sort [what]".
+
+To get a flat list of absolute paths (such as to feed to another command via "``",
+in *nix you'd probably switch to "find". Here you can do:
+
+    PowerWalk -R --flat
+would give:
+    [TODO: Add sample output]
+
+To get all items quoted, use "--quote".
+To avoid separate lines for directories, add "--type f"
+
+
+Several special options apply in that case:
 
 * `--copyTo [path]` -- Copy the chosen files to this directory. This flattens
 whatever arrangement they come from -- all the leafs end up together.
@@ -120,7 +148,7 @@ by appending numbers.
 much like `find --exec`. Output from the runs is printed unless
 you specify `--quiet`.
 
-* `--filetype` -- Append a flag-character like "ls -F".
+* `--fileTypeFlag` -- Append a flag-character like "ls -F".
 
 * `--serialize` -- put a serial number on each file with `--copyTo`
 (use `--serializeFormat` to set the format (default "_%04d")).
@@ -142,10 +170,12 @@ such as json, html, and sexp.
 * `--anonymousClose` -- if set, do not print the name of directories or
 other containers as they close.
 
-* `--openDelim` and `--closeDelim` -- Display these around
+* `--openDirString` and `--closeDirString` -- Display these around
 the contents of directories and other containers (after their name').
+For examle, "{" and "}". Default: "" and "".
 
 * `--iString [s]` -- Repeat this string to create indentation.
+Default: "    ".
 
 * `--itemSep` -- Put this in to separate items (e.g., a comma).
 
@@ -344,7 +374,8 @@ Return the value of an available option (see ''setOption'').
 
 Test whether the given file's name indicates it is a backup, spare copy,
 duplicate, or similar file. This method knows
-quite a few naming conventions, but surely not all (for example, OS conventions such as "backup of" presumably localize). For example, filenames that:
+quite a few naming conventions, but surely not all (for example, OS conventions
+such as "backup of" presumably localize). For example, filenames that:
 
 * start or end with tilde or pound-sign
 
@@ -480,7 +511,8 @@ about the file. For example, some versions of `file` return descriptions like:
     ** MacOS Alias file
     ** ASCII text, with very long lines, with no line terminators
     ** XML 1.0 document text, ASCII text
-    ** Python script text executable, UTF-8 Unicode text, with very long lines, with CRLF, CR, LF line terminators, with escape sequences, with overstriking
+    ** Python script text executable, UTF-8 Unicode text, with very long lines,
+with CRLF, CR, LF line terminators, with escape sequences, with overstriking
     ** Debian binary package (format 2.0), with control.tar.gz, data compression xz
 
 * "includeNames": Regex for (only) item basenames to allow. Default: "".
@@ -664,18 +696,19 @@ should be separately settable for directories and files (and maybe other contain
 
 ==Most wanted==
 
+* At top level, if it's a dir then issue an open event for it, and
+make sure we get all it's children. *******
+
 * Protect against circular links.
+
+* Be able to accept/return Path objects.
 
 * Add move/link/cat similar to `--copyTo`, and support setting
 xattr to say where copied from.
 
 * Support additional compression methods.
 
-* Be able to accept/return Path objects.
-
-* Make a cleaner design for the various output format punctuation, as class `Lister`.
-
-* Make use of 'parent' options with addOptionsToArgParse.
+* Make a cleaner design for the various output format punctuation.
 
 
 == Output options==
@@ -708,12 +741,11 @@ file patterns to exclude (or maybe to specify options in general)?
 * Perhaps add --name, --iname, --path, --ipath that match globs instead of
 regexes, for `find` compatibility?
 See discussion of Python `fnmatch` in
-[https://stackoverflow.com/questions/27726545/python-glob-but-against-a-list-of-strings-rather-than-the-filesystem],
-or pathlib, or PurePAth.match().
+[https://stackoverflow.com/questions/27726545/], or pathlib, or PurePAth.match().
 * Add `--files-without-match` and `--files-with-matches` like `grep`.
 * permissions -- see `passesPerm()` below.
 * owner and group ids (and none), inum -- cf `PowerStat.py`
-* file-flags like for `find -flags` and `chflags` and 'ls -F'; or using circled -d etc. chars?
+* file-flags like for `find -flags`, `chflags`, 'ls -F'; or circled chars?
 * Mac fs metadata (kmdItem... and all that). See my `macFinderInfo`.
 * Option to not cross device or filesystem bounds (see `find -x`)
 * distinguish maxfiles tried vs. succeeded
@@ -721,7 +753,7 @@ or pathlib, or PurePAth.match().
     -amin n:  modified n minutes ago (rounded up)
     -atime n[smhdw] modified n (default days) ago. Can do `-1h30m`.
     -anewer
-    (likewise with -c... for creation time, -m... for mod time, -B... inode creation)
+    (likewise with -c... for ctime, -m... for mtime, -B... inode creation)
     -newer [file]: if newer mod than [file
     -newerXY [file]]: if newer [aBcm] than [file]'s [aBcM].
 * depth
@@ -750,18 +782,15 @@ What do various *nix utilities do for <=> tests in options?
 
 * Make --include* --exclude* repeatable. Should they mean union or intersection?
 * Option to sniff encoding rather than set globally?
-* Option to show invisibles in filenames (`ls -B` does octal, but ick).
 * Limit max/min/total size of files
 * Support Mac aliases, bookmarks, and webloc files.
-See my `resolveLinks` attempt.
-[https://pypi.org/project/mac_alias/].
-See [https://stackoverflow.com/questions/48862093] (how-to-read-change-and-write-macos-file-alias-from-python),
+See my `resolveLinks` attempt, and [https://pypi.org/project/mac_alias/].
+See [https://stackoverflow.com/questions/48862093]
+(how-to-read-change-and-write-macos-file-alias-from-python),
 [http://mac-alias.readthedocs.io/en/latest] and
 [https://docs.python.org/2/library/macostools.html].
-* Support URLs (can *nix, Mac, or Win aliases point to URLs?
+* Support URLs?
 * Sampling of every nth file, first n from each directory, etc.
-* Option to "mark" the files, e.g. with an xattr or Finder flag, and do set
-operations that refer to the marks?
 
 ==Interface==
 
@@ -780,15 +809,11 @@ Maybe just pass back the container handle? Or they can poke at the path.
 
 * Possibly a stat-like "%" option for output? See `FileInfo` class.
 
-* Option to get the entire stream with no events
-** Or to get that, but with some in-band wrapper around each input file, that says it's
-starting and ending, and gives path, inode, etc.
-
 
 =Related commands=
 
 `find` + `-exec` does a really nice job of finding things.
-PowerWalk is mainly intended to be even easier to use
+PowerWalk is mainly intended to be easier to use
 from Python code, especially for people (like corpus linguists) who work with
 tons of sample files in complicated directory and container structures.
 
@@ -836,9 +861,11 @@ operational yet).
 Filter by git status. More option re. symlinks, start Mac .webloc support.
 Improve doc, typehints, etc. Track inodes of directories to try to protect
 against circular symlinks.
-* 2022-02-14: Normalize quotes. Add --filetype.
+* 2022-02-14: Normalize quotes. Add --fileType.
 * 2022-03-23: Improve output format quoting options.
 * 2022-07-05: Start breaking out a cleaner listing i/f via classes ItemFmt, Lister...
+* 2023-11-27: Refactor main, OutputFormatter. Drop ItemFmt.
+Rename --filetype to --fileTypeFlag and alias -F. Add alias -R for recursive.
 
 
 =Rights=
@@ -1013,7 +1040,6 @@ class TraversalState(list):
             "ignoredByExcludeDir"        : 0,
             "ignoredByIncludeDir"        : 0,
 
-            "ignoredByGitStatus"         : 0,
             "ignoredByMinDepth"          : 0,
             "ignoredByPerm"              : 0,
             "ignoredByType"              : 0,
@@ -1397,7 +1423,7 @@ class PowerWalk:
             choices = [ x for x in gitStatuses ],
             help="Git status as for git -s [%s]. UNFINISHED." % (gitStatuses))
         parser.add_argument(
-            prefix + "hidden", action="store_true",
+            prefix + "hidden", "-a", action="store_true",
             help="Include file and directories whose names begin with dot.")
         parser.add_argument(
             prefix + "ignorables", action="store_true",
@@ -1440,7 +1466,7 @@ class PowerWalk:
 
         if (singletons):
             parser.add_argument(
-                prefix+"recursive", "-r", action="store_true",
+                prefix+"recursive", "-r", "-R", action="store_true",
                 help="Descend into subdirectories.")
         else:
             parser.add_argument(
@@ -2120,137 +2146,440 @@ def xset(path:str, prop:str, val:Any) -> None:
 
 
 ###############################################################################
-# This should perhaps be broken out into a package just for doing formatting.
-# Sync closer to Python format() though it's not the same thing; connect with
-#     PowerStat, stat, strfchr, note "A % language".
-#
-class FmtType(Enum):
-    nil = 0
-    b = 1  # bool
-    i = 2  # integer
-    f = 3  # float
-    j = 4  # complex
-    m = 5  # vec/mat/tensor (set, dict?)
-    s = 6  # str
-    z = 7  # block
-
-class ItemFmt:
-    """??? for files and for dirs?
-            [ "x", [ "y", "z" ], "w" ]
-    """
-    def __init__(self):
-        self.beforeFirst = ""
-        self.afterNonLast = ""
-        self.beforeNonFirst = ""
-        self.afterLast = ""
-        self.indent = ""
-        self.mainType = FmtType.nil
-        self.preProcess = None
-
-class Lister:
-    """A cleaner design for various output formats of dir/file lists.
-    Well, at least a small attempt at one....
-
-    Specify a `stat`-like format string for each of:
-        * The very start
-        * Opening a container (dir, tar, etc.)
-        * Reporting a leaf item
-        * Separating leaf items
-        * Closing a container
-        * Separating containers
-        * The very end
-
-    E.g.:
-        myDir
-            myFile1
-            myFile2
-            myFile2
-
-        ~/myDir/
-        ~/myDir/myFile1
-        ~/myDir/myFile2
-        ~/myDir/myFile2
-
-        <catalog root="/home/xyz">
-            <dir name="myDir">
-                <item name="myFile1" />
-                <item name="myFile3" />
-                <item name="myFile3" />
-            </dir>
-        </catalog>
-
-    Features to control (use PowerStat?)
-        (see stat -f codes [NRTYZ] for name, size, etc.)
-        Indentation
-        Closinh lines or not
-        Basename, path, ~
-        Extra info: permissions, size, type-flags like ls -F, user, group, times --
-            and different for open/close/item
-        Wrap like ls???
-        Markup? HTML dir, table, etc.
-        Treatment of links, tars, etc.
-
-
-    TODO: Ditch options anonymousClose, openQuote, closeQuote, quote, noquote,
-    openDelim, closeDelim, short, statFormat, iString, itemSep, fileType, etc.
-    Then replace mapNamedOFOs() to match.
-    Maybe just an example, or a strftime-like
-    % thing? Need at least 3: open, leaf (amd itemSep?), close.
-    Give each like stat or my strfstat!
-
-        %N  -- filename (%2N adds 2 levels of dirs)
-        %P  -- full path
-        %n  -- basename
-        %e  -- extension
-        %2s -- indent by 2 spaces per level
-        %2t -- indent by 2 tabs per level
-
-    e.g.:  --ostat "<dir>|Opening %P\n|%2s%N\n|Closing %P|</dir>"
-    """
-    def __init__(self):
-        self.options = {
-            "caseSensitive": False,
-            "openQuote":  '"',
-            "closeQuote": '"',
-            "escaper":    '\\',   # escapeChar or escape Callable?
-            "indentBy":   '  ',
-        }
-        self.itemDict = {}        # All the known "datum"s and "aliases"
-        self.letterDict = {}      # Single-char forwards
-        self.currentDepth = 0     # Indent level? Thread safety...
-
-    def addItem(
-        self,
-        name:str,
-        letter:str=None,
-        docstring:str=None,
-        theType:FmtType=FmtType.nil,
-        source:Callable=None
-        ) -> None:
-        self.itemDict[name] = (theType, docstring, source)
-        if letter:
-            assert letter not in self.letterDict
-            self.letterDict[letter] = name
-
-    def addAlias(self, alias:str, name:str) -> None:
-        assert name in self.itemDict
-        assert alias not in self.itemDict
-        self.itemDict[alias] = name
-
-    def resolve(self, key:str) -> ItemFmt:
-        if (key in self.itemDict): return self.itemDict[key]
-        if (key in self.letterDict): return self.itemDict[self.letterDict[key]]
-        matches = []
-        for cand in self.itemDict.keys():
-            if cand.startswith(key): matches.append(cand)
-        if (len(matches) == 1): return self.itemDict[matches[0]]
-        if (len(matches) == 0): return None
-        return "Duplicate"  # Not of type FmtItem...
-
-
-###############################################################################
+# TODO: Move out to separate driver.
 #
 if __name__ == "__main__":
+    class OutputFormatter:
+        """Various output formats of dir/file lists???
+        Well, at least a small attempt....
+
+        Scoping representation
+            * Introducer delim before/after indent change (incl. newline, {}[]?)
+            * item separator
+            * The very start and end
+            * final comma in aggregates
+            * Representation of empty containers
+
+        Orthogonal (?) choices?
+            * Indentation
+            * n per line and alignment
+            * Quoting and escaping
+            * # levels to show above current item
+            * Type-flag characters or not
+            * Abbr like ~
+            * Include path components above very top?
+            * added info per item (cf PowerStat)
+            * LSCOLORS?
+            * sorting, incl. dirs before items
+
+        E.g.:
+            /Users/
+                /Users/plato/
+                    /Users/plato/soc_dialogs/
+                        /Users/plato/soc_dialogs/apology
+                        /Users/plato/soc_dialogs/crito
+                        /Users/plato/soc_dialogs/doubtful/
+                            /Users/plato/soc_dialogs/doubtful/Memorabilia
+                        /Users/plato/soc_dialogs/euthryphro
+                    /Users/xenophon/
+                        /Users/xenophon/xfiles.txt
+                    /Users/zerophiles/
+
+            /Users/
+            /Users/plato/
+            /Users/plato/soc_dialogs/
+            /Users/plato/soc_dialogs/apology
+            /Users/plato/soc_dialogs/crito
+            /Users/plato/soc_dialogs/doubtful/
+            /Users/plato/soc_dialogs/doubtful/Memorabilia
+            /Users/plato/soc_dialogs/euthryphro
+            /Users/xenophon/
+            /Users/xenophon/xfiles.txt
+            /Users/zerophiles/
+
+            /Users/
+                plato/
+                    soc_dialogs/
+                        apology
+                        crito
+                        doubtful/
+                            Memorabilia
+                        euthryphro
+                xenophon/
+                    xfiles.txt
+                zerophiles/
+
+            plato
+                soc_dialogs
+                    apology
+                    crito
+                    doubtful
+                        Memorabilia
+                    euthryphro
+            xenophon/
+                xfiles.txt
+            zerophiles/
+
+            JSON-ish...
+
+            { "Users": [
+                { "plato": [
+                    { "soc_dialogs": [
+                        "apology",
+                        "crito",
+                        { "doubtful": [
+                            "Memorabilia"
+                        ]},
+                        "euthryphro"
+                    ]}
+                ]}
+                { "xenophon": [
+                    "xfiles.txt"
+                ]}
+                { "zerophiles": [
+                ]}
+             ]}
+
+            cf https://stackoverflow.com/questions/69170524/
+            {
+                "Users": {
+                    "plato": {
+                        "soc_dialogs": {
+                            "apology": Null,
+                            "crito": Null,
+                            "doubtful": {
+                                "Memorabilia": Null
+                            },
+                            "euthryphro": Null
+                        }
+                    }
+                    "xenophon": {
+                        "xfiles.txt": Null
+                    }
+                    "zerophiles": {
+                    }
+                }
+             }
+
+            ("Users"
+                ("plato"
+                    ("soc_dialogs"
+                        "apology"
+                        "crito"
+                        ("doubtful"
+                            "Memorabilia"
+                        )
+                        "euthryphro"
+                    )
+                )
+                ("xenophon"
+                    "xfiles.txt"
+                )
+                ("zerophiles"
+                )
+            )
+
+            (old HTML dir tag and server feature)
+
+            <catalog root="/home/xyz">
+                <dir name="soc_dialogs">
+                    <item name="apology" />
+                    <item name="crito" />
+                    <dir name="doubtful">
+                        <item name="Memorabilia" />
+                    </dir>
+                    <item name="euthryphro" />
+                </dir>
+                <dir name="xenophon">
+                    <item name="xfiles.txt" />
+                </dir>
+                <dir name="zerophiles">
+                </dir>
+            </catalog>
+
+            Like ls -R
+            soc_dialogs:
+                apology        crito
+                doubtful/      euthryphro
+                xenophon/      zerophiles/
+
+            doubtful:
+                Memorabilia
+
+            xenophon:
+                xfiles.txt
+
+            zerophiles:
+
+            SQL
+            ID  Par  Name
+            ---------------------
+             1    0  Users
+             2    1  plato
+             3    2  soc_dialogs
+             4    3  apology
+             5    3  crito
+             6    3  doubtful
+             7    6  Memorabilia
+             8    3  euthryphro
+             9    1  xenophon
+            10    9  xfiles.txt
+            11    1  zerophiles
+
+        Big issue seems to be how to differentiate
+            dirs, which contain (file|dir)*, from
+            items, which are atoms (wrt file system).
+        You can't tell dir from file by whether it's a list or not, unless you
+        do something special to distinguish empty dirs...
+        """
+        OFDefaults = {
+            #"anonymousClose":   False,
+            "openDirString":    "{ ",
+            "closeDirName":     False,
+            "closeDirString":   " }",
+            "itemSep":          "",
+            "openQuote":        "",
+            "closeQuote":       "",
+            "fileTypeFlag":     False,
+            "iString":          "    ",
+            "oformat":          "outline",
+            "short":            False,
+            "showInvisibles":   "literal",
+        }
+
+        def __init__(self):
+            self.OFOptions = self.OFDefaults.copy()
+
+        @staticmethod
+        def addOutputFormatOptions(parser:argparse.ArgumentParser, prefix:str="") -> None:
+            """Add a boatload of options for how to format output, mainly filelists.
+            (should become a general tree-layout class)
+            """
+            if (not prefix.startswith("--")): prefix = "--" + prefix
+            #parser.add_argument(
+            #    prefix+"anonymousClose", action="store_true",
+            #    help="Suppress display of container-close.")
+            parser.add_argument(
+                prefix+"openDirString", metavar="S", type=str, default="",
+                help="Display after directory name on open.")
+            parser.add_argument(
+                prefix+"closeDirName", action="store_true",
+                help="Repeat dir name before closeDirString.")
+            parser.add_argument(
+                prefix+"closeDirString", metavar="S", type=str, default="",
+                help="Display at directory close.")
+            parser.add_argument(
+                prefix+"itemSep", metavar="S", type=str, default="",
+                help="Put this in to separate items (e.g., a comma).")
+            parser.add_argument(
+                prefix+"openQuote", metavar="Q", type=str, default="",
+                help="Put this before reported items (see also --quote).")
+            parser.add_argument(
+                prefix+"closeQuote", metavar="Q", type=str, default="",
+                help="Put this after the reported paths (see also --quote).")
+            parser.add_argument(
+                prefix+"fileTypeFlag", "-F", action="store_true",
+                help="Append a file-type indicator character, like ls -F.")
+            parser.add_argument(
+                prefix+"iString", metavar="S", type=str, default="    ",
+                help="Repeat this string to create indentation.")
+            parser.add_argument(
+                prefix+"oformat", prefix+"utputFormat", prefix+"output-format",
+                type=str, default="outline",
+                choices = [ "plain", "outline", "json", "html", "sexp" ],
+                help="Format the output in this way.")
+            parser.add_argument(
+                prefix+"short", action="store_true",
+                help="Only show the bottom-level name in the outline view.")
+            # TODO: Add a --long? N levels?
+            parser.add_argument(
+                prefix+"showInvisibles", type=str, default="literal",
+                choices=[ "literal", "octal", "hex", "pix", "url" ],
+                help="How to display unusual characters.")
+
+        def applyOutputFormatOptions(self, parser:argparse.ArgumentParser, prefix:str="") -> None:
+            for ofoName in self.OFDefaults.keys():
+                try:
+                    val = getattr(parser, prefix+ofoName)
+                    self.OFOptions[ofoName] = val
+                except AttributeError:
+                    self.OFOptions[ofoName] = self.OFDefaults[ofoName]
+
+        def mapNamedOFOs(self, formatName:str=None) -> None:
+            """Map named output format types to their consequences.
+            """
+            if (not formatName): formatName = self.OFOptions["oformat"]
+
+            if (formatName == "plain"):
+                self.OFOptions["openDirString"] = ""
+                self.OFOptions["closeDirName"] = False
+                self.OFOptions["closeDirString"] = ""
+                self.OFOptions["itemSep"] = ""
+                self.OFOptions["openQuote"] = ""
+                self.OFOptions["closeQuote"] = ""
+                #self.OFOptions["anonymousClose"] = True
+
+            elif (formatName == "outline"):
+                self.OFOptions["openDirString"] = ""
+                self.OFOptions["closeDirName"] = False
+                self.OFOptions["closeDirString"] = ""
+                self.OFOptions["itemSep"] = ""
+                self.OFOptions["openQuote"] = ""
+                self.OFOptions["closeQuote"] = ""
+
+            elif (formatName == "json"):
+                warning(0, "Overriding quote settings for --oformat json")
+                self.OFOptions["openDirString"] = "["
+                self.OFOptions["closeDirName"] = False
+                self.OFOptions["closeDirString"] = "]"
+                self.OFOptions["itemSep"] = ","
+                self.OFOptions["openQuote"] = '"'
+                self.OFOptions["closeQuote"] = '"'
+                #self.OFOptions["anonymousClose"] = True
+
+            elif (formatName == "html"):
+                warning(0, "Overriding quote settings for --oformat html")
+                self.OFOptions["openDirString"] = "<ol>"
+                self.OFOptions["closeDirName"] = False
+                self.OFOptions["closeDirString"] = "</ol>"
+                self.OFOptions["itemSep"] = ""
+                self.OFOptions["openQuote"] = "<li><file>"
+                self.OFOptions["closeQuote"] = "</file></li>"
+                #self.OFOptions["anonymousClose"] = True
+
+            elif (formatName == "sexp"):
+                warning(0, "Overriding quote settings for --oformat sexp")
+                self.OFOptions["openDirString"] = "("
+                self.OFOptions["closeDirName"] = False
+                self.OFOptions["closeDirString"] = ")"
+                self.OFOptions["itemSep"] = ""
+                self.OFOptions["openQuote"] = '"'
+                self.OFOptions["closeQuote"] = '"'
+                #self.OFOptions["anonymousClose"] = True
+
+            else:
+                warning(0, "Unknown output format '%s'." % (formatName))
+
+        def makeOpenDirDisplay(self, path:str, depth:int) -> str:
+            buf = self.makeIndent(depth)
+            buf += path
+            buf += self.OFOptions["openDirString"]
+            return buf
+
+        def makeItemDisplay(self, path:str, depth:int=0) -> str:
+            buf = self.makeIndent(depth)
+            buf += path
+            buf += self.OFOptions["itemSep"]
+            return buf
+
+        def makeCloseDirDisplay(self, path:str, depth:int=0) -> str:
+            # TODO: Way to suppress itemSep on last item in container?
+            buf = self.makeIndent(depth - 1)  # TODO: Review indentation
+            if (self.OFOptions["closeDirName"]): buf += path
+            buf += args.closeDirString + self.OFOptions["itemSep"]
+            return buf
+
+        def makeIndent(self, depth:int=0) -> str:
+            #assert depth>=0  # TODO: Fix top-level item opening...
+            return(self.OFOptions["iString"] * depth)
+
+        def makeDisplayableName(self, s:str) -> str:
+            """Escape/recode invisibles as needed.
+            Still have to do flag chars and quotes somewhere else.
+            """
+            if (self.OFOptions["short"]):
+                s = os.path.basename(s)
+            which = self.OFOptions["showInvisibles"]
+            if (s.isalnum):
+                return s
+            if (which == "literal"):
+                return s
+            elif (which == "hex"):
+                return re.sub(r"([\x01-\x20\s]",
+                    lambda m: "\\u{%x}" % (ord(m.group(1))), s)
+            elif (which == "url"):
+                return urllib.parse.quote(s)
+            elif (which == "visible"):
+                return re.sub(r"([\x01-\x20\s]",
+                    lambda m:chr(0x2400 + ord(m.group(1))), s)
+            else:
+                raise KeyError("Unknown --showInvisibles value.")
+
+        __notQuotes__ = "]\\-"
+
+        def quoteFilename(self, f:str, op:str='"', cl:str='"') -> str:
+            """This is not as smart as it should be. For example, it will
+            do weird things for multi-char quotes, and it only knows how to
+            backslash.
+            """
+            if (op != "" or cl != ""):
+                assert op not in self.__notQuotes__ and cl not in self.__notQuotes__
+                try:
+                    f = re.sub(r"([%s%s])" % (op, cl), "\\1", f)
+                except re.error as e:
+                    sys.stderr.write("Failed quoting '%s' with '%s'...'%s'.\n    %s" %
+                        (f, op, cl, e))
+                    sys.exit()
+            return op + f + cl
+
+        def getFlagChar(self, abspath:str) -> str:
+            """Return the same single character file type flag "ls -F" would,
+            to append/suffix to this item.
+            NOTE: Pass the absolute path, so we can be sure to stat it right.
+            ((from my PowerStat.py getFlag()))
+            """
+            if (not args.fileTypeFlag): return ""
+            st:os.stat_result = os.stat(abspath)
+            mode = st.st_mode
+            if (stat.S_ISDIR(mode)):  return "/"
+            # TODO: Which executable bit(s) does ls -F actually report?
+            if (stat.S_ISLNK(mode)):  return "@"
+            if (stat.S_ISSOCK(mode)): return "="
+            if (stat.S_ISFIFO(mode)): return "|"
+            # TODO: Is this not supported on MacOS or something?
+            #if (stat.S_ISWHT(mode)):  return "%"
+            #if (st.S_ISWHT):  return "%"
+            #if (st.S_IXUSR or st.S_IXGRP or st.S_IXOTH): return "*"
+            return ""
+
+
+    ###########################################################################
+    # Subcommands of main...
+    #
+    def itemList():
+        pass
+
+    def itemCopy(fromPath:str, tgtDir:str, serialFormat:str=None, serial:int=None):
+        if (not os.path.isdir(tgtDir)):
+            warning(0, "No directory available at '%s'." % (tgtDir))
+            sys.exit()
+
+        _, baseName = os.path.split(fromPath)
+        if (serialFormat):
+            baseName = serialFormat % (serial, baseName)
+        warning(1, "copyTo '%s', base '%s'." % (tgtDir, baseName))
+        tgtPath = os.path.join(tgtDir, baseName)
+        if (os.path.exists(tgtPath)):
+            warning(0, "Target already exists: %s => %s" % (fromPath, tgtPath))
+        else:
+            copyfile(fromPath, tgtPath)
+            if (args.xattrs):
+                xset(tgtPath, "kmdItemWhereFroms", "file://"+fromPath)
+
+    def itemExec(path:str, cmd:str, magic:str="{}"):
+        # TODO: Add option to change {}?
+        if (magic in cmd): cmd.replace(magic, path)
+        else: cmd += " " + path
+        try:
+            buf0 = check_output(cmd, shell=True)
+            if (not args.quiet): print(buf0)
+        except CalledProcessError as e0:
+            warning(0, "exec failed on %s:\n    %s" % (cmd, e0))
+
+
+    ###########################################################################
+    # The main main...
+    #
     def processOptions() -> argparse.Namespace:
         try:
             from BlockFormatter import BlockFormatter
@@ -2269,43 +2598,27 @@ if __name__ == "__main__":
             "--exec", metavar="CMD", type=str,
             help='Run CMD on each selected item (like "find --exec").')
         parser.add_argument(
-            "--longNames", metavar="N", type=int, default=0,
-            help="Only report files with names longer than this.")
+            "--maxBasenameLength", metavar="N", type=int, default=0,
+            help="Report files only ig basename is shorter than this.")
         parser.add_argument(
-            "--oformat", "--outputFormat", "--output-format",
-            type=str, default="outline",
-            choices = [ "plain", "outline", "json", "html", "sexp" ],
-            help="Format the output in this way.")
-        parser.add_argument(
-            "--openDelim", metavar="S", type=str, default="==>",
-            help="Display after directory name on open.")
-        parser.add_argument(
-            "--openQuote", metavar="Q", type=str, default="",
-            help="Put this before the reported paths.")
+            "--minBasenameLength", metavar="N", type=int, default=0,
+            help="Report files only ig basename is longer than this.")
         parser.add_argument(
             "--quiet", "-q", action="store_true",
             help="Suppress most messages.")
         parser.add_argument(
             "--quote", action="store_true",
-            help='Sets both openQuote and closeQuote to "\'".')
-        parser.add_argument(
-            "--noquote", "--no-quote", action="store_true",
-            help='Sets both openQuote and closeQuote to "" (off).')
+            help="Shorthand to set both openQuote and closeQuote to '\"'.")
         parser.add_argument(
             "--serialize", action="store_true",
             help="With --copy, add a serial number to each file.")
         parser.add_argument(
             "--serializeFormat", "--sformat", metavar="F", type=str, default="_%04d",
             help="How to format numbers for --serialize. Default: '_%%04d'.")
-        parser.add_argument(
-            "--short", action="store_true",
-            help="Only show the bottom-level name in the outline view.")
+
         parser.add_argument(
             "--showOptions", action="store_true",
             help="Display all the option values.")
-        parser.add_argument(
-            "--statFormat", action="store_true",
-            help='Display output like "stat -f" for each file.')
         parser.add_argument(
             "--stats", action="store_true",
             help="Report overall statistics at the end.")
@@ -2319,25 +2632,30 @@ if __name__ == "__main__":
             "--xattrs", action="store_true",
             help="With --copyTo, set xattr kmdItemWhereFroms to point back (not yet supported).")
 
+        # Output *format* options -- TODO: make this a lot cleaner.
+        #
+        parser.add_argument(
+            "--flat", action="store_true",
+            help="One item per line, with full path (no headings like ls -R)")
+
+        parser.add_argument(
+            "--statFormat", action="store_true",
+            help='Display output like "stat -f" for each file.')
+
+        PowerWalk.addOptionsToArgparse(parser)
+        OutputFormatter.addOutputFormatOptions(parser)
+
+        # Traversal roots -- TODO: fix need for "*" with -R
+        #
         parser.add_argument(
             "files", type=str,
             nargs=argparse.REMAINDER,
             help="Path(s) to files, directories, containers to traverse.")
 
-        PowerWalk.addOptionsToArgparse(parser)
-        addOutputFormatOptions(parser)
-
         args0 = parser.parse_args()
 
         if (args0.quote):  # Overridden by some following oformat values.
             args0.openQuote = args0.closeQuote = "'"
-        elif (args0.noquote):
-            args0.openQuote = args0.closeQuote = ""
-
-        if (args0.oformat): mapNamedOFOs(args0)
-
-        if (args0.verbose > 1 or args0.showOptions):
-            showOptions(args0)
 
         return(args0)
 
@@ -2349,203 +2667,80 @@ if __name__ == "__main__":
             if (isinstance(v, str)): v = '"' + v + '"'
             warning(0, "    %-20s %s" % (k, v))
 
-    def addOutputFormatOptions(parser:argparse.ArgumentParser, prefix:str="") -> None:
-        """Add a boatload of options for how to format output, mainly filelists.
-        (should become a general tree-layout class)
-        """
-        if (not prefix.startswith("--")): prefix = "--" + prefix
-        parser.add_argument(
-            prefix+"anonymousClose", action="store_true",
-            help="Suppress display of container-close.")
-        parser.add_argument(
-            prefix+"closeDelim", metavar="S", type=str, default="    <==",
-            help="Display before directory name on close.")
-        parser.add_argument(
-            prefix+"closeQuote", metavar="Q", type=str, default="",
-            help="Put this after the reported paths.")
-        parser.add_argument(
-            prefix+"fileType", action="store_true",
-            help="Append a file-type indicator character, like ls -F.")
-        parser.add_argument(
-            prefix+"iString", metavar="S", type=str, default="    ",
-            help="Repeat this string to create indentation.")
-        parser.add_argument(
-            prefix+"itemSep", metavar="S", type=str, default="",
-            help="Put this in to separate items (e.g., a comma).")
-        parser.add_argument(
-            prefix+"showInvisibles", type=str, default="literal",
-            choices=[ "literal", "octal", "hex", "pix", "url" ],
-            help="How to display unusual characters.")
-
-    def mapNamedOFOs(args0:argparse.Namespace) -> None:
-        """Map named output format types to their consequences.
-        """
-        if (args0.oformat == "plain"):
-            args0.openDelim = ""
-            args0.closeDelim = ""
-            args0.itemSep = ""
-            #args0.openQuote = ""
-            #args0.closeQuote = ""
-            args0.anonymousClose = True
-        elif (args0.oformat == "outline"):
-            args0.openDelim = ""
-            args0.closeDelim = ""
-            args0.itemSep = ""
-            #args0.openQuote = ""
-            #args0.closeQuote = ""
-        elif (args0.oformat == "json"):
-            warning(0, "Overriding quote settings for --oformat json")
-            args0.openDelim = "["
-            args0.closeDelim = "]"
-            args0.itemSep = ","
-            args0.openQuote = '"'
-            args0.closeQuote = '"'
-            args0.anonymousClose = True
-        elif (args0.oformat == "html"):
-            warning(0, "Overriding quote settings for --oformat html")
-            args0.openDelim = "<ol>"
-            args0.closeDelim = "</ol>"
-            args0.itemSep = ""
-            args0.openQuote = "<li><file>"
-            args0.closeQuote = "</file></li>"
-            args0.anonymousClose = True
-        elif (args0.oformat == "sexp"):
-            warning(0, "Overriding quote settings for --oformat sexp")
-            args0.openDelim = "("
-            args0.closeDelim = ")"
-            args0.itemSep = ""
-            args0.openQuote = '"'
-            args0.closeQuote = '"'
-            args0.anonymousClose = True
-        else:
-            warning(0, "Unknown output format '%s'." % (args0.oformat))
-
-    def makeDisplayableName(s:str) -> str:  # TODO: Finish showInvisibles support
-        if (s.isalnum):
-            return s
-        if (args.showInvisibles == "literal"):
-            return s
-        elif (args.showInvisibles == "hex"):
-            return re.sub(r"([\x01-\x20\s]",
-                lambda m: "\\u{%x}" % (ord(m.group(1))), s)
-        elif (args.showInvisibles == "url"):
-            return urllib.parse.quote(s)
-        elif (args.showInvisibles == "visible"):
-            return re.sub(r"([\x01-\x20\s]",
-                lambda m:chr(0x2400 + ord(m.group(1))), s)
-        else:
-            raise KeyError("Unknown --showInvisibles value.")
-
-    __notQuotes__ = "]\\-"
-
-    def quoteFilename(f:str, op:str='"', cl:str='"') -> str:
-        """This is not as smart as it should be. For example, it will
-        do weird things for multi-char quotes, and it only knows how to
-        backslash.
-        """
-        if (op != "" or cl != ""):
-            assert op not in __notQuotes__ and cl not in __notQuotes__
-            try:
-                f = re.sub(r"([%s%s])" % (op, cl), "\\1", f)
-            except re.error as e:
-                sys.stderr.write("Failed quoting '%s' with '%s'...'%s'.\n    %s" %
-                    (f, op, cl, e))
-                sys.exit()
-        return op + f + cl
-
 
     ###########################################################################
     # Main
     #
     args = processOptions()
     verbose = args.verbose
+
+    if (args.verbose > 1 or args.showOptions):
+        showOptions(args)
+    if (args.copyTo and not os.path.isdir(args.copyTo)):
+        assert IOError("No --copyTo directory at '%s'." % (args.copyTo))
+
     argDict = {}
     for k0 in vars(args).keys():
         argDict[k0] = vars(args)[k0]
 
-    if (False and args.verbose):
-        print("Args:\n%s")
-        for k0 in sorted(argDict.keys()):
-            print("    %-20s %-12s %s" %
-                (k0, type(argDict[k0]).__name__, argDict[k0]))
-
     cwd = os.environ["PWD"]
-    if (not args.files): args.files = [ os.environ["PWD"] ]
+    if (not args.files):
+        #args.files = [ os.environ["PWD"] ]
+        args.files = os.listdir(os.environ["PWD"])
 
-    pw = PowerWalk(args.files)
-    pw.setOptionsFromArgparse(args)
+    of = OutputFormatter()
+    if (args.oformat): of.mapNamedOFOs()
 
-    if (args.statFormat or args.fileType):
+    if (args.statFormat):
         import PowerStat
-        if (args.statFormat):
-            powerstat = PowerStat.PowerStat(args.statFormat)
+        powerstat = PowerStat.PowerStat(args.statFormat)
 
     leafNum = 0
-    whatCounts:defaultdict = defaultdict(int)
-    for path0, fh0, what0 in pw.traverse():
-        if (args.count):
-            whatCounts[what0] += 1
-            continue
-        path0 = path0.replace(cwd, ".")
+    for topItem in args.files:
+        pw = PowerWalk(topItem)
+        pw.setOptionsFromArgparse(args)
 
-        if (args.short and pw.travState.depth > 1):
-            path0 = os.path.basename(path0)
+        whatCounts:defaultdict = defaultdict(int)
+        for path0, fh0, what0 in pw.traverse():
+            if (args.count):
+                whatCounts[what0] += 1
+                continue
 
-        epath = makeDisplayableName(path0)
-        # Add a suffix character like "ls -F" does, to show file file.
-        if (args.fileType):
-            st:os.stat_result = os.stat(path0)
-            typeFlagChar = PowerStat.StatItem.getFlag(st)
-            epath += typeFlagChar
+            abspath0 = os.path.abspath(path0)
+            if (args.absolute): printpath0 = abspath0
+            else: printpath0 = path0
 
-        ppath = quoteFilename(epath, args.openQuote, args.closeQuote)
+            flag = of.getFlagChar(abspath0)
+            printpath0 = of.makeDisplayableName(printpath0) + flag
+            if (args.quote): printpath0 = of.quoteFilename(printpath0)
 
-        indent = args.iString*pw.travState.depth
+            indent = of.OFOptions["iString"] * pw.travState.depth
 
-        if (what0 == PWType.OPEN):
-            print("%s%s %s" % (indent[4:], ppath, args.openDelim))
-        elif (what0 == PWType.LEAF):
-            if (args.longNames and
-                len(os.path.basename(path0)) < args.longNames): continue
-            leafNum += 1
-            if (args.statFormat):
-                print(powerstat.format(path0))
-            elif (not args.quiet):
-                print("%s%s%s" % (indent, ppath, args.itemSep))
+            if (what0 == PWType.OPEN):
+                print(of.makeOpenDirDisplay(printpath0, pw.travState.depth))
+            elif (what0 == PWType.LEAF):
+                if (args.minBasenameLength and
+                    len(os.path.basename(abspath0)) < args.minBasenameLength): continue
+                if (args.maxBasenameLength and
+                    len(os.path.basename(abspath0)) > args.maxBasenameLength): continue
+                leafNum += 1
 
-            if (args.copyTo):
-                if (not os.path.isdir(args.copyTo)):
-                    warning(0, "No directory available at '%s'." % (args.copyTo))
-                    sys.exit()
+                if (not args.quiet):
+                    print(of.makeItemDisplay(printpath0, pw.travState.depth))
+                if (args.statFormat):
+                    print(powerstat.format(abspath0))
+                if (args.copyTo):
+                    itemCopy(fromPath=abspath0, tgtDir=args.copyTo,
+                        serialFormat=args.serializeFormat, serial=leafNum)
+                if (args.exec):
+                    itemExec(path0, args.exec)
 
-                _, baseName = os.path.split(path0)
-                if (args.serialize):
-                    baseName = args.serializeFormat % (leafNum, baseName)
-                warning(1, "copyTo '%s', base '%s'." % (args.copyTo, baseName))
-                tgtPath = os.path.join(args.copyTo, baseName)
-                if (os.path.exists(tgtPath)):
-                    warning(0, "Target already exists: %s => %s" %
-                        (ppath, tgtPath))
-                else:
-                    copyfile(path0, tgtPath)
-                    if (args.xattrs):
-                        xset(tgtPath, "kmdItemWhereFroms", "file://"+path0)
-            if (args.exec):
-                cmd = args.exec
-                if ("{}" in cmd): re.sub(r"{}", path0, cmd)
-                else: cmd += " " + path0
-                try:
-                    buf0 = check_output(cmd, shell=True)
-                    if (not args.quiet): print(buf0)
-                except CalledProcessError as e0:
-                    warning(0, "Failed on %s:\n    %s" % (cmd, e0))
-        elif (what0 == PWType.CLOSE):
-            print("%s%s%s%s" % (indent, args.closeDelim,
-                "" if (args.anonymousClose) else " "+ppath, args.itemSep))
-        elif (what0 == PWType.IGNORE):
-            print("%sIGNORING: %s%s" % (indent, ppath, args.itemSep))
-        elif (what0 == PWType.ERROR):
-            print("%sERROR: %s%s" % (indent, ppath, args.itemSep))
+            elif (what0 == PWType.CLOSE):
+                print(of.makeCloseDirDisplay(printpath0, pw.travState.depth))
+            elif (what0 == PWType.IGNORE):
+                print(indent, "IGNORING: ", printpath0, args.itemSep)
+            elif (what0 == PWType.ERROR):
+                print(indent, "ERROR: ", printpath0, args.itemSep)
 
     if (args.count):
         print("Dirs: %d\nFiles: %d" %

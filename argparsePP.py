@@ -119,6 +119,8 @@ Issues:
     * case and regex comparison
     * case for `choices` values
     * support case-ignore and unique-abbrevs for enums (see `LooseDict.py`)
+    * offer setting to regard case only for single-char options; or to
+fall back to ignore case.
     * set operations
     * date/time facilities
     * check identifiers at parsetime, but eval later?

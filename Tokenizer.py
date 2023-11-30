@@ -227,8 +227,8 @@ rotation, superscript, squared, fractions, ''some'' ligatures
 ohm vs omega, long s vs. s.
 
 `#unify` changes each character of the given class
-to one particular ASCII character to represent the class (this is useful for finding
-interesting patterns of use):
+to one particular ASCII character to represent the class (this is useful for
+finding interesting patterns of use):
 
   Letter                  unifies to "A"
   Cased_Letter            unifies to "A"
@@ -279,8 +279,8 @@ interesting patterns of use):
 `unify` can also be used for the Non-word token options (see below); in that
 case, each option has a particular value to which matching ''tokens'' unify.
 
-Setting the option for a cover category (such as ''Letter'') is merely shorthand for
-setting all its subcategories to that value. Some or all subcategories can
+Setting the option for a cover category (such as ''Letter'') is merely shorthand
+for setting all its subcategories to that value. Some or all subcategories can
 still be reset afterward, but any ''earlier'' setting for a subcategory
 is discarded when you set its cover category.
 
@@ -442,8 +442,8 @@ can be controlled separately (see also ''--ignoreCase'', ''--Letter'', etc.):
 
 ** '''F_LOWER''' (boolean) -- remove words with only lower case or caseless letters
 
-** '''F_TITLE''' (boolean) -- remove words with only an initial capital or titlecase
-letter, followed by only lower case or caseless letters.
+** '''F_TITLE''' (boolean) -- remove words with only an initial capital or
+titlecase letter, followed by only lower case or caseless letters.
 
 ** '''F_MIXED''' (boolean) -- remove words with at least two capital and/or
 titlecase letters, along with any number of lower case or caseless letters.
@@ -463,8 +463,8 @@ function words.
 
 (see also earlier sections)
 
-(is there a useful type for "nested syntax"? dates, times, formulae, phone numbers,
-music,
+(is there a useful type for "nested syntax"? dates, times, formulae,
+phone numbers, music,
 
     Numeric
         Int
@@ -565,7 +565,17 @@ Such as Stanford https://nlp.stanford.edu/software/tokenizer.shtml.
 as the many varieties of dash, space, and brackets. Stanford also has several
 Unicode-related options, including the thoughtful:
 
-    strictTreebank3: PTBTokenizer deliberately deviates from strict PTB3 WSJ tokenization in two cases. Setting this improves compatibility for those cases. They are: (i) When an acronym is followed by a sentence end, such as "U.K." at the end of a sentence, the PTB3 has tokens of "Corp" and ".", while by default PTBTokenizer duplicates the period returning tokens of "Corp." and ".", and (ii) PTBTokenizer will return numbers with a whole number and a fractional part like "5 7/8" as a single token, with a non-breaking space in the middle, while the PTB3 separates them into two tokens "5" and "7/8". (Exception: for only "U.S." the treebank does have the two tokens "U.S." and "." like our default; strictTreebank3 now does that too.) The default is false.
+strictTreebank3: PTBTokenizer deliberately deviates from strict PTB3
+WSJ tokenization in two cases. Setting this improves compatibility for
+those cases. They are: (i) When an acronym is followed by a sentence
+end, such as "U.K." at the end of a sentence, the PTB3 has tokens of
+"Corp" and ".", while by default PTBTokenizer duplicates the period
+returning tokens of "Corp." and ".", and (ii) PTBTokenizer will return
+numbers with a whole number and a fractional part like "5 7/8" as a
+single token, with a non-breaking space in the middle, while the PTB3
+separates them into two tokens "5" and "7/8". (Exception: for only
+"U.S." the treebank does have the two tokens "U.S." and "." like our
+default; strictTreebank3 now does that too.) The default is false.
 
 * Many only break, rather than expand contractions. This means your lexicon
 has to know "tokens" like:
@@ -639,8 +649,8 @@ Change the value of the named option.
 Option names are case-sensitive (but see previous method).
 
 '''Note''': Setting the option for a Unicode cover category
-(such as '''Letter''' rather than '''Uppercase_Letter'''), is merely shorthand for
-setting all its subcategories to that value
+(such as '''Letter''' rather than '''Uppercase_Letter'''), is merely
+shorthand for setting all its subcategories to that value
 (subcategories can still be reset afterward).
 
 * '''getOption'''(name)
@@ -740,7 +750,8 @@ Ported from Tokenizer.pm (also) by Steven J. DeRose.
     Incorporate abbrev list.
     Add any options Stanford or others have that this doesn't, such as:
         [https://nlp.stanford.edu/software/tokenizer.shtml]
-        -encoding charset The character set encoding. By default, it assumues utf-8, but you can tell it to use another character encoding.
+        -encoding charset The character set encoding. By default, it assumues
+          utf-8, but you can tell it to use another character encoding.
         -preserveLines Keep the input line breaks vs. one token per line.
         -oneLinePerElement Print the tokens of an element space-separated on one line.
         -parseInside regex Only tokenize inside XML elements which match the regex.

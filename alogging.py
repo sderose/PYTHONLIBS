@@ -72,10 +72,10 @@ to keep and report error statistics
         "--verbose", "-v", action="count", default=0,
         help="Add more messages (repeatable).")
 
-    ...    
-    if (args.verbose): lg.setVerbose(args.verbose)    
     ...
-    
+    if (args.verbose): lg.setVerbose(args.verbose)
+    ...
+
     lg.warning(msg)
     lg.vMsg(2, msg1, msg2, color="red", stat='Input too long')
 
@@ -132,7 +132,7 @@ For objects, it knows to show their non-callable properties.
 * `obj`       -- The data to be displayed.
 * `keyWidth`  -- Room for dict keys, in trying to line things up. Default: 14.
 * `maxDepth`  -- Limit nesting of collections to display. Default: 3.
-* `maxItems`  -- Limit how many items of lists will be displayed.
+* `maxItems`  -- Limit how many items of lists are displayed.
 * `maxString` -- Limit number of characters to show for strings.
 * `propWidth` -- Allow this much room for object property names.
 * `quoteKeys` -- Put quotes around the keys of dicts. Default: False
@@ -208,7 +208,7 @@ for production. See the discussion at
 
 The initial verbosity level can be set as a parameter to the constructor.
 This method lets you reset it later. It also calls the Pythong logging
-instance's setLevel() method, for 20-v, which is the level used for 
+instance's setLevel() method, for 20-v, which is the level used for
 info messages by this package (where v should be the number of -v options given).
 
 Otherwise, messages whose first argument's magnitude
@@ -371,7 +371,7 @@ main program ends). For example:
 An ''experimental'' feature allows you to use "/" in a stat name, in
 order to group statistics for reporting. If used, such statistics will
 be grouped (well, they would be anyway by alphabetization),
-and indented under the common (pre-/) part, which will be printed
+and indented under the common (pre-/) part, which is printed
 with the total counts for all stats in the group. This is especially useful
 for defining subtypes of errers, or attaching small data to them. The
 example above could be modified to keep count of all the specific
@@ -386,7 +386,7 @@ are methods for manipulating the stats independently of messages:
 * ''defineStat(self, stat)''
 
 Initialize the given stat (to 0). This is optional (that is, you can just
-mention a stat and it will be created if necessary).
+mention a stat and it is created if necessary).
 
 * ''bumpStat(self, stat, amount=1)''
 
@@ -532,15 +532,12 @@ My `ColorManager.py`: provides color support when requested.
 =Known bugs and limitations=
 
 If you don't call the constructor (or `setVerbose()`) with a non-zero argument,
-nothing will be printed.
+nothing is printed.
 
-This package is not especially integrated with the Python ''logging''
+This package is not integrated with the Python ''logging''
 package's hierarchical loggers model.
 
-There is not yet an option to remove the default text that ''logging''
-prefixes to messages (such as "INFO:root:").
-
-Seems to be a problem with `maxItems`, and with suppressing callables in `formatRec()`.
+There may be a problem with `maxItems`, and with suppressing callables in `formatRec()`.
 
 `formatRec()` could use more options to shorten long displays, such as:
 
@@ -695,19 +692,16 @@ class ALogger:
                                 format='%(message)s')
         else:
             logging.basicConfig(format='%(message)s')
-            
+
         self.lg             = logging.getLogger()
         self.level          = self.lg.level
-        if (verbose is None): verbose = ALogger.verboseDefault
-        self.setVerbose(verbose)
         self.filename       = filename
 
         # Now add all our own stuff
         if (color is None):
             color = ("CLI_COLOR" in os.environ)
 
-        if (verbose is None):
-            verbose = ALogger.verboseDefault
+        if (verbose is None): verbose = ALogger.verboseDefault
 
         self.options = {
             "verbose"        : verbose,     # Verbosity level
@@ -760,7 +754,7 @@ class ALogger:
         unconditionally to stderr, but callers can override this method as desired.
         """
         sys.stderr.write(msg)
-        
+
     def setColors(self, activate:bool=True):
         """Obsolete but kept for backward compatibilit
         """
@@ -832,16 +826,16 @@ class ALogger:
 
     # Also provide setLevel() to act just like logging's, for compatibility.
     #
-    _levelNames = { "CRITICAL":50, "ERROR":40, "WARNING":30, 
+    _levelNames = { "CRITICAL":50, "ERROR":40, "WARNING":30,
                    "INFO":20, "DEBUG":10, "NOTSET":0,
                    "V1":19, "V2":18, "V3":17, "V4":16, "V5":15 }
-                   
+
     def setLevel(self, pLevel:Union[int, str]) -> None:
         if (pLevel in self._levelNames): pLevel = self._levelNames[pLevel]
         self.level = pLevel
         #logging.basicConfig(self.level)
         self.lg.setLevel(pLevel)
-        
+
 
     ###########################################################################
     #
@@ -1124,10 +1118,10 @@ class ALogger:
         self.msgStats[stat] = 0
 
     def bumpStat(self, stat:str, amount:int=1) -> None:
-        """Increment the named statistic, by ''amount'' (default: 1).
-        If the name contains "/", it splits there. The first part is
-        the overall stat name, which will be stored as a dict, with
-        entries made and counted for each value of the second part.
+        """Increment the named statistic by ''amount'' (default: 1).
+        If the name contains "/", it splits there: The first part is
+        the overall stat name, and its value is then a dict keyed by
+        the value of the second part, which then holds the counts.
         """
         if (stat in self.msgStats):
             self.msgStats[stat] += amount

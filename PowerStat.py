@@ -616,7 +616,7 @@ class StatItem:
             st = os.stat(st)
         mode = st.st_mode
         if (stat.S_ISDIR(mode)):  return "/" if (shortName) else "/"
-        # TODO: Which executagble bit(s) does ls -F actually report?
+        # TODO: Which executable bit(s) does ls -F actually report?
         if (stat.S_ISLNK(mode)):  return "@" if (shortName) else "@"  # symbolic link
         if (stat.S_ISSOCK(mode)): return "=" if (shortName) else "="  # after each socket
         if (stat.S_ISFIFO(mode)): return "|" if (shortName) else "|"  # FIFO

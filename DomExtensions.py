@@ -200,10 +200,10 @@ If you want the fourth paragraph child element, use:
 This is not quite the same as doing the opposite order! `myNode['p':3]` instead
 finds the fourth child (of whatever type), and returns it if it is a `p`.
 In other words, the indexes are interpreted in order from left to right. This
-will be familiar to XPath users, but there isn't really a comparable case with
+is familiar to XPath users, but there isn't really a comparable case with
 Python lists.
 
-If the fourth child is not a `p` element, `IndexError` will be raised, just as for
+If the fourth child is not a `p` element, `IndexError` is raised, just as for
 any other "not found" case. Unfortunately, "in" has no way to test more than
 the simplest condition, just as in Python you can't ask `[1:2] in myList`.
 It may be more Pythonic to do it the following way, which works fine:
@@ -269,7 +269,7 @@ The kind of matching depends on the type of value passed in the dict:
 strings of Latin decimal digits will not match,
 but will not raise exceptions either. Hexadecimal and other forms should
 be added. [TODO]
-* a compiled regex: will be matched against the attribute value.
+* a compiled regex: the regex is matched against the attribute value.
 * a string: matched literally. [TODO support case-ignoring]
 
 The `attribute`, and `namespace`
@@ -379,9 +379,9 @@ and return the node it identifies (or undef if there is no such node).
 * '''getEscapedAttributeList'''(node, sortAttributes=False, quoteChar='"')
 
 Return the entire attribute list for
-''node'', as needed to go within a XML start-tag. The attributes will be
+''node'', as needed to go within a XML start-tag. The attributes are
 quoted using `quoteChar`, and any <, &, or `quoteChar` in them
-will be replaced by the appropriate XML predefined charcter reference.
+are replaced by the appropriate XML predefined charcter reference.
 If `sortAttributes` is set, the attributes will appear in alphabetical order;
 otherwise, the order is unspecified.
 
@@ -607,7 +607,7 @@ Escape the string as needed for it to fit in XML text content,
 entities and/or numeric character references.
 `width` is the minimum number of digits to be used for numeric character references.
 `base` must be 10 or 16, to choose decimal or hexadecimal references.
-If `htmlNames` is True, HTML 4 named entities will be used when applicable,
+If `htmlNames` is True, HTML 4 named entities are used when applicable,
 with numeric character references used otherwise.
 
 * '''unescapeXml'''(string)
@@ -932,7 +932,7 @@ class XMLStrings:
     def escapeAttribute(s:str, quoteChar:str='"') -> str:
         """Turn characters special in (double-quoted) attributes, into char refs.
         Set to "'" if you prefer single-quoting your attributes, in which case that
-        character will be replaced by a character reference instead.
+        character is replaced by a character reference instead.
         This always uses the predefined XML named special character references.
         """
         s = XMLStrings.nukeNonXmlChars(s)
@@ -1139,7 +1139,7 @@ class NodeSelKind(Enum):
     This has two main uses:
 
     1: given one of the 3 args to __getitem__, identify what kind it is.
-       Often these will be ints, which is why that's here.
+       Int seems most likely, which is why that's here.
     2: Helping interpret the similar arg to many selection/navigation
        methods, e.g., selectChild("#pi", n=1). In that case, the
        arg can also be a regex, which specifies matching nodeNames.
@@ -1211,7 +1211,7 @@ def isLeafType(node:Node):
 
 
 ###############################################################################
-# Methods that will be patched onto DOM Node.
+# Methods to patch onto DOM Node.
 #
 #try:
 #    from BaseDom import BaseDom
@@ -2009,8 +2009,8 @@ def nodeMatches(self:Node, nodeSel:NodeSel="*", attrs:Union[dict, re.Pattern]=No
     If the value for any attribute in the dict is truly None, then that
     attribute must *not* be on the element at all ('' does not match None!).
     If the value in the dict is an int/float/complex, the attribute
-        value will be cast to that, and if successful, compared numerically.
-    If the value is passed as a compiled regex, it will be matched against.
+        value is cast to that, and if successful, compared numerically.
+    If the value is passed as a compiled regex, it is matched against.
 
     TODO Support nodeTypes in sync w/ Javascript packages.
     TODO Perhaps allow matching against any token(s) of an attribute?
@@ -2270,7 +2270,7 @@ def removeNodesByTagName(self:Node, nodeName:NMToken) -> int:
 
 def removeNodesByNodeType(self:Node, nodeType:str) -> int:
     """Remove all nodes of a given nodeType, such as PIs, comments, namespace nodes....
-    TODO: Not sure if this iteration will be happy if deleting elements....
+    TODO: Not sure if this iteration is happy if deleting elements....
     """
     ct = 0
     for node in self.eachNode():
@@ -2706,14 +2706,14 @@ def getTextLen(self:Node, includeWSN:bool=True) -> int:
     if (self.nodeType == Node.TEXT_NODE):
         if (self.data): return 0
         if (not includeWSN and self.data.isspace()): return 0
-        return len(self.data) 
+        return len(self.data)
     if (self.hasChildNodes()):
         tot = 0
         for ch in self.childNodes:
             tot += getTextLen(ch)
         return tot
     return 0
-    
+
 
 ###############################################################################
 #
@@ -3511,7 +3511,7 @@ class DomExtensions:
             # Collect/export
             toPatch.collectAllText          = collectAllText
             toPatch.getTextLen              = getTextLen
-            
+
             # getTextNodesIn
             toPatch.collectAllXml2          = collectAllXml2
             toPatch.collectAllXml2r         = collectAllXml2r

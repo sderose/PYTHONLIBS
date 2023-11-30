@@ -10,6 +10,7 @@ import codecs
 from enum import Enum
 from typing import List, Union, Dict, Callable  #, IO
 import logging
+import re
 
 from xml.dom.minidom import Node  # , Element, Document
 from xml.dom import minidom
@@ -66,7 +67,7 @@ and rowspans if they haven't been normalized away)
 One goal of the "normalized table" definition, is for data to be round-trippable
 without loss.
 
-This can also convert to and from several other formats, such as CSV, JSON, Python
+Can also convert to and from several other formats, such as CSV, JSON, Python
 init code, Python data structures. This is all pretty easy once you've
 normalized.
 
@@ -87,9 +88,10 @@ Normalized tables can be used in many ways that non-normalized tables can't
 (or at least, can't without extra work, added conventions, etc).
 
 Normalized tables are specifically designed to be a compromise between RDB
-tables and HTML tables, for the "kind" of data they have in common. Thus, it requires:
+tables and HTML tables, for the "kind" of data they have in common.
+Thus, it requires:
     * no colspans or rowspans
-    * exactly one head row, which defines a name for each column, unique within that table
+    * exactly one head row, with a name for each column, unique within the table
     * all rows have to have the same number of columns, and if their cells
 specify their own names (which can be awfully useful for readability and
 regex-matching), they must match the corresponding head hame
@@ -275,9 +277,9 @@ See [https://stackoverflow.com/questions/60560093/monkey-patching-class-with-inh
 Make main class a wrapper that owns a table Node and a TableOptions.
 Organize methods by components of a table. Decide to require clean (no nesting,
 always has thead/tbody, one thead/tr, no spans, co-indexed column members.
-Decided to number rows and columns from 1 (that's how everybody talks with tables,
-and these really aren't array indexes since there can be text nodes and PIs
-and stuff in there).
+Decided to number rows and columns from 1 (that's how everybody talks with
+tables, and these really aren't array indexes since there can be
+text nodes and PIs and stuff in there).
 
 
 =Rights=
@@ -309,7 +311,7 @@ ATTR = Node.ATTRIBUTE_NODE
 
 def getChildByName(node:Node, name:str, ns:str="", case:bool=True):
     """Return the first child of the given node, which is an element of
-    the given type. 
+    the given type.
         If 'case' is set to False, the nodeName is matched ignoring case.
         If 'ns' is not set, only the localName (not the namespace) is checked.
         If 'ns' is set, whether it test the prefix or URL may depend on the
@@ -328,7 +330,7 @@ def getChildByName(node:Node, name:str, ns:str="", case:bool=True):
 def strcmp(s1:str, s2:str, case:bool=True):
     """Compare the strings, ignoring case unless 'case' is Trueish.
     """
-    if (not case): 
+    if (not case):
         s1 = s1.lower()
         s2 = s2.lower()
     if s1 < s2: return -1
@@ -450,7 +452,7 @@ def CreateTableFromMatrix(self, theMatrix:List[List], hasHeader:bool=True):
 ###############################################################################
 # Construct from CSV
 #
-def CreateTableFromCSV(self, path:str, hasHeader:bool=True, fsplitArgs:Dict=None):
+def CreateTableFromCSV(self, path:str, hasHeader:bool=True, fsplitArgs:Dict=None) -> Node:
     """Load a CSV file and create a NormTable out of it.
     First record better be field names; each name may also
     have a colon and a datatype name appended.
@@ -519,8 +521,8 @@ def checkNorm(tbl:Node, topt:TableOptions=None):
         if (headCell.nodeType != Node.ELEMENT_NODE): continue
         if (headCell.nodeName != topt.TH):
             errCount += 1
-            lg.warning("    Non-head cell '%s' found in heading row" %
-                (headCell.nodeName))
+            lg.warning("    Non-head cell '%s' found in heading row",
+                headCell.nodeName)
         if (not headCell.hasAttribute(topt.CLASS)):
             errCount += 1
             lg.warning("    Head cell lacks @class.")
@@ -533,8 +535,8 @@ def checkNorm(tbl:Node, topt:TableOptions=None):
             colTypes.append(None)
         elif (headCell.getAttribute("typeName") not in CellDataTypes):
             errCount += 1
-            lg.warning("    Head cell @typeName '%s' not known." %
-                (headCell.getAttribute("typeName")))
+            lg.warning("    Head cell @typeName '%s' not known.",
+                headCell.getAttribute("typeName"))
             colTypes.append(None)
         else:
             colTypes.append(headCell.getAttribute("typeName"))
@@ -739,8 +741,9 @@ class NormTable:
             self.tbl = self.makeDOMTable()
         else:
             self.tbl = fromTable
-            if (fromTable.nodeName != topt.TABLE): lg.critical(
-                "Table node is named '%s', not '$s'.", fromTable.nodeName, self.topt.TABLE)
+            if (fromTable.nodeName != topt.TABLE):
+                lg.critical("Table node is named '%s', not '%s'.",
+                    fromTable.nodeName, self.topt.TABLE)
             self.tbl.unspan()
             self.tbl.unnest()
             self.tbl.ensureOuters()
@@ -820,7 +823,8 @@ class NormTable:
         for tr in self.getRows():
             cNum = 0
             for cell in tr.childNodes:
-                if (cell.nodeName not in [ self.topt.TD, self.topt.TH ]): continue
+                if (cell.nodeName not in [ self.topt.TD, self.topt.TH ]):
+                    continue
                 cell2 = cell.cloneNode()()
                 b2.childNodes[cNum].appendChild(cell2)
                 cNum += 1
@@ -830,7 +834,7 @@ class NormTable:
         return t2
 
 
-    ##################################################### HEAD/BODY/FOOT OPERATIONS
+    ##################################################### HEAD/BODY/FOOT OPS
 
     def getHead(self):
         return getChildByName(self.tbl, self.nc.THEAD)
@@ -962,7 +966,8 @@ class NormTable:
 
     def appendCol(self, ident:str):
         thead = self.getHead()
-        th = self.makeElement(self.topt.TH, { self.topt.CLASS:ident }, text=ident)
+        th = self.makeElement(
+            self.topt.TH, { self.topt.CLASS:ident }, text=ident)
         thead.appendChild(th)
 
         for row in self.generateRows():
@@ -1164,7 +1169,8 @@ class NormTable:
         b2 = doc.createElement(self.topt.TBODY)
         t2.appendChild(b2)
         for _i in range(nRows):
-            b2.appendChild(self.CreateRow(nCols, th=False, cellClasses=cellClasses))
+            b2.appendChild(self.CreateRow(
+                nCols, th=False, cellClasses=cellClasses))
 
         f2 = doc.createElement(self.topt.TFOOT)
         t2.appendChild(f2)

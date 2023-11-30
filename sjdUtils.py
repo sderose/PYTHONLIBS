@@ -136,8 +136,8 @@ If ''quoteChar'' is specified, its first character is used as the
 opening quote, and its last character as the closing quote.
 
  ''sepChar'' now accepts a few special values as well. If set to "COLOR"
-(and color is enabled), alternate groups of three digits will be colorized
-(presently just red). If "UNDER", they will be underlined (again assuming
+(and color is enabled), alternate groups of three digits are colorized
+(presently just red). If "UNDER", they are underlined (again assuming
 color is enabled and the terminal supports it).
 
 * '''align(list, delim=',', stripTrail=True, maxLen=None, padChar=' ')'''
@@ -156,7 +156,7 @@ into a string. It returns a list of those (padded) strings.
 
 If a column contains any non-numeric entries, then its values will all
 be quoted (with double-quotes), and left-justified. Otherwise, its value
-will be unquoted and right-justified.
+is unquoted and right-justified.
 
 '''Note''': There is no provision for ignoring instances of ''delim''
 if they are in quotes, backslashed, etc.
@@ -337,11 +337,12 @@ Return some sample text of a given type and length. The `loremType` are:
 different text via the `loremText` option.
     r -- Randomly generated ASCII text (see ''randomChar''(), below)
 
-`randomizeChars`, `unicodeMin`, and `unicodeMax` can be set, for cause ASCII vowels randomly changes some of the characters to various non-Latin-1 ones.
+`randomizeChars`, `unicodeMin`, and `unicodeMax` can be set,
+lest ASCII vowel bytes in non-Unicode affect pther non-Latin-1 chars.
 
 `mode` is simply passed on to `randomChar()` when loremType="r".
 
-`xtab` can be a translation table, that will be applied to the generated text.
+`xtab` can be a translation table to apply to the generated text.
 See also `getRandomXtab()`.
 
 * '''getRandomXtab(fromChars='aeiouAEIOU', uMin=0x00A1, uMax=0x2FF)'''
