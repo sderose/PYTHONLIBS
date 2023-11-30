@@ -2678,7 +2678,7 @@ def fsplit(
 def syntaxError(s, i, tokens, msg:str):
     msg = getContextMsg(s, i, tokens, msg)
     if (args.strict): raise ValueError(msg)
-    else: lg.warning(msg)
+    else: lg.error(msg)
 
 contextFmt = (
     "At char '%s' (offset %d): %s (preceding token #%d '%s') at %s in:\n    >>%s<<")

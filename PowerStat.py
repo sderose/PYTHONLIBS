@@ -177,7 +177,8 @@ you could say:
 *nix `stat`, `lstat`, `strftime`.
 
 *nix `stat` has a "-r" ("raw") option, with output like:
-    16777221 1152921500312764962 0120755 1 0 0 0 11 1577865600 1577865600 1577865600 1577865600 4096 0 557056 [path]
+    16777221 1152921500312764962 0120755 1 0 0 0 11 1577865600
+        1577865600 1577865600 1577865600 4096 0 557056 [path]
 
 This option is also available here. `man stat` (at least on MacOS) does not explain
 the format. It is all decimal fields except for the third field, which is octal
@@ -276,20 +277,19 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 #
 #    -@    Display extended attribute keys and sizes in long (-l) output.
 #    -e    Print the Access Control List (ACL) associated with the file, if present.
-#    -g    Display the group name in the long (-l) format output (the owner name is suppressed).
-#    -h    When used with the -l option, use unit suffixes: Byte, Kilobyte, etc. in
-#          order to reduce the number of digits to three or less using base 2 for sizes.
+#    -g    Display the group name in the long (-l) format output (no owner name).
+#    -h    When used with the -l option, use unit suffixes
 #    -i    For each file, print the file's file serial number (inode number).
 #    -k    If the -s option is specified, print the file size allocation in kilobytes, not blocks.
 #    -l    (``ell''.)  List in long format.
 #    -n    Display user and group IDs numerically in a long (-l) output.
 #    -O    Include the file flags in a long (-l) output.
 #    -o    List in long format, but omit the group id.
-#    -s    Display the number of blocks used by each file, in units of 512 bytes, rounded up.
+#    -s    Display the number of 512-byte blocks used by each file.
 #
 # Times:
-#    -c    Use time when file status was last changed for sorting (-t) or long printing (-l).
-#    -T    When used with the -l (``ell'') option, display complete time information for the file,
+#    -c    Use time when file status was last changed for (-t) or (-l).
+#    -T    With -l , display complete time information for the file,
 #          including month, day, hour, minute, second, and year.
 #    -u    Use time of last access, instead of last modification of the file.
 #    -U    Use time of file creation, instead of last modification.
@@ -298,14 +298,14 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 #    -B    Force printing of non-printable characters in file names
 #          as \xxx, where xxx is the numeric value of the character in octal.
 #    -b    As -B, but use C escape codes whenever possible.
-#    -q    Force printing of non-graphic characters in file names as `?'; default for a terminal.
-#    -v    Raw printing of non-graphic characters; default when output is not to a terminal.
-#    -w    Raw printing of non-printable characters.  Default when output is not to a terminal.
+#    -q    Print non-graphic characters in file names as `?'; default for tty.
+#    -v    Raw print non-graphic characters; default when output for non-tty.
+#    -w    Raw print non-printable characters. Default when output for non-tty.
 #
 # Flags:
-#    -F    Display slash (`/') after each pathname that is a directory, asterisk (`*') for
-#          executable, at sign (`@') for symlink, equals sign (`=') for socket, percent
-#          sign (`%') for whiteout, and vertical bar (`|') for FIFO.
+#    -F    Display (`/') after each directory, (`*') for
+#          executable, (`@') for symlink, (`=') for socket,
+#          (`%') for whiteout, and (`|') for FIFO.
 #    -p    Write a slash (`/') after each filename if that file is a directory.
 #    -%    Distinguish dataless files and directories with a '%' character.
 #
@@ -313,7 +313,7 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 #
 permBits = "%SHp%SMp%SLp"
 statFormats:Dict[str, str] = {
-        # 0----+----1----+----2----+----3----+----4----+----5----+----6----+----7
+        # 0----+----1----+----2----+----3----+----4----+----5----+----6----+
     "ls_l":    "-" + permBits + "  %8su %8sg %6ds %12sm %sn",
         # -rwxr-xr-x  1 sderose  staff    21K Jul 13 13:35 BlockFormatter.py
     "ls_g":    "-" + permBits + "  %8sg %6ds %12sm %sn",
@@ -357,9 +357,9 @@ class StatItem:
         # The first few are not in struct stat:
         #datum code actual-type
         "N": ( "s", str ),       # The name of the file.
-        "T": ( "s", str ),       # Flag as in ls -F, or more descriptive if 'H' given.
+        "T": ( "s", str ),       # Flag as in ls -F, or more if 'H' given.
         "Y": ( "s", str ),       # The target of a symbolic link.
-        "Z": ( "s", str ),       # ``major,minor'' from rdev field for char/block special; else size
+        "Z": ( "s", str ),       # ``major,minor'' from rdev for special else size
         #code:  ( sprintfType, datumType )
         "B": ( "t", Epoch ),     # inode birth time
         "a": ( "t", Epoch ),     # access time
@@ -373,7 +373,7 @@ class StatItem:
         "l": ( "d", Unsigned ),  # Number of hard links to file.
         "m": ( "t", Epoch ),     # mod time
         "p": ( "s", str ),       # File type and permissions.
-        "r": ( "d", Unsigned ),  # Device number for character/block device special files.
+        "r": ( "d", Unsigned ),  # Device number for special files.
         "u": ( "d", Unsigned ),  # User id of file's owner
         "v": ( "d", Unsigned ),  # Inode generation number.
         "z": ( "d", Unsigned ),  # The size of file in bytes.
@@ -412,10 +412,10 @@ class StatItem:
         self.siz         = self.intCap(mat, 'siz')     # min field width
         self.prc         = mat.group('prc') or ''      # .precision
         self.fmtCode     = mat.group('fmtCode') or ''  # [DOUXFS]?
-        # decimal, octal, unsigned decimal, hex, float (only a/m/c timespecs), string.
+        # decimal, octal, unsigned dec, hex, float (only a/m/c timespecs), str
         self.subCode     = mat.group('sub') or ''      # [HML]?
         self.datum       = mat.group('datum')          # field specifier char
-        self.typ         = None                        # As from defaultFmtCodes (?)
+        self.typ         = None                        # per defaultFmtCodes (?)
 
         self.sprintfCode = "%"
         if (self.flag in "+-0"): self.sprintfCode += self.flag
@@ -462,7 +462,8 @@ class StatItem:
             elif (k == 't'): return('\t')
             elif (k == '%'): return('%')
             elif (k == '@'): return('@')
-            else: raise ValueError("Unrecognized escape '%s'." % (self.mat.group('esc')))
+            else: raise ValueError(
+                "Unrecognized escape '%s'." % (self.mat.group('esc')))
 
         if (self.mat.group('datumName')):
             fmtCode = 's'
@@ -534,7 +535,7 @@ class StatItem:
             else: raise ValueError(
                 "Unrecognized d self.subCode '%s'." % (self.subCode))
 
-        elif (self.datum == 'r'):                    # dev # for device special ***
+        elif (self.datum == 'r'):                    # dev # for special ***
             assert (st[stat.S_IFBLK] or st[stat.S_IFCHR])
             dev = st[stat.ST_DEV]
             if (self.subCode == 'H'):                # major number
@@ -617,8 +618,8 @@ class StatItem:
         mode = st.st_mode
         if (stat.S_ISDIR(mode)):  return "/" if (shortName) else "/"
         # TODO: Which executable bit(s) does ls -F actually report?
-        if (stat.S_ISLNK(mode)):  return "@" if (shortName) else "@"  # symbolic link
-        if (stat.S_ISSOCK(mode)): return "=" if (shortName) else "="  # after each socket
+        if (stat.S_ISLNK(mode)):  return "@" if (shortName) else "@"  # symlink
+        if (stat.S_ISSOCK(mode)): return "=" if (shortName) else "="  # socket
         if (stat.S_ISFIFO(mode)): return "|" if (shortName) else "|"  # FIFO
         # TODO: Is this not supported on MacOS or something?
         #if (stat.S_ISWHT(mode)):  return "%" if (shortName) else "%"  # whiteout
@@ -765,7 +766,7 @@ class PowerStat:
                 try:
                     buf += "%s" % thisItem.formatItem(st, theTimeFormat=args.timeFormat)
                 except ValueError as e:
-                    fatal("format error for item, derived sprintf code '%s':\n    %s\n%s" %
+                    fatal("format error, derived sprintf code '%s':\n    %s\n%s" %
                         (thisItem.sprintfCode, thisItem.tostring(), e))
             else:
                 assert False, "theItems[%d] is of type %s." % (i, type(thisItem))
@@ -882,10 +883,10 @@ if __name__ == "__main__":
         parser.add_argument(
             "--namedStatFormat", "--named-stat-format", type=str, default=None,
             choices=statFormats.keys(),
-            help='Use one of the predefined stat formats, instead of specifying --statFormat.')
+            help='Use a predefined stat formats, instead of --statFormat.')
         parser.add_argument(
             "--no-newline", "-n", action='store_true',
-            help='Do not force a newline to appear at the end of each piece of output.')
+            help='No newline to appear at the end of each piece of output.')
         parser.add_argument(
             "--quiet", "-q", action='store_true',
             help='Suppress most messages.')
