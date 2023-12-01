@@ -1050,7 +1050,7 @@ class DialectX:
             buf = re.sub(r"([^!-~])", self.escapeOneChar, s, flags=re.U)
         else:
             buf = re.sub(
-                r"[" + self.problemChars + "]",
+                r"([" + self.problemChars + "])",
                 lambda m: self.escapeOneChar(m),
                 s,
                 flags=re.U

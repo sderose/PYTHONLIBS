@@ -71,7 +71,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2018-04-21",
-    "modified"     : "2021-04-09",
+    "modified"     : "2023-12-01",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -134,7 +134,6 @@ would give:
 
 To get all items quoted, use "--quote".
 To avoid separate lines for directories, add "--type f"
-
 
 Several special options apply in that case:
 
@@ -222,8 +221,9 @@ and return that.
   See "Known bugs and limitations" for more information.
   ** `--minDepth` and `maxDepth` constrain what
   directory or container depth limits to return files from.
-  ** `--type [y]` is like the same-name option in `find`. It lets you choose
-one of: "b" (block special), "c" (character special), "d" (directory),
+  ** `--type [t]` is similar to the same-name option in `find`, except that
+  you can give more than one type-letter in the argument. It lets you choose
+one or more of: "b" (block special), "c" (character special), "d" (directory),
 "f" (regular file), "l" (symbolic link), "p" (FIFO), "s" (socket).
 
 
@@ -461,7 +461,7 @@ was checked first is counted):
 
 Change the value of an available option. Options can also
 be set on the constructor via like-named keyword options, or en masse
-using ` addOptionsToArgparse()` and `setOptionsFromArgparse()`.
+using ` addOptionsToArgparse()` and `applyOptionsFromArgparse()`.
 ''Note'': There are a few more options that are not part of
 the PowerWalk class, but are available when this script is run standalone.
 They are described in the full list of options at the end of this help.
@@ -699,6 +699,8 @@ should be separately settable for directories and files (and maybe other contain
 * At top level, if it's a dir then issue an open event for it, and
 make sure we get all it's children. *******
 
+* Option to not report dirs (probably just apply `--type` f to main.
+
 * Protect against circular links.
 
 * Be able to accept/return Path objects.
@@ -866,7 +868,7 @@ against circular symlinks.
 * 2022-07-05: Start breaking out a cleaner listing i/f via classes ItemFmt, Lister...
 * 2023-11-27: Refactor main, OutputFormatter. Drop ItemFmt.
 Rename --filetype to --fileTypeFlag and alias -F. Add alias -R for recursive.
-
+* 2023-12-01: Let --type and --gitStatus take multiple letters.
 
 =Rights=
 
@@ -1172,6 +1174,10 @@ class PowerWalk:
     inspiration. See the features description under -h, and the utility
     to add them to argparse: addOptionsToArgparse().
     """
+    typeLetters = "bcdflpsDPW"
+    typeLetterExpr = r"^[" + typeLetters + r"]*$"
+    gitStatuses = " MADRCU?!"
+    gitStatusExpr = r"^[" + gitStatuses + r"]+"
 
     __optionTypes:Dict[str, Any] = {
 
@@ -1235,7 +1241,7 @@ class PowerWalk:
         self.travState = None  # Used during traversal (not thread-safe!) TO DO
 
         # Datatypes for most options. A few are added algorithmically, such as
-        # --newer[Bcma][aBcm].
+        # --newer[Bcma][aBcm] (see addTimeOptions()).
         # Options specific to the command are not included here.
         #
         self.options = {
@@ -1335,18 +1341,25 @@ class PowerWalk:
                 warning(0, "Cannot cast value '%s' for option '%s' to %s:\n    %s"
                     % (value, name, theType.__name__, e))
 
-    def setOptionsFromArgparse(self, argsObj=None, prefix:str="") -> None:
+    def applyOptionsFromArgparse(self, argsObj=None, prefix:str="") -> None:
         """Have to ignore any that aren't ours.
         """
         for k, v in argsObj.__dict__.items():
-            qname = prefix+k
-            if (qname in self.options): self.setOption(qname, v, strict=False)
+            if (not k.startswith(prefix)):  # Not ours
+                continue
+            k = k[len(prefix)]
+            if (k == "type" and not re.match(PowerWalk.typeLetterExpr, v)):
+                warning("Unrecognized --type letter in '%s'.", v)
+            if (k == "gitStatus" and not re.match(PowerWalk.gitStatusExpr, v)):
+                warning("Unrecognized --gitStatus letter in '%s'.", v)
+            if (k in self.options):
+                self.setOption(k, v, strict=False)
         #showOptions(argsObj)
 
     @staticmethod
     def addOptionsToArgparse(parser, prefix:str="", singletons:bool=True):
         """Provide an easy way to add all our options to a main program's
-        argparse instance. Use setOptionsFromArgparse() after, to
+        argparse instance. Use applyOptionsFromArgparse() after, to
         copy them back here from the argparse result, ignoring any others.
         @param prefix: Put this before all names to avoid name conflicts.
             You can include leading "--", but it will be added if not included.
@@ -1417,11 +1430,10 @@ class PowerWalk:
         parser.add_argument(
             prefix + "followWeblocs", metavar="D", type=PWDisp, default=PWDisp.IGNORE,
             help="Follow MacOS .webloc links to the destination.")
-        gitStatuses = " MADRCU?!"
         parser.add_argument(
             "--gitStatus", "--git-status", type=str, default="",
-            choices = [ x for x in gitStatuses ],
-            help="Git status as for git -s [%s]. UNFINISHED." % (gitStatuses))
+            help="Git status letter(s) as for git -s [%s]. UNFINISHED."
+            % (PowerWalk.gitStatuses))
         parser.add_argument(
             prefix + "hidden", "-a", action="store_true",
             help="Include file and directories whose names begin with dot.")
@@ -1484,13 +1496,14 @@ class PowerWalk:
             help="Sample only this percentage of eligible items.")
         parser.add_argument(
             prefix + "sort", type=str, default="none",
-            choices = [ "none", "name", "iname", "atime", "ctime", "mtime", "size", "ext" ],
+            choices = [ "none", "name", "iname",
+                "atime", "ctime", "mtime", "size", "ext" ],
             help="Sort directory members by what? Default: none. ")
 
         parser.add_argument(
             prefix + "type", type=str, default="",
-            choices = [ "b", "c", "d", "f", "l", "p", "s", "D", "P", "W" ],
-            help='As for the "find" command, plus Door, Port, Whiteout.')
+            help='Like the "find" command, plus Door, Port, Whiteout,'
+            ' and can give multiple letters.')
 
         # Test that all the known options are available.
         for op in PowerWalk.__optionTypes.keys():
@@ -1521,19 +1534,19 @@ class PowerWalk:
             if (not os.path.exists(f)):
                 raise ValueError("Option requires an existing file.")
 
-        things = { "a":"access", "B":"inode creation", "c":"creation", "m":"modification" }
-        for abbr, txt in things.items():
+        things = { "a":"access", "B":"inode creation",
+            "c":"creation", "m":"modification" }
+        for abbr, _txt in things.items():
             parser.add_argument(prefix + abbr + "newer", metavar="F", type=fileArg,
-                help="Is %s time newer than mod time of [file]?" % (txt))
+                help=argparse.SUPPRESS)
             # Possibly, `find` only takes an int for -xmin?
             parser.add_argument(prefix + abbr + "min", metavar="F", type=timeArg,
-                help="Is %s time newer than the given age?" % (txt))
+                help=argparse.SUPPRESS)
             parser.add_argument(prefix + abbr + "time", metavar="F", type=timeArg,
-                help="Is %s time newer than the given age?" % (txt))
+                help=argparse.SUPPRESS)
             for abbr2 in things.keys():
                 parser.add_argument(prefix + "newer" + abbr + abbr2,
-                    metavar="F", type=fileArg,
-                    help="Is %s x-time newer than y-time of [file]?" % (txt))
+                    metavar="F", type=fileArg, help=argparse.SUPPRESS)
 
     def getStat(self, name:str):
         return self.travState.stats[name]
@@ -1747,7 +1760,7 @@ class PowerWalk:
         return self.dirPassesFilters(path, theStat, trav)
 
     def dirPassesFilters(self, path:str, _theStat:os.stat_result, trav:TraversalState) -> bool:
-        if (self.options["type"] and self.options["type"]!="d"):
+        if (self.options["type"] and "d" not in self.options["type"]):
             self.recordEvent(trav, "ignoredByType")
             return False
         # ignoredByPerm ??
@@ -1765,7 +1778,8 @@ class PowerWalk:
         self.recordEvent(trav, "directory")
         return True
 
-    def filePassesFilters(self, path:str, theStat:os.stat_result, trav:TraversalState) -> bool:
+    def filePassesFilters(self, path:str, theStat:os.stat_result,
+        trav:TraversalState) -> bool:
         """Test most of the file-filtering conditions.
         Return True only if the all pass (reaching the final "else").
         """
@@ -1796,7 +1810,7 @@ class PowerWalk:
             self.recordEvent(trav, "ignoredByIncludeExtensions")
 
         elif (self.options["gitStatus"] and
-            getGitStatus(path) != self.options["gitStatus"]):
+            getGitStatus(path) not in self.options["gitStatus"]):
             self.recordEvent(trav, "ignoredByGitStatus")
         elif (self.options["excludeNames"] and
             re.search(self.options["excludeNames"], tail)):
@@ -1834,32 +1848,19 @@ class PowerWalk:
         if (not ty):
             return True
 
-        elif (ty=="b"):                             # block special
-            if (not stat.S_ISBLK(mode)): return False
-        elif (ty=="c"):                             # character special
-            if (not stat.S_ISCHR(mode)): return False
-        elif (ty=="d"):                             # directory
-            # directories don't even get here....
-            if (not stat.S_ISDIR(mode)): return False
-        elif (ty=="f"):                             # regular file
-            if (not stat.S_ISREG(mode)): return False
-        elif (ty=="l"):                             # symbolic link
-            if (not stat.S_ISLNK(mode)): return False
-        elif (ty=="p"):                             # FIFO
-            if (not stat.S_ISFIFO(mode)): return False
-        elif (ty=="s"):                             # socket
-            if (not stat.S_ISSOCK(mode)): return False
+        if ("b" in ty and stat.S_ISBLK(mode)): return True  # block special
+        if ("c" in ty and stat.S_ISCHR(mode)): return True  # character special
+        if ("d" in ty and stat.S_ISDIR(mode)): return True  # directory
+        if ("f" in ty and stat.S_ISREG(mode)): return True  # regular file
+        if ("l" in ty and stat.S_ISLNK(mode)): return True  # symbolic link
+        if ("p" in ty and stat.S_ISFIFO(mode)): return True # FIFO
+        if ("s" in ty and stat.S_ISSOCK(mode)): return True # socket
 
         # Python ones that go beyond "find -type" -- but mypy complains,
         # and I'm not sure yet what the issue is with those and the S_IF analogs.
-            if (not theStat.S_IFDOOR): return False
-        elif (ty=="P"):                             # PORT
-            if (not theStat.S_IFPORT): return False
-        elif (ty=="W"):                             # whiteout
-            if (not theStat.S_IFWHT): return False
-
-        else:
-            warning(0, "Unknown -type value '%s'." % (ty))
+        #if ("D" in ty and theStat.S_IFDOOR): return True
+        if ("P" in ty and theStat.S_IFPORT): return True   # Port
+        if ("W" in ty and theStat.S_IFWHT):  return True   # whiteout
         return True
 
     def passesPerm(self, _path:str, theStat:os.stat_result, permOptions:list) -> bool:
@@ -2351,17 +2352,20 @@ if __name__ == "__main__":
             self.OFOptions = self.OFDefaults.copy()
 
         @staticmethod
-        def addOutputFormatOptions(parser:argparse.ArgumentParser, prefix:str="") -> None:
-            """Add a boatload of options for how to format output, mainly filelists.
+        def addOutputFormatOptions(parser:argparse.ArgumentParser,
+            prefix:str="", showHelp:bool=False) -> None:
+            """Add options for how to format output, mainly filelists.
             (should become a general tree-layout class)
             """
+            noHelp = False if (showHelp) else argparse.SUPPRESS
             if (not prefix.startswith("--")): prefix = "--" + prefix
+
             #parser.add_argument(
             #    prefix+"anonymousClose", action="store_true",
             #    help="Suppress display of container-close.")
             parser.add_argument(
                 prefix+"openDirString", metavar="S", type=str, default="",
-                help="Display after directory name on open.")
+                help=noHelp or "Display after directory name on open.")
             parser.add_argument(
                 prefix+"closeDirName", action="store_true",
                 help="Repeat dir name before closeDirString.")
@@ -2391,13 +2395,13 @@ if __name__ == "__main__":
             parser.add_argument(
                 prefix+"short", action="store_true",
                 help="Only show the bottom-level name in the outline view.")
-            # TODO: Add a --long? N levels?
             parser.add_argument(
                 prefix+"showInvisibles", type=str, default="literal",
                 choices=[ "literal", "octal", "hex", "pix", "url" ],
                 help="How to display unusual characters.")
 
-        def applyOutputFormatOptions(self, parser:argparse.ArgumentParser, prefix:str="") -> None:
+        def applyOutputFormatOptions(
+            self, parser:argparse.ArgumentParser, prefix:str="") -> None:
             for ofoName in self.OFDefaults.keys():
                 try:
                     val = getattr(parser, prefix+ofoName)
@@ -2698,7 +2702,7 @@ if __name__ == "__main__":
     leafNum = 0
     for topItem in args.files:
         pw = PowerWalk(topItem)
-        pw.setOptionsFromArgparse(args)
+        pw.applyOptionsFromArgparse(args)
 
         whatCounts:defaultdict = defaultdict(int)
         for path0, fh0, what0 in pw.traverse():
@@ -2717,6 +2721,7 @@ if __name__ == "__main__":
             indent = of.OFOptions["iString"] * pw.travState.depth
 
             if (what0 == PWType.OPEN):
+                if (args.type and "d" not in args.type): continue
                 print(of.makeOpenDirDisplay(printpath0, pw.travState.depth))
             elif (what0 == PWType.LEAF):
                 if (args.minBasenameLength and
@@ -2736,6 +2741,7 @@ if __name__ == "__main__":
                     itemExec(path0, args.exec)
 
             elif (what0 == PWType.CLOSE):
+                if (args.type and "d" not in args.type): continue
                 print(of.makeCloseDirDisplay(printpath0, pw.travState.depth))
             elif (what0 == PWType.IGNORE):
                 print(indent, "IGNORING: ", printpath0, args.itemSep)
