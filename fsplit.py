@@ -21,6 +21,8 @@ import unicodedata
 import logging
 from Datatypes import Datatypes
 
+#import pdb  # pdb.set_trace()
+
 lg = logging.getLogger()
 dt = Datatypes()
 
@@ -2851,9 +2853,10 @@ if __name__ == "__main__":
         if (cm): print(cm.colorize(msg, "red"))
         else: print("==========> " + msg)
 
-    def testPlus(s, **kwargs) -> List:
-        """Run a test that we expect to pass (or at least not die).
-        TODO: Factor out data. Add expected result or save and compare.
+    def testPlus(s, expect:Union[List,int]=0, **kwargs) -> List:
+        """Run a test that we expect to not die, and to find the 'expect'ed
+        tokens or number of tokens.
+        TODO: Factor out data.
         """
         print("\nTest string: %s" % (dquote(s)))
         buf = ""
@@ -2868,6 +2871,14 @@ if __name__ == "__main__":
         except ValueError as e:
             cprint("******* Exception *******\n    %s\n" % (e))
         if (theFields): print("    ==> |%d| %s" % (len(theFields), theFields))
+        if (expect):
+            if (isinstance(expect, int)):
+                if (expect != len(theFields)):
+                    cprint("    ******* Wrong number of fields: expected %d, got %d."
+                        % (expect, len(theFields)))
+            else:
+                if (expect != theFields):
+                    cprint("    ******* Wrong field value(s)s: expected:\n    %s" % (theFields))
         return theFields
 
     def testMinus(s:str, msg:str, **kwargs) -> List:
@@ -2931,56 +2942,61 @@ if __name__ == "__main__":
         testPlus(s0)
         phead("Commas")
         s0 = "wee fish,ewe,a mare,egrets,moose"
-        testPlus(s0, delimiter=",")
+        testPlus(s0, expect=5, delimiter=",")
 
         phead("TAB")
         s0 = "wee fish\tewe\ta mare\tegrets\tmoose"
-        testPlus(s0, delimiter="\t")
+        testPlus(s0, expect=5, delimiter="\t")
         phead("TAB, but delim not set")
         testPlus(s0)
         phead("TAB, but escaping the one before 'egrets'")
-        s0 = "wee fish\tewe\ta mare\tegrets\tmoose"
+        #s0 = "wee fish\tewe\ta mare\tegrets\tmoose"
         s0 = "wee fish\tewe\ta mare\\\tegrets\tmoose"
-        testPlus(s0, delimiter="\t", escapechar="\\")
+        testPlus(s0, expect=4, delimiter="\t", escapechar="\\")
 
         phead("Escaping:")
-        s0 = "aard\\u0076ark|beagle|cat|d\\x6Fg|&#101;&#x67;r&eacute;&#X00000074;"
-        print("vbar, without special escaping options")
-        testPlus(s0, delimiter="|")
+        s0 = "aard\\u0076ark|beagle|cat|d\\x7Cg|&#101;&#x7C;r&dquo;&#X0000007C;"
+        print("vbar (U+7C), without special escaping options")
+        testPlus(s0, expect=5, delimiter="|")
         print("vbar, with xescapes")
-        testPlus(s0, delimiter="|", xescapes=True)
+        testPlus(s0, expect=5, delimiter="|", xescapes=True)
         print("vbar, with uescapes")
-        testPlus(s0, delimiter="|", uescapes=True)
+        testPlus(s0, expect=5, delimiter="|", uescapes=True)
         print("vbar, with entities")
-        testPlus(s0, delimiter="|", entities=True)
+        testPlus(s0, expect=5, delimiter="|", entities=True)
         print("vbar, with all of those")
-        testPlus(s0, delimiter="|", xescapes=True, uescapes=True, entities=True)
+        testPlus(s0, expect=5, delimiter="|", xescapes=True, uescapes=True, entities=True)
 
+        # TODO: Add Escape and quoting together
+
+        # Wonky delimiters
         phead("Multi-char delim:")
-        s0 = "lorem##ipsum##dolor##sit##amet"
-        testPlus(s0, delimiter="##")
-        s0 = "lorem<>ipsum<>dolor<>sit<>amet"
-        testPlus(s0, delimiter="<>")
+        s0 = "lorem##ipsum##dolor##sit##amet##consectetur"
+        testPlus(s0, expect=6, delimiter="##")
+        s0 = "lorem<>ipsum<>dolor<>sit<>amet<>consectetur"
+        testPlus(s0, expect=6, delimiter="<>")
 
         phead("Quoting:")
         s0 = 'wee fish$ewe$"a mare"$egrets$"moo$e"'
-        testPlus(s0, delimiter="$", quotechar='"')
+        testPlus(s0, expect=5, delimiter="$", quotechar='"')
+        testPlus(s0, expect=[ "wee fish", "ewe", "a mare", "egrets", "moo$e" ],
+            delimiter="$", quotechar='"')
 
         s0 = "wee fish$ewe$'a mare'$egrets$'moo$e'"
-        testPlus(s0, delimiter="$", quotechar="'")
+        testPlus(s0, expect=[ "wee fish", "ewe", "a mare", "egrets", "moo$e" ],
+            delimiter="$", quotechar="'")
 
-        s0 = "'wee fish'$ewe$‘a mare’$egrets$“moo$e”"
-        testPlus(s0, delimiter="$", quotechar='“”')
+        s0 = "wee fish$ewe$“a mare”$egrets$“moo$e”"
+        testPlus(s0, expect=[ "wee fish", "ewe", "a mare", "egrets", "moo$e" ],
+            delimiter="$", quotechar='“”')
 
-        s0 = "'wee fish'$ewe$‘a mare’$egrets$“moo$e”"
-        testPlus(s0, delimiter="$", quotechar='“”')
-
-        #SINGLE DOUBLE ANGLE CURLY ALL
-        # quotes inside quotes
+        # TODO: Add SINGLE DOUBLE ANGLE CURLY ALL
+        # TODO: Add quotes inside quotes
 
         phead("doublequote:")
         s0 = """lorem,ipsum,"(he said) ""dolor"", I think",sit,amet"""
-        testPlus(s0, delimiter=",", doublequote=True)
+        testPlus(s0, expect=[ "lorem", "ipsum", "(he said) \"dolor\", I think", "sit", "amet" ],
+            delimiter=",", doublequote=True)
         s0 = """'Lorem ipsum ''dolor'' sit amet','consectetur adipiscing elit','sed do
         eiusmod tempor incididunt ut labore et ''dolor''e magna aliqua','Ut enim ad minim
         veniam','quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
@@ -3002,9 +3018,14 @@ if __name__ == "__main__":
         # TODO: Should the IEEE special floats be caught here?
         s0 = "hello,1,,3.14159,-6.022E+23,1.618+2j,NaN,-inf,+inf,world"
         print("Test string: %s" % (dquote(s0)))
+        typesExpected = [ str, int, None, float, float, complex, float, float, float, str ]
         stuffs = fsplit(s0, delimiter=",", autotype=True)
         for i0, stuff in enumerate(stuffs):
             print("    %d: %-16s %s" % (i0, dquote(stuff), type(stuff)))
+            if (typesExpected[i0] and
+                type(stuff).__name__ != typesExpected[i0].__name__):
+                print("        ******* Expected type %s, but got %s."
+                    % (typesExpected[i0], type(stuff)))
 
         phead("type checking:")
 
@@ -3028,6 +3049,7 @@ if __name__ == "__main__":
             ( "hello &#x00GG;",         "Bad hex char ref" ),
             # unclosed quotes, swapped polarity, not at start of field,....
         ]
+        #breakpoint()
         for s0, msg0 in errTests:
             testMinus(s0, msg0, delimiter=",",
                 xescapes=True, uescapes=True, entities=True)
