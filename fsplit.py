@@ -9,7 +9,7 @@ import sys
 import argparse
 import codecs
 import re
-#from collections import namedtuple
+from collections import namedtuple
 from typing import Dict, Any, Union, IO, List, Callable, Final
 from enum import Enum
 import ast
@@ -116,9 +116,11 @@ line-ends, etc. It can be created manually like:
 
 In addition, fsplit supports 'FieldSchema' objects, which describe
 some simple semantics of the data such as the names and order of fields, their
-datatypes, and so on. A FieldSchema can be set up in several ways:
+datatypes, and so on. See section [Header Format] for more details.
+In short, a FieldSchema can be set up in several ways:
 
-* created from a real header line (by setting the 'header' option as shown above)
+* created from a regular header line (by setting the 'header' option as shown
+above). The header line may have just names, or more.
 
 * created from a header-like string and passed in:
     fakeHead = "name|UPPER:str!,dob:datetime,age:int[0:150],zip"
@@ -180,23 +182,23 @@ Think of this as a CSV header on steroids.
 directly, with the properties below as arguments (only "fname" is required),
 and headers work by parsing each header entry and constructing FieldInfos:
 
-** fname -- the field name, typically an identifier token
-** ftype -- one of the known types, or at least its name
-** fconstraint -- a field constraint as a string (see [Header Format] for
+** ''fname'' -- the field name, typically an identifier token
+** ''ftype'' -- one of the known types, or at least its name
+** ''fconstraint'' -- a field constraint as a string (see [Header Format] for
 the type-dependent values that can be used)
-** fdefault -- a default value (None may mean no default value, or that the
+** ''fdefault'' -- a default value (None may mean no default value, or that the
 default value is None -- how would you tell?
-** frequired -- if set, the field must always be non-empty in the data
-** fformat -- a preferred output format, for example "%12.4f". Or a Callable
+** ''frequired'' -- if set, the field must always be non-empty in the data
+** ''fformat'' -- a preferred output format, for example "%12.4f". Or a Callable
 that takes the (possibly typed) field value and returns a string. A Callable
 here is probably most useful to handle "special" values such as None, reserved
 codes for things like "missing" or "not applicable", etc.
-** fnormalizer -- a Callable which is the first thing applied to a field once
+** ''fnormalizer'' -- a Callable which is the first thing applied to a field once
 it is split out from the record (this is still after quote removal and unescaping).
 The Callable should take and return strings. Several named normalizers can be
 spedified in the header, by inserting them before the []-constraint (see section
 [Header Format]).
-** fnum -- the field number, counting automatically from 1 as FieldInfo are appended
+** ''fnum'' -- the field number, counting automatically from 1 as FieldInfo are appended
 to a FieldSchema.
 
 * DatatypeHandler -- this supports many basic datatypes, which can be specified
@@ -207,8 +209,6 @@ You can set `boolCasterFunc` to function, to which `autoType()` will pass the
 string value that was parsed. It should return True or False, or raise ValueError,
 which `autoType()` will catch and go on to try other types.
 
-This library has several features beyond those of the regular `csv`.
-
 ===A wider range of syntax options===
 
 Most of the *nix fielded-data utilities have little or no support for
@@ -216,19 +216,24 @@ quoted fields or escaped characters. No two (afaict) support the same range of
 delimiter conventions. The Python ''csv' library is stronger, but still lacks
 syntax support such as:
 
-* Multi-character delimiters (unlike some utilities)
-* Multiple alternative quotechars (for example, single and double)
-* Distinct open and close quotechars
-* Unicode quote characters (curly, angle, etc.)
-* Expanding special chars like
-\\xFF (`xescapes`); \\uFFFF (`uescapes`); &#xFFFFF;, &bull;, etc. (`entities`)
-* Ignoring repeated delimiters (like `sed` can) (see the `multidelimiter` option)
-* (in progress) cycling deimiters (like `paste -d`)
-* Quoted fields that can include newlines (`quotednewline`)
-I strongly dislike this usage, but RFC 4180 and
-some common spreadsheet programs write it, so supporting it
-seems desirable. There is some support half-hidden in ''csv'' for this.
-The `quotednewline` feature is experimental for now.
+* Delimiters
+** Multi-character delimiters
+** Ignoring repeated delimiters (`delimiterrepeat`) (like `sed`)
+** Delimiters used in alternation (`delimitercycle`) (like `paste -d`) (Experimental)
+
+* Quoting
+** Multiple alternative quote characterss (for example, single and double)
+** Unicode quote characters (curly, angle, etc.)
+** Distinct open and close quotechars
+** Quoted fields that can include newlines (`quotednewline`)
+I dislike this usage, but Python `csv`, RFC 4180, and some spreadsheetss use it.
+(Experimental)
+
+* Escaping and special characters
+** The common letter-escapes (\\t, \\n, \\r, \\t, \\a (BEL), \\e (ESC))
+** Hex escapes like \\xFF (`xescapes`)
+** Wide hex escape like \\uFFFF and \\U0001FFFF (`uescapes`)
+** HTML/XML character references like &#xFFF;, &#999;, &bull;, etc. (`entities`)
 
 ===Datatype-related features===
 
@@ -276,17 +281,19 @@ The default dialect is the same as for Python `csv`. The shared properties are:
     strict:bool: False
 
 The extended properties are:
+    autotype:bool = False
     comment:str = None
-    encoding = "utf-8"
+    delimitercycle:bool = False
+    delimiterrepeat:bool = False
+    encoding:str = "utf-8"
     entities:bool = False
     header:bool = False
     maxsplit:int = None
     minsplit:int = 0
-    multidelimiter:bool = False
-    autotype:bool = False
+    quotednewline:bool = False
+    skipfinalspace:bool = False
     uescapes:bool = False
     xescapes:bool = False
-    quotednewline:bool = False
 
 Note: the defaults are not all the same as defined by RFC RFC4180 (q.v.).
 However, the RFC settings are available as a predefined DialectX, in __RFC4180__.
@@ -414,22 +421,37 @@ instead of being worked around or ignored.
 
 The following options are not available in Python's `csv` package:
 
+* ''autotype'' = False -- If set, fields with no overriding type declared (via
+a header record, '--ifields', or the API)
+are examined and cast to the
+most specific type they can (from the type supported in header declarations).
+Booleans are not attempted (for more information see section [autoTyping]).
+
 * ''comment'':str = None -- If set and not '', lines starting with
 this string are treated as comments rather than data. Leading space is NOT
 allowed before the delimiter (this might be added).
 
-* ''cycle'':bool = False -- If set, and there are multiple delimiters
+* ''delimitercycle'':bool = False -- If set, and there are multiple delimiters
 specified, use those delimiters in alternation like 'paste -d'.
 This is not yet supported, and is not expected to be happy with named
 multi-delimiter sets such as BOTH and ALL.
 
+* ''delimiterrepeat'':bool = False -- If set, multiple adjacent delimiters do
+NOT result in empty fields, but are treated the same as a single delimiter.
+This would typically be done when the delimiter is just a space (which can also
+be accomplished with (so far experimental) regex delimiters.
+Empty fields can, however, be inserted by quoting them (because the delimiters
+on each side are no longer "adjacent"). This option should probably not be
+used in combination with a list of delimiters (see 'delimitercycle').
+
 * ''encoding'' = "utf-8" -- what encoding to use. This affects escaping.
 
 * ''entities'':bool = False -- If set, character references are recognized
-and replaced as in HTML. Decimal (&#8226;), hexadecimal (&#x2022;), and named
-(&bull;) forms are all supported.
+and replaced as in HTML. Decimal (&#8226;), hexadecimal (&#x2022;), and the
+ubiquitous named forms (&bull; etc.) are all supported.
 NOTE: These are converted via Python's `html.unescape()` method, which does not
-raise an error for unknown entities such as `&foo;`.
+raise an error for unknown entities such as `&foo;`. References do not have to
+be inside quotes.
 
 * ''header'':bool = False -- If set, the first record of each input file is
 expected to be a header, giving at least a named for each field.
@@ -446,18 +468,8 @@ this many splits have occurred (making this many + 1 tokens; 0 means unlimited).
 * ''minsplit'':int = 0 -- If specified, an exception is raised if fewer than
 this many splits are made.
 
-* ''multidelimiter'':bool = False -- If set, multiple adjacent delimiters do
-NOT result in empty tokens, but are treated the same as a single delimiter.
-This would typically be done when the delimiter is just a space.
-Empty fields can, however, be inserted by quoting them (because the delimiters
-on each side are no longer "adjacent"). This option should probably not be
-used in combination with a list of cycling deimiters.
-
-* ''autotype'' = False -- If set, fields with no overriding type declared (via
-a header record, '--ifields', or the API)
-are examined and cast to the
-most specific type they can (from the type supported in header declarations).
-Booleans are not attempted (for more information see section [autoTyping]).
+* ''skipfinalspace'':bool = False -- If set, records (not fields)
+have any trailing (Unicode) whitespace stripped before parsing.
 
 * ''uescapes'':bool = True -- If set, escapes like \\uFFFF may be used.
 This uses `escapechar` (not necessarily backslash).
@@ -588,7 +600,7 @@ Because of this, autotyping never decides something is a boolean, unless
 
 Leading and trailing whitespace is stripped before testing types.
 However, items that remain as strings are returned with the whitespace intact
-(unless the `skipinitialspace` option is also set).
+(unless the `skipinitialspace` or `skipfinalspace` option is also set).
 
 If `boolCaster` is supplied, it must take a string argument (the token,
 with leading and trailing whitespace intact), and return True or False,
@@ -647,18 +659,29 @@ of 'less' with integrated CSV pretty-printing.
 
 =Known bugs and Limitations=
 
-Smoke tests for incomplete escape sequences are not working right.
+Smoke tests for multi-character delimiters are failing.
+Not sure whether you can (or should be able to) escape in mid-delimiter.
+You cannot combine delimiterrepeat and delimitercycle.
 
-fieldNames passed to DictReader, or from --ifields,
+Field names passed to DictReader, or from --ifields,
 should probably be allowed to override any
 read from a header record. But currently they're compared and an exception
 is raised if they don't match. TODO: Check if still true.
 
-Multi-char delimiters test is failing.
-Not sure whether you can (or should be able to) escape in mid-delimiter.
-
 '--convert' does not copy comment lines, even if an output dialect command
 marker is specified. How best to return comments during parsing?
+
+'escapechar' is recognized both inside and outside of quotes.
+
+'escapechar' at end of line does not make the newline into data (but see
+'quotednewline').
+
+Unknown escapes such as \\q just mean the literal character, and no error
+is issued even with strict=True. However, syntax errors within \\x \\u and \\U
+are reported, and cause in exception if strict=True. The dict listing
+known escapes (other than [xuU] is Escaping.escape2char. It can be modified, though
+success is not guaranteed especially if you add entries that collide with
+other special characters, such as quotes, delimiters, etc.
 
 For `bool` the default test is whether the field's value begins with [tT1]
 or [fF0]. Other initial characters raise ValueError. Change this via normaliztion.
@@ -669,24 +692,33 @@ What's the right rule for a quote not immediately following a delimiter?
 As in
     1, "two", 3, 4"five"5, 6
 
+Date and time processing is not supported for dates prior to the Gregorian
+calendar change (October 1582). However, it will likely behave correctly
+assuming the [[proleptic Gregorian calendar]].
+
+timedelta assumes a year is 365.2425 days (the Gregorian average), and a
+month is 30 days.
+
 
 =To do=
 
-* Data subtypes:
-** Hex and maybe octal fields; maybe uudecode/base64; currency, %?
-** Finish normalizer support
-** Improve datetimes. Add subtypes for date, time, ymdhmsz.
-Way to distinguish only-precise-to-the-h0our from on-the-hour.
-Support timedelta. Add normalizers for US and EU dates, epochtime.
+* Way to distinguish only-precise-to-the-hour from on-the-hour, etc.
 
-* Add a way to get at the last raw record (since reader() parses it,
+* Support timedelta ISO 8601 format: 'P[n]Y[n]M[n]DT[n]H[n]M[n]S'
+or P[n]W'. "P" is literal (for "period"), following are number of each unit.
+
+* Add normalizers for US and EU dates, epochtime.
+
+* Combine escapeSpecial(), char2escape, escape2char. Perhaps put all the
+escaping and entity stuff in its own class.
+
+* Add a way to get at the last raw record (since reader() parses it),
 and the logical/physical record numbers.
 
 * Lose remaining refs to args from inside classes.
 
-* Should csv 'skipinitialspace' be overridable per-field, and should
-there also be trailingspace? And maybe something more for Unicode spaces
-and for hard-space per se?
+* Should csv skipinitialspace/skipfinalspace be overridable per-field?
+Maybe something more for Unicode spaces, esp. hard-space per se?
 
 * Add predefined dialects: RC4081, Excel, and any that Python `csv` provides.
 Also eponymous ones for each relevant *nix command?
@@ -732,7 +764,8 @@ Written by Steven J. DeRose, 2020-02-28.
 * 2020-08-07: Add classes and API to look essentially like Python `csv`,
 including `DictReader` and `DictWriter`.
 Separate options into a "Dialect" class, add `add_my_arguments`.
-Start `multidelimiter`. Add `comment`. Rewrite doc.
+Start `multidelimiter` (later renamed `delimiterrepeat`).
+Add `comment`. Rewrite doc.
 
 * 2020-09-06: Better error messages. Renamed 'types' to 'typeList'.
 Refactor test cases and error handling.
@@ -757,6 +790,9 @@ Add --convert vs. prettyprinting. Add UberType info. Reorg quote pairs and
 option defaulting. Add --showQuotes and --showDialectX. Refactor
 reader() and writer() to be like csv ones (generator classes).
 Ditch 'typelist'. Add DictWriterXSV, SAXReader.
+Rename `multidelimiter` to `delimiterrepeat`, 'cycle' to 'delimitercycle'.
+Add support for regex delimiters. Factor escape handling out of fsplit.
+Factor escaping and entity stuff into class `Escaping`.
 
 
 =Rights=
@@ -771,6 +807,187 @@ or [https://github.com/sderose].
 
 =Options=
 """
+
+
+###############################################################################
+#
+class Escaping:
+    """Manage encoding/decoding of special characters as backslash of other
+    escapes, entities, etc. Indiovidual cases are supported by Python built-ins,
+    but we need to be switchable to lots of combinations, including weird ones
+    the show up in legacy or quirky data.
+    Beware of regex and other escapes, like \\L \\U \\s \\d \\w
+    """
+    escape2char = {
+        "0":     "\x00",  # U+00 null  # WARNING: Collides with \\0777 octal
+        #"a":     "\x07",  # U+07 bell
+        #"b":     "\x08",  # U+08 backspace
+        "t":     "\x09",  # U+09 tab
+        "n":     "\x0A",  # U+0A line feed
+        "v":     "\x0B",  # U+0B vertical tab
+        "f":     "\x0C",  # U+0C form feed
+        "r":     "\x0D",  # U+0D carriage return
+        "e" :    "\x1B",  # U+1B escape
+        "\\":    "\x5C",  # U+5C backslash
+    }
+
+    char2escape = {
+        "\x00":  "\\0",  # U+00 null
+        "\x07":  "\\a",  # U+07 bell
+        #"\x08":  "\\b",  # U+08 backspace
+        "\x09":  "\\t",  # U+09 tab
+        "\x0A":  "\\n",  # U+0A line feed
+        #"\x0B":  "\\v",  # U+0B vertical tab
+        "\x0C":  "\\f",  # U+0C form feed
+        "\x0D":  "\\r",  # U+0D carriage return
+        "\x1B":  "\\e",  # U+1B escape
+        "\x5C":  "\\\\", # U+5C backslash
+    }
+    def __init__(self):
+        assert False, "Don't instantiate static class 'Escaping'."
+
+    @staticmethod
+    def decodeEscape(s:str, i:int, lastToken:str, dx:'DialectX') -> (str, int):
+        """Having found an escapechar at offset 'i', parse and return
+            * what the following sequence represents, and
+            * the length to be consumed (incl. the escapechar).
+        """
+        if (i+1 >= len(s)):
+            syntaxError(s, i, lastToken, "escape at end of line", strict=dx.strict)
+            return "", 1
+        c1 = s[i+1]
+        if (c1 == "x"):
+            if (not dx.xescapes):
+                syntaxError(s, i, lastToken, "\\x escape but option is off", strict=dx.strict)
+                return ("\\x", 2)
+            mat = re.match(r"x([\da-f]{2})|x\{([\da-f]+)\}", s[i:])
+            if (not mat):
+                syntaxError(s, i, lastToken, "Incomplete \\x escape", strict=dx.strict)
+                codePoint = None
+                escValue = dx.escapechar + "x"
+                escLength = 2
+            elif (mat.group(1)):
+                codePoint = int(mat.group(1), 16)
+                escValue = chr(codePoint)
+                escLength = 4
+            else:
+                codePoint = int(mat.group(2), 16)
+                escValue = chr(codePoint)
+                escLength = len(mat.group(2)) + 4
+            if (codePoint and codePoint > sys.maxunicode):
+                syntaxError(s, i, lastToken, "\\x outside Unicode range (%x)."
+                    % (codePoint), strict=dx.strict)
+                escValue = dx.escapechar + "x"
+                escLength = 2
+
+        elif (c1 in "Uu"):
+            if (not dx.uescapes):
+                syntaxError(s, i, lastToken, "\\%s escape but option is off" % (c1),
+                    strict=dx.strict)
+                return ("\\" + c1, 2)
+            if (c1 == "u"):
+                mat = re.match(r"u[\da-f]{4}", s[i:])
+                if (not mat):
+                    syntaxError(s, i, lastToken, "Incomplete \\u escape", strict=dx.strict)
+                    escValue = dx.escapechar + "u"
+                escValue = chr(int(s[i+1:i+5], 16))
+                escLength = 5
+            elif (c1 == "U"):
+                mat = re.match(r"U[\da-f]{8}", s[i:])
+                if (not mat):
+                    syntaxError(s, i, lastToken, "Incomplete \\U escape", strict=dx.strict)
+                    escValue = dx.escapechar + "U"
+                else:
+                    escValue = chr(int(s[i+1:i+9], 16))
+                    escLength = 9
+        else:
+            escValue, escLength = Escaping.unescapeViaMap(c1, i, strict=dx.strict)
+        return escValue, escLength
+
+    @staticmethod
+    def unescapeViaMap(c: str, i=int, strict:bool=False) -> (str, int):
+        """If it wasn't some special/long escape like \\x \\u \\U, look up the
+        escaped char and return what it means, or just itself. Also return
+        the length (currently alway 2, but needn't necessarily be).
+        See also DialectX.char2escape.  TODO: Move unescaping into DialectX?
+        """
+        if (c in Escaping.escape2char): return Escaping.escape2char[c], 2
+        if (strict):
+            syntaxError(c, i, "", "Unrecognized escape \\%s" % (c), strict=strict)
+        return c, 2
+
+    # TODO Sync with regular 'csv' package
+    @staticmethod
+    def escapeOneChar(dx:'DialectX', c:Union[str, re.Match]) -> str:
+        """Can be used on a raw character, or an re.Match object with the
+        desired character in the 1st capture. Always recodes the character
+        somehow (or fails), so only call it when needed (see getProblemChars()).
+        """
+        if (isinstance(c, re.Match)):
+            c = c.group(1)
+        assert c in dx.problemChars
+
+        if (c == dx.escapechar):
+            return c+c
+        if (c == dx.quotechar):
+            if (dx.quoting): return c  # Caller must do the quoting!
+            if (dx.doublequote): return c+c
+            elif (dx.entities): return dx.entify(c)
+            elif (dx.escapechar): return dx.escapechar + c
+            else: return dx.hexify(c)
+        if (dx.entities and c in "&<"):  # TODO: Ewww, quote for in attrs.
+            # ">" doesn't normally need quoting (see "]]>")
+            return dx.entify(c)
+
+    @staticmethod
+    def entify(c:str) -> str:
+        """Many options here -- like an order of preference among
+        named/hex/decimal XML character refs.
+        """
+        n = ord(c)
+        if (n in html.entities.codepoint2name):
+            return "&%s;" % (html.entities.codepoint2name[n])
+        if (n > 0xFF): return "&#X%04x;" % (n)
+        return "&#X%02x;" % (n)
+
+    @staticmethod
+    def hexify(c:str) -> str:
+        """Many options here -- like an order of preference among
+        \\x \\u \\U \\x{}; octal escapes; use of UTF-8; etc.
+        """
+        n = ord(c)
+        if (n <= 0xFF):
+            return "\\x%02x" % (n)
+        if (n <= 0xFFFF):
+            return "\\u%04x" % (n)
+        return "\\U%08x" % (n)
+
+    @staticmethod
+    def escapeXmlAttribute(s:str) -> str:
+        """Escape as need for quoted attributes.
+        Quietly deletes any non-XML control characters!
+        """
+        s = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f]", "", s)
+        s = re.sub(r"&",  "&amp;", s)
+        s = re.sub(r"<",  "&lt;", s)
+        s = re.sub(r'"', "&quot;", s)
+        return(s)
+
+    @staticmethod
+    def escapeXmlComment(s:str) -> str:
+        """Escape as needed for comment.
+        XML doesn't define a standard escaping for this, so I chose one.
+        """
+        s = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f]", "", s)
+        s = re.sub(r"--", "\u2014", s)
+        return(s)
+
+    @staticmethod
+    def escapeSpecial(c:str) -> str:
+        """Turn a special character into an escaped letter. The opposite of
+        the equivalences in Escaping.escape2char.
+        """
+        if (c in Escaping.char2escape): return Escaping.char2escape[c]
 
 
 ###############################################################################
@@ -795,11 +1012,14 @@ class DELIM_PATTERN(Enum):  # TODO Not yet?
         column -t -s [cycle]  -- ???
         lam
         uniq -f [n]  -- skip [n] fields, always meaning \\S+ (nonspace sep. by space)
+    Each of the types below can occur as a singleton, or as a list (in which case
+    the items are used round-robin).
     """
+    NIL           = 0  # The empty string (= split each character)
     CHAR          = 1  # The typical single-char, like TAB or comma
     STR           = 2  # A multi-char delimiter
-    CYCLE         = 3  # Single chars used cyclically (cf. *nix `paste -d`)
-    SPACES        = 4  # Space / non-space change, sort of like \b
+    SPACES        = 3  # Space / non-space change, sort of like \b
+    REGEX         = 4  # A regex to match
 
 #POINTING_CHAR = "\u261e"  # Pointing finger
 POINTING_CHAR = "\u23E9"  # Double arrow button
@@ -808,7 +1028,7 @@ class DialectX:
     """Mainly a bundle of settings.
     """
     __OptionTypes__ = {
-        "delimiter":        Union[str, List],
+        "delimiter":        Union[str, List, re.Pattern],
         "doublequote":      bool,
         "escapechar":       str,
         "lineterminator":   str,
@@ -819,13 +1039,14 @@ class DialectX:
 
         # fsplit only:
         "comment":          str,
-        "cycle":            bool,
+        "delimitercycle":  bool,
         "encoding":         str,
         "entities":         bool,
         "header":           bool,
+        "delimiterrepeat":   bool,  # Cf *nix *paste -d*
         "maxsplit":         int,
         "minsplit":         int,
-        "multidelimiter":   bool,  # Cf *nix *paste*
+        "skipfinalspace":   bool,
         "autotype":         bool,
         "uescapes":         bool,
         "xescapes":         bool,
@@ -859,18 +1080,19 @@ class DialectX:
         self.strict            = False  # bool
 
         # fsplit only:
+        self.autotype          = False  # bool
         self.comment           = None   # str
-        self.cycle             = False  # bool
+        self.delimitercycle    = False  # bool
+        self.delimiterrepeat   = False  # bool
         self.encoding          = "utf-8"# str
         self.entities          = False  # bool
         self.header            = False  # bool
         self.maxsplit          = 0      # int
         self.minsplit          = 0      # int
-        self.multidelimiter    = False  # bool
-        self.autotype          = False  # bool
+        self.quotednewline     = False  # bool
+        self.skipfinalspace    = False  # bool
         self.uescapes          = False  # bool
         self.xescapes          = False  # bool
-        self.quotednewline     = False  # bool
 
         self.problemChars = self.getProblemChars()
 
@@ -894,9 +1116,16 @@ class DialectX:
 
     def checkOptions(self, strict:bool=False) -> None:
         errs = []
-        if (not self.delimiter or not isinstance(self.delimiter, str)):
-            errs.append("Delimiter unset or wrong type.")
-            self.delimiter = ","
+
+        delimTypes = [ str, List, re.Pattern ]
+        if (isinstance(self.delimiter, str)):
+        elif (isinstance(self.delimiter, List)):
+            if (not self.delimitercycle):
+                errs.append("Delimiter is a list but delimitercycle not set.")
+        elif (isinstance(self.delimiter, re.Pattern)):
+        else:
+            errs.append("Delimiter is not a list or str or re.Pattern.")
+
         if (self.escapechar and len(self.escapechar) > 1):
             errs.append("escapechar too long ('%s')." % (self.escapechar))
         if (isinstance(self.quoting, str)):
@@ -911,7 +1140,9 @@ class DialectX:
                 (self.maxsplit or 0, self.minsplit or 0))
         #
         if (self.doublequote and self.escapechar):
-            errs.append("Cannot combine doublequote and escapechar")  # TODO ???
+            errs.append("Cannot combine doublequote and escapechar.")  # TODO ???
+        if (self.delimiterrepeat and self.delimitercycle):
+            errs.append("Cannot combine delimiterrepeat and delimitercycle.")
 
         if (errs):
             if (strict):
@@ -951,20 +1182,26 @@ class DialectX:
             help="When should fields be quoted?.")
         parser.add_argument(
             pre+"skipinitialspace", action="store_true",
-            help=".")
+            help="Remove leading space/indentation from records.")
         parser.add_argument(
             pre+"strict", action="store_true",
-            help=".")
+            help="Raise exception on syntax error.")
 
         if (csvOnly): return
 
         # Extended options
         parser.add_argument(
+            pre+"autotype", action="store_true",
+            help="Try to identify and auto-case fields to datatypes.")
+        parser.add_argument(
             pre+"comment", type=str, default=None, metavar="S",
             help="Treat records starting with this string as comments, not data.")
         parser.add_argument(
-            pre+"cycle", action="store_true",
+            pre+"delimitercycle", action="store_true",
             help="Cycle' through multiple delimiters, like `paste -d` (not yet).")
+        parser.add_argument(
+            pre+"delimiterrepeat", action="store_true",
+            help="Treat multiple adjacent delimiters (e.g. space), as just one.")
         parser.add_argument(
             pre+"entities", action="store_true",
             help="Recognize and expand HTML/XML entity references?")
@@ -978,11 +1215,11 @@ class DialectX:
             pre+"minsplit", type=int, default=None, metavar="N",
             help="Do at least this many splits, or report an error.")
         parser.add_argument(
-            pre+"multidelimiter", action="store_true",
-            help="Treat multiple adjacent delimiters (e.g. space), as just one.")
-        parser.add_argument(
             pre+"quotednewline", action="store_true",
             help="Allow newlines as data within quoted fields.")
+        parser.add_argument(
+            pre+"skipfinalspace", action="store_true",
+            help="Remove trailing space from records.")
         parser.add_argument(
             pre+"uescapes", action="store_true",
             help="Recognize \\uFFFF-style special characters.")
@@ -1040,82 +1277,23 @@ class DialectX:
         NOTE: Mapping of None, Inf, NaN, True, etc.; non-decimal numbers;
         and specific format defs in the fschema, must be done first.
         Factors:
-            delimiter, multidelimiter, cycle
-            quotechar, doublequote, quotednewline, lineterminator
-            escapechar, uescapes, xescapes, entities
-            encoding.
-        TODO: What about booleans, etc.? TODO
+            delimiter, delimitercycle, delimiterrepeat,
+            quotechar, doublequote, quotednewline, lineterminator,
+            escapechar, uescapes, xescapes, entities, encoding.
+        TODO: What about booleans, etc.?
         """
         if (v is None): v = ""
         else: s = str(v)
         if (asciiOnly):
-            buf = re.sub(r"([^!-~])", self.escapeOneChar, s, flags=re.U)
+            buf = re.sub(r"([^!-~])", Escaping.escapeOneChar, s, flags=re.U)
         else:
             buf = re.sub(
                 r"([" + self.problemChars + "])",
-                lambda m: self.escapeOneChar(m),
+                Escaping.escapeOneChar,
                 s,
                 flags=re.U
             )
         return buf
-
-    # TODO Sync with regular 'csv' package
-    def escapeOneChar(self, c:Union[str,re.Match]) -> str:
-        """Can be used on a raw character, or an re.Match object with the
-        desired character in the 1st capture. Always recodes the character
-        somehow (or fails), so only call it when needed (see getProblemChars()).
-        """
-        if (isinstance(c, re.Match)):
-            c = c.group(1)
-        assert c in self.problemChars
-
-        if (c == self.escapechar):
-            return c+c
-        if (c == self.quotechar):
-            if (self.quoting): return c  # Caller must do the quoting!
-            if (self.doublequote): return c+c
-            elif (self.entities): return self.entify(c)
-            elif (self.escapechar): return self.escapechar + c
-            else: return self.hexify(c)
-        if (self.entities and c in "&<"):  # TODO: Ewww, quote for in attrs.
-            # ">" doesn't normally need quoting (see "]]>")
-            return self.entify(c)
-
-    def entify(self, c:str):
-        """Many options here -- like an order of preference among
-        named/hex/decimal XML character refs.
-        """
-        n = ord(c)
-        if (n in html.entities.codepoint2name):
-            return "&%s;" % (html.entities.codepoint2name[n])
-        if (n > 0xFF): return "&#X%04x;" % (n)
-        return "&#X%02x;" % (n)
-
-    def hexify(self, c:str):
-        """Many options here -- like an order of preference among
-        \\x \\u \\U \\x{}; octal escapes; use of UTF-8; etc.
-        """
-        n = ord(c)
-        if (n <= 0xFF):
-            return "\\x%02x" % (n)
-        assert self.uescapes
-        if (n <= 0xFFFF):
-            return "\\u%04x" % (n)
-        return "\\U%08x" % (n)
-
-    char2escape = {
-        "\a"   : "\\a",  # bell
-        #"\b"   : "\\b",  # backspace
-        #"\e"   : "\\e",  # escape
-        "\f"   : "\\f",  # form feed
-        "\n"   : "\\n",  # line feed
-        "\r"   : "\\r",  # carriage return
-        "\t"   : "\\t",  # tab
-        #"\v"  : "\\v",  # vertical tab (U+0B)
-        "\\"   : "\\\\", # backslash
-        }
-    def escapeSpecial(self, c):
-        if (c in self.char2escape): return self.char2escape[c]
 
     def checkDialect(self):
         """Check for contradictions in the Dialect options.
@@ -1142,30 +1320,36 @@ class DialectX:
             assert 0 <= self.minsplit <= self.maxsplit
         assert self.quoting in list(QUOTING)
         assert self.problemChars == self.getProblemChars()
+        # encoding?
 
-        # encoding
+
+###############################################################################
+#
+predefinedDialects = {}
 
 __RFC4180__ = DialectX(
     "__RFC4180__",
-    delimiter            = ",",    # Field separator(s)
+    delimiter            = ",",     # Field separator(s), str or list
     doublequote          = True,    # TODO Support ""
     escapechar           = None,    # Backslashing?
     lineterminator       = "\n",    # What's the line-break?
     quotechar            = '"',     # What's the quote mark?
     quoting              = QUOTING.NONNUMERIC,  # What to quote
     skipinitialspace     = False,   # Strip leading spaces
+    skipfinalspace       = False,   # Strip trailing spaces
     strict               = False,
 
+    autotype             = False,   # Attempt automatic datatypes
     header               = False,   # Is there a header record?
     comment              = None,    # Marker for comment lines
+    delimitercycle       = False,
+    delimiterrepeat      = False,   # Ignore repeated delimiters?
     entities             = False,
     maxsplit             = None,    # Limit to this many fields
     minsplit             = None,    # Scream if < this many fields
-    multidelimiter       = False,   # Ignore repeated delimiters?
-    autotype             = False,   # Attempt automatic datatypes
-    uescapes             = False,   # Interpret \uFFFF
+    quotednewline        = False,   # Allow multiline quoted values
     xescapes             = False,   # Interpret \xFF
-    quotednewline        = False    # Allow multiline quoted values
+    uescapes             = False,   # Interpret \uFFFF
 )
 
 class ISO8601:
@@ -1187,6 +1371,7 @@ class ISO8601:
 
 ###############################################################################
 # Normalizers
+# TODO: Combine with casters?
 #
 def TFNorm(s:str) -> str:
     if (s == ""): raise ValueError
@@ -1209,8 +1394,8 @@ NamedNormalizers = {
     "NFKD":     lambda s: unicodedata.normalize("NFKD", s),
     "NFC":      lambda s: unicodedata.normalize("NFC", s),
     "NFD":      lambda s: unicodedata.normalize("NFD", s),
-    "XSP":      lambda s: re.sub(r"[ \t\r\n]+", " ", s),
-    "USP":      lambda s: re.sub(r"\s+", " ", s),
+    "XSP":      lambda s: re.sub(r"[ \t\r\n]+", " ", s.strip()),
+    "USP":      lambda s: re.sub(r"\s+", " ", s.strip()),
     "TF":       TFNorm,  # For booleans
     "ASCII":    lambda s: re.sub(r"([^ -~])", ASCIINorm, s),
 }
@@ -1308,6 +1493,7 @@ class DictReader:
         value is always required:
             name:int!
         Not all Python types can be used -- just those provided in 'KnownTypes'.
+        However, there is an experimental FieldInfo.addType().
 
         TODO: Add named normalizer(s?):
             name+UPPER:str[]
@@ -1324,7 +1510,7 @@ class DictReader:
 
         mat = re.match(self.itemExpr % (nameExpr), hfield)
         if (not mat):
-            raise ValueError("Cannot parse header item %d: <<<%s>>>" % (fnum, hfield))
+            raise ValueError("Cannot parse header item: <<<%s>>>" % (hfield))
         else:
             fname = mat.groups(1) or ""
             fnorm = mat.groups(3) or ""
@@ -1344,9 +1530,9 @@ class DictReader:
             if (ftype):
                 if (fcons):
                     ftype = ftype[0:-len(fcons)]
-                if (ftype not in FieldInfo.KnownTypes):
+                if (ftype not in dtHandler.KnownTypes):
                     if (args.strict):
-                        raise ValueError("Could not locate type named '%s'." % (ftype))
+                        raise ValueError("Could not locate type '%s'." % (ftype))
                     ftype = str
 
             if (fdflt):
@@ -1358,6 +1544,7 @@ class DictReader:
             frequired=freqd, fnormalizer=fnorm, fnum=fnum)
         return finfo
 
+
 ###############################################################################
 # Thrown when parsing a line and it ends mid-quote, iff the dialect
 # says that's ok. Caller can catch it, append next line, and call again.
@@ -1368,8 +1555,6 @@ class UnclosedQuote(Exception):
 
 ###############################################################################
 #
-predefinedDialects = {}
-
 def unclosedQuote(s:str, quotechar:str='"') -> bool:
     """This does not account for backslashing!
     """
@@ -1383,10 +1568,11 @@ def cleanField(s:str, dialect:DialectX) -> str:
 
     This does *not* do any FieldInfo-specific operations such as
     normalization, case-folding, casting, special values like Inf/Nan, or defaulting.
-    See isValueOk(), etc. for that kind of stuff...
+    See isFieldValueOfType(), etc. for that kind of stuff...
     """
     s = s.rstrip()
     if dialect.skipinitialspace: s = s.lstrip()
+    if dialect.skipfinalspace: s = s.rstrip()
 
     if (not s): return s
 
@@ -1675,35 +1861,14 @@ class DictWriterXSV(DictWriter):
         self.f.write("<Rec%s />\n" % (buf))
 
     def writecomment(self, s: str):
-        self.f.write("<!--%s-->" % (DictWriterXSV.escapeXmlComment(s)))
+        self.f.write("<!--%s-->" % (Escaping.escapeXmlComment(s)))
 
     def writetrailer(self):
         self.f.write("</Table>\n</Xsv>\n")
 
     @staticmethod
     def makeAttr(k:str, v:Any):
-        return ' %s="%s"' % (k, DictWriterXSV.escapeXmlAttribute(v))
-
-    @staticmethod
-    def escapeXmlAttribute(s:str) -> str:
-        """Escape as need for quoted attributes.
-        Quietly deletes any non-XML control characters!
-        """
-        s = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f]", "", s)
-        s = re.sub(r"&",  "&amp;", s)
-        s = re.sub(r"<",  "&lt;", s)
-        s = re.sub(r'"', "&quot;", s)
-        return(s)
-
-    @staticmethod
-    def escapeXmlComment(s:str) -> str:
-        """Escape as needed for comment.
-        XML doesn't define a standard escaping for this, so I chose one.
-        """
-        s = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f]", "", s)
-        s = re.sub(r"--", "\u2014", s)
-        return(s)
-
+        return ' %s="%s"' % (k, Escaping.escapeXmlAttribute(v))
 
 ###############################################################################
 #
@@ -1862,17 +2027,6 @@ def writer(csvfile:IO, dialect='excel', **formatParams) -> FsplitWriter:
 
 ###############################################################################
 #
-escapeMap = {
-    #"b":     "\b",  # Bell?
-    "f":     "\f",  # FF
-    "n":     "\n",  # LF
-    "r":     "\r",  # CR
-    "t":     "\t",  # TAB
-    "v":     "\v",  # VTAB
-    "\\":    "\\",  # BACKSLASH
-    "0":     "\0",  # NULL
-}
-
 UQuotePairs = {  # From my 'UnicodeSpecials'
     "SINGLE": ( 0x0027, 0x0027, "APOSTROPHE" ),
     "DOUBLE": ( 0x0022, 0x0022, "QUOTATION MARK" ),
@@ -1930,10 +2084,6 @@ def setupQuoteMap(quoteArg: str) -> Dict:
     lastQuoteArg = quoteArg
     return lastQuoteMap
 
-def unescapeViaMap(c: str) -> str:
-    if (c in escapeMap): return escapeMap[c]
-    return c
-
 def dquote(s: str) -> str:
     """Put double angle quotes around a string for display.
     """
@@ -1959,6 +2109,9 @@ def parseEntity(s: str) -> (str, int):
 
 ###############################################################################
 #
+DTDef = namedtuple("DTDef",
+    ( "targetDT", "caster", "constrainer" ))
+
 class DatatypeHandler:
     """Check and cast among some types.
     See also: CSV/countData.TrivialTypes;
@@ -1977,9 +2130,18 @@ class DatatypeHandler:
     vectorExpr = r"^\[\s*%s(\s*,\s*%s)*\]$" % (floatPart, floatPart)
     #identExpr = r"^\w+$"
 
+    @staticmethod
+    def addType(hintName:str, theType:type, caster:Callable=None):
+        """Add a type to the list of known ones, so it is recognized
+        as a type-hint in the header (or equivalent).
+        TODO: Maybe allow dropping types, too?
+        """
+        assert hintName not in dtHandler.KnownTypes
+        assert isinstance(theType, type)
+        assert isinstance(caster, Callable)
+        dtHandler.KnownTypes[hintName] = ( theType, -len(dtHandler.KnownTypes, caster) )
+
     def __init__(self,
-        boolCasterFunc: Callable=None,
-        datetimeCasterFunc: Callable=None,
         specialFloats: bool=False
         ):
         """
@@ -1993,27 +2155,241 @@ class DatatypeHandler:
         @specialfloats:
             If set, "NaN" and (optionally signed) "inf" count as floats.
         """
-        if (boolCasterFunc): self.boolCasterFunc = boolCasterFunc
-        else: self.boolCasterFunc = self.boolCaster
-
-        if (datetimeCasterFunc): self.datetimeCasterFunc = datetimeCasterFunc
-        else: self.datetimeCasterFunc = self.datetimeCaster
-
+        self.setupDefaultTypes()
         self.specialFloats = specialFloats
 
-    @staticmethod
-    def checkTypeList(typeList: List) -> None:
-        """OBSOLETE -- check whether a list of field types is legit.
-        Replaced by FieldSchema support.
+    def setupDefaultTypes(self):
+        """Define the types that can be used in header hints.
+        Besides an upper-case name, they each get a target type,
+        a function to cast a string to that type, and maybe
+        a function to test constraints (TODO: unfinished).
+        This is just for CSV fields, so no aggregates/collections/etc.
+        Largely based on Python + XSD Datatypes. However, not all of either.
+        cf Datatypes.py
         """
-        if (not isinstance(typeList, list)): return
-        for i, t in enumerate(typeList):
-            if (isinstance(t, type)): continue
-            if (dt.isADatatype(t)): continue
-            if (callable(t)): continue
-            raise ValueError(
-                "Type %d is not a Python or Datatypes type, or callable: %s"
-                % (i, repr(t)))
+        NOCON = None
+        self.KnownTypes = {
+            # hint name:  DTDef(targetDT, caster, constrainer)
+            "BOOL":       DTDef(bool, self.boolCaster, NOCON),
+
+            "INT":        DTDef(int, lambda x: int(x, 10), NOCON),
+            "XINT":       DTDef(int, lambda x: int(x, 16), NOCON),
+            "OINT":       DTDef(int, lambda x: int(x, 8), NOCON),
+            "ANYINT":     DTDef(int, int, NOCON),
+
+            "FLOAT":      DTDef(float, float, NOCON),
+            "PROB":       DTDef(float, complex, NOCON),
+
+            "COMPLEX":    DTDef(complex, complex, NOCON),
+
+            "ARRAY":      DTDef(array.array, self.parseVector, NOCON),
+            # TODO: int vs. float vs. complex? tensor? size?
+
+            "DATETIME":   DTDef(datetime.datetime,
+                datetime.datetime.fromisoformat, NOCON),
+            "DATE":       DTDef(datetime.date,
+                lambda x: datetime.datetime.strptime(x, "%Y-%m-%d"), NOCON),
+            "USDATE":     DTDef(datetime.datetime,
+                lambda x: datetime.datetime.strptime(x, "%m/%d/%Y"), NOCON),
+            "EUDATE":     DTDef(datetime.date,
+                lambda x: datetime.datetime.strptime(x, "%d/%m/%Y"), NOCON),
+            "TIME":       DTDef(datetime.time, datetime.time, NOCON),
+            "EPOCH":      DTDef(datetime.datetime, datetime.date.fromtimestamp, NOCON),
+            "TIMEDELTA":  DTDef(datetime.timedelta,
+                lambda x: self.parseISOTimeDelta, NOCON),
+            # YEAR MONTH DAY JULIAN HOUR MIN SEC OFFSET
+
+            "STR":        DTDef(str, str, NOCON),
+            "IDENT":      DTDef(str, str, NOCON),   # word-char-initial token
+            "URI":        DTDef(str, str, NOCON),
+        }
+
+    def isFieldValueOfType(self, val: Any, typeName:str) -> bool:
+        """Determine whether a given field as a string, fits the datatype.
+        Does NOT also check constraints or if required (so None or ""
+        return False. Caller must reverse if field is options.
+        Actual normalizing, typecasting, etc. happen under handleRecord().
+        """
+        if (isinstance(typeName, type)):
+            typeName = typeName.__name__
+        typeDef = self.KnownTypes[typeName]
+
+        if (val is None): return True
+
+        try:
+            castVal = typeDef.caster(val)
+        except ValueError:
+            return False
+
+        assert isinstance(castVal, typeDef.targetDT)
+        return True
+
+    def castToType(self, typeName:str, val:Any) -> Any:
+        """Take a raw string field value and cast it to the hinted type name.
+        (for that field). If it's already not a string, cast it anyway.
+        TODO: Is there a clean way to cast to a variable type?
+        """
+        if (isinstance(typeName, type)):
+            typeName = typeName.__name__
+        typeDef = self.KnownTypes[typeName]
+
+        if (val is None): return None
+
+        try:
+            castVal = typeDef.caster(val)
+        except ValueError:
+            return False
+
+        assert isinstance(castVal, typeDef.targetDT)
+        return castVal
+
+    def checkConstraint(self, typeName:str, castVal:Any, fInfo:'FieldInfo') -> bool:
+        # TODO: Finish
+        if (isinstance(typeName, type)):
+            typeName = typeName.__name__
+        typeDef = self.KnownTypes[typeName]
+
+        assert isinstance(castVal, typeDef.targetDT)
+
+        if (isinstance(castVal, int)):
+            if ((fInfo.fmin and castVal < fInfo.fmin) or
+                (fInfo.fmax and castVal > fInfo.fmax)):
+                return False
+            return True
+
+        if (isinstance(castVal, float)):
+            if ((fInfo.fmin and castVal < fInfo.fmin) or
+                (fInfo.fmax and castVal > fInfo.fmax)):
+                return False
+            return True
+
+        if (isinstance(castVal, complex)):
+            return True
+
+        if (isinstance(castVal, datetime.datetime)):
+            ttuple = datetime.date.timetuple(castVal)
+            return (ttuple[0] > 1582)
+
+        if (isinstance(castVal, array.array)):
+            # TODO: Maybe check homogeneity?
+            return True
+
+        if (isinstance(castVal, str)):
+            if (fInfo.fconstraint and not re.search(fInfo.fconstraint, castVal)):
+                return False
+            return True
+
+        # TODO: Add custom types?
+
+        return False
+
+    timedeltaExpr = r"^P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?(\d+S)?)?$"
+    #                   1      2      3      4 5      6      7
+    weekdeltaExpr = r"^P(\d+W)$"
+
+    daysPerYear = 365.2425
+    daysPerMonth = 30.0
+
+    @staticmethod
+    def parseVector(s:str) -> array.array:
+        s2 = s.lstrip(" \t\r\n\f[").rstrip(" \t\r\n\f]")
+        return array.array(re.split(r"\s*,\s*", s2))
+
+    @staticmethod
+    def stripBrackets(s:str) -> str:
+        s = DatatypeHandler.stripSpace(s)
+        if (len(s) < 2): return s
+        x = s[0] + s[-1]
+        if (x in [ "[]", "{}", "()" ]): return x[1:-2]
+        return s
+
+    # From my Charsets/UnicodeLists/whitespace.py
+    #
+    USpaces = "".join(
+        "\u0009"  # "CHARACTER TABULATION"         # Not in class Z
+        "\u000A"  # "LINE FEED"                    # Not in class Z
+        "\u000B"  # "LINE TABULATION"              # Not in class Z
+        "\u000C"  # "FORM FEED"                    # Not in class Z
+        "\u000D"  # "CARRIAGE RETURN"              # Not in class Z
+        "\u0020"  # "SPACE"
+        ### WARNING: In CP1252, 0x89 is PER MILLE SIGN (-> U+2030)
+        "\u0089"  # "CHARACTER TABULATION WITH JUSTIFICATION"  # Not in class Z
+        "\u1680"  # "OGHAM SPACE MARK"
+        "\u180E"  # "MONGOLIAN VOWEL SEPARATOR"    # Not in class Z
+        "\u2000"  # "EN QUAD"
+        "\u2001"  # "EM QUAD"
+        "\u2002"  # "EN SPACE"
+        "\u2003"  # "EM SPACE"
+        "\u2004"  # "THREE-PER-EM SPACE"
+        "\u2005"  # "FOUR-PER-EM SPACE"
+        "\u2006"  # "SIX-PER-EM SPACE"
+        "\u2007"  # "FIGURE SPACE"
+        "\u2008"  # "PUNCTUATION SPACE"
+        "\u2009"  # "THIN SPACE"
+        "\u200A"  # "HAIR SPACE"
+        "\u2028"  # "LINE SEPARATOR"
+        "\u2029"  # "PARAGRAPH SEPARATOR"
+        "\u200B"  # "ZERO WIDTH SPACE"
+        "\u202F"  # "NARROW NO-BREAK SPACE"
+        "\u205F"  # "MEDIUM MATHEMATICAL SPACE"
+        "\u2060"  # "WORD JOINER"                  # Not in class Z
+        "\u3000"  # "IDEOGRAPHIC SPACE"
+        "\u303F"  # "IDEOGRAPHIC HALF FILL SPACE"  # Not in class Z
+        "\uFeFF"  # "ZERO WIDTH NO-BREAK SPACE"    # aka BOM
+        #"\u00A0"  # "NO-BREAK SPACE"
+
+        # These aren't really "spaces", but symbols for them (class So).
+        #"\u2420"  # "SYMBOL FOR SPACE"
+        #"\u2408"  # "SYMBOL FOR BACKSPACE"
+        #"\u2409"  # "SYMBOL FOR HORIZONTAL TABULATION"
+        #"\u240a"  # "SYMBOL FOR LINE FEED"
+        #"\u240b"  # "SYMBOL FOR VERTICAL TABULATION"
+        #"\u240c"  # "SYMBOL FOR FORM FEED"
+        #"\u240d"  # "SYMBOL FOR CARRIAGE RETURN"
+        #"\u2422"  # "BLANK SYMBOL"
+        #"\u2423"  # "OPEN BOX"
+        #"\u2424"  # "SYMBOL FOR NEWLINE"
+    )
+
+    @staticmethod
+    def stripSpace(s:str, method:str="XML"):
+        """Remove whitespace from both sides of a string, at several
+        levels of eagerness.
+        """
+        # Since Python's csv package takes skipinitialspace:bool, we
+        # treat non-zero ints as equal to "XML".
+        if (isinstance(method, int)):
+            method = "XML" if method else "NONE"
+
+        if (method == "NONE"): return s
+        elif (method == "XML"): toStrip = " \t\r\n"
+        elif (method == "LATIN"): toStrip = " \t\r\n\x0B\x0C\xA0"
+        elif (method == "SOFT"): toStrip = DatatypeHandler.USpaces
+        elif (method == "ALL"): toStrip = DatatypeHandler.USpaces + "\u00A0"
+        else:
+            assert False, "Unrecognized stripSpace() method '%s'." % (method)
+
+        return s.strip(toStrip)
+
+    @staticmethod
+    def parseISOTimeDelta(s:str) -> datetime.timedelta:
+        """ISO 8601 format: P[n]Y[n]M[n]DT[n]H[n]M[n]S
+        """
+        mat = re.match(DatatypeHandler.weekdeltaExpr, s)
+        if (mat): return datetime.timedelta(weeks=int(mat.group(1)))
+
+        mat = re.match(DatatypeHandler.timedeltaExpr, s)
+        if (not mat): return None
+
+        Y = M = D = h = m = s = 0
+        if (mat.group(1)): Y = int(mat.group(1)[0:-1])
+        if (mat.group(2)): M = int(mat.group(2)[0:-1])
+        if (mat.group(3)): D = int(mat.group(3)[0:-1])
+        if (mat.group(5)): h = int(mat.group(5)[0:-1])
+        if (mat.group(6)): m = int(mat.group(6)[0:-1])
+        if (mat.group(7)): s = int(mat.group(7)[0:-1])
+        days = DatatypeHandler.daysPerYear*Y + DatatypeHandler.daysPerMonth*M + D
+        return datetime.timedelta(days=days, hours=h, minutes=m, seconds=s)
 
     @staticmethod
     def datetimeCaster(s: str) -> str:
@@ -2038,36 +2414,33 @@ class DatatypeHandler:
         values, Otherwise it should raise ValueError, in which case we
         go on to try other types.
         """
-        if (s.strip in [ "False", "True", False, True ]): return bool(s.strip())
+        if (s.strip in [ "False", "True", False, True ]):
+            return bool(DatatypeHandler.stripSpace(s))
         raise ValueError
 
     def autoType(self, tok: str) -> Any:
         """Convert a string to the most specific type we can.
 
-        Complex uses the Python "1+1j" (not "1+1i"!) form)
+        Complex uses the Python "1+1j" (not "1+1i"!) form.
         Leading and trailing whitespace are stripped for testing, but
         not for returned string values.
 
-        Other types to maybe add:
-            SVG paths:    "M 10 10 H 90 V 90 H 10 L 10 10"
-            n-D vectors:  "(1.0, -2.1)"
         """
         if (not isinstance(tok, str)):
             return tok
 
-        tok2 = tok.strip()
+        tok2 = DatatypeHandler.stripSpace(tok)
 
         if (tok2 == ""):
             return tok
-        if (self.boolCasterFunc):
-            try: return self.boolCasterFunc(tok2)
-            except ValueError: pass
+        try: return self.boolCaster(tok2)
+        except ValueError: pass
         # Prevent "float" from catching these when not wanted:
         if (not self.specialFloats and tok2 in ("NaN", "inf", "-inf", "+inf")):
             return tok
         if (tok2.isdigit()):
             return int(tok2)
-        try: return self.datetimeCasterFunc(tok2)
+        try: return self.datetimeCaster(tok2)
         except ValueError: pass
         try: return int(tok2, 0)
         except ValueError: pass
@@ -2089,19 +2462,17 @@ class DatatypeHandler:
         if (not isinstance(tok, str)):
             return type(tok), tok
 
-        tok2 = tok.strip()
+        tok2 = DatatypeHandler.stripSpace(tok)
 
         if (tok2 == ""):
             return "None", None
-        if (self.boolCasterFunc):
-            try: return "bool", self.boolCasterFunc(tok2)
-            except ValueError: pass
+        try: return "bool", self.boolCaster(tok2)
+        except ValueError: pass
         # Prevent "float" from catching these when not wanted:
         if (not self.specialFloats and tok2 in ("NaN", "inf", "-inf", "+inf")):
             return "str", tok2
-        if (self.datetimeCasterFunc):
-            try: return "datetime", self.datetimeCasterFunc(tok2)
-            except ValueError: pass
+        try: return "datetime", self.datetimeCaster(tok2)
+        except ValueError: pass
         try: return "int", int(tok2, 0)
         except ValueError: pass
         try: return "float", float(tok2)
@@ -2117,6 +2488,21 @@ class DatatypeHandler:
     def str2array(self, s:str) -> array.array:
         values = re.split(r"\s*,\s*", s.strip("[ ]"))
         return array.array, array.array('f', [ float(x) for x in values ])
+
+    @staticmethod
+    def checkTypeList(typeList: List) -> None:
+        """OBSOLETE -- check whether a list of field types is legit.
+        Replaced by FieldSchema support.
+        """
+        if (not isinstance(typeList, list)): return
+        for i, t in enumerate(typeList):
+            if (isinstance(t, type)): continue
+            if (dt.isADatatype(t)): continue
+            if (callable(t)): continue
+            raise ValueError(
+                "Type %d is not a Python or Datatypes type, or callable: %s"
+                % (i, repr(t)))
+
 
 DTH = DatatypeHandler()
 
@@ -2136,41 +2522,7 @@ class FieldInfo:
     TODO: Parsing and applying constraints and required/defaults
     TODO: Careful about type names as string, actual types, and callable checkers
     """
-    # Define the types that can be used in header hints.
-    # This is just for CSV fields, so no aggregates/collections/etc.
-    # Largely based on Python + XSD Datatypes. However, not all of either.
-    # cf Datatypes.py
-    #
-    KnownTypes = {
-        "BOOL":       (bool, 10),
-        # TODO: values?  bool[T,Nil]?
-
-        "INT":        (int, 20),
-        "XINT":       (int, 11),
-        "OINT":       (int, 12),
-        "ANYINT":     (int, 13),  # 0xFF or 0777 or 999
-
-        "FLOAT":      (float, 30),
-        "PROB":       (float, 31),
-
-        "COMPLEX":    (complex, 40),
-
-        "ARRAY":      (array.array, 50),
-        # TODO: int vs. float vs. complex? tensor? size?
-
-        "DATETIME":   (datetime.datetime, 60),
-        "DATE":       (datetime.date, 61),
-        "TIME":       (datetime.time, 62),
-        "EPOCH":      (float, 63),
-        "TIMEDELTA":  (datetime.timedelta, 70),
-        # YEAR MONTH DAY JULIAN HOUR MIN SEC OFFSET
-
-        "STR":        (str, 100),
-        "IDENT":      (str, 101),   # word-char-initial token
-        "URI":        (str, 102),
-    }
-
-    __reservedValues__ = {
+    __reservedValues__ = {  # TODO: Move into DatatypeHandler?
         "None": None,
         "NaN": float("NaN"),
         "Inf": float("Inf"),
@@ -2201,7 +2553,7 @@ class FieldInfo:
         self.fnum = fnum
         if (isinstance(ftype, type)):
             ftype = ftype.__name__
-        if (ftype in self.KnownTypes):
+        if (ftype in dtHandler.KnownTypes):
             self.ftype = ftype
         else:
             lg.error("Unrecognized type-name '%s'.", ftype)
@@ -2225,7 +2577,7 @@ class FieldInfo:
     def handleConstraintString(self, ftype:type, fconstraint:str) -> bool:
         """Check whether the constraint field (in [] in the header) is
         appropriate for the given type. This is *not* a check for actual
-        values (see isValueOk() for that).
+        values (see isFieldValueOfType() for that).
         TODO: Test a bunch, esp. escaped regexes for strings.
         """
         if (not fconstraint):
@@ -2263,96 +2615,6 @@ class FieldInfo:
         else:
             raise ValueError("Invalid declared type '%s'." % (ftype))
         return
-
-    def isValueOk(self, val: Any) -> bool:
-        """Determine whether a given field as a string, fits the datatype and
-        constraints (if any); or if not required, is empty.
-        Actual normalizing, typecasting, etc. happen under handleRecord().
-        """
-        if (val is None):
-            if (self.frequired): return False
-
-        if (self.ftype == "xint"): val = int(val, 16)
-        elif (self.ftype == "oint"): val = int(val, 8)
-        elif (self.ftype == "int"): val = int(val, 10)
-        elif (self.ftype == "anyint"): val = int(val)
-        elif (self.ftype == "float"): val = float(val)
-        elif (self.ftype == "complex"): val = complex(val)
-
-        if (0 and not isinstance(val, self.ftype)):  # TODO Finish
-            try:
-                val = self.castToType(val)
-            except ValueError:
-                return False
-        return True
-
-    def castToType(self, field:Any):
-        """Take a raw string field value and case it to the declared type
-        for that field. If it's already not a string, cast it anyway.
-        TODO: Is there a clean way to cast to a variable type?
-        """
-        tgtType = self.ftype
-        if (isinstance(tgtType, type)): tgtType = tgtType.__name__
-
-        if (tgtType == "bool"):
-            val = bool(field)
-            return val
-
-        if (tgtType.endswith("int")):
-            if (self.ftype == "xint"): val = int(val, 16)
-            elif (self.ftype == "oint"): val = int(val, 8)
-            elif (self.ftype == "int"): val = int(val, 10)
-            elif (self.ftype == "anyint"): val = int(val)
-            else: raise KeyError("Unknown int type '%s'." % (self.ftype))
-            val = int(field)
-            if ((self.fmin and val < self.fmin) or
-                (self.fmax and val > self.fmax)):
-                raise ValueError("int constraint [%d%d] violated."
-                    % (self.fmin, self.fmax))
-            return val
-        if (tgtType == "float"):
-            val = float(field)
-            if ((self.fmin and val < self.fmin) or
-                (self.fmax and val > self.fmax)):
-                raise ValueError("float constraint [%d%d] violated."
-                    % (self.fmin, self.fmax))
-            return val
-        if (tgtType == "complex"):
-            val = complex(field)
-            #if (): raise ValueError
-            return val
-
-        if (tgtType == "datetime"):
-            val = datetime.datetime.fromisoformat(field)
-            #if (): raise ValueError
-            return val
-        if (tgtType == "date"):
-            val = datetime.datetime.fromisoformat(field)
-            #if (): raise ValueError
-            return val
-        if (tgtType == "time"):
-            val = datetime.datetime.fromisoformat(field)
-            #if (): raise ValueError
-            return val
-        if (tgtType == "timedelta"):
-            val = datetime.timedelta(field)  # TODO: format?
-            #if (): raise ValueError
-            return val
-        if (tgtType == "epoch"):
-            val = datetime.datetime.fromtimestamp(float(field))
-            #if (): raise ValueError
-            return val
-
-        if (tgtType == "array"):
-            val = dtHandler.str2array(field)
-            #if (): raise ValueError
-            return val
-
-        if (tgtType == "str"):
-            val = str
-            # TODO: Add ^$? re.I?
-            if (self.fconstraint and not re.search(self.fconstraint, val)):
-                raise ValueError("str constraint /%s/ violated." % (self.fconstraint))
 
 
 ###############################################################################
@@ -2466,7 +2728,7 @@ class FieldSchema():
             if (finfo.normalizer):
                 fields[i] = finfo.normalizer(fields[i])
             if (finfo.ftype != str):
-                fields[i] = fields[i].strip()
+                fields[i] = DatatypeHandler.stripSpace(fields[i])
             if (fields[i] == ""):
                 if (finfo.frequired):
                     raise ValueError("Missing required field %s." % (finfo.fname))
@@ -2546,109 +2808,89 @@ def fsplit(
     """Fancier string splitter / csv parser. Lots of options, Unicode aware.
     Optionally handles datatyping, casting, and defaulting, too. TODO: Or to callers?
     """
-    theDialectX = dialect if dialect else DialectX("default")
-    theDialectX.applykwOptions(kwargs)
-    theDialectX.checkOptions()
-
-    dx = theDialectX
-
-    nDelims = len(dx.delimiter)
-    if (nDelims==1 and dx.delimiter[0] == ""):
-        return s.split()
-    thisDelim = dx.delimiter[0]
-    dlen = thisDelim
-
-    currentQuoteMap = setupQuoteMap(dx.quotechar)
-    if (dx.skipinitialspace): s = s.lstrip()
+    dx = dialect if dialect else DialectX("default")
+    dx.applykwOptions(kwargs)
+    dx.checkOptions()
 
     s = s.strip("\uFEFF")  # Lose the dang BOM.
+    # TODO: Upgrade to DatatypeHandler.stripSpace(s)
+    if (dx.skipinitialspace): s = s.lstrip()
+    if (dx.skipfinalspace): s = s.rstrip()
 
-    tokens = [ "" ]
-    toIgnore= 0
+    thisDelim = currentDelim(dx, fieldNum=1)
+    if (not thisDelim): return s.split(sep="")
+
+    currentQuoteMap = setupQuoteMap(dx.quotechar)
     pendingQuote = None
-    escaped = False
+    #breakpoint()
+    sLen = len(s)
     i = 0
-    for i, c in enumerate(s):
+    tokens = [ "" ]
+    while (i < sLen):
+        c = s[i]
         info2("At char %dx: '%s' U+%04x", i, c, ord(c))
-        if (toIgnore):
-            toIgnore -= 1
 
-        elif (pendingQuote):    # TODO: Test 'escaped' first? Can we escape outside quotes?
+        if (c == dx.escapechar):
+            info2("    Got escape char.")
+            escResult, escLength = Escaping.decodeEscape(s, i, tokens[-1], dx=dx)
+            tokens[-1] += escResult
+            i += escLength - 1
+
+        elif (pendingQuote):
             if (c == pendingQuote):
                 info2("    Got close quote '%s'.", c)
-                if (dx.doublequote and len(s)>i+1 and s[i+1]==pendingQuote):
+                if (dx.doublequote and len(s) > i+1 and s[i+1] == pendingQuote):
                     info2("    BUT quote is doubled.")
                     tokens[-1] += pendingQuote
-                    toIgnore = 1
+                    i += 1
                 else:
                     pendingQuote = None
             else:
                 tokens[-1] += c
 
-        elif (escaped):
-            escaped = False
-            if (dx.xescapes and c == "x"):
-                mat = re.match(r"x([\da-f]{2})|x\{([\da-f]+)\}", s[i:])
-                if (not mat):
-                    syntaxError(s, i, tokens, "Incomplete \\x escape")
-                theHexString = mat.group(1) if mat.group(1) else mat.group(2)
-                n = int(theHexString)
-                if (n > sys.maxunicode):
-                    syntaxError(s, i, tokens,
-                        "\\x escape outside Unicode range (%x)." % (n))
-                tokens[-1] += chr(n, 16)
-                toIgnore = len(theHexString)
-
-            elif (dx.uescapes and c in "Uu"):
-                if (c == "u"):
-                    mat = re.match(r"u[\da-f]{4}", s[i:])
-                    if (not mat):
-                        syntaxError(s, i, tokens, "Incomplete \\u escape")
-                    tokens[-1] += chr(int(s[i+1:i+5], 16))
-                    toIgnore = 4
-                if (c == "U"):
-                    mat = re.match(r"U[\da-f]{8}", s[i:])
-                    if (not mat):
-                        syntaxError(s, i, tokens, "Incomplete \\U escape")
-                    tokens[-1] += chr(int(s[i+1:i+9], 16))
-                    toIgnore = 8
-            else:
-                tokens[-1] += unescapeViaMap(c)
-
-        elif (c == dx.escapechar):
-            info2("    Got escape char.")
-            escaped = True
-
-        elif (dx.entities and c == "&"):
+        elif (dx.entities and c == "&"):  # TODO Should this work outside quotes?
             info2("    Got entity start.")
             entExpansion, charsUsed = parseEntity(s[i:])
             if (entExpansion is not None):
                 tokens[-1] += entExpansion
-                toIgnore = charsUsed - 1
+                i += charsUsed - 1
             else:
-                syntaxError(s, i, tokens, "Ill-formed character reference")
+                syntaxError(s, i, tokens[-1], "Ill-formed character reference", strict=dx.strict)
 
         elif (c in currentQuoteMap):
             info2("    Got open quote '%s'", c)
             if (tokens[-1] != ""):
-                syntaxError(s, i, tokens, "quote not at start of field")
+                syntaxError(s, i, tokens[-1], "quote not at start of field", strict=dx.strict)
             pendingQuote = currentQuoteMap[c]
 
-        elif (c == thisDelim[0] and s[i:].startswith(thisDelim)):
-            info2("Got the delimiter string")
-            if (dx.multidelimiter):
-                nDelims = 0
-                while (s[i+nDelims*dlen].startswith(thisDelim)): nDelims += 1
-                toIgnore = (nDelims * dlen) - 1
+        # Delimiters are odd: single-char; multi-char; any-of; cycling; repeatable; \s+
+        elif (isinstance(thisDelim, re.Pattern) and re.match(thisDelim, s[i:])):
+            info2("Matched delimiter regex /%s/ at offset %d." % (thisDelim, i))
+            mat = re.match(thisDelim, s[i:])
+            i += len(mat.group(0)) - 1
+            tokens.append("")
+            thisDelim = currentDelim(dx, fieldNum=len(tokens))
+
+        elif (not isinstance(thisDelim, re.Pattern) and
+              c == thisDelim[0] and s[i:].startswith(thisDelim)):
+            info2("Got str delimiter '%s' at offset %d." % (thisDelim, i))
+            i += len(thisDelim)
+            if (dx.delimiterrepeat):
+                while (s[i:].startswith(thisDelim)):  # TODO: Factor this out, it's lame.
+                    i += len(thisDelim)
+            i -= 1  # Will increment at top of loop
             if (dx.maxsplit and len(tokens) > dx.maxsplit):
-                syntaxError(s, i, tokens,
-                    "maxsplit (%d) exceeded." % (dx.maxsplit))
+                syntaxError(s, i, tokens[-1],
+                    "maxsplit (%d) exceeded." % (dx.maxsplit), strict=dx.strict)
                 tokens.append(s[i+len(thisDelim):])
                 break
             tokens.append("")
+            thisDelim = currentDelim(dx, fieldNum=len(tokens))
 
         else:
             tokens[-1] += c
+
+        i += 1  # No continues, please.
 
     # At end of record
     #
@@ -2659,13 +2901,15 @@ def fsplit(
         if (dx.quotednewline):
             raise UnclosedQuote("Logical record is: " + s)
         else:
-            syntaxError(s, i, tokens,
-                "Unresolved quote (expected '%s')" % (pendingQuote))
-    if (escaped or pendingQuote):
-        syntaxError(s, i, tokens, "Unresolved escapechar or quote")
+            syntaxError(s, i, tokens[-1],
+                "Unresolved quote (expected '%s')" % (pendingQuote), strict=dx.strict)
+        syntaxError(s, i, tokens[-1], "Unclosed quote", strict=dx.strict)
+
     if (len(tokens) < dx.minsplit+1):
-        syntaxError(s, i, tokens,
-            "min %dx tokens needed, but found %dx" % (dx.minsplit, len(tokens)))
+        syntaxError(
+            s, i, tokens[i-1] if 1<=i<=len(tokens) else "",
+            "min %d fields needed, but found %d" % (dx.minsplit, len(tokens)),
+            strict=dx.strict)
 
     # Apply normalizers, defaults, typecasting, constraint checks, etc.
     if (schema):
@@ -2677,26 +2921,39 @@ def fsplit(
 
     return tokens
 
-def syntaxError(s, i, tokens, msg:str):
-    msg = getContextMsg(s, i, tokens, msg)
-    if (args.strict): raise ValueError(msg)
-    else: lg.error(msg)
+def currentDelim(dx:DialectX, fieldNum:int) -> str:
+    """Return the delimiter string currently expected. This can be weird, given
+    the variety of ways delimiters work in CSVs, Python, shell commands, etc.
+    Note: Fieldnums count from 1 in common parlance!
+    If 'cycle' was set, but the delimiters were set as a string, they should
+    long since have been split into a real list.
+    TODO: Move into DialectX?
+    """
+    if (isinstance(dx.delimiter, list)):
+        return dx.delimiter[(fieldNum-1) % len(dx.delimiter)]
+    else:
+        return dx.delimiter
 
-contextFmt = (
-    "At char '%s' (offset %d): %s (preceding token #%d '%s') at %s in:\n    >>%s<<")
-fmt2 =  "\n    Full record:\n    >>%s<<"
+def syntaxError(s:str, i:int, lastToken:str, msg:str, strict:bool=True) -> None:
+    """Called on finding a syntax error while parsing a record. If 'strict'
+    is set, throw an Exception; otherwise just issues an error message.
+    """
+    msg = getContextMsg(s, i, lastToken, msg)
+    if (strict): raise ValueError(msg)
+    else: lg.error(msg)
 
 def getContextMsg(
     s:str,
     offset:int=-1,
-    tokens:List=None,
-    msg:str="???") -> str:
+    lastToken:str="",
+    msg:str="???"
+    ) -> str:
 
-    msg = contextFmt % (
-        s[offset], offset, msg, len(tokens)-1, tokens[-1],
-        POINTING_CHAR, context(s, offset))
-    if (not args.quiet):
-        msg += fmt2 % (s)
+    theChar = s[offset] if 0<=offset<len(s) else ""
+    msg = "At char '%s' (offset %d, last token '%s'): %s, at %s in:\n    >>%s<<" % (
+        theChar, offset, lastToken, msg, POINTING_CHAR, context(s, offset))
+    if (args.verbose):
+        msg += "\n    Full record:\n    >>%s<<" % (s)
     return msg
 
 def context(txt: str, i: int, sideSize=16) -> str:
@@ -2882,8 +3139,9 @@ if __name__ == "__main__":
         return theFields
 
     def testMinus(s:str, msg:str, **kwargs) -> List:
-        """Run a test that we expect to fail. Forces 'strict' option
-        so we actually get an Exception.
+        """Run a test that we expect to fail.
+        Caller should set strict=True so syntaxError() will actually throw
+        an Exception for us to catch, not just give a message.
         """
         print("\nTest string: %s" % (dquote(s)))
         buf = ""
@@ -2892,7 +3150,7 @@ if __name__ == "__main__":
         theFields = []
         try:
             if (kwargs):
-                theFields = fsplit(s, strict=True, **kwargs)
+                theFields = fsplit(s, **kwargs)
             else:
                 theFields = fsplit(s)
             cprint("******* Ooops, error was not raised (%s) *******\n    ==> %s\n"
@@ -2934,8 +3192,16 @@ if __name__ == "__main__":
             print((fmt1 + "%s") % (fName, fValue))
 
     def smokeTest():
-        """Try out various options.
+        """Try out various option combinations on sample records.
         """
+        testBasics()
+        testEscaping()
+        testDelims()
+        testQuoting()
+        testDatatyping()
+        testErrors()
+
+    def testBasics():
         s0 = ""
         testPlus(s0)
         s0 = "no split happens"
@@ -2954,6 +3220,7 @@ if __name__ == "__main__":
         s0 = "wee fish\tewe\ta mare\\\tegrets\tmoose"
         testPlus(s0, expect=4, delimiter="\t", escapechar="\\")
 
+    def testEscaping():
         phead("Escaping:")
         s0 = "aard\\u0076ark|beagle|cat|d\\x7Cg|&#101;&#x7C;r&dquo;&#X0000007C;"
         print("vbar (U+7C), without special escaping options")
@@ -2969,13 +3236,24 @@ if __name__ == "__main__":
 
         # TODO: Add Escape and quoting together
 
+    def testDelims():
         # Wonky delimiters
         phead("Multi-char delim:")
         s0 = "lorem##ipsum##dolor##sit##amet##consectetur"
         testPlus(s0, expect=6, delimiter="##")
         s0 = "lorem<>ipsum<>dolor<>sit<>amet<>consectetur"
         testPlus(s0, expect=6, delimiter="<>")
+        s0 = "lorem<>ipsum<>dolor<>sit<>amet<>conse\\<>ctetur"
+        testPlus(s0, expect=6, delimiter="<>", escapechar="\\")
+        s0 = "lorem#ipsum###dolor#@#sit@amet##@@##consectetur"
+        testPlus(s0, expect=6, delimiter=re.compile(r"[#@]+"))
+        s0 = "lorem#ipsum#######dolor##sit#amet##consectetur"
+        testPlus(s0, expect=6, delimiter="#", delimiterrepeat=True)
 
+        s0 = "lorem#ipsum@dolor%sit#amet@consectetur"
+        testPlus(s0, expect=6, delimiter=[ "#", "@", "%" ], delimitercycle=True)
+
+    def testQuoting():
         phead("Quoting:")
         s0 = 'wee fish$ewe$"a mare"$egrets$"moo$e"'
         testPlus(s0, expect=5, delimiter="$", quotechar='"')
@@ -3009,10 +3287,11 @@ if __name__ == "__main__":
         for i0, tok0 in enumerate(toks):
             print("    %2d: /%s/" % (i0, dquote(tok0)))
 
+    def testDatatyping():
         phead("minsplit, maxsplit:")
         s0 = "lorem#ipsum#dolor#sit#amet"
-        testMinus(s0, "Too few splits", delimiter="#", minsplit=99)
-        testMinus(s0, "Too many splits", delimiter="#", maxsplit=3)
+        testMinus(s0, "Too few splits", delimiter="#", minsplit=99, strict=True)
+        testMinus(s0, "Too many splits", delimiter="#", maxsplit=3, strict=True)
 
         phead("autotype feature:")
         # TODO: Should the IEEE special floats be caught here?
@@ -3029,6 +3308,7 @@ if __name__ == "__main__":
 
         phead("type checking:")
 
+    def testErrors():
         phead("Errors")
         errTests = [
             ( "hello \\",               "Backslash at end" ),
@@ -3039,20 +3319,22 @@ if __name__ == "__main__":
             ( "hello \\u",              "Incomplete \\u" ),
             ( "hello \\uA",             "Incomplete \\u" ),
             ( "hello \\uAAA",           "Incomplete \\u" ),
-            ( "hello &",                "Incomplete enitity ref" ),
-            ( "hello &lt does this work?", "Incomplete enitity ref" ),
-            ( "hello &gt.",             "Incomplete enitity ref" ),
-            ( "hello &amp",             "Incomplete enitity ref" ),
-            ( "hello &wo:rld;",         "Qname enitity ref" ),
+            ( "hello &",                "Incomplete entity ref" ),
+            ( "hello &lt does this work?", "Incomplete entity ref" ),
+            ( "hello &gt.",             "Incomplete entity ref" ),
+            ( "hello &amp",             "Incomplete entity ref" ),
+            ( "hello &wo:rld;",         "Qname entity ref" ),
             ( "hello &#world;",         "Bad decimal char ref" ),
             ( "hello &#08FF;",          "Bad decimal char ref" ),
             ( "hello &#x00GG;",         "Bad hex char ref" ),
+            ( "hello,\"you",            "Unclosed quote" ),
             # unclosed quotes, swapped polarity, not at start of field,....
         ]
         #breakpoint()
         for s0, msg0 in errTests:
-            testMinus(s0, msg0, delimiter=",",
-                xescapes=True, uescapes=True, entities=True)
+            testMinus(s0, msg0, delimiter=",", escapechar="\\",
+                quotechar='"', doublequote=False, quotednewline=False,
+                xescapes=True, uescapes=True, entities=True, strict=True)
         return
 
     def processOptions():
