@@ -10,19 +10,20 @@ import argparse
 import random
 import time
 import math
+from typing import Any, List
 
 import ColorManager
 from alogging import ALogger
 
 __metadata__ = {
     'title'        : "sjdUtils",
-    "description"  : "generally useful small routines.",
+    "description"  : "Generally useful small routines.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2011-12-09",
-    'modified'     : "2020-08-20",
+    'modified'     : "2024-01-18",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -197,6 +198,11 @@ If ''curly'' is True, use curly quotes (U+201c and U+201d) instead of straight.
 Other quote types are not currently supported, and curly ones are not
 escaped by ''escape''.
 
+* '''qjoin(items:List, sep:str=" ", curly:bool=False, escape:str='\\')'''
+
+Apply '''quote()''' to each item in '''items''', and then join() them using
+the separator string in '''sep'''. Unless '''quoteall''' is set, only
+quote ones that seem to need it (say, that contain space, quotes, controls, or escapes.
 
 ==Unicode stuff==
 
@@ -539,6 +545,7 @@ Write unit tests and fix several bugs. Add HNumber 'base' arg.
 * 2020-01-22: Move doc, POD->MarkDown, lint, metadata.
 * 2020-08-27: unbackslash() for both Python 2 and 3.
 * 2020-09-03: Add shrinkuser().
+* 2024-01-18: Add qjoin(), clean up quote(), more type hints.
 
 
 =Rights=
@@ -645,7 +652,7 @@ lfCodes = {
 # See http://stackoverflow.com/questions/517923
 #
 import unicodedata
-def strip_accents(s):
+def strip_accents(s:str) -> str:
     return ''.join(c for c in unicodedata.normalize('NFD', s)
                   if unicodedata.category(c) != 'Mn')
 
@@ -658,16 +665,16 @@ def strip_accents(s):
 ###############################################################################
 # Functions used on RHS of regex changes
 #
-def UEscapeFunction(mat):
+def UEscapeFunction(mat) -> str:
     return("\\u%04x;" % (ord(mat.group(1))))
 def controlSymbolsFunction(mat):
     return(chr(0x2400 + ord(mat.group(1))))
-def escHexFn(m):
+def escHexFn(m) -> str:
     utf = m.group(1).encode('utf-8')
     buf = ""
     for byt in utf: buf += "_%02x" % (ord(byt))
     return(buf)
-def unescFn(m):
+def unescFn(m) -> str:
     return(chr(hex(m.group(1))))
 
 
@@ -772,7 +779,7 @@ class sjdUtils:
         """
         return(self.lg)
 
-    def setColors(self, enabled):
+    def setColors(self, enabled:bool) -> None:
         """Set up or take down the ColorManager package.
         Monkey-patch keys methods so they're easily available from here.
         """
@@ -800,11 +807,11 @@ class sjdUtils:
     def getColorManager(self):
         return(self.colorManager)
 
-    def colorize(self, argColor='red', s="", endAs="off"):
+    def colorize(self, argColor:str='red', s:str="", endAs:str="off") -> str:
         if (not self.colorManager): return s
         return self.colorManager.colorize(argColor, s, endAs)
 
-    def uncolorize(self, s):
+    def uncolorize(self, s:str) -> str:
         if (not self.colorManager): return s
         return self.colorManager.uncolorize(s)
 
@@ -812,9 +819,9 @@ class sjdUtils:
     ###########################################################################
     # Options
     #
-    def setUtilsOption(self, name, value=1):
+    def setUtilsOption(self, name:str, value=1):
         return(self.setOption(name, value))
-    def setOption(self, name, value=1):
+    def setOption(self, name:str, value=1):
         """Set option `name`, from the list below, to `value`.
 
         * Option: `colorEnabled`
@@ -838,11 +845,11 @@ class sjdUtils:
             self.letterFreqsTotal = 0
             for tup in (self.options["letterFreqs"]):
                 self.letterFreqsTotal += tup[1]
-        return(1)
+        return
 
-    def getUtilsOption(self, name):
+    def getUtilsOption(self, name:str):
         return(self.getOption(name))
-    def getOption(self, name):
+    def getOption(self, name:str):
         """Return the current value of an option (see setOption()).
         """
         return(self.options[name])
@@ -850,13 +857,13 @@ class sjdUtils:
     def getVersion(self):
         return(self.version)
 
-    def setVerbose(self, v):
+    def setVerbose(self, v:int):
         """Tell the logger to set the level of message to be reported.
         """
         if (self.lg): self.lg.setVerbose(v)
         return(self.setUtilsOption("verbose", v))
 
-    def getVerbose(self):
+    def getVerbose(self) -> int:
         """Return the logger's level of message currently set to be reported.
         """
         return(self.getUtilsOption("verbose"))
@@ -866,8 +873,8 @@ class sjdUtils:
     # XML stuff
     #
     def indentXML(
-        self, s, iString="  ", maxIndent=0,
-        breakAttrs=0, elems=None, html=False):
+        self, s:str, iString:str="  ", maxIndent=0,
+        breakAttrs=0, elems=None, html=False) -> str:
         """Breaks before start-tags and end-tags, etc.
         Puts in spurious breaks if "<" occurs within PI, comment, CDATA MS.
         If you want it really right, use my DomExtensions::collectAllXml().
@@ -890,8 +897,8 @@ class sjdUtils:
     ]
 
     def indentXml(
-        self, s, iString="  ", maxIndent=0,
-        breakAttrs=0, elems=None, html=False):
+        self, s:str, iString:str="  ", maxIndent=0,
+        breakAttrs=0, elems=None, html=False) -> str:
         """Insert newlines and indentation in an XML string. Does not use
         an actual parser, but is quick and pretty reliable.
         @param iString: String to repeat to make indentation
@@ -947,7 +954,7 @@ class sjdUtils:
     # indentXML
 
 
-    def colorizeXmlTags(self, s, color=""):
+    def colorizeXmlTags(self, s:str, color:str="") -> str:
         """Surround XML markup with ANSI terminal escapes to display it
         in the specified color (default: the color for the "x" message type).
         """
@@ -957,7 +964,7 @@ class sjdUtils:
         return(s)
 
 
-    def colorizeXmlContent(self, s, color=""):
+    def colorizeXmlContent(self, s:str, color:str="") -> str:
         """Surround XML content (not markup) with ANSI terminal codes to display
         it in the specified color (default: the color for the "x" message type).
         """
@@ -973,7 +980,7 @@ class sjdUtils:
 
     ###########################################################################
     #
-    def getJsonIndent(self, level, maxIndent, iString=None):
+    def getJsonIndent(self, level, maxIndent, iString:str=None) -> str:
         """Internal. Return a newline plus indentation for indentJson>().
         """
         if (iString is None): iString = self.options["iString"]
@@ -981,7 +988,7 @@ class sjdUtils:
         if (maxIndent and level>maxIndent): effLevel = maxIndent
         return("\n" + (iString * effLevel))
 
-    def indentJson(self, s, iString="    ", maxIndent=0):
+    def indentJson(self, s:str, iString:str="    ", maxIndent=0) -> str:
         buf = ""
         level = 0
         inQuote = False
@@ -1026,21 +1033,21 @@ class sjdUtils:
     ###########################################################################
     # Format strings and numbers for nicer printing.
     #
-    def rpad(self, s, width=0, padChar=" ", quoteChar=""):
+    def rpad(self, s:str, width=0, padChar:str=" ", quoteChar:str="") -> str:
         """Like ljust(), but can also quote before padding.
         """
         if (not isinstance(s, str)): s = str(s)
         if (quoteChar): s = quoteChar[0] + str(s) + quoteChar[-1]
         return(s.ljust(width, padChar))
 
-    def lpad(self, s, width=0, padChar="0", quoteChar=""):
+    def lpad(self, s:str, width=0, padChar:str="0", quoteChar:str="") -> str:
         """Like rjust(), but can also quote before padding.
         """
         if (not isinstance(s, str)): s = str(s)
         if (quoteChar): s = quoteChar[0] + s + quoteChar[-1]
         return(s.rjust(width, padChar))
 
-    def lpadc(self, s, width=0, padChar="0", quoteChar="", sepChar=","):
+    def lpadc(self, s:str, width=0, padChar:str="0", quoteChar:str="", sepChar:str=",") -> str:
         """Like lpad(), but inserting `sepChar` every three digits.
         (Python 3 has that feature in `format`).
         Can also quote before padding.
@@ -1065,7 +1072,7 @@ class sjdUtils:
             needed -= 1
         return(buf)
 
-    def align(self, mylist, delim=',', stripTrail=True, maxLen=None, padChar=' '):
+    def align(self, mylist, delim:str=',', stripTrail=True, maxLen=None, padChar:str=' ') -> str:
         """Pad sub-items (of the members of 'mylist'), to line them up.
         @todo: ignore delim if in quotes, or backslashed?
         @todo: Avoid quoting in all-numeric columns.
@@ -1104,7 +1111,7 @@ class sjdUtils:
             paddedList.append(buf)
         return paddedList
 
-    def toHNumber(self, n, base=1000):
+    def toHNumber(self, n, base=1000) -> str:
         """Convert a number to human-readable form, like several *nix commands.
         For example, "123456789" would become "123M".
         """
@@ -1119,7 +1126,7 @@ class sjdUtils:
                 break
         return(rc)
 
-    def fromHNumber(self, n, base=1000):
+    def fromHNumber(self, n:str, base=1000):
         """Undo toHNumber() notation. For example, "123M" would become
         "123000000". Round-trip conversions lose precision.
         """
@@ -1132,7 +1139,7 @@ class sjdUtils:
                 return(float(n[0:-1]) * self.multipliers[i][col])
         return(rc)
 
-    def unquote(self, s, fancy=False):
+    def unquote(self, s:str, fancy=False) -> str:
         """Remove single or double quotes from around a string, if present.
         A quote all by itself, remains.
         Deals with most but not all Unicode quotes.
@@ -1144,25 +1151,38 @@ class sjdUtils:
                 return(s[1:-1])
         return(s)
 
-    def quote(self, s, curly=False, escape='\\'):
-        """Return the argument with a double-quote character added on each end.
-        If 'curly' is True, use curly double quotes.
-        If 'escape' is set, put it before any internal (straight) quotes.
+    def quote(self, s:str, escape:str='\\',
+        openQuote:str='"', closeQuote:str='"') -> str:
+        """Return the argument with a quote character added on each end.
+        If 'escape' is set, put it before any internal closeQuote, space, etc..
         """
-        if (curly):
-            if (escape):
-                re.sub(r'('+chr(0x201c)+chr(0x201d)+r')', escape+'\\1', s)
-            s = chr(0x201c) + s + chr(0x201d)
-        else:
-            if (escape):
-                s = re.sub(r'"', escape+'"', s)
-            s = '"' + s + '"'
-        return(s)
+        assert closeQuote not in "[] "+escape
+        if (escape):
+            s = re.sub(escape, escape+escape, s)
+            s = re.sub(r"[\s%s]" % (closeQuote), escape+closeQuote, s)
+        return openQuote + s + closeQuote
+
+    def qjoin(self, theItems:List, sep:str=" ", escape:str='\\',
+        openQuote:str='"', closeQuote:str='"', quoteall:bool=False) -> str:
+        """Quote each element of 'items' (or if 'quoteall' is not set, just
+        those that need it). This may require also doing some escaping.
+        Then join() them all, separated by 'sep'.
+        """
+        qtriggerExpr = r"[\s"+openQuote+closeQuote+escape+sep+r"]"
+        buf = ""
+        for theItem in theItems:
+            if (quoteall or re.search(qtriggerExpr, theItem)):
+                theItem = re.sub(escape, escape+escape, theItem)
+                theItem = re.sub(closeQuote, escape+closeQuote, theItem)
+            if (buf): buf += sep
+            buf += openQuote + theItem + closeQuote
+        return buf
+        
 
     ###########################################################################
     # Return 1 iff the argument is interpretable as a number.
     #
-    def isNumeric(self, n):
+    def isNumeric(self, n:Any):
         """Return True if n castable to float().
         """
         try:
@@ -1171,7 +1191,7 @@ class sjdUtils:
         except (TypeError, ValueError):
             return(False)
 
-    def isInteger(self, n):
+    def isInteger(self, n:Any):
         """Return True if n castable to int and float,
         and the resulting values are equal.
         """
@@ -1184,14 +1204,14 @@ class sjdUtils:
     ###########################################################################
     # Escape reserved characters for various contexts.
     #
-    def isUnicodeCodePoint(self, c):
+    def isUnicodeCodePoint(self, c:str):
         try:
             n = int(c)
             return(n>=0 and n<=0x10FFFF)
         except (TypeError, ValueError):
             return(False)
 
-    def getUTF8(self, c):
+    def getUTF8(self, c:Any):
         u = ""
         if (not isinstance(c, str)):
             c = str(c)
@@ -1201,7 +1221,7 @@ class sjdUtils:
             print("getUTF8: UnicodeDecodeError in '%s': %s" % (c, e))
         return(u)
 
-    def makePrintable(self, c, mode="DFT", spaceAs=None, lfAs=None):
+    def makePrintable(self, c, mode:str="DFT", spaceAs=None, lfAs=None) -> str:
         spaceChar = " "
         if (spaceAs and spaceAs in spaceCodes):
             spaceChar = spaceCodes[spaceAs]
@@ -1225,7 +1245,7 @@ class sjdUtils:
             print("makePrintable mode '%s' unsupported." % (mode))
         return buf
 
-    def showControls(self, s, space=chr(0x2422), lf=chr(0x240A)):
+    def showControls(self, s:str, space:str=chr(0x2422), lf:str=chr(0x240A)) -> str:
         """Convert control characters into Unicode "control pictures".
         Space lets you choose U+2422 = bSlash, U+2423 = underbar, U+2420 = SP.
         LF lets you choose U+240a = LF, U+2424 = NL.
@@ -1237,13 +1257,13 @@ class sjdUtils:
         s = re.sub(r'([[:cntrl:]])', controlSymbolsFunction, s)  # See top
         return(s)
 
-    def vis(self, s):
+    def vis(self, s:str) -> str:
         """Show non-ASCII characters as 4-digit hexadecimal escapes.
         """
         if (s is None): return("")
         return(self.showInvisibles(s))
 
-    def showInvisibles(self, s):
+    def showInvisibles(self, s:str) -> str:
         """Return s with non-ASCII and control characters replaced by
         hexadecimal escapes such as `\\uFFFF`.
         """
@@ -1251,14 +1271,14 @@ class sjdUtils:
         s = re.sub(r'([^[:ascii:]]|[[:cntrl:]])', UEscapeFunction, s)
         return(s)
 
-    def escapeRegex(self, s):
+    def escapeRegex(self, s:str) -> str:
         """Put backslashes in front of potential regex meta-characters in s.
         """
         if (s is None): return("")
         s = re.sub(r'([().?*+\[\]{}^\\\\])', "\\\\\\1", s)
         return(s)
 
-    def escapeXmlContent(self, s):
+    def escapeXmlContent(self, s:str) -> str:
         """Turn ampersands, less-than signs, and greater-than signs that are
         preceded by two close square brackets, into XML entity references.
         Also delete any non-XML C0 control characters.
@@ -1272,17 +1292,17 @@ class sjdUtils:
         s = re.sub(r']]>', "]]&gt;", s)
         return(s)
 
-    def escapeXml(self, s):
+    def escapeXml(self, s:str) -> str:
         """Synonym for escapeXmlContent().
         """
         return(self.escapeXmlContent(s))
 
-    def escapeXmlText(self, s):
+    def escapeXmlText(self, s:str) -> str:
         """Synonym for escapeXmlContent().
         """
         return(self.escapeXmlContent(s))
 
-    def escapeXmlAttribute(self, s, apostrophes=False):
+    def escapeXmlAttribute(self, s:str, apostrophes=False) -> str:
         """Turn ampersands, less-than signs, and double-quotes
         into XML entity references. If `apos` is true, then leave
         double-quotes unchanged, but turn single-quotes into `&apos;` instead.
@@ -1299,7 +1319,7 @@ class sjdUtils:
             s = re.sub(r'"', "&quot;", s)
         return(s)
 
-    def escapeXmlPi(self, s, target="?&gt;"):
+    def escapeXmlPi(self, s:str, target:str="?&gt;") -> str:
         """Turn "?>" into "?&gt;" within a string.
         One way to escape data to go inside XML Processing Instructions.
         Note: XML allows but does not recognize "&gt;" inside PIs.
@@ -1309,7 +1329,7 @@ class sjdUtils:
         s = re.sub(r'\?>', target, s)
         return(s)
 
-    def escapeXmlComment(self, s, target="\u2014"):
+    def escapeXmlComment(self, s:str, target:str="\u2014") -> str:
         """Turns "--" into em dash (U+2014) within s. "--" is not allowed
         inside XML comments. This is not a method defined by XML.
         """
@@ -1318,7 +1338,7 @@ class sjdUtils:
         s = re.sub(r'--', target, s)
         return(s)
 
-    def normalizeXmlSpace(self, s):
+    def normalizeXmlSpace(self, s:str) -> str:
         """Reduce runs of space, tab, linefeed, and cr to a single space, and
         strip the same characters off start and end of a string.
         """
@@ -1328,7 +1348,7 @@ class sjdUtils:
         s = re.sub(r' $', '', s)
         return(s)
 
-    def expandXml(self, s):  # aka unescape or expandEntities
+    def expandXml(self, s:str) -> str:  # aka unescape or expandEntities
         """Turn HTML4 entites and numeric character references into literals.
         """
         if (s is None): return("")
@@ -1341,13 +1361,13 @@ class sjdUtils:
 
     # Handle c-like \\ codes, include octal, hex, Unicode.
     #
-    def charFromHexFunction(self, mat):
+    def charFromHexFunction(self, mat) -> str:
         return(chr(int(mat.group(1), 16)))
 
-    def charFromOctalFunction(self, mat):
+    def charFromOctalFunction(self, mat) -> str:
         return(chr(int(mat.group(1), 8)))
 
-    def charToURIFunction(self, mat):
+    def charToURIFunction(self, mat) -> str:
         c = mat.group(1)
         if (ord(c) >= 127):
             theBytes = c.encode('utf-8')
@@ -1358,7 +1378,7 @@ class sjdUtils:
             buf = "%{0:02x}".format(ord(c))
         return(buf)
 
-    def charToXXFunction(self, c):
+    def charToXXFunction(self, c:str) -> str:
         o = ord(c)
         if (o > 255):
             return("\\u{0:04x}".format(ord(c)))
@@ -1367,7 +1387,7 @@ class sjdUtils:
 
     # Handle \\ codes.
     #
-    def backslash(self, s):
+    def backslash(self, s:str) -> str:
         """Insert backslash before space, non-ASCII, and backslash characters.
         """
         s = re.sub(r"\t",  r"\\t", s)
@@ -1388,24 +1408,24 @@ class sjdUtils:
     # Handle URI escaping.
     #
     # Doesn't escape non-ASCII correctly (should expand to UTF-8 first)
-    def escapeURI(self, s):
+    def escapeURI(self, s:str) -> str:
         """Map non-URI characters in the string to %FF-style codes.
         """
         s = re.sub(r'([^-!\$\'()*+.0-9:;=?\@A-Z_a-z])',
                    self.charToURIFunction, s)
         return(s)
 
-    def unescapeURI(self, s, escapeChar='%'):
+    def unescapeURI(self, s:str, escapeChar:str='%') -> str:
         if (s):
             s = re.sub(escapeChar+r'([0-9a-f][0-9a-f])',
                        self.charFromHexFunction, s, flags=re.I)
         return(s)
 
-    def escapeQuotes(self, s):
+    def escapeQuotes(self, s:str) -> str:
         return re.sub(r'["\\]', sjdUtils.qEscaper, s)
 
     @staticmethod
-    def qEscaper(mat):
+    def qEscaper(mat) -> str:
         if (mat.group(0) == '"'): return "\\\""
         elif (mat.group(0) == '\\'): return "\\\\"
         return mat.group(0)
@@ -1414,7 +1434,7 @@ class sjdUtils:
     ###########################################################################
     # Human-readable times and dates.
     #
-    def isoDateTime(self, s=None):
+    def isoDateTime(self, s:str=None) -> str:
         if (s is None): s = time.time()
         ltime = time.localtime(s)
         #(sec,min,hour,mday,mon,year,wday,yday,isdst)
@@ -1422,11 +1442,11 @@ class sjdUtils:
                 ltime.tm_year, ltime.tm_mon+1, ltime.tm_mday,
                 ltime.tm_hour, ltime.tm_min, ltime.tm_sec))
 
-    def isoDate(self, s=None):
+    def isoDate(self, s:str=None) -> str:
         if (s is None): s = time.time()
         return(self.isoDateTime(s)[0:10])
 
-    def isoTime(self, s=None):
+    def isoTime(self, s:str=None) -> str:
         if (s is None): s = time.time()
         return(self.isoDateTime(s)[11:])
 
@@ -1443,7 +1463,7 @@ class sjdUtils:
         return("{0:02d}:{1:02d}:{2:02d}".format(h, m, s))
 
     # Should vary it if it needs to be repeated.
-    def lorem(self, length=79, loremType="a", mode='frequency', xtab=None):
+    def lorem(self, length=79, loremType:str="a", mode:str="frequency", xtab=None) -> str:
         """Return a given length of sample text, either by replicating
         the 'loremText' option value (which defaults to the usual), or
         by generating it randomly. In either case, you can also have it
@@ -1468,7 +1488,7 @@ class sjdUtils:
         if (xtab): buf = buf.translate(xtab)
         return(buf)
 
-    def getRandomXtab(self, fromChars='aeiouAEIOU', uMin=0x00A1, uMax=0x2FF):
+    def getRandomXtab(self, fromChars:str="aeiouAEIOU", uMin=0x00A1, uMax=0x2FF):
         """Translate the fromChars passed, to random Unicode code points
         from the given range.
         """
@@ -1480,7 +1500,7 @@ class sjdUtils:
         xtab = str.maketrans(fromChars, toChars)
         return xtab
 
-    def randomChar(self, rgen=random.Random(), mode='frequency'):
+    def randomChar(self, rgen=random.Random(), mode:str="frequency") -> str:
         if (mode=='frequency'): # derive from GNG instead
             rgen = random.Random()
             r = rgen.randint(1, self.letterFreqsTotal)
@@ -1496,9 +1516,8 @@ class sjdUtils:
     ###########################################################################
     # Miscellaneous
     #
-    def try_module(self, moduleName, quiet=False):
-        if (sys.version_info[0] == 2): import imp as importlib
-        else: import importlib
+    def try_module(self, moduleName:str, quiet=False):
+        import importlib
         try:
             importlib.find_module(moduleName)
         except ImportError:
@@ -1507,7 +1526,7 @@ class sjdUtils:
             return(False)
         return(True)
 
-    def findHighestSuffixedName(self, baseDir, filename, ext):
+    def findHighestSuffixedName(self, baseDir:str, filename:str, ext:str) -> int:
         """Return the highest integer found as a suffix to the given
         filename (there could be earlier gaps).
         """
@@ -1520,7 +1539,7 @@ class sjdUtils:
             if (n > maxN): maxN = n
         return maxN
 
-    def splitPath(self, path):
+    def splitPath(self, path:str):
         """Mainly for sjdUtils.pm compatibility. Python has os.path.
         """
         mat = re.match(r'^(.*/)?([^/]*?)(\.(\w*))?$', path)
@@ -1530,7 +1549,7 @@ class sjdUtils:
         ext0 = mat.group(4)
         return ( dir0, fil0, ext0 )
 
-    def shrinkuser(self, path):
+    def shrinkuser(self, path:str) -> str:
         """More or less the opposite of os.path.expanduser().
         TODO: normcase()? realpath()? relpath to an arg?
         """
@@ -1550,7 +1569,7 @@ class sjdUtils:
     def localize(self):
         self.lg.error("sjdUtils: localize() not yet supported.")
 
-    def toUTF8(self, s, srcEncoding=None):
+    def toUTF8(self, s:str, srcEncoding=None):
         if (isinstance(s, str)):
             s.encode('utf-8')
         elif (srcEncoding):
@@ -1558,11 +1577,11 @@ class sjdUtils:
         return(s)
 
     @staticmethod
-    def splitPlus(st, delim=" ", esc="\\", unbackslash=False, empties=True):
+    def splitPlus(st:str, delim:str=" ", esc:str="\\", unbackslash=False, empties=True):
         """Basically the same as string split(), but supports backslashing
         the delimiter, and discarding empty tokens.
         Does NOT decode backslash/escape codes by default.
-        TODO: Add support for multi-char delimiters.
+        TODO: Add support for multi-char delimiters?
         """
         assert (len(delim) == 1)
         assert (len(esc) <= 1)
