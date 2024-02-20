@@ -12,8 +12,6 @@ import gzip
 import tarfile
 #import magic
 
-from sjdUtils import sjdUtils
-
 __metadata__ = {
     'title'        : "ReadAny",
     'description'  : "Read plain/zip/gzip files, directories, etc.",
@@ -310,8 +308,6 @@ class ReadAny:
         self.links          = links
         self.halt           = halt
         self.verbose        = verbose
-        self.su             = sjdUtils()
-        self.su.setVerbose(verbose)
 
         self.openItems      = []
         self.halted         = 0

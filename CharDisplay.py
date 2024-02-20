@@ -1991,7 +1991,7 @@ def getCodePoint(cspec) -> int:
     if (uspec in C1Mnemonics):
         return C1Mnemonics.index(uspec) + 0x80
     try:                                                   # UNAME
-        uspec2 = re.sub(r"_", " ", uspec)                  # UNORM
+        uspec2 = uspec.replace("_", " ")                   # UNORM
         n = unicodedata.lookup(uspec2)
         return n
     except KeyError:

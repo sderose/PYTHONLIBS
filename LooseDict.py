@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# LooseDict.py: Enhance dict to handle case-ignorant or similar lookups.
+# LooseDict.py: Enhance dict to handle case-ignoring, abbreviations,.....
 # 2018-09-04: Written by Steven J. DeRose.
 #
 import sys
@@ -10,18 +10,18 @@ import re
 from typing import Any, List, Callable
 
 __metadata__ = {
-    'title'        : "LooseDict",
-    'description'  : "Enhance dict to handle case-ignorant or similar lookups.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2018-09-04",
-    'modified'     : "2023-03-01",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "LooseDict",
+    "description"  : "Enhance dict to handle case-ignoring, abbreviations,....",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2018-09-04",
+    "modified"     : "2023-03-01",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['modified']
+__version__ = __metadata__["modified"]
 
 descr = """
 =Description=
@@ -31,29 +31,35 @@ but indexes them under a normalized form (for example, folded to lowercase).
 For example:
 
     myDict = LooseDict(normFunc=lower)
-    myDict['fooBar'] = 12
-    print(myDict['FOOBAR'])
+    myDict["fooBar"] = 12
+    print(myDict["FOOBAR"])
 
 prints "12". `lower` was specified here, so keys are normalized by
-passing them to `lower`(). This is also the default.
+passing them to `lower`(). This is also the default. Several other common
+normalizations are provided by LooseDict:
 
-Other key-folding / normalization functions can be substituted.
-Functions are included to do the eponymous
-Unicode normalizations, and to do that plus forcing to lower case (the "i" variants):
-LooseDict.nfkd(), LooseDict.nfkdi(), LooseDict.nfc(), LooseDict.nfci()).
+    * xmlSpace(s) -- per XML
+    * unormalize(s, form:str, ignoreCase:bool) --- Unicode normalization forms
+"NFKD", "NFD", "NFKC", "NFC", with or without case-folding (to lower) as well.
+    * nfkd(s) nfc(s), nfkdi(s), nfci(s) --  the like-named normalizations,
+with the "i" suffix adding case-folding
 Re. Unicode normalization see [https://www.unicode.org/faq/normalization.html].
 
-An additional feature is provide via findAbbrev(), which checks if a value is
+There are a few extra methods, mainly to deal with the distinction of the
+stored key vs. the normalized one used for searching.
+For example, you can get the normalized form of a key. This would print "foobar":
+
+    print(myDict.getNormKey("FooBaR"))
+
+===Abbreviation finding===
+
+LooseDict also provides `findAbbrev(s)`, which checks if the string s is
 a unique abbreviation of some key (after normalization). If so, it returns
-the actual key; if it abbreviate no actual keys, or is ambiguous, findAbbrev()
+the actual key; if it abbreviates no actual keys, or is ambiguous, findAbbrev()
 returns None. This is a typical behavior for interpreting command-line options.
 
-There are a few extra methods.
-For example, you can get the normalized form of a key:
-
-    print(myDict.getNormKey('FooBaR'))
-
-would print 'foobar'.
+For convenience, there is also `findByAbbrev(s)`, which does the same but
+returns the value instead of the normalized key (or None if ambiguous or not found).
 
 ==Managing real vs. normalized keys==
 
@@ -61,27 +67,29 @@ LooseDict is a subclass of dict, and the "real" dict (owned by the parent class)
 holds the non-normalized / raw / real keys. A second dict, _normKeys,
 keeps the normalized keys, and points to their real-key equivalents.
 For any non-normalized key, you can find what (possibly different)
-key was last used to store data under the same '''normalized''' key. For example,
-assuming the normalization function used is `lower()`:
+key was last used to store data under the same '''normalized''' key. For example
+(again assuming the normalization function used is `lower`):
 
-    myDict['fooBar'] = 2
-    myDict['FoobaR'] = 4
-    print(myDict.getRealKey('fOOBAr'))
+    myDict["fooBar"] = 2
+    myDict["FoobaR"] = 4
+    print(myDict.getRealKey("fOOBAr"))
 
-would print 'FoobaR', since all these arguments normalized to the same
-normKey ('foobar'). At this point, the key 'fooBar' (not normalized) is not
-in the dict; only 'FoobaR'.
+would print "FoobaR", since all these arguments normalized to the same
+normKey ("foobar"), and so the second assignment replaces the first (otherwise
+you"d have two real keys corresponding to the same normalized key).
+At this point, the key "fooBar" (not normalized) is not in the dict; only "FoobaR"
+(though you can retrieve the same entry via either form -- that's the point).
 
 Note that entries must still be unique with respect to their ''normalized''
 form. If you do:
 
     myDict = LooseDict()
-    myDict['fooBar'] = 12
-    myDict['foobar'] = 10
-    myDict['FOOBAR'] = 8
+    myDict["fooBar"] = 12
+    myDict["foobar"] = 10
+    myDict["FOOBAR"] = 8
 
-then the dict will have just one entry, whose normkey is 'foobar' and
-realKey is 'FOOBAR' (because it was the last one explicitly set), and value is 8.
+then the dict will have just one entry, whose normkey is "foobar" and
+realKey is "FOOBAR" (because it was the last one explicitly set), and value is 8.
 
     for k, y in myDict.items()
         or
@@ -90,10 +98,13 @@ realKey is 'FOOBAR' (because it was the last one explicitly set), and value is 8
 will get you the real (not normalized) keys. You can of course normalize
 individually using `getNormKey()`. ''iteritems''() is a Python 2 thing; the
 underlying ''__iteritems__''() is implemented directly in this class,
-however, so is available even in Python 3.
+however, so is available even in both Python 2 and 3.
 
-`__cmp__` uses the regular `dict` method, so compares on the basis of real
-(not normalized) keys. This should perhaps change, at least to allow a choice.
+`__eq__` (and therefore "==") compares ''normalized'' keys, so if two dictionaries
+use different real keys for the same thing, they can still be equal (assuming,
+of course, that the corresponding values also match up).
+Calling __eq__ on the parent class (dict) used the real
+(not normalized) keys.
 
 Other dict operations are all intended to work normally. For example:
 
@@ -106,8 +117,8 @@ real key normalizes to that same normalized value.
 
 * 'keys' and 'iteritems' should also work fine.
 Both return the ''real'' keys,
-not the normalized form (of course, you can convert using 'getNormKey').
-`iteritems`() also can be passed `sortNorm=True` to get
+not the normalized form (of course, you can convert using `getNormKey()`)).
+`iteritems()` also can be passed `sortNorm=True` to get
 pairs in order of normalized keys (or reversed order if you also pass
 `reverse=True`).
 
@@ -118,17 +129,20 @@ pairs in order of normalized keys (or reversed order if you also pass
 =Known bugs and Limitations=
 
 Changing the key-normalizing function on an existing instance is not supported.
+However, you can copy the dictionary into a new one with the different function.
+In that case, be sure there are no real keys present for which the new
+normalization function produces the same normalized value.
 
 The normalizer function must be idempotent. That is, after being applied once,
-additional applications should make no further changes;
-normalizing an already-normalized key should not denormalize it.
-Common normalizations such as case-folding and white-space removal are idempotent.
+additional applications should make no further changes.
+Normalizing an already-normalized key should not denormalize it.
+Common normalizations such as case-folding, white-space removal, and
+(I think) all the Unicode normalizations, are idempotent.
 
 
 =To do=
 
-* Integrate findAbbrev for `strfchr.py`, `bibtex2html.py`, etc.
-* Implement __cmp__.
+* Integrate findAbbrev() to other commands (`strfchr.py`, `bibtex2html.py`, etc.)
 * Considering switching to storing by the normalized keys, with an index to map those
 to what real key was last used. That's a little simpler, but I tend to think callers
 want the real keys still around, and keeping them in the "real" dict seems clearest.
@@ -142,6 +156,7 @@ In the meantime, callers could build that into a custom normalization function.
 2018-09-04: Written. Copyright by Steven J. DeRose.
 2021-07-18: Cleanup.
 2023-03-01: Add findAbbrev(), improve names and typehints.
+2024-02-18: Add __eq__(), findByAbbrev().
 
 
 =Rights=
@@ -165,10 +180,10 @@ class LooseDict(dict):
     """A dict also indexable by *normalized* keys (but it keeps the exact keys,
     too). See also "Emulating container types":
     https://docs.python.org/2/reference/datamodel.html#emulating-container-types
-    
-    The keys passed in are called the 'real' keys, and items are stored in 
+
+    The keys passed in are called the 'real' keys, and items are stored in
     the actual dict, under the real keys used to set them.
-    
+
     However, each real key is also normalized by 'normFunc'.
     The normalized keys are added to a map in 'normKeys', which maps them
     to the real key from which they were normalized. So a lookup involves using
@@ -209,6 +224,22 @@ class LooseDict(dict):
         realKey = self._normKeys[normKey]
         del self[realKey]
 
+    def __eq__(self, dict_, valueNormer:Callable=None):
+        """Compare *normalized* keys, not real keys (use superclass to compare
+        based on real keys).
+        Since it seems likely to be handy sometimes, valueNormer can be
+        specified as a function to normalize values during the comparison
+        as well. It need not be the same as the key normalizer.
+        """
+        if (len(self) != len(dict_)): return False
+        for k, v in self.items():
+            if (k not in dict_): return False
+            if (valueNormer):
+                if (valueNormer(dict_[k]) != valueNormer(v)): return False
+            else:
+                if (dict_[k] != v): return False
+        return True
+
     def getRealKey(self, someKey:Any):
         """Returns the real key which was (last) used to set a given dict entry.
         There are typically many real keys that normalize to the same norm key.
@@ -220,30 +251,14 @@ class LooseDict(dict):
         return self._normKeys[normKey]
 
     def getNormKey(self, someKey:Any) -> Any:
-        """Just applies the normalization function to the key passed and returns
-        the result.
+        """Just applies the normalization function to the key passed and
+        returns the result.
         """
         return self.normFunc(someKey)
 
     def __has_key__(self, someKey:Any) -> bool:
         normKey = self.getNormKey(someKey)
         return normKey in self._normKeys
-
-    def findAbbrev(self, key:Any) -> Any:
-        """Finds all the matches in the dict, that the given key abbreviates.
-        If there's exactly one, return it; otherwise return None (fail).
-        This is the typical behavior for matching command-line option names.
-        
-        TODO: Add a way to get all the existing keys that a given key abbreviates,
-        even if ambiguous.
-        """
-        if (self.normFunc): normKey = self.normFunc(key)
-        else: normKey = key
-        matches = []
-        for k in self._normKeys:
-            if (k.startswith(normKey)): matches.append(k)
-        if (len(matches) == 1): return matches[0]
-        return None
 
     def clear(self):
         self._normKeys.clear()
@@ -256,7 +271,7 @@ class LooseDict(dict):
         return newld
 
     def __iteritems__(self, sortNorm:bool=False, reverse:bool=False):
-        """Make Python 2 users happy....
+        """Returns all the (realkey, value) pairs, possibly sorted.
         """
         if (sortNorm):
             skeys = self.keys()
@@ -274,8 +289,38 @@ class LooseDict(dict):
         normKey = self.getNormKey(key)
         return super(LooseDict, self).__contains__(normKey)
 
-    #def __cmp__(self, dict_):
-    #    return self.__cmp__(self.__dict__, dict_)
+    ### Support for finding by unique abbreviations.
+    #
+    def findByAbbrev(self, key:Any) -> Any:
+        """Like findAbbrev() but returns the value (or None).
+        """
+        theKey = self.findAbbrev(key)
+        if (not theKey): return None
+        return self[theKey]
+
+    def findAbbrev(self, key:Any) -> Any:
+        """Finds all the matches in the dict, that the given key abbreviates.
+        If there's exactly one, return it; otherwise return None (fail).
+        This is the typical behavior for matching command-line option names.
+
+        TODO: Add a way to get all the existing keys that a given key abbreviates,
+        even if ambiguous.
+        """
+        if (self.normFunc): normKey = self.normFunc(key)
+        else: normKey = key
+        matches = []
+        for k in self._normKeys:
+            if (k.startswith(normKey)): matches.append(k)
+        if (len(matches) == 1): return matches[0]
+        return None
+
+    ### Provide several predictable normalizer functions
+    #
+    @staticmethod
+    def xmlSpace(s:str) -> str:
+        """Basic whitespace normalization as defined by XML.
+        """
+        return re.sub(r"[ \t\n\r]+", " ", s.strip(" \t\n\r"))
 
     @staticmethod
     def nfkd(s:str) -> str:
@@ -295,6 +340,8 @@ class LooseDict(dict):
 
     @staticmethod
     def unormalize(s:str, form:str="NFC", ignoreCase:bool=True) -> str:
+        """Provide easy access to the Unicode normalizations.
+        """
         if (form == "NFKD"): s2 = unicodedata.normalize('NFKD', s)
         elif (form == "NFD"): s2 = unicodedata.normalize('NFD', s)
         elif (form == "NFKC"): s2 = unicodedata.normalize('NFKC', s)

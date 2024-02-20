@@ -727,6 +727,7 @@ Integrate PowerStat for output formatting.
 a single target (limit to one input dir?).
 * way to colorize files by variuos criteria (say, by using the `file` command
 to differentiate Perl vs. Python)
+* Change --count to be like grep --count.
 
 ==Filter / file selection options==
 
@@ -1962,7 +1963,7 @@ class PowerWalk:
                     curAct = tok
                 else:
                     for pcode in tok:
-                        whoExpanded = re.sub(r"a", "ugo", who)
+                        whoExpanded = who.replace("a", "ugo")
                         for w in whoExpanded:
                             actions.append(
                                 (curAct, PowerWalk.maskValues[w+pcode]))

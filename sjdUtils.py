@@ -11,6 +11,7 @@ import random
 import time
 import math
 from typing import Any, List
+import unicodedata
 
 import ColorManager
 from alogging import ALogger
@@ -23,7 +24,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2011-12-09",
-    'modified'     : "2024-01-18",
+    'modified'     : "2024-02-20",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -651,7 +652,6 @@ lfCodes = {
 
 # See http://stackoverflow.com/questions/517923
 #
-import unicodedata
 def strip_accents(s:str) -> str:
     return ''.join(c for c in unicodedata.normalize('NFD', s)
                   if unicodedata.category(c) != 'Mn')
@@ -911,7 +911,7 @@ class sjdUtils:
         if (html):
             for e in sjdUtils.htmlInlineElements:
                 if (e not in elems): elems[e] = 'inline'
-        s = re.sub(r'\n', '', s)
+        s = s.replace('\n', '', )
         s = re.sub(r'(<[^/])', "\n\\1", s)
         lines = re.split(r'\n', s)
         #print(lines)
@@ -1177,7 +1177,6 @@ class sjdUtils:
             if (buf): buf += sep
             buf += openQuote + theItem + closeQuote
         return buf
-        
 
     ###########################################################################
     # Return 1 iff the argument is interpretable as a number.
@@ -1251,8 +1250,8 @@ class sjdUtils:
         LF lets you choose U+240a = LF, U+2424 = NL.
         """
         if (s is None): return("")
-        s = re.sub(r' ', space, s)
-        s = re.sub(r'\n', lf, s)
+        s = s.replace(' ', space)
+        s = s.replace('\n', lf)
         # What does this do with C1 controls??
         s = re.sub(r'([[:cntrl:]])', controlSymbolsFunction, s)  # See top
         return(s)
@@ -1287,9 +1286,9 @@ class sjdUtils:
         if (s is None): return("")
         if (not isinstance(s, str)): s = str(s)
         s = s = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f]', "", s)
-        s = re.sub(r'&',   "&amp;",  s)
-        s = re.sub(r'<',   "&lt;",   s)
-        s = re.sub(r']]>', "]]&gt;", s)
+        s = s.replace('&',   "&amp;")
+        s = s.replace('<',   "&lt;")
+        s = s.replace(']]>', "]]&gt;")
         return(s)
 
     def escapeXml(self, s:str) -> str:
@@ -1311,12 +1310,12 @@ class sjdUtils:
         """
         if (s is None): return("")
         s = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f]', "", s)
-        s = re.sub(r'&',  "&amp;", s)
-        s = re.sub(r'<',  "&lt;", s)
+        s = s.replace('&',  "&amp;")
+        s = s.replace('<',  "&lt;")
         if (apostrophes):
-            s = re.sub(r"'", "&apos;", s)
+            s = s.replace("'", "&apos;")
         else:
-            s = re.sub(r'"', "&quot;", s)
+            s = s.replace('"', "&quot;")
         return(s)
 
     def escapeXmlPi(self, s:str, target:str="?&gt;") -> str:
@@ -1326,7 +1325,7 @@ class sjdUtils:
         """
         if (s is None): return("")
         s = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f]', "", s)
-        s = re.sub(r'\?>', target, s)
+        s = s.replace('?>', target)
         return(s)
 
     def escapeXmlComment(self, s:str, target:str="\u2014") -> str:
@@ -1335,7 +1334,7 @@ class sjdUtils:
         """
         if (s is None): return("")
         s = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f]', "", s)
-        s = re.sub(r'--', target, s)
+        s = s.replace('--', target)
         return(s)
 
     def normalizeXmlSpace(self, s:str) -> str:
@@ -1344,8 +1343,7 @@ class sjdUtils:
         """
         if (s is None): return("")
         s = re.sub(r'\s+', ' ', s)
-        s = re.sub(r'^ ', '', s)
-        s = re.sub(r' $', '', s)
+        s = s.strip(" ")
         return(s)
 
     def expandXml(self, s:str) -> str:  # aka unescape or expandEntities
@@ -1390,11 +1388,11 @@ class sjdUtils:
     def backslash(self, s:str) -> str:
         """Insert backslash before space, non-ASCII, and backslash characters.
         """
-        s = re.sub(r"\t",  r"\\t", s)
-        s = re.sub(r"\r",  r"\\r", s)
-        s = re.sub(r"\n",  r"\\n", s)
-        s = re.sub(r"\f",  r"\\f", s)
-        s = re.sub(r"\\",  r"\\\\", s)
+        s = s.replace("\t",  r"\\t")
+        s = s.replace("\r",  r"\\r")
+        s = s.replace("\n",  r"\\n")
+        s = s.replace("\f",  r"\\f")
+        s = s.replace("\\",  r"\\\\")
         s = re.sub(r"([^[:ascii:]])", self.charToXXFunction, s)
         return(s)
 

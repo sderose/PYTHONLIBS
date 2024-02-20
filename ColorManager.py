@@ -200,12 +200,8 @@ My `hilite` uses that Perl version, and lets you specify any number of regexes
 with colors to highlight their matches in.
 
 There is some similar functionality for zsh and bash in my `ShellSetup/setupColors`,
-and very basic shell functions such as `echoc` and `makeColorEscape` 
+and very basic shell functions such as `echoc` and `makeColorEscape`
 in `ShellSteup/-setupTracing`.
-
-My [https://github.com/sderose/PYTHONLIBS/blob/master/sjdUtils.py] forwards 
-several `ColorManager.py` methods so when color is enabled you can just
-call them as if they were methods of `sjdUtils.py` itself.
 
 My [https://github.com/sderose/Color.git/blob/master/uncolorize] is a wrapper
 for some `ColorManager.py` functionality.
@@ -307,11 +303,11 @@ class ColorManager:
         tokens = name.lower().split("/")
         if (len(tokens) > 3): return (None, None, None)
         fg = bg = ef = None
-        for token in tokens:            
+        for token in tokens:
             # Assign to right item of (fg, bg, ef)
             if (token in self.effectNumbers or
                 (token.startswith("!") and token[1:] in self.effectNumbers)):
-                if (ef is not None): 
+                if (ef is not None):
                     warning("Too many effects: '%s' and '%s'." % (ef, token))
                     return (None, None, None)
                 ef = token
@@ -332,7 +328,7 @@ class ColorManager:
                 warning("Unrecognized color or effect name: '%s'." % (token))
                 return (None, None, None)
         return (fg, bg, ef)
-                    
+
     def setupColors(self, effects: Union[bool, list] = None):
         """Work out all known color, effect, and combination names, and
         put them in a hash that maps them to their escape sequences.
@@ -360,7 +356,7 @@ class ColorManager:
 
         try:
             self.colorStrings["default"] = eb + "m"  # TODO: Check
-            
+
             for c in ColorManager.offNumbers:
                 cn = ColorManager.offNumbers[c]
                 self.colorStrings[c] = eb + str(0 +cn) + "m"

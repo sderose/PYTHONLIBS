@@ -936,10 +936,10 @@ class XMLStrings:
         This always uses the predefined XML named special character references.
         """
         s = XMLStrings.nukeNonXmlChars(s)
-        s = re.sub(r'&', "&amp;",   s)
-        s = re.sub(r'<', "&lt;",    s)
-        if (quoteChar == '"'): s = re.sub(r'"', "&quot;",  s)
-        else: s = re.sub(r"'", "&apos;",  s)
+        s = s.replace('&', "&amp;")
+        s = s.replace('<', "&lt;")
+        if (quoteChar == '"'): s = s.replace('"', "&quot;",)
+        else: s = s.replace("'", "&apos;")
         return s
     escapeXmlAttribute = escapeAttribute
 
@@ -949,10 +949,10 @@ class XMLStrings:
         This always uses the predefined XML named special character references.
         """
         s = XMLStrings.nukeNonXmlChars(s)
-        s = re.sub(r'&',   "&amp;",  s)
-        s = re.sub(r'<',   "&lt;",   s)
-        if (escapeAllGT): s = re.sub(r'>', "&gt;", s)
-        else: s = re.sub(r']]>', "]]&gt;", s)
+        s = s.replace('&',   "&amp;")
+        s = s.replace('<',   "&lt;")
+        if (escapeAllGT): s = s.replace('>', "&gt;")
+        else: s = s.replace(']]>', "]]&gt;")
         return s
 
     escapeXmlText = escapeText
@@ -962,7 +962,7 @@ class XMLStrings:
         """XML Defines no particular escaping for this, we use char-ref syntax.
         """
         s = XMLStrings.nukeNonXmlChars(s)
-        s = re.sub(r']]>', replaceWith, s)
+        s = s.replace(']]>', replaceWith)
         return s
 
     @staticmethod
@@ -970,7 +970,7 @@ class XMLStrings:
         """XML Defines no particular escaping for this, we use char-ref syntax.
         """
         s = XMLStrings.nukeNonXmlChars(s)
-        s = re.sub(r'--', replaceWith, s)
+        s = s.replace('--', replaceWith)
         return s
 
     @staticmethod
@@ -978,7 +978,7 @@ class XMLStrings:
         """XML Defines no particular escaping for this, we use char-ref syntax.
         """
         s = XMLStrings.nukeNonXmlChars(s)
-        s = re.sub(r'\?>', replaceWith, s)
+        s = s.replace(r'\?>', replaceWith)
         return s
 
     @staticmethod

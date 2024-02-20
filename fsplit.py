@@ -508,7 +508,8 @@ The types are shown in these examples:
     lastName:str        string (this doesn't do much).
     dob:datetime        datetime (ISO 8601)
 
-Other types will likely be added.
+Other types will likely be added
+(see https://www.w3.org/TR/xmlschema-2/#built-in-primitive-datatypes).
 
 Defaults can be given after an "=", or "!" may be used to indicate
 that a non-empty value is ''required''
@@ -542,12 +543,12 @@ and normalizer name. The forms of constraints are type-specific:
 * bool: Not currently applicable. A possible
 future addition is to give the actual strings to be used for False and True,
 since practice for these varies so much.
-* int: the constraint is 2 (possibly-signed) decimal integers, separated
-by a colon, that are the minimum and maximum values allowed. These values
-are inclusive bounds.
-* float: as for int, but the minimum and maximum values can be floats
-(as always, be careful about roundoff errors). These values
-are inclusive bounds.
+* int: the constraint can have 2 (possibly-signed) decimal integers, separated
+by a comma, that are the minimum and maximum values allowed. These values
+are inclusive bounds. The first defaults to 0, the second to sys.maxsize
+(sometimes 2**63).
+* float: similar to those for int, but the minimum and maximum values are floats
+(as always, be careful about roundoff errors). These values are inclusive bounds.
 * complex: Not currently applicable.
 * str: the constraint is a (Python-style) regular expression that each value
 must match in its entirety. Such constraint commonly require escaping.
@@ -558,7 +559,7 @@ These constraints can be used to implement other things, such as enums:
     middleInitial:str[.{0,1}]
 
 ''Note'': regex constraints regard case.
-However, Python allows specifying flags within a regex.
+TODO: Fix this, perhaps by adding a prefix flag, or \\L \\U, or....
 
 When a ''type'' is specified, raw field values are cast to that type
 for return (for example, by reader() and DictReader()).
@@ -656,6 +657,10 @@ awk, colrm, column, cut , join, paste, sort, tab2space, uniq, xargs.
 Perhaps also: colrm, expand, lam, look, sed, unexpand, fold, and a variant
 of 'less' with integrated CSV pretty-printing.
 
+=References=
+
+Johann Mitlohner, et al. "Characteristics of Open Data CSV Files"
+[https://www.researchgate.net/profile/Sebastian-Neumaier/publication/308568784_Characteristics_of_Open_Data_CSV_Files/links/6217490eb85f8c427cd62502/Characteristics-of-Open-Data-CSV-Files.pdf]
 
 =Known bugs and Limitations=
 
@@ -702,60 +707,63 @@ month is 30 days.
 
 =To do=
 
-* Way to distinguish only-precise-to-the-hour from on-the-hour, etc.
+* Add a convention for putting metasyntax in first record. Maybe like below
+(though what is ok for escaping in values?
+    #CSVPP: (optname=value)+
 
-* Support timedelta ISO 8601 format: 'P[n]Y[n]M[n]DT[n]H[n]M[n]S'
-or P[n]W'. "P" is literal (for "period"), following are number of each unit.
-
-* Add normalizers for US and EU dates, epochtime.
-
-* Combine escapeSpecial(), char2escape, escape2char. Perhaps put all the
-escaping and entity stuff in its own class.
-
-* Add a way to get at the last raw record (since reader() parses it),
-and the logical/physical record numbers.
+* Add smoke tests for datetimes, autotype, quotednewline, normalizers,
+constraints, complex headers.
 
 * Lose remaining refs to args from inside classes.
 
-* Should csv skipinitialspace/skipfinalspace be overridable per-field?
-Maybe something more for Unicode spaces, esp. hard-space per se?
-
-* Add predefined dialects: RC4081, Excel, and any that Python `csv` provides.
-Also eponymous ones for each relevant *nix command?
+* Way to distinguish only-precise-to-the-hour from on-the-hour, etc.
 
 * Per RC4081 complain about rec-final delimiter if not quoted.
 
-* Make sure it can just take a csv.Dialect for the DialectX arguments.
-
-* More flexible delimiters:
-    ** regex delimiters?
-    ** the "whitespace to nonspace transition" approach (like awk, column, and sort)
-    ** repeatable delimiter (that don't generate empty fields)
-    ** Finish support for cycling delimiters (like 'paste -d').
+* Delimiter as "whitespace to nonspace transition" (like awk, column, sort).
 
 * Some kind of hysteresis for autotyping? Like, if this field has always been int
 and we see "", make it 0; if always float and we see 12, make it 12.0.
 
 * Option to create NamedTuple or tuple instead of list or dict?
 
+* Add a way to get at the last raw record (since reader() parses it),
+and the logical/physical record numbers.
+
+* Should regex constraints be enclosed not by {}, but by // or by any \\W?
+
+* Should csv skipinitialspace/skipfinalspace be overridable per-field?
+Maybe something more for Unicode spaces, esp. hard-space per se?
+
+* Add predefined dialects: RFC4081, Excel, and any that Python `csv` provides.
+Also eponymous ones for each relevant *nix command?
+
+* Make sure it can just take a csv.Dialect for the DialectX arguments.
+
 * Support for a wider range of formats (probably via separate
 packages or subclasses with much the same API), such as:
-    ** HTML and XML tables
-    ** MediaWiki and MarkDown tables
-    ** XSV
-    ** JSON cases
-    ** s-expressions
+    ** HTML and XML tables (but see my `htmlTable2csv.py`.
+    ** MediaWiki and MarkDown tables (but see my `markdown2Xml.py`).
+    ** XSV (but see my xsv2others.py).
+    ** JSON cases (but see my `json2xml.py`).
+    ** s-expressions and perhaps CONLL (but see my `sexp2xml`).
     ** SQL INSERT statements
     ** Tables extracted straight from a SQL API
     ** Fixed column widths, maybe via scanf?
-    ** Maybe CONLL (see Stanford Corenlp output options)?
 
-This is TSV, but with a blank line between groups of records (each of which
-amounts to a sentence). Could return one extra field with a generated group number;
-or throw or return something at the blank lines (maybe similar for comments?).
+* Way to change the set of backslash codes, such as \\b for BEL, etc.?
 
-* Provide a way to change the set of backslash codes, such as \\b for BEL, etc.?
+* Perhaps support Python \\N{unicode-name}?
 
+* Add way to control case treatment of string constraints (and how does
+constraint relate to normalization?)
+
+* Allow years >9999, etc. See https://www.w3.org/TR/xmlschema-2/#isoformats
+Don't forget leap seconds.
+
+* Sync regex constraints w/ auto-anchored XSD approach.
+
+* Support XSD regex \\#x and \\p{prop}?
 
 =History=
 
@@ -783,16 +791,15 @@ support for type-hint style header records. Make reader() smart about
 unclosed quotes.
 
 * 2023-10-31ff: Refactor. Promote FieldInfo from namedtuple to class.
-Add parseHeaderStrToSchema() and handling of type hints and defaults. Start open/close
+Add parseHeaderStrToSchema(), handling of type hints and defaults, open/close
 quote support. Add cleanField() to do strip, unquote, unescape, entities,
 normalization, etc. Start main beyond basic smoke-test.
-Add --convert vs. prettyprinting. Add UberType info. Reorg quote pairs and
+Add --convert vs. prettyprinting. Reorg quote pairs and
 option defaulting. Add --showQuotes and --showDialectX. Refactor
 reader() and writer() to be like csv ones (generator classes).
 Ditch 'typelist'. Add DictWriterXSV, SAXReader.
 Rename `multidelimiter` to `delimiterrepeat`, 'cycle' to 'delimitercycle'.
-Add support for regex delimiters. Factor escape handling out of fsplit.
-Factor escaping and entity stuff into class `Escaping`.
+Add support for regex delimiters. Factor out class `Escaping`.
 
 
 =Rights=
@@ -857,12 +864,15 @@ class Escaping:
             return "", 1
         c1 = s[i+1]
         if (c1 == "x"):
+            lg.info("got xescape at %s", s[i:])
             if (not dx.xescapes):
-                syntaxError(s, i, lastToken, "\\x escape but option is off", strict=dx.strict)
+                syntaxError(s, i, lastToken,
+                    "\\x escape but option is off", strict=dx.strict)
                 return ("\\x", 2)
             mat = re.match(r"x([\da-f]{2})|x\{([\da-f]+)\}", s[i:])
             if (not mat):
-                syntaxError(s, i, lastToken, "Incomplete \\x escape", strict=dx.strict)
+                syntaxError(s, i, lastToken,
+                    "Incomplete \\x escape", strict=dx.strict)
                 codePoint = None
                 escValue = dx.escapechar + "x"
                 escLength = 2
@@ -881,45 +891,50 @@ class Escaping:
                 escLength = 2
 
         elif (c1 in "Uu"):
+            lg.info("got uescape at %s", s[i:])
             if (not dx.uescapes):
-                syntaxError(s, i, lastToken, "\\%s escape but option is off" % (c1),
-                    strict=dx.strict)
+                syntaxError(s, i, lastToken,
+                    "\\%s escape but option is off" % (c1), strict=dx.strict)
                 return ("\\" + c1, 2)
             if (c1 == "u"):
                 mat = re.match(r"u[\da-f]{4}", s[i:])
                 if (not mat):
-                    syntaxError(s, i, lastToken, "Incomplete \\u escape", strict=dx.strict)
+                    syntaxError(s, i, lastToken,
+                        "Incomplete \\u escape", strict=dx.strict)
                     escValue = dx.escapechar + "u"
                 escValue = chr(int(s[i+1:i+5], 16))
                 escLength = 5
             elif (c1 == "U"):
                 mat = re.match(r"U[\da-f]{8}", s[i:])
                 if (not mat):
-                    syntaxError(s, i, lastToken, "Incomplete \\U escape", strict=dx.strict)
+                    syntaxError(s, i, lastToken,
+                        "Incomplete \\U escape", strict=dx.strict)
                     escValue = dx.escapechar + "U"
                 else:
                     escValue = chr(int(s[i+1:i+9], 16))
                     escLength = 9
+
         else:
+            lg.info("got  char escape at %s", s[i:])
             escValue, escLength = Escaping.unescapeViaMap(c1, i, strict=dx.strict)
+
         return escValue, escLength
 
     @staticmethod
     def unescapeViaMap(c: str, i=int, strict:bool=False) -> (str, int):
         """If it wasn't some special/long escape like \\x \\u \\U, look up the
-        escaped char and return what it means, or just itself. Also return
-        the length (currently alway 2, but needn't necessarily be).
-        See also DialectX.char2escape.  TODO: Move unescaping into DialectX?
+        escaped char and return what it means, or just itself.
+        Also return the length (currently always 2, but needn't be).
         """
         if (c in Escaping.escape2char): return Escaping.escape2char[c], 2
-        if (strict):
+        if (strict):  # TODO Maybe this is never an error?
             syntaxError(c, i, "", "Unrecognized escape \\%s" % (c), strict=strict)
         return c, 2
 
     # TODO Sync with regular 'csv' package
     @staticmethod
     def escapeOneChar(dx:'DialectX', c:Union[str, re.Match]) -> str:
-        """Can be used on a raw character, or an re.Match object with the
+        """Can be used on a raw character or an re.Match object with the
         desired character in the 1st capture. Always recodes the character
         somehow (or fails), so only call it when needed (see getProblemChars()).
         """
@@ -930,7 +945,7 @@ class Escaping:
         if (c == dx.escapechar):
             return c+c
         if (c == dx.quotechar):
-            if (dx.quoting): return c  # Caller must do the quoting!
+            if (dx.quoting): return c  # Caller must do the quoting! TODO Check
             if (dx.doublequote): return c+c
             elif (dx.entities): return dx.entify(c)
             elif (dx.escapechar): return dx.escapechar + c
@@ -939,21 +954,23 @@ class Escaping:
             # ">" doesn't normally need quoting (see "]]>")
             return dx.entify(c)
 
+        # TODO syntaxError()?
+        return c
+
     @staticmethod
-    def entify(c:str) -> str:
+    def entify(c:str, useNames:bool=True) -> str:
         """Many options here -- like an order of preference among
         named/hex/decimal XML character refs.
         """
         n = ord(c)
-        if (n in html.entities.codepoint2name):
+        if (useNames and n in html.entities.codepoint2name):
             return "&%s;" % (html.entities.codepoint2name[n])
         if (n > 0xFF): return "&#X%04x;" % (n)
         return "&#X%02x;" % (n)
 
     @staticmethod
     def hexify(c:str) -> str:
-        """Many options here -- like an order of preference among
-        \\x \\u \\U \\x{}; octal escapes; use of UTF-8; etc.
+        """TODO If not escapechar and xescapes and uescapes, what then?
         """
         n = ord(c)
         if (n <= 0xFF):
@@ -963,14 +980,15 @@ class Escaping:
         return "\\U%08x" % (n)
 
     @staticmethod
-    def escapeXmlAttribute(s:str) -> str:
-        """Escape as need for quoted attributes.
+    def escapeXmlAttribute(s:str, attrQuoteChar:str='"') -> str:
+        """Escape as needed for quoted attributes (default: double-quoted).
         Quietly deletes any non-XML control characters!
         """
         s = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f]", "", s)
-        s = re.sub(r"&",  "&amp;", s)
-        s = re.sub(r"<",  "&lt;", s)
-        s = re.sub(r'"', "&quot;", s)
+        s = s.replace(r"&",  "&amp;")
+        s = s.replace(r"<",  "&lt;")
+        if (attrQuoteChar == '"'): s = s.replace(r'"', "&quot;")
+        else: s = s.replace(r"'", "&apos;")
         return(s)
 
     @staticmethod
@@ -979,13 +997,12 @@ class Escaping:
         XML doesn't define a standard escaping for this, so I chose one.
         """
         s = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f]", "", s)
-        s = re.sub(r"--", "\u2014", s)
+        s = s.replace(r"--", "\u2014")
         return(s)
 
     @staticmethod
     def escapeSpecial(c:str) -> str:
-        """Turn a special character into an escaped letter. The opposite of
-        the equivalences in Escaping.escape2char.
+        """Turn a special character into an escaped letter.
         """
         if (c in Escaping.char2escape): return Escaping.char2escape[c]
 
@@ -1039,11 +1056,11 @@ class DialectX:
 
         # fsplit only:
         "comment":          str,
-        "delimitercycle":  bool,
+        "delimitercycle":   bool,
         "encoding":         str,
         "entities":         bool,
         "header":           bool,
-        "delimiterrepeat":   bool,  # Cf *nix *paste -d*
+        "delimiterrepeat":  bool,  # Cf *nix *paste -d*
         "maxsplit":         int,
         "minsplit":         int,
         "skipfinalspace":   bool,
@@ -1106,7 +1123,8 @@ class DialectX:
                 try:
                     if (not isinstance(v, QUOTING)): v = QUOTING[v]
                 except ValueError as e:
-                    raise ValueError("Unrecognized value '%s' for quoting." % (v)) from e
+                    raise ValueError(
+                        "Unrecognized value '%s' for quoting." % (v)) from e
             typ = self.__OptionTypes__[k]
             if (v is None or isinstance(v, typ)):
                 setattr(self, k, v)
@@ -1117,14 +1135,21 @@ class DialectX:
     def checkOptions(self, strict:bool=False) -> None:
         errs = []
 
-        delimTypes = [ str, List, re.Pattern ]
         if (isinstance(self.delimiter, str)):
+            if (not self.delimiter or
+                self.delimiter == self.escapechar or
+                self.delimiter == self.quotechar):
+                errs.append("Delimiter empty of conflicting.")
         elif (isinstance(self.delimiter, List)):
             if (not self.delimitercycle):
                 errs.append("Delimiter is a list but delimitercycle not set.")
         elif (isinstance(self.delimiter, re.Pattern)):
+            if (self.delimitercycle):
+                errs.append("Delimiter is a regex but delimitercycle is set.")
         else:
             errs.append("Delimiter is not a list or str or re.Pattern.")
+        if (self.delimiterrepeat and self.delimitercycle):
+            errs.append("Cannot combine delimiterrepeat and delimitercycle.")
 
         if (self.escapechar and len(self.escapechar) > 1):
             errs.append("escapechar too long ('%s')." % (self.escapechar))
@@ -1138,11 +1163,8 @@ class DialectX:
         if (self.maxsplit and self.minsplit and self.maxsplit < self.minsplit):
             errs.append("maxsplit (%d) < minsplit (%d)." %
                 (self.maxsplit or 0, self.minsplit or 0))
-        #
         if (self.doublequote and self.escapechar):
             errs.append("Cannot combine doublequote and escapechar.")  # TODO ???
-        if (self.delimiterrepeat and self.delimitercycle):
-            errs.append("Cannot combine delimiterrepeat and delimitercycle.")
 
         if (errs):
             if (strict):
@@ -1339,7 +1361,7 @@ __RFC4180__ = DialectX(
     skipfinalspace       = False,   # Strip trailing spaces
     strict               = False,
 
-    autotype             = False,   # Attempt automatic datatypes
+    autotype             = False,   # Attempt automatic datatyping
     header               = False,   # Is there a header record?
     comment              = None,    # Marker for comment lines
     delimitercycle       = False,
@@ -1437,8 +1459,10 @@ class DictReader:
                 if (fNum < len(self.fieldNames)):
                     fieldDict[self.fieldNames[fNum]] = fd
                 elif (self.restkey):
-                    if (self.restkey not in fieldDict): fieldDict[self.restkey] = str(fd)
-                    else: fieldDict[self.restkey] += str(fd)
+                    if (self.restkey not in fieldDict):
+                        fieldDict[self.restkey] = str(fd)
+                    else:
+                        fieldDict[self.restkey] += str(fd)
             if (len(self.fieldNames) > len(fields) and self.restval is not None):
                 # TODO: Apply schema defaults if available
                 for i in range(len(fields), len(self.fieldNames)):
@@ -1451,6 +1475,7 @@ class DictReader:
 
     from pydoc import locate  # see https://stackoverflow.com/questions/11775460/
 
+    # TODO: Move into FieldSchema
     def parseHeaderStrToSchema(self, rec:str, dialect:DialectX,
         nameExpr:str=dftNameExpr) -> 'FieldSchema':
         """Parse a header record.
@@ -1463,8 +1488,8 @@ class DictReader:
             schema.append(fi)
 
         if (False and self.fieldNames and self.fieldNames != schema.getFieldNames()):
-            raise ValueError("Header does not match expected fieldNames:\n    %s\n    %s" %
-                (str(self.fieldNames), str(self.fieldNames)))
+            raise ValueError("Header does not match expected fields:\n    %s\n    %s"
+                % (str(self.fieldNames), str(self.fieldNames)))
         return schema
 
     fnameExpr = r"(%s)"                       # 1
@@ -1523,15 +1548,15 @@ class DictReader:
             if (fcons):
                 fcons = fcons.upper()
                 if (fcons not in NamedNormalizers):
-                    if (args.strict):
-                        raise ValueError("Could not locate normalizer '%s'." % (fcons))
+                    if (self.dialect.strict):
+                        raise ValueError("Could not find normalizer '%s'." % (fcons))
                     ftype = ""
 
             if (ftype):
                 if (fcons):
                     ftype = ftype[0:-len(fcons)]
                 if (ftype not in dtHandler.KnownTypes):
-                    if (args.strict):
+                    if (self.dialect.strict):
                         raise ValueError("Could not locate type '%s'." % (ftype))
                     ftype = str
 
@@ -1570,6 +1595,7 @@ def cleanField(s:str, dialect:DialectX) -> str:
     normalization, case-folding, casting, special values like Inf/Nan, or defaulting.
     See isFieldValueOfType(), etc. for that kind of stuff...
     """
+    assert dialect
     s = s.rstrip()
     if dialect.skipinitialspace: s = s.lstrip()
     if dialect.skipfinalspace: s = s.rstrip()
@@ -1588,6 +1614,7 @@ def cleanField(s:str, dialect:DialectX) -> str:
         s = s.replace(dialect.quotechar+ dialect.quotechar, dialect.quotechar)
 
     if (dialect.escapechar and dialect.escapechar in s):
+        # TODO: Lose this assertion
         assert dialect.escapechar == "\\", "Only backslash yet, as escapechar (not '%s')." % (
             dialect.escapechar)
         s = ast.literal_eval(s)
@@ -1647,7 +1674,8 @@ class reader:
                 try:
                     fields = fsplit(self.lrec, self.dialect)
                 except UnclosedQuote as e:
-                    lg.info("Continued rec %d (%d):\n    %s", self.rec_num, nPhysical, e)
+                    lg.info("Continued rec %d (%d):\n    %s",
+                        self.rec_num, nPhysical, e)
                     continue  ### Go around for continuation line
 
             self.rec_num += 1
@@ -1660,13 +1688,13 @@ class reader:
                     lg.info("read header logical rec as: <<<%s>>>", self.lrec)
                     self.schema = ensureSchema(
                         self.schema, firstRec=self.lrec,
-                        dialect=self.dialect, fsArg=args.ifields)
+                        dialect=self.dialect, fsArg=args.ifields)  # TODO -args
                     self.fieldNames = self.schema.getFieldNames()
                     continue  # Go around for first data record
                 else:
                     self.schema = ensureSchema(
                         None, firstRec=self.lrec,
-                        dialect=self.dialect, fsArg=args.ifields)
+                        dialect=self.dialect, fsArg=args.ifields)  # TODO -args
                     self.fieldNames = self.schema.getFieldNames()
 
             # Got the fields, so bump stats and yield
@@ -1899,11 +1927,8 @@ class FStyle(Enum):  # Cf Note "XML treatments of CSV ish data"
     FieldsAsTyped       = 3  # <Rec><Name1 type="int">val</Name1>....</Rec>
 
 class SAXreader:
-    """Read CSV and pass back as if it was XML. Always has a Table and a Record element;
-    the field names and values can be organized in several ways (see FStyle).
-
-    or
-        <Rec><Name1>val</Name1>....</Rec>
+    """Read CSV and pass back as if it was XML. Always has a Table and a Record
+    element; field names/values can be organized in several ways (see FStyle).
     """
     def __init__(self,
         f:IO,                    # file handle, File object, etc.
@@ -2084,11 +2109,13 @@ def setupQuoteMap(quoteArg: str) -> Dict:
     lastQuoteArg = quoteArg
     return lastQuoteMap
 
-def dquote(s: str) -> str:
-    """Put double angle quotes around a string for display.
+def dquote(s: str, showControls:bool=False) -> str:
+    """Put double angle quotes around a string for display,
+    and optionally make control chars visible.
     """
-    if (args.visible):
-        s = re.sub(r"([\x00-\x20])", visify, s)
+    if (showControls):
+        s = re.sub(r"([\x00-\x20])",
+            lambda m: chr(0x2400 + ord(m.group(1))), s)
     return "\u00AB" + str(s) + "\u00BB"
 
 def visify(mat):
@@ -2110,7 +2137,7 @@ def parseEntity(s: str) -> (str, int):
 ###############################################################################
 #
 DTDef = namedtuple("DTDef",
-    ( "targetDT", "caster", "constrainer" ))
+    ( "targetDT", "caster", "constrainer", "XSDName" ))
 
 class DatatypeHandler:
     """Check and cast among some types.
@@ -2141,17 +2168,12 @@ class DatatypeHandler:
         assert isinstance(caster, Callable)
         dtHandler.KnownTypes[hintName] = ( theType, -len(dtHandler.KnownTypes, caster) )
 
+    reservedFloats = [ "nan", "inf", "-inf", "+inf", "-0" ]
+
     def __init__(self,
         specialFloats: bool=False
         ):
         """
-        @param datetimeCasterFunc:
-            Function to produce date/time/datetime or ValueError.
-            Defaults to use the datetimeCaster() method below, for ISO 8601 form.
-        @param boolCasterFunc:
-            Likewise, but to recognize booleans (for examle, "T" and "Nil".
-            Default to None so it doesn't take over commonplace strings.
-            No bools are returned unless a function is passed (see boolCaster()).
         @specialfloats:
             If set, "NaN" and (optionally signed) "inf" count as floats.
         """
@@ -2164,45 +2186,54 @@ class DatatypeHandler:
         a function to cast a string to that type, and maybe
         a function to test constraints (TODO: unfinished).
         This is just for CSV fields, so no aggregates/collections/etc.
-        Largely based on Python + XSD Datatypes. However, not all of either.
-        cf Datatypes.py
+        Largely based on Python and XSD Datatypes (cf Datatypes.py and
+        https://www.w3.org/TR/xmlschema-2/#built-in-primitive-datatypes.
+
         """
+        DT = datetime.datetime
         NOCON = None
         self.KnownTypes = {
-            # hint name:  DTDef(targetDT, caster, constrainer)
-            "BOOL":       DTDef(bool, self.boolCaster, NOCON),
+            # hint name:  DTDef(targetDT, caster, constrainer, XSDName )
+            "BOOL":       DTDef(bool, self.boolCaster,     NOCON,   "boolean"),
 
-            "INT":        DTDef(int, lambda x: int(x, 10), NOCON),
-            "XINT":       DTDef(int, lambda x: int(x, 16), NOCON),
-            "OINT":       DTDef(int, lambda x: int(x, 8), NOCON),
-            "ANYINT":     DTDef(int, int, NOCON),
+            "INT":        DTDef(int, lambda x: int(x, 10), NOCON,   "integer"),
+            "XINT":       DTDef(int, lambda x: int(x, 16), NOCON,   None),
+            "OINT":       DTDef(int, lambda x: int(x, 8),  NOCON,   None),
+            "ANYINT":     DTDef(int, int,                  NOCON,   None),
 
-            "FLOAT":      DTDef(float, float, NOCON),
-            "PROB":       DTDef(float, complex, NOCON),
+            "FLOAT":      DTDef(float, float,              NOCON,   "float"),
+            "PROB":       DTDef(float, complex,            NOCON,   None),
 
-            "COMPLEX":    DTDef(complex, complex, NOCON),
+            "COMPLEX":    DTDef(complex, complex,          NOCON,   None),
 
-            "ARRAY":      DTDef(array.array, self.parseVector, NOCON),
+            "ARRAY":      DTDef(array.array, self.parseVector, NOCON, None),
             # TODO: int vs. float vs. complex? tensor? size?
 
-            "DATETIME":   DTDef(datetime.datetime,
-                datetime.datetime.fromisoformat, NOCON),
+            "DATETIME":   DTDef(dt, DT.fromisoformat,      NOCON,   "dateTime"),
             "DATE":       DTDef(datetime.date,
-                lambda x: datetime.datetime.strptime(x, "%Y-%m-%d"), NOCON),
-            "USDATE":     DTDef(datetime.datetime,
-                lambda x: datetime.datetime.strptime(x, "%m/%d/%Y"), NOCON),
+                lambda x: DT.strptime(x, "%Y-%m-%d"),      NOCON,   "date"),
+            "USDATE":     DTDef(dt,
+                lambda x: DT.strptime(x, "%m/%d/%Y"),      NOCON,   None),
             "EUDATE":     DTDef(datetime.date,
-                lambda x: datetime.datetime.strptime(x, "%d/%m/%Y"), NOCON),
-            "TIME":       DTDef(datetime.time, datetime.time, NOCON),
-            "EPOCH":      DTDef(datetime.datetime, datetime.date.fromtimestamp, NOCON),
+                lambda x: DT.strptime(x, "%d/%m/%Y"),      NOCON,   None),
+            "TIME":       DTDef(datetime.time, datetime.time, NOCON, "time"),
+            # TODO: XSD gYearMonth, gYear, gMonthDay, gDay,gMonth
+            "EPOCH":      DTDef(dt, datetime.date.fromtimestamp, NOCON, None),
             "TIMEDELTA":  DTDef(datetime.timedelta,
-                lambda x: self.parseISOTimeDelta, NOCON),
+                lambda x: self.parseISOTimeDelta,          NOCON,   "duration"),
             # YEAR MONTH DAY JULIAN HOUR MIN SEC OFFSET
-
-            "STR":        DTDef(str, str, NOCON),
-            "IDENT":      DTDef(str, str, NOCON),   # word-char-initial token
-            "URI":        DTDef(str, str, NOCON),
+            "STR":        DTDef(str, str,                  NOCON,   "string"),
+            "IDENT":      DTDef(str, str,                  NOCON,   "NCName"),
+            # TODO? XSD NOTATION
+            "URI":        DTDef(str, str,                  NOCON,   "anyURI"),
         }
+
+    # TODO: XSD Derived datatypes (https://www.w3.org/TR/xmlschema-2/#built-in-derived)
+    # normalizedString, token, language,
+    # NMTOKEN, NMTOKENS, Name, NCName, ID, IDREF, IDREFS, ENTITY, ENTITIES,
+    # int, long, int, short, byte,
+    # ?? nonNegativeInteger, positiveInteger, nonPositiveInteger, negativeInteger,
+    # ?? unsignedLong, unsignedInt, unsignedShort, unsignedByte,
 
     def isFieldValueOfType(self, val: Any, typeName:str) -> bool:
         """Determine whether a given field as a string, fits the datatype.
@@ -2315,7 +2346,7 @@ class DatatypeHandler:
         ### WARNING: In CP1252, 0x89 is PER MILLE SIGN (-> U+2030)
         "\u0089"  # "CHARACTER TABULATION WITH JUSTIFICATION"  # Not in class Z
         "\u1680"  # "OGHAM SPACE MARK"
-        "\u180E"  # "MONGOLIAN VOWEL SEPARATOR"    # Not in class Z
+        #"\u180E"  # "MONGOLIAN VOWEL SEPARATOR"    # Not in class Z
         "\u2000"  # "EN QUAD"
         "\u2001"  # "EM QUAD"
         "\u2002"  # "EN SPACE"
@@ -2435,9 +2466,9 @@ class DatatypeHandler:
             return tok
         try: return self.boolCaster(tok2)
         except ValueError: pass
-        # Prevent "float" from catching these when not wanted:
-        if (not self.specialFloats and tok2 in ("NaN", "inf", "-inf", "+inf")):
-            return tok
+        if (self.specialFloats and
+            tok2.lower() in self.reservedFloats):
+            return float(tok)
         if (tok2.isdigit()):
             return int(tok2)
         try: return self.datetimeCaster(tok2)
@@ -2446,7 +2477,7 @@ class DatatypeHandler:
         except ValueError: pass
         try: return float(tok2)
         except ValueError: pass
-        try: return complex(tok2)  # Test *after* float
+        try: return complex(tok2)  # Test *after* float and int
         except ValueError: pass
         return tok
 
@@ -2504,7 +2535,7 @@ class DatatypeHandler:
                 % (i, repr(t)))
 
 
-DTH = DatatypeHandler()
+DTH = DatatypeHandler(specialFloats=True)
 
 
 ###############################################################################
@@ -2546,18 +2577,13 @@ class FieldInfo:
         ):
         assert fname
         #assert fnum>0
-        if (not (ftype is None or isinstance(ftype, (type, Callable)))):
-            lg.critical("ftype passed as %s (%s).", ftype, type(ftype))
-            assert False
         self.fname = fname
         self.fnum = fnum
-        if (isinstance(ftype, type)):
-            ftype = ftype.__name__
-        if (ftype in dtHandler.KnownTypes):
-            self.ftype = ftype
-        else:
-            lg.error("Unrecognized type-name '%s'.", ftype)
-            ftype = str
+
+        # Save both the type name and the type per se.
+        self.ftypeName, self.ftypeReal = self.identifyType(ftype)
+        self.ftype = self.ftypeName   # TODO: Clean up further...
+
         self.fconstraint = fconstraint
         self.fdefault = fdefault
         self.frequired = frequired
@@ -2574,11 +2600,38 @@ class FieldInfo:
             lg.error("Don't set 'required' when there's also a default value.")
             self.frequired = False
 
+    def identifyType(self, ftype:Union[str,type,Callable]=None):
+        """ftype can be passed as a type-name, an actual type, or any callable.
+        If None, it is coerced to the actual type 'str'.
+        """
+        ftypeName = ftypeReal = None
+        if (ftype is None):
+            ftypeReal = str
+            ftypeName = "str"
+        elif (isinstance(ftype, str)):
+            ftypeReal = None  # TODO: Fix
+            ftypeName = ftype
+        elif (isinstance(ftype, Callable)):
+            ftypeReal = ftype
+            ftypeName = ftype.__name__
+        elif (isinstance(ftype, type)):
+            if (ftype in dtHandler.KnownTypes):
+                ftypeReal = ftype
+                ftypeName = ftype.__name__
+            else:
+                lg.error("Unrecognized type-name '%s' (assuming str).", ftype)
+                ftypeReal = str
+                ftypeName = "str"
+        else:
+            assert False, ("Cannot construct FieldInfo for '%s', ftype is type %s."
+                % (self.fname, type(ftype)))
+        return ftypeName, ftypeReal
+
     def handleConstraintString(self, ftype:type, fconstraint:str) -> bool:
         """Check whether the constraint field (in [] in the header) is
         appropriate for the given type. This is *not* a check for actual
         values (see isFieldValueOfType() for that).
-        TODO: Test a bunch, esp. escaped regexes for strings.
+        TODO: Test more, esp. escaped regexes for strings.
         """
         if (not fconstraint):
             return True
@@ -2588,11 +2641,11 @@ class FieldInfo:
 
         if (ftype == bool):
             pass
-        elif (ftype in [ int, "int", "xint", "oint", "anyine" ]):
+        elif (ftype in [ int, "int", "xint", "oint", "anyint" ]):
             mat = re.match(FieldSchema.intConExpr, fconstraint)
             if (mat):
-                self.fmin = int(mat.group(1))
-                self.fmax = int(mat.group(2))
+                self.fmin = int(mat.group(1)) if mat.group(1) else 0
+                self.fmax = int(mat.group(2)) if mat.group(2) else sys.maxsize
             else:
                 raise ValueError("Invalid integer range constraint '%s'." % (fconstraint))
         elif (ftype == float):
@@ -2621,8 +2674,8 @@ class FieldInfo:
 #
 class FieldSchema():
     """Keep track of the known fields, each as a FieldInfo.
-    The list can be built manually, or initialized from a header record, which
-    may have just names, or a syntax much ilke Python type-hints.
+    The list can be built manually or initialized from a header record, which
+    may have just names or a syntax much like Python type-hints.
     See also Homogeneous.py.
 
     Usage:
@@ -2643,7 +2696,8 @@ class FieldSchema():
     hintExpr = fnameExpr + ftypeExpr + fdfltExpr + r"$"
 
     # More detailed regexes to check internal syntax of constraints (per type)
-    intConExpr = r"^" + DTH.intExpr + "," + DTH.intExpr + "$"
+    intConExpr = r"^(%s)?,(%s)?)$" % (DTH.intExpr, DTH.intExpr)
+    # OLD: intConExpr = r"^" + DTH.intExpr + "," + DTH.intExpr + "$"
     floatConExpr = r"^" + DTH.floatExpr + "," + DTH.floatExpr + "$"
     complexConExpr = r"^" + DTH.complexExpr + "," + DTH.complexExpr + "$"
 
@@ -2658,27 +2712,6 @@ class FieldSchema():
             for fname in fieldNames:
                 self.append(FieldInfo(fname=fname))
 
-    def len(self):
-        return len(self.theFieldInfos)
-
-    def __getitem__(self, n:Union[int, str]) -> FieldInfo:
-        """Retrieve one FieldInfo object, by name of number.
-        TODO: This should count from 1, field numbers....
-        TODO: Make up out-of-range names as needed?
-        """
-        if (isinstance(n, int)): return self.theFieldInfos[n]
-        if (n in self.infoDict): return self.infoDict[n]
-        raise KeyError("Cannot find field %s." % (n))
-
-    def getFieldInfo(self, n: Union[int, str]) -> FieldInfo:
-        return self[n]
-
-    def getFieldNames(self) -> List:
-        fnames = []
-        for i in range(len(self.theFieldInfos)):
-            fnames.append(self.theFieldInfos[i].fname)
-        return fnames
-
     def append(
         self,
         finfo:FieldInfo=None,
@@ -2692,7 +2725,7 @@ class FieldSchema():
         funiq:bool=False
         ) -> FieldInfo:
         """Add a FIeldInfo to the list and the name-index. It can
-        be constructed and passed in 'fifo', or created here from
+        be constructed and passed in 'finfo', or created here from
         the other arguments. If no name is given, one is generated.
         """
         fnum = len(self.theFieldInfos)
@@ -2716,12 +2749,33 @@ class FieldSchema():
         self.infoDict[finfo.fname] = finfo
         return finfo
 
+    def len(self):
+        return len(self.theFieldInfos)
+
+    def __getitem__(self, n:Union[int, str]) -> FieldInfo:
+        """Retrieve one FieldInfo object, by name of number.
+        TODO: This should count from 1, field numbers....
+        TODO: Make up out-of-range names as needed?
+        """
+        if (isinstance(n, int)): return self.theFieldInfos[n]
+        if (n in self.infoDict): return self.infoDict[n]
+        raise KeyError("Cannot find field %s." % (n))
+
+    def getFieldInfo(self, n: Union[int, str]) -> FieldInfo:
+        return self[n]
+
+    def getFieldNames(self) -> List:
+        fnames = []
+        for i in range(len(self.theFieldInfos)):
+            fnames.append(self.theFieldInfos[i].fname)
+        return fnames
+
     def handleRecord(self, fields:List) -> List:
         """Given a truly raw sets of fields, apply all the schema stuff:
-            * normalizer
+            * normalize
             * default/required
-            * typecasting
-            * constraint-checking
+            * typecast
+            * constraint-check
         """
         for i in range(len(fields)):
             finfo = self.getFieldInfo(i)
@@ -3115,9 +3169,9 @@ if __name__ == "__main__":
         tokens or number of tokens.
         TODO: Factor out data.
         """
-        print("\nTest string: %s" % (dquote(s)))
+        print("\nTest string: %s" % (dquote(s, args.visible)))
         buf = ""
-        for k, v in kwargs.items(): buf += '%s="%s" ' % (k, v)
+        for k, v in kwargs.items(): buf += '%s="%s" ' % (k, dquote(v))
         if (buf): print(" args: " + buf)
         theFields = []
         try:
@@ -3143,9 +3197,9 @@ if __name__ == "__main__":
         Caller should set strict=True so syntaxError() will actually throw
         an Exception for us to catch, not just give a message.
         """
-        print("\nTest string: %s" % (dquote(s)))
+        print("\nTest string: %s" % (dquote(s, args.visible)))
         buf = ""
-        for k, v in kwargs.items(): buf += '%s="%s" ' % (k, v)
+        for k, v in kwargs.items(): buf += '%s="%s" ' % (k, dquote(v))
         if (buf): print(" args: " + buf)
         theFields = []
         try:
@@ -3169,9 +3223,9 @@ if __name__ == "__main__":
         gType, castValue = DTH.guessType(fValue)
         if (gType == "str"):
             if (args.visible):
-                print((fmt1 + "%s") % (fName, visify(fValue)))
+                print((fmt1 + "%s") % (fName, dquote(fValue)))
             else:
-                print((fmt1 + "%s") % (fName, fValue))
+                print((fmt1 + "%s") % (fName, dquote(fValue)))
         elif (gType == "None"):
             print((fmt1 + "%s") % (fName, "\u2205"))
         elif (gType == "bool"):
@@ -3191,7 +3245,7 @@ if __name__ == "__main__":
         else:
             print((fmt1 + "%s") % (fName, fValue))
 
-    def smokeTest():
+    def smokeTest(theDialect:DialectX):
         """Try out various option combinations on sample records.
         """
         testBasics()
@@ -3199,6 +3253,7 @@ if __name__ == "__main__":
         testDelims()
         testQuoting()
         testDatatyping()
+        testHeaders(theDialect=theDialect)
         testErrors()
 
     def testBasics():
@@ -3282,10 +3337,10 @@ if __name__ == "__main__":
         esse cillum ''dolor''e eu fugiat nulla pariatur','Excepteur sint occaecat
         cupidatat non ''proident''','''sunt'' in culpa qui officia deserunt mollit anim id
         est laborum'"""
-        print("Test string: %s" % (dquote(s0)))
+        print("Test string: %s" % (dquote(s0, args.visible)))
         toks = fsplit(s0, delimiter=",", quotechar="'", doublequote=True)
         for i0, tok0 in enumerate(toks):
-            print("    %2d: /%s/" % (i0, dquote(tok0)))
+            print("    %2d: /%s/" % (i0, dquote(tok0, args.visible)))
 
     def testDatatyping():
         phead("minsplit, maxsplit:")
@@ -3296,17 +3351,35 @@ if __name__ == "__main__":
         phead("autotype feature:")
         # TODO: Should the IEEE special floats be caught here?
         s0 = "hello,1,,3.14159,-6.022E+23,1.618+2j,NaN,-inf,+inf,world"
-        print("Test string: %s" % (dquote(s0)))
+        print("Test string: %s" % (dquote(s0, args.visible)))
         typesExpected = [ str, int, None, float, float, complex, float, float, float, str ]
         stuffs = fsplit(s0, delimiter=",", autotype=True)
         for i0, stuff in enumerate(stuffs):
-            print("    %d: %-16s %s" % (i0, dquote(stuff), type(stuff)))
+            print("    %d: %-16s %s" %
+                (i0, dquote(stuff, args.visible), type(stuff)))
             if (typesExpected[i0] and
                 type(stuff).__name__ != typesExpected[i0].__name__):
                 print("        ******* Expected type %s, but got %s."
                     % (typesExpected[i0], type(stuff)))
 
-        phead("type checking:")
+        # phead("type checking:")
+
+    def testHeaders(theDialect:DialectX):
+        phead("Headers")
+        fNames = [
+            "lname", "fname", "dob", "age", "zip", "APR", "torque", "is_nice" ]
+        dx0 = FieldSchema(fNames)
+        header1 = ",".join(fNames)
+        dx1 = FieldSchema(header1)
+        header2 = ("lname:str[\\w+], fname:str|NKFC[(le |de )?[A-Z][a-z]+],"
+            "dob:DATE, age:int, "
+            "zip:str, APR:float, torque:complex, is_nice:bool")
+        dx2 = parseHeaderStrToSchema(header2, theDialect)
+        header3 = ("lname:str!, fname:str=Smith, dob:DATE!, age:int, "
+            "zip:str[[0-9]{5}]!, APR:float=3.14, torque:complex, is_nice:bool=1")
+        dx3 = parseHeaderStrToSchema(header3, theDialect)
+
+        # TODO: Add tests to *use* them.
 
     def testErrors():
         phead("Errors")
@@ -3388,7 +3461,7 @@ if __name__ == "__main__":
             help="Just report errors (best used with a schemas.")
         parser.add_argument(
             "--visible", action="store_true",
-            help="Make test output visible (use control pictures).")
+            help="Make test output more readable (use control pictures).")
         parser.add_argument(
             "--verbose", "-v", action="count", default=0,
             help="Add more messages (repeatable).")
@@ -3437,7 +3510,7 @@ if __name__ == "__main__":
 
     if (not args.files):
         print("Basic testing...")
-        smokeTest()
+        smokeTest(theDialect=indx0)
         sys.exit()
 
     for path in args.files:

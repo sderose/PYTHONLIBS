@@ -552,15 +552,6 @@ There may be a problem with `maxItems`, and with suppressing callables in `forma
 
 * I don't really like that "stats" part, discard it.
 
-* Sync the Perl version to this Python version:
-    rename file to aLogger
-    drop 'direct' option
-    drop redundant code from sjdUtils
-    drop prefix/infix/suffix
-    warn(0 -'''w0...), etc.
-    drop stat args
-    drop hMsg in favor of "====" prefix
-
 setVerbose does:
     logging.basicConfig(self.level)
     lg.setLevel(20-args.verbose)
@@ -642,7 +633,7 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 
 This script was derived (almost entirely by extraction)
 in Oct. 2015 from `sjdUtils.py`,
-which in turn was ported from `sjdUtils.pm` in Dec. 2011,
+which in turn was ported from Perl version in Dec. 2011,
 which was assembled from pieces in others of my scripts in Mar. 2011.
 All those works are by the same author and are licensed under the same license
 (CCLI Attribution-Sharealike 3.0 unported).
