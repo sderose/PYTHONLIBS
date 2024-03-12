@@ -11,7 +11,7 @@ import argparse
 import html
 
 __metadata__ = {
-    "title"        : "MarkupHelpFormatter.py",
+    "title"        : "MarkupHelpFormatter",
     "description"  :
         "Markdown/MediaWiki/POD formatter class for Python argparse.",
     "rightsHolder" : "Steven J. DeRose",
@@ -1305,24 +1305,24 @@ class StyleValues:
 
     # All blocks get slotted into one of these types, plus a nesting
     # level for ITEM and HEAD. There should be a Block subclass for each one.
-    BLK_TEXT	= 1
-    BLK_ITEM	= 2
-    BLK_HEAD	= 3
-    BLK_PRE	    = 4
-    BLK_ROW	    = 5
-    BLK_BNF	    = 6
-    BLK_RULE	= 7
-    BLK_QUOTE	= 8
+    BLK_TEXT    = 1
+    BLK_ITEM    = 2
+    BLK_HEAD    = 3
+    BLK_PRE     = 4
+    BLK_ROW     = 5
+    BLK_BNF     = 6
+    BLK_RULE    = 7
+    BLK_QUOTE   = 8
 
     BlockClasses = {
-        "TEXT":	    { "display":"block", "marginTop":1, },
-        "ITEM":	    { "display":"block", "marginLeft":4, "marker":"*"},
-        "HEAD":	    { "display":"block", "font":"bold", },
-        "PRE":	    { "display":"block", "font":"monospace", },
-        "ROW":	    { "display":"block", "font":"monospace", },
-        "BNF":	    { "display":"block", "font":"monospace", },
-        "RULE":	    { "display":"block", "font":"monospace", },
-        "QUOTE":	{ "display":"block", "marginLeft":4, },
+        "TEXT":     { "display":"block", "marginTop":1, },
+        "ITEM":     { "display":"block", "marginLeft":4, "marker":"*"},
+        "HEAD":     { "display":"block", "font":"bold", },
+        "PRE":      { "display":"block", "font":"monospace", },
+        "ROW":      { "display":"block", "font":"monospace", },
+        "BNF":      { "display":"block", "font":"monospace", },
+        "RULE":     { "display":"block", "font":"monospace", },
+        "QUOTE":    { "display":"block", "marginLeft":4, },
     }
 
     # Union of most inline classes known to MD, POD, and HTML.

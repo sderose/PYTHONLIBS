@@ -3,11 +3,9 @@
 # formatPP.py: Some extensions to Python built-in format().
 # 2021-09-29: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import re
-# from string import Formatter
-#
+
 __metadata__ = {
     "title"        : "formatPP",
     "description"  : "Some extensions to Python built-in format().",
@@ -165,8 +163,6 @@ class strPP(str):
 #
 if __name__ == "__main__":
     import argparse
-    def anyInt(x: str) -> int:
-        return int(x, 0)
 
     def processOptions() -> argparse.Namespace:
         try:

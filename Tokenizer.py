@@ -3,7 +3,6 @@
 # Tokenizer.pm: Port of my Perl tokenizer.
 # 2012-08-22: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import regex as re  # Adds support for \p{}. See https://pypi.org/project/regex/
 import codecs

@@ -712,8 +712,9 @@ xattr to say where copied from.
 
 * Make a cleaner design for the various output format punctuation.
 
+* Plain indented ls doesn't indent first dir name?
 
-== Output options==
+==Output options==
 
 * Replace `--absolute` with a choice of normalized, real, rel, or abs?
 * Enhance `--serialize` to support pulling in ancestor dir names,
@@ -728,6 +729,7 @@ a single target (limit to one input dir?).
 * way to colorize files by variuos criteria (say, by using the `file` command
 to differentiate Perl vs. Python)
 * Change --count to be like grep --count.
+* Add -f to do ls -f effect.
 
 ==Filter / file selection options==
 

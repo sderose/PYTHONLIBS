@@ -6,12 +6,8 @@
 #pylint: disable=W0221  # To allow added 'inplace' args.
 #
 import sys
-#import os
 import re
-#import codecs
 import math
-#import string
-#from enum import Enum
 from typing import Callable, Iterable  # IO, Dict, List, Union
 
 __metadata__ = {
@@ -22,7 +18,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2021-08-03",
-    "modified"     : "2023-08-05",
+    "modified"     : "2024-03-12",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -31,40 +27,44 @@ __version__ = __metadata__["modified"]
 descr = """
 =Description=
 
-This provides the `StrBuf` class, which is intended as a mutable version of Python
-`str`, that is quickly changeable even for very large strings (not just the end,
-where changes are already very fast in Python).
+This provides the `StrBuf` class, which is intended as a mutable version of
+Python `str`, that is quickly changeable even for very large strings (not
+just the end, where changes are already very fast in Python).
 
-The concept is simple: Big strings are kept as a list of parts, each of a maximum
-size (set when constructed). Parts can grow and shrink without having to do anything to
-other parts, until they grow past the limit (when a new part is inserted), or drop to
-size zero (when they are deleted). For simplicity there is always at least one part,
-even for the empty string).
+The concept is simple: Big strings are kept as a list of parts, each of a
+maximum size (set when constructed). Parts can grow and shrink without
+having to do anything to other parts, until they grow past the limit (when
+a new part is inserted), or drop to size zero (when they are deleted). For
+simplicity there is always at least one part, even for the empty string).
 
 Most of the usual str methods are available, but not all (yet).
 
-For methods that change the string, like case-folds, padding, trimming, etc, there is
-an extra "inplace" argument which defaults to True (some have not yet been added).
-When True, the operation is done to the original string, rather
-than returning a copy (remember, these are ''mutable'' strings here).
+For methods that change the string, like case-folds, padding, trimming,
+etc, there is an extra "inplace" argument which defaults to True (some have
+not yet been added). When True, the operation is done to the original
+string, rather than returning a copy (remember, these are ''mutable''
+strings here).
 
-Since the length of any single part is limited, some operations won't get slower regardless
-of how big the total string gets. For example, inserting or deleting substrings is much
-faster than with regular Python strings (except at the end, which is fast anyway).
+Since the length of any single part is limited, some operations won't get
+slower regardless of how big the total string gets. For example, inserting
+or deleting substrings is much faster than with regular Python strings
+(except at the end, which is fast anyway).
 
 The length of each part is cached as it changes (I think counting lengths
-all the time is a bad thing). This means that to get the total length, we just take
-the sum of the cached lengths. That's still linear in the string length, but much
-faster than measuring each string every time. It also means that finding the nth character
-in a huge string, can skip through all the prior parts at about one instruction each,
-instead of measuring them all (which is itself non-trivial with UTF-8).
+all the time is a bad thing). This means that to get the total length, we
+just take the sum of the cached lengths. That's still linear in the string
+length, but much faster than measuring each string every time. It also
+means that finding the nth character in a huge string, can skip through all
+the prior parts at about one instruction each, instead of measuring them
+all (which is itself non-trivial with UTF-8).
 
-On the other hand, some operations do still have to look at everything. For example
-`find()` should take about the same time as with regular strings. Perhaps slightly
-slower due to overhead for checking special-cases at part boundaries, and less favorable
-locality of reference. So this is best used when you want the mutability. Regex matches
-than involve backtracking are probably a bad idea here. So is using these as dict keys,
-since hashing huge strings is pricey (and actually, you can't use these, since they're
+On the other hand, some operations do still have to look at everything. For
+example `find()` should take about the same time as with regular strings.
+Perhaps slightly slower due to overhead for checking special-cases at part
+boundaries, and less favorable locality of reference. So this is best used
+when you want the mutability. Regex matches than involve backtracking are
+probably a bad idea here. So is using these as dict keys, since hashing
+huge strings is pricey (and actually, you can't use these, since they're
 mutable.
 
 
@@ -72,39 +72,45 @@ mutable.
 
 `StrBufTest.py`.
 
-See [https://stackoverflow.com/questions/7255655/how-to-subclass-str-in-python].
+See
+[https://stackoverflow.com/questions/7255655/how-to-subclass-str-in-python]
+.
 
 =Known bugs and Limitations=
 
-Some methods known to `str` are simply missing, such as encode/decode, things like rfind, etc.
+Some methods known to `str` are simply missing, such as encode/decode,
+things like rfind, etc.
 
-Most of the operators, such as +=, *, contains, etc. are not yet implemented.
+Most of the operators, such as +=, *, contains, etc. are not yet
+implemented.
 
-Not at all sure what happens if a string would be auto-cast to something else.
-What even consitutes "False" for a StrBuf?
+Not at all sure what happens if a string would be auto-cast to something
+else. What even consitutes "False" for a StrBuf?
 
-I have no idea how other libraries such as `re` access strings. So they may or may not
-work with this. Please let me know if you find incompatibilities, esp. if you can pin down
-what `str` method(s) are involved.
+I have no idea how other libraries such as `re` access strings. So they may
+or may not work with this. Please let me know if you find
+incompatibilities, esp. if you can pin down what `str` method(s) are
+involved.
 
 A very few methods are partially working. For example:
 
-** `title()` (make each word have
-single initial uppercase or titlecase character) doesn't yet check whether each part
-boundary is really also a word boundary. Thus, a word split across a part boundary will
-end up with 2 capitals.
+** `title()` (make each word have single initial uppercase or titlecase
+character) doesn't yet check whether each part boundary is really also a
+word boundary. Thus, a word split across a part boundary will end up with 2
+capitals.
 
-** the `start` and `end` arguments to `find()` are not entirely working; mainly, `end`
-will stop the search at the end of the correct part, but not ignore the excess text
-within that last part (if any).
+** the `start` and `end` arguments to `find()` are not entirely working;
+mainly, `end` will stop the search at the end of the correct part, but not
+ignore the excess text within that last part (if any).
 
 Not all methods that should support `inplace`, do.
 
 
 =To do=
 
-* Write packParts(self, fillFactor=1.0, breakAtWords=False), and/or notice when a
-deletion makes a chunkm small enough to coalesce with neighbors, and do so.
+* Write packParts(self, fillFactor=1.0, breakAtWords=False), and/or notice
+when a deletion makes a chunkm small enough to coalesce with neighbors, and
+do so.
 
 * Finish:
     __mod__              ???
@@ -140,14 +146,15 @@ deletion makes a chunkm small enough to coalesce with neighbors, and do so.
     rsplit
     split
 
-Add __getstate__() and __setstate__() for pickle. Should it save just the raw string,
-or keep the partitioning information, too?
+Add __getstate__() and __setstate__() for pickle. Should it save just
+the raw string, or keep the partitioning information, too?
 
 
 =History=
 
 * 2021-08-03ff: Written by Steven J. DeRose.
 * 2022-02-05: Rename strBuf to StrBuf. Lint.
+* 2024-03-12: Integrate insert and append.
 
 
 =Rights=
@@ -172,7 +179,7 @@ def fatal(msg): log(0, msg); sys.exit()
 
 
 ###############################################################################
-# TODO: Should this be a subclass of str? If I take it out, it can't find len().
+# TODO: Should this be a subclass of str?
 #
 class StrBuf(str):
     """A class to support mutable, big strings with operations anywhere
@@ -184,29 +191,35 @@ class StrBuf(str):
     such as overhead, lack of most string methods, etc.
 
     What has to be implmented the hard way?
-        https://stackoverflow.com/questions/3820506/location-of-python-string-class-in-the-source-code
+        https://stackoverflow.com/questions/3820506/
         regexes? how do they get the chars to match?
     """
-    def __init__(self, s: str = "", partMax: int = 2048, partDft: int = None):
-        super(StrBuf, self).__init__()
-        if (partDft is None):
-            partDft = partMax * 0.75
-        if (partDft > partMax):
-            raise ValueError("partDft %d > partMax %d" % (partDft, partMax))
-        if (partDft < 1):
-            raise ValueError("partDft too low (%d)" % (partDft))
+    __partMax__ = 2048
+    __partDft__ = None
 
-        self.partMax = partMax
-        self.partDft = partDft
+    def __init__(self, s: str = ""):
+        super(StrBuf, self).__init__()
+
+        self.partMax = StrBuf.__partMax__
+        self.partDft = StrBuf.__partDft__
         self.clear()
-        self.parts = [ "" ]
-        self.lens = [ 0 ]
+        self.parts = [ "" ]    # The string parts
+        self.lens = [ 0 ]      # List of length of parts
         self.append(s)
+
+    def setSizes(self, partMax:int=512, partDft:int=1024):
+        assert partMax > 100
+        if (partDft is None or partDft < 1 or partDft > partMax):
+            self.partDft = partMax * 0.75
+        else:
+            self.partDft = partDft
+        # TODO: Call __coalesce__ or to-be-written global one?
 
     def copy(self):
         """Should this copy the exact part-split, or just the data?)
+        For now, does an exact/trivial copy. Probably fastest, too.
         """
-        newSB = StrBuf(partMax=self.partMax, partDft=self.partDft)
+        newSB = StrBuf("")
         newSB.parts = self.parts.copy()
         newSB.lens = self.lens.copy()
         return newSB
@@ -229,6 +242,8 @@ class StrBuf(str):
             assert self.lens[i] <= self.partMax
             assert self.lens[i] > 0 or (i==0 and self.lens[0]==0)
 
+    def len(self):
+        return(sum(self.lens))
 
     ### Type-casts
     ###
@@ -346,26 +361,39 @@ class StrBuf(str):
 
     ### Methods that add to the string
     ###
-    def append(self, s: str):
-        """Add at end of string.
+    def append(self, s: str, fillTo:int=None, pnum:int=None) -> None:
+        """Add at end of string -- BUT this also has the logic to support
         Yes, I know that regular Python strings do not have append() or extend(),
         despite being iterable and being just like lists in some respects.
         """
-        slen = len(s)
-        pnum = len(self.parts) - 1
-        curPos = 0
-        availHere = self.partDft - self.lens[pnum]
-        if (availHere > 0):
-            self.appendShort(pnum, s)
-            curPos += availHere
-            if (curPos >= slen): return
+        if (fillTo is None or fillTo < 1): fillTo = self.partDft
+        elif (fillTo > self.partMax): fillTo = self.partMax
 
-        availRight = self.availInPart(pnum+1)
+        if (pnum is None): pnum = len(self.parts) - 1
+        assert pnum >= 0 and pnum < len(self.parts)
+
+        slen = len(s)
+
+        # First, put as much as fits into the left part.
+        curPos = 0
+        fitsHere = fillTo - self.lens[pnum]
+        if (fitsHere > 0):
+            self.appendShort(pnum, str(s[0:fitsHere]))
+            curPos += fitsHere
+
+        # Find how much space is comfortably available to the right.
+        if (pnum == len(self.parts)-1): availRight = 0
+        else: availRight = fillTo - self.lens[pnum+1]
+
+        # Start appending parts until what's left is small enough to fit on right.
+        #
         while (slen-curPos > availRight):
-            lenToInsert = min(slen-curPos, self.partMax)
+            lenToInsert = min(slen-curPos, fillTo)  # Or
             self.insertPart(pnum+1, str(s[curPos:curPos+lenToInsert]))
             curPos += lenToInsert
             pnum += 1
+
+        # If appending to non-last part, slip in the dregs.
         if (curPos < slen):
             self.prependShort(pnum+1, str(s[curPos:]))
 
@@ -389,10 +417,14 @@ class StrBuf(str):
         self.addString(st, s)
 
     def addString(self, st: int, s: str) -> None:
-        """Insert a string at the given offset. Try to fit in the relevant part + next,
-        balancing them to about equal ending % full.
+        """Insert a string at the given offset. Try to fit in the relevant
+        part + next, balancing them to about equal ending % full.
         If it's too big, add new parts, filling parts to self.partDft.
+
         TODO: Should have a way to append; -1 would be one char early.
+
+        TODO: Integrate with regular append(). Maybe just split at the point,
+        and then append to the left part.
         """
         slen = len(s)
 
@@ -406,32 +438,18 @@ class StrBuf(str):
             self.lens[pnum] += slen
             return
 
-        # Break the current part at the offset (if it fits in the next part, it will
-        # go there; else a new part will be inserted).
+        # Break the current part at the offset (if it fits in the next part,
+        # it will go there; else a new part will be inserted).
         self.splitPart(pnum, offset)
-
-        # Now it's easy. Add pieces of s, making new parts filled to partDft.
-        # If equitable, put the last little bit in the right neighbor.
-        curPos = 0
-        availHere = self.partDft - self.lens[pnum]
-        if (availHere > 0):
-            self.appendShort(pnum, str(s[0:availHere]))
-            curPos += availHere
-
-        availRight = self.availInPart(pnum+1)
-        while (slen-curPos > availRight):
-            lenToInsert = min(slen-curPos, self.partMax)
-            self.insertPart(pnum+1, s[curPos:curPos+lenToInsert])
-            curPos += lenToInsert
-            pnum += 1
-        if (curPos < slen):
-            self.prependShort(pnum+1, str(s[curPos:]))
+        self.append(s, fillTo=self.partDft, pnum=pnum)
+        return
 
     def join(self, iterable: Iterable):
-        """Join is called on the inserted delimiter, not the iterable. So the iterable
-        might contain strings or StrBufs or whatever. For the moment, we always construct
-        a StrBuf for the result, on the theory that if the delimiter is big enough to
-        justify being a StrBuf, a whole bunch of them with other strings too, also is.
+        """Join is called on the inserted delimiter, not the iterable. So the
+        iterable might contain strings or StrBufs or whatever. For the moment,
+        we always construct a StrBuf for the result, on the theory that if
+        the delimiter is big enough to justify being a StrBuf, a whole
+        bunch of them with other strings too, also is.
         """
         s2 = StrBuf()
         for i, thing in enumerate(iterable):
@@ -440,8 +458,8 @@ class StrBuf(str):
         return s2
 
     def splitPart(self, pnum: int, offset: int = None):
-        """Split the given part at the offset, putting the second half into the next
-        part if it fits, otherwise in a new part.
+        """Split the given part at the offset, putting the second half into the
+        nextpart if it fits, otherwise in a new part.
         """
         assert offset < self.lens[pnum], "splitPart: offset %d out of range %d." % (
             offset, self.lens[pnum])
@@ -604,7 +622,7 @@ class StrBuf(str):
     def availInPart(self, pnum: int, forDft: bool = False) -> int:
         """Return the number of chars still available to fit into the part.
         If the part doesn't exist, just return 0.
-        "Available" means below the max size, not the dft, unless you set 'forDft'.
+        "Available" means below max size, not  dft, unless you set 'forDft'.
         """
         if (len(self.parts) <= pnum+1): return 0
         lim = self.partDft if (forDft) else self.partMax
@@ -619,10 +637,10 @@ class StrBuf(str):
         return float(totLen) / (self.partMax * len(self.parts))
 
     def __coalesce__(self, pnum: int) -> bool:
-        """See if the given part will fit into its neighbors (if any), with enough
-        left over; and if so, split it into them (balancing the leftover space
-        as specified), and delete the part.
-        TODO Better name for this. Write similar to do global pack to [minPct..maxPct].
+        """See if the given part will fit into its neighbors (if any), with
+        enough left over; and if so, split it into them (balancing the
+        leftover space as specified), and delete the part.
+        TODO Better name. Write similar to do global pack to [minPct..maxPct].
         Better than absolute pack, more often avoids copying.
         """
         availL = self.partMax - self.lens[pnum-1] if pnum>0 else 0
@@ -651,10 +669,11 @@ class StrBuf(str):
 
     @staticmethod
     def longestPrefixAtEnd(s: str, tgt: str) -> str:
-        """Return the longest prefix of tgt, that occurs at the end of s ("" if none).
-        For example, ('spam and egg', 'ggs') -> 'gg', because 'ggs' could match when
-        combined with a following 's' or 'gs', but no further left. This is useful for
-        finding whether a target might start there, but be completed in the next part(s).
+        """Return the longest prefix of tgt, that occurs at the end of s
+        ("" if none). For example, ('spam and egg', 'ggs') -> 'gg',
+        because 'ggs' could match when combined with a following 's' or 'gs',
+        but no further left. This is useful for finding whether a target
+        might start there, but be completed in the next part(s).
         """
         maxMatch = min(len(tgt), len(s))
         for startAt in range(-maxMatch, -1):
@@ -785,14 +804,16 @@ class StrBuf(str):
             if (not isaWhat(part)): return False
         return True
 
-    # The following operate in place instead of copying so you can avoid copying mongo
-    # strings. But there's an option to do actual copying like the str versions.
+    # The following operate in place instead of copying so you can
+    # avoid copying mongo strings. But there's an option to do actual copying
+    # like the str versions.
     #
     def capitalize(self, inplace: bool = True):
         if (inplace): toChange = self
         else: toChange = self.copy()  # TODO add args
         toChange.lower(inplace=inplace)
-        if (toChange.lens[0]>0): toChange.parts[0][0] = toChange.parts[0][0].capitalize()
+        if (toChange.lens[0] > 0):
+            toChange.parts[0][0] = toChange.parts[0][0].capitalize()
         return toChange
     def casefold(self, inplace: bool = True):
         return self.applyToAllParts(str.casefold, inplace=inplace)
@@ -852,9 +873,11 @@ if __name__ == "__main__":
         x1 = " Some additional text"
 
         p, o = s.findCharN(3)
-        print("findCharN(3) gives part %d, offset %d (total len %d)." % (p, o, len(s)))
+        print("findCharN(3) gives part %d, offset %d (total len %d)." %
+            (p, o, len(s)))
         p, o  = s.findCharN(-3)
-        print("findCharN(-3) gives part %d, offset %d (total len %d)." % (p, o, len(s)))
+        print("findCharN(-3) gives part %d, offset %d (total len %d)." %
+            (p, o, len(s)))
         print("s[0:10] is '%s'." % (s[0:10]))
         print("s[-10:] is '%s'." % (s[-10:]))
 
@@ -867,7 +890,8 @@ if __name__ == "__main__":
         if (w1.index(tgt) != tgtPos):
             print("counted wrong for 'knot', it's at %d." % (w1.index(tgt)))
         if (s.index(tgt) != tgtPos):
-            print("wrong index for 'knot', StrBuf thinks it's at %d." % (s.index(tgt)))
+            print("wrong index for 'knot', StrBuf thinks it's at %d." %
+                (s.index(tgt)))
             print("    strbuf has:\n%s" % (str(s)))
 
         assert s.startswith(w1[0:10])
@@ -907,7 +931,9 @@ if __name__ == "__main__":
 
     def timer(maxPower: int, partMax: int):
         print("\nTesting StrBuf")
-        s = StrBuf(partMax=partMax)  # "", partMax=partMax
+        s = StrBuf("")
+        maxRand = math.floor(args.partMax*1.5)
+
         for p in range(maxPower+1):
             print("\n\n================= 2**%d" % (p))
             gc.collect()
@@ -920,7 +946,7 @@ if __name__ == "__main__":
                 warning1("### '%s'" % (s))
                 if (args.deletePer and i % args.deletePer == 0):
                     delStart = random.randint(0, len(s)-10)
-                    delEnd = delStart + random.randint(0, math.floor(args.partMax*1.5))
+                    delEnd = delStart + random.randint(0, maxRand)
                     if (delEnd >= len(s)): delEnd = delStart + 5
                     warning1("Deleting [%d:%d]" % (delStart, delEnd))
                     s.delete(delStart,delEnd)

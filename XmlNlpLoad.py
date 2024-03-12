@@ -1,9 +1,8 @@
-#!/usr/bin/env python3  
+#!/usr/bin/env python3
 #
 # XmlNlpLoad.pm: "Pull text from XML and arrange for NLP tools.
 # 2018-05-07: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 
 import xml.dom
 import xml.dom.minidom
@@ -74,7 +73,7 @@ class XmlNlpLoad:
     def setHTMLConventions(self):
         inlines = (" a abbr acronym b bdo big cite code dfn em i img input " +
             " kbd q s small span strike strong sub sup tt var" +
-            " applet center dir font samp strike u")
+            " applet center dir font samp strike w")
         self.noSpaceElements = (
             inlines.split(sep=" "))
         drops = 'del object img head form'

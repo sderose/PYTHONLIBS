@@ -174,7 +174,7 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 
 =History=
 
-* 2018-04-21: Written. Copyright by Steven J. DeRose.
+* 2018-04-21: Written by Steven J. DeRose.
 * 2018-10-02: Make Py 2/3 compatible. Support --cat for single letters.
 Make it avoid non-Unicode (hence nameless) code points. Add --python.
 * 2018-11-16: Fix hex display of Unicode normalized forms. Fix html and urllib

@@ -43,12 +43,11 @@ An improved ArgumentParser and argparse:
 Unicode, XSD, and other widely-used standards
 * Can automatically expand "choices" values to one-hot separate attributes (`add_enum()`)
 * Can ignore case for option names, choices values.
-* Option to auto-shorten metavars
 
 
 =Related Commands=
 
-`argparse` [https://docs.python.org/3/library/argparse.html].
+Python's `argparse` [https://docs.python.org/3/library/argparse.html].
 
 
 =Known bugs and limitations=
@@ -61,10 +60,12 @@ Unfinished.
 ==Top==
 
 * Option to pipe to $PAGER.
+* Allow 'description' to be taken from a file.
 * Auto hyphen/underscore convention
 * Auto shortening of metavars
 * toggles
 * Arg that takes 2 following values, or a name=value pair?
+* Min uniq abbreviations for `choices` options
 
 ==Misc==
 
@@ -82,11 +83,11 @@ Perhaps hide them under a secondary command, such as --help-all.
 * braced group? paren/brack/brace, goes to balance (mod \\)
 * dict? works like append but add to a dict, with const value or serial num.
 * tuples?
-* XSD types via `Datatypes.py`
+* XSD types
 * type "type", that accepts defined type names.
 * "globbable"?
-* IEEE that accepts +/- inf, NaN.
-* Comparison args?  -xattr whereFrom=~/foo.bar/ or -xattr foo<=12
+* IEEE that accepts +/- inf, NaN, -0.
+* Comparison args (cf *nix `find`)?  -xattr whereFrom=~/foo.bar/ or -xattr foo<=12
 Possibly allow .lt. etc; certainly allow Unicode symbols.
 * Slice: take n:m where n>=0 and m>=n (or option with negatives)
 * token accumulator: repeatable option, but you can either do `-x foo -x bar`,

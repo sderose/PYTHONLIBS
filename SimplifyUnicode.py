@@ -6,12 +6,6 @@
 import re
 import unicodedata
 
-try:
-    xx = unichr(0x0a)
-except NameError:
-    def unichr(n): return chr(n)
-
-
 __metadata__ = {
     'title'        : "SimplifyUnicode",
     'description'  : "Compatibility mapping on steroids.",
@@ -341,11 +335,11 @@ class SimplifyUnicode:
         for i in (range(0,len(s))):
             n = ord(s[i:i+1])
             if (n>=0xFF01 and n<=0xFF5E): # halfwidth ASCII:
-                buf += unichr(n - 0xFF01 + 0x21)
+                buf += chr(n - 0xFF01 + 0x21)
             elif (0 and n>=0xFF71 and n<=0xFF9F):  # halfwidth Katakana
-                buf += + unichr(n - 0xFF71 + 0x30A1)
+                buf += + chr(n - 0xFF71 + 0x30A1)
             else:
-                buf += + unichr(n)
+                buf += + chr(n)
         return(buf)
 
 
@@ -353,9 +347,9 @@ class SimplifyUnicode:
     #
     def handle_Entities(self, rec):
         rec = re.sub(r'&#x([a-f0-9]+);',
-            lambda x: unichr(int(x.group[1],16)), rec)
+            lambda x: chr(int(x.group[1],16)), rec)
         rec = re.sub(r'&#([0-9]+);',
-            lambda x: unichr(int(x.group[1],10)), rec)
+            lambda x: chr(int(x.group[1],10)), rec)
         rec = re.sub(r'&lt;'   , "<",  rec)
         rec = re.sub(r'&gt;'   , ">",  rec)
         rec = re.sub(r'&apos;' , "'",  rec)
@@ -366,7 +360,7 @@ class SimplifyUnicode:
 
     def handle_UriEscapes(self, rec):
         rec = re.sub(r'([a-fA-F0-9][a-fA-F0-9])',
-            lambda x: unichr(int(x.group[1],16)), rec)
+            lambda x: chr(int(x.group[1],16)), rec)
         return(rec)
 
     def handle_Diacritics(self, rec):

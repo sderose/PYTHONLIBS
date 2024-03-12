@@ -7,13 +7,11 @@ import sys
 import os
 from enum import Enum
 from subprocess import check_output, CalledProcessError
-#from collections import defaultdict, namedtuple
-#from typing import IO, Dict, List, Union
 import logging
 lg = logging.getLogger()
 
 __metadata__ = {
-    "title"        : "versionStatus.py",
+    "title"        : "versionStatus",
     "description"  : "Figure out what VCS a file belongs to, if any.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
@@ -30,7 +28,6 @@ descr = """
 =Name=
     """ +__metadata__["title"] + ": " + __metadata__["description"] + """
 
-
 =Description=
 
 Given a file or directory, see if it's under version control, and what system,
@@ -40,7 +37,7 @@ Returns or prints the particular VCS (as a VCS_Type Enum), and if it known, a
 file status (values mostly based on git).
 
 Only git, Mercurial, and SVN have any support yet, and mainly git.
-    
+
 
 ==Usage as a command==
 
@@ -98,7 +95,7 @@ or [https://github.com/sderose].
 ###############################################################################
 #
 class VCS_Type(Enum):
-    """An Enum of version-control systems, based on 
+    """An Enum of version-control systems, based on
     https://en.wikipedia.org/wiki/List_of_version-control_software.
     I haven't list proprietary ones, but wouldn't mind adding them.
     """
@@ -111,65 +108,65 @@ class VCS_Type(Enum):
     # Client-server
     CVS         = 11
     SVN         = 12  ##
-    Vesta       = 13    
-    
+    Vesta       = 13
+
     # Open-source distribute
-    ArX		    = 101
-    Bazaar		= 102
-    BitKeeper	= 103
-    Darcs		= 104
-    DCVS		= 105
-    Fossil		= 106
-    Git		    = 107  ##
+    ArX         = 101
+    Bazaar      = 102
+    BitKeeper   = 103
+    Darcs       = 104
+    DCVS        = 105
+    Fossil      = 106
+    Git         = 107  ##
     GNU_arch    = 108
-    Mercurial	= 109  ##
-    Monotone	= 110
+    Mercurial   = 109  ##
+    Monotone    = 110
     Perforce    = 111
-    Pijul		= 112    
-    
+    Pijul       = 112
+
 class gitStatus(Enum):
     # Most of the symbols are what you get from 'git status --porcelain'....
     # (exceptions: E, \\u2205, X, =.
     # git also uses a second column with sub-codes... And submodules are special.
     #
-    ERROR		= "E"
+    ERROR       = "E"
     NO_FILE     = "\u2205"  # EMPTY SET symbol
-    
+
     NOT_MINE    = "X"       # Not in this VCS (cf UNTRACKED) TODO: SVN "X" = "present b/c of externals"
 
-    UNTRACKED	= "?"
-    IGNORED		= "!"       # TODO: vs. SVN "I"
+    UNTRACKED   = "?"
+    IGNORED     = "!"       # TODO: vs. SVN "I"
     CLEAN       = "="       # TODO: vs. SVN "C" = 'clean'; " " in git
-    MODIFIED	= "M"
-    ADDED		= "A"
-    DELETED		= "D"       # TODO: vs. Mercurial "R" = removed
-    RENAMED		= "R"       # TODO: SVN "R" = 'replaced'
-    COPIED		= "C"       # TODO: SVN "C" = 'conflict'
-    UNMERGED	= "U"
+    MODIFIED    = "M"
+    ADDED       = "A"
+    DELETED     = "D"       # TODO: vs. Mercurial "R" = removed
+    RENAMED     = "R"       # TODO: SVN "R" = 'replaced'
+    COPIED      = "C"       # TODO: SVN "C" = 'conflict'
+    UNMERGED    = "U"
 
     #             "~"       # TODO: SVN "~" = 'changed type'
 
 colorMap = {
-    gitStatus.ERROR		: "red",
+    gitStatus.ERROR     : "red",
     gitStatus.NO_FILE   : "red",
     gitStatus.NOT_MINE  : "cyan",
-    gitStatus.UNTRACKED	: "yellow",
-    gitStatus.IGNORED	: "yellow",
+    gitStatus.UNTRACKED : "yellow",
+    gitStatus.IGNORED   : "yellow",
     gitStatus.CLEAN     : "green",
-    gitStatus.MODIFIED	: "blue",
-    gitStatus.ADDED		: "blue",
-    gitStatus.DELETED	: "black",
-    gitStatus.RENAMED	: "blue",
-    gitStatus.COPIED	: "yellow",
-    gitStatus.UNMERGED	: "magenta",
+    gitStatus.MODIFIED  : "blue",
+    gitStatus.ADDED     : "blue",
+    gitStatus.DELETED   : "black",
+    gitStatus.RENAMED   : "blue",
+    gitStatus.COPIED    : "yellow",
+    gitStatus.UNMERGED  : "magenta",
 }
-    
+
 def getGitStatus(path:str) -> gitStatus:
     """See what sort of git state we're in (see `git status --help` for --porcelain).
     NOTE: It outputs "" for untracked and unchanged files. Some relevant options:
         -uall  -- show untracked
         --ignored=matching
-        
+
     """
     # See if we're even in a git repo
     try:
@@ -192,7 +189,7 @@ def getGitStatus(path:str) -> gitStatus:
     if (buf0 == " "):
         if (args.verbose): lg.warning("Found space")
         return gitStatus.CLEAN
-    if (buf0 in "MADRCU?!"): 
+    if (buf0 in "MADRCU?!"):
         if (args.verbose): lg.warning("Found code '%s'", buf0)
         return gitStatus(buf0)
     lg.warning("Unknown code '%s' from git status for '%s'.", buf0, path)
@@ -210,14 +207,14 @@ def getMercurialStatus(path):
        ? = not tracked
        I = ignored
          = origin of the previous file listed as A (added)
-        
+
     """
     try:
         rc = check_output([ "hg", "status", path ])
     except CalledProcessError:
         return gitStatus.ERROR
     return rc[0]
-    
+
 def getSVNStatus(path):
     """Really don't know how this behaves...
     See https://svnbook.red-bean.com/en/1.8/svn.ref.svn.c.status.html
@@ -225,14 +222,14 @@ def getSVNStatus(path):
         'A' = Item is scheduled for addition.
         'D' = Item is scheduled for deletion.
         'M' = Item has been modified.
-        'R' = Item has been replaced in your working copy. Was scheduled for deletion, 
+        'R' = Item has been replaced in your working copy. Was scheduled for deletion,
             and then a new file with the same name was scheduled for addition in its place.
         'C' = The contents conflict with updates received from the repository.
         'X' = Item is present because of an externals definition.
         'I' = Item is being ignored
         '?' = Item is not under version control.
         '!' = Item is missing (e.g., you moved or deleted it without using svn).
-        '~' = Item is versioned as one kind of object (file, directory, link), 
+        '~' = Item is versioned as one kind of object (file, directory, link),
             but has been replaced by a different kind of object.
     """
     try:
@@ -240,8 +237,8 @@ def getSVNStatus(path):
     except CalledProcessError:
         return gitStatus.ERROR
     return rc[0]
-    
-    
+
+
 ###############################################################################
 #
 def getVersionStatus(path:str) -> (VCS_Type, gitStatus):
@@ -266,8 +263,6 @@ def getVersionStatus(path:str) -> (VCS_Type, gitStatus):
 #
 if __name__ == "__main__":
     import argparse
-    def anyInt(x:str) -> int:
-        return int(x, 0)
 
     def processOptions() -> argparse.Namespace:
         try:
@@ -322,7 +317,7 @@ if __name__ == "__main__":
         cm = ColorManager()
     else:
         cm = None
-        
+
     if (len(args.files) == 0):
         lg.warning("versionStatus.py: No files specified....")
         sys.exit()
@@ -337,4 +332,3 @@ if __name__ == "__main__":
             print("%-12s %s" % (printStat, path0))
         else:
             print("%-12s %-10s %s" % (vcs.name, printStat, path0))
-

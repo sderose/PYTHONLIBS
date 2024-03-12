@@ -6,7 +6,7 @@
 import sys
 
 __metadata__ = {
-    "title"        : "getLibraryVersions.py",
+    "title"        : "getLibraryVersions",
     "description"  : "Return or display info on all imported libraries.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

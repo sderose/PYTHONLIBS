@@ -19,13 +19,8 @@ except ImportError as e:
     sys.stderr.write("Could not load mathAlphanumerics:\n    %s\nTried: %s" %
         (e, "\n    ".join(sys.path)))
 
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-if PY3:
-    def unichr(n): return chr(n)
-
 __metadata__ = {
-    "title"        : "BlockFormatterPlus.py",
+    "title"        : "BlockFormatterPlus",
     "description"  :
         "Fairly simple formatter class for Python argparse (level 2).",
     "rightsHolder" : "Steven J. DeRose",
@@ -284,18 +279,18 @@ theStyle = None  # Used by InlineMapper.formatBlock()  # TODO: unglobalize
 
 esc = chr(27)
 specialChars = {
-    "lsquo":   unichr(0x2018),    "rsquo":   unichr(0x2019),
-    "ldquo":   unichr(0x201C),    "rdquo":   unichr(0x201D),
-    "lsaquo":  unichr(0x2039),    "rsaquo":  unichr(0x203A),
-    "ldaquo":  unichr(0x00AB),    "rdaquo":  unichr(0x00BB),
+    "lsquo":   chr(0x2018),    "rsquo":   chr(0x2019),
+    "ldquo":   chr(0x201C),    "rdquo":   chr(0x201D),
+    "lsaquo":  chr(0x2039),    "rsaquo":  chr(0x203A),
+    "ldaquo":  chr(0x00AB),    "rdaquo":  chr(0x00BB),
 
-    "endash":  unichr(0x2013),    "emdash":  unichr(0x2014),
-    "shy":     unichr(0x00AD),    "hypoint": unichr(0x2027),
-    "hyminus": unichr(0x002D),
+    "endash":  chr(0x2013),    "emdash":  chr(0x2014),
+    "shy":     chr(0x00AD),    "hypoint": chr(0x2027),
+    "hyminus": chr(0x002D),
 
-    "ensp":    unichr(0x2002),    "emsp":    unichr(0x2003),
-    "thinsp":  unichr(0x2009),    "hairsp":  unichr(0x200A),
-    "zerosp":  unichr(0x200B),    "nbsp":    unichr(0x00A0),
+    "ensp":    chr(0x2002),    "emsp":    chr(0x2003),
+    "thinsp":  chr(0x2009),    "hairsp":  chr(0x200A),
+    "zerosp":  chr(0x200B),    "nbsp":    chr(0x00A0),
 
     "lt": "<", "gt": ">", "apos": "'", "quo": '"', "amp": "&",
 }
@@ -311,19 +306,19 @@ def toPix(mat):
     """
     cp = ord(mat.group(1))
     if (cp > ord(" ")): return mat.group(1)
-    return unichr(0x2400 + cp)
+    return chr(0x2400 + cp)
 
 def xescapes(s):
     """Replace \\x escapes (but doesn't notice if the \\ is itself escaped).
     """
     return re.sub(r"\\x([0-9a-f][0-9a-f])",
-        lambda mat: unichr(int(mat.group(1), 16)), s, re.I)
+        lambda mat: chr(int(mat.group(1), 16)), s, re.I)
 
 def uescapes(s):
     """Replace \\u escapes (but doesn't notice if the \\ is itself escaped).
     """
     return re.sub(r"\\u([0-9a-f][0-9a-f][0-9a-f][0-9a-f])",
-        lambda mat: unichr(int(mat.group(1), 16)), s, re.I)
+        lambda mat: chr(int(mat.group(1), 16)), s, re.I)
 
 
 ##############################################################################
@@ -579,22 +574,22 @@ class WrapText:
 
     thinDeletableExpr = re.compile("".join([
         r"[",
-        u"\u2009",  # "THIN SPACE"
-        u"\u200A",  # "HAIR SPACE"
-        u"\u200B",  # "ZERO WIDTH SPACE"
-        u"\u202F",  # "NARROW NO-BREAK SPACE"
+        "\u2009",  # "THIN SPACE"
+        "\u200A",  # "HAIR SPACE"
+        "\u200B",  # "ZERO WIDTH SPACE"
+        "\u202F",  # "NARROW NO-BREAK SPACE"
         r"]"
         ]),
         flags=re.UNICODE)
 
     emWidthsExpr = re.compile("".join([
         r"[",
-        u"\u2001",  # "EM QUAD"
-        u"\u2003",  # "EM SPACE"
-        u"\u2014",  # "EM DASH"
-        u"\u2e3a",  # "TWO-EM DASH"
-        u"\u2e3b",  # "THREE-EM DASH"
-        u"\ufe58",  # "SMALL EM DASH"
+        "\u2001",  # "EM QUAD"
+        "\u2003",  # "EM SPACE"
+        "\u2014",  # "EM DASH"
+        "\u2e3a",  # "TWO-EM DASH"
+        "\u2e3b",  # "THREE-EM DASH"
+        "\ufe58",  # "SMALL EM DASH"
         r"]"
         ]),
         flags=re.UNICODE)
@@ -611,32 +606,32 @@ class WrapText:
         "]", flags=re.UNICODE)
 
     dashesExpr = re.compile("".join([
-        u"\u002D",  # "HYPHEN-MINUS"
-        u"\u00AD",  # "SOFT HYPHEN"                    ### SPECIAL
-        u"\u058A",  # "ARMENIAN HYPHEN"
-        u"\u1806",  # "MONGOLIAN TODO SOFT HYPHEN"
-        #u"\u1B60",  # "BALINESE PAMENENG (line-breaking hyphen)"
-        u"\u2010",  # "HYPHEN"
-        #u"\u2011",  # "NON-BREAKING HYPHEN"           ### SPECIAL
-        u"\u2012",  # "FIGURE DASH"
-        u"\u2013",  # "EN DASH"
-        u"\u2014",  # "EM DASH"
-        u"\u2027",  # "HYPHENATION POINT"              ### SPECIAL
-        u"\u2043",  # "HYPHEN BULLET"
-        u"\u2053",  # "SWUNG DASH"
-        u"\u2212",  # "MINUS"
-        u"\u229D",  # "CIRCLED DASH"
-        u"\u2448",  # "OCR DASH"
-        u"\u2E17",  # "DOUBLE OBLIQUE HYPHEN"
-        u"\u2E1A",  # "HYPHEN WITH DIAERESIS"
-        u"\u301C",  # "WAVE DASH"
-        u"\u3030",  # "WAVY DASH"
-        u"\u30A0",  # "KATAKANA-HIRAGANA DOUBLE HYPHEN"
-        u"\uFE49",  # "DASHED OVERLINE"
-        u"\uFE4D",  # "DASHED LOW LINE"
-        u"\uFE58",  # "SMALL EM DASH"
-        u"\uFE63",  # "SMALL HYPHEN-MINUS"
-        u"\uFF0D",  # "FULLWIDTH HYPHEN-MINUS"
+        "\u002D",  # "HYPHEN-MINUS"
+        "\u00AD",  # "SOFT HYPHEN"                    ### SPECIAL
+        "\u058A",  # "ARMENIAN HYPHEN"
+        "\u1806",  # "MONGOLIAN TODO SOFT HYPHEN"
+        #"\u1B60",  # "BALINESE PAMENENG (line-breaking hyphen)"
+        "\u2010",  # "HYPHEN"
+        #"\u2011",  # "NON-BREAKING HYPHEN"           ### SPECIAL
+        "\u2012",  # "FIGURE DASH"
+        "\u2013",  # "EN DASH"
+        "\u2014",  # "EM DASH"
+        "\u2027",  # "HYPHENATION POINT"              ### SPECIAL
+        "\u2043",  # "HYPHEN BULLET"
+        "\u2053",  # "SWUNG DASH"
+        "\u2212",  # "MINUS"
+        "\u229D",  # "CIRCLED DASH"
+        "\u2448",  # "OCR DASH"
+        "\u2E17",  # "DOUBLE OBLIQUE HYPHEN"
+        "\u2E1A",  # "HYPHEN WITH DIAERESIS"
+        "\u301C",  # "WAVE DASH"
+        "\u3030",  # "WAVY DASH"
+        "\u30A0",  # "KATAKANA-HIRAGANA DOUBLE HYPHEN"
+        "\uFE49",  # "DASHED OVERLINE"
+        "\uFE4D",  # "DASHED LOW LINE"
+        "\uFE58",  # "SMALL EM DASH"
+        "\uFE63",  # "SMALL HYPHEN-MINUS"
+        "\uFF0D",  # "FULLWIDTH HYPHEN-MINUS"
         ]), flags=re.UNICODE)
 
     # cf https://github.com/sderose/Charsets
@@ -1425,7 +1420,7 @@ class Styler:  # All methods static
     #
     @staticmethod
     def mk_nBrk(txt):  # Prevent line-breaks inside
-        return(re.sub(r"\s", unichr(160), txt.group(1)))
+        return(re.sub(r"\s", chr(160), txt.group(1)))
 
 
 ###############################################################################

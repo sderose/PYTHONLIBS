@@ -14,18 +14,7 @@ import re
 import os
 import codecs
 import argparse
-#import html
 from typing import Tuple, Dict, Any
-
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-if PY2:
-    def unbackslash(s):
-        return s.decode("string_escape") # python2
-else:
-    def unbackslash(s):
-        return bytes(s, "utf-8").decode("unicode_escape") # python3
-    def unichr(n): return chr(n)
 
 __metadata__ = {
     "title"        : "BlockFormatter",
@@ -266,25 +255,25 @@ Refactor entity/escape/tab handling.
 #
 esc = chr(27)
 quoteChars = {
-    "lsquo":   unichr(0x2018), "rsquo":   unichr(0x2019),
-    "ldquo":   unichr(0x201C), "rdquo":   unichr(0x201D),
-    "lsaquo":  unichr(0x2039), "rsaquo":  unichr(0x203A),
-    "ldaquo":  unichr(0x00AB), "rdaquo":  unichr(0x00BB),
+    "lsquo":   chr(0x2018), "rsquo":   chr(0x2019),
+    "ldquo":   chr(0x201C), "rdquo":   chr(0x201D),
+    "lsaquo":  chr(0x2039), "rsaquo":  chr(0x203A),
+    "ldaquo":  chr(0x00AB), "rdaquo":  chr(0x00BB),
 }
 dashChars = {
-    "endash":  unichr(0x2013), "emdash":  unichr(0x2014),
-    "shy":     unichr(0x00AD), "hypoint": unichr(0x2027),
-    "hyminus": unichr(0x002D),
+    "endash":  chr(0x2013), "emdash":  chr(0x2014),
+    "shy":     chr(0x00AD), "hypoint": chr(0x2027),
+    "hyminus": chr(0x002D),
 }
 spaceChars = {
-    "ensp":    unichr(0x2002), "emsp":    unichr(0x2003),
-    "thinsp":  unichr(0x2009), "hairsp":  unichr(0x200A),
-    "zerosp":  unichr(0x200B), "nbsp":    unichr(0x00A0),
+    "ensp":    chr(0x2002), "emsp":    chr(0x2003),
+    "thinsp":  chr(0x2009), "hairsp":  chr(0x200A),
+    "zerosp":  chr(0x200B), "nbsp":    chr(0x00A0),
 }
 specialChars = {
     "lt":      "<",            "gt":      ">",
     "apos":    "'",            "quo":     '"',
-    "amp":     "&",            "hellip":  unichr(0x2026),
+    "amp":     "&",            "hellip":  chr(0x2026),
 }
 
 specialChars.update(quoteChars)
@@ -310,19 +299,19 @@ def makeVis(s:str):
 def toPix(mat):
     """Make control chars and space visible.
     """
-    return unichr(0x2400 + ord(mat.group(1)))
+    return chr(0x2400 + ord(mat.group(1)))
 
 def xescapes(s:str):
     """Replace \\x escapes (but doesn't notice if the \\ is itself escaped).
     """
     return re.sub(r"\\x([0-9a-f][0-9a-f])",
-        lambda mat: unichr(int(mat.group(1), 16)), s, re.I)
+        lambda mat: chr(int(mat.group(1), 16)), s, re.I)
 
 def uescapes(s:str):
     """Replace \\u escapes (but doesn't notice if the \\ is itself escaped).
     """
     return re.sub(r"\\u([0-9a-f][0-9a-f][0-9a-f][0-9a-f])",
-        lambda mat: unichr(int(mat.group(1), 16)), s, re.I)
+        lambda mat: chr(int(mat.group(1), 16)), s, re.I)
 
 
 ##############################################################################

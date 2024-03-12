@@ -839,7 +839,7 @@ class ALogger:
             s = re.sub(r'([%[:ascii:]]|[[:cntrl:]])',
                 lambda x: (
                     chr(0x2400+ord(x.group(1))) if (cp and ord(x.group(1))<32)
-                    else (u"\\u%04x;" % (ord(x.group(1))))),
+                    else ("\\u%04x;" % (ord(x.group(1))))),
                 s)
         except re.error as e:
             self.loggingError("Regex error: %s\n" % (e))

@@ -3,7 +3,6 @@
 # strftime.py: Make strftime available on command line.
 # 2021-08-21: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import re
 import math
@@ -150,8 +149,6 @@ def mkInt(s:str, dft:int=0):
 #
 if __name__ == "__main__":
     import argparse
-    def anyInt(x: str) -> int:
-        return int(x, 0)
 
     def processOptions() -> argparse.Namespace:
         try:

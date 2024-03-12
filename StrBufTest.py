@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # StrBufTest.py: Basic testing for StrBuf.py.
 # 2021-08-03: Written by Steven J. DeRose.
@@ -61,7 +62,7 @@ w1 = (
     "Urdo vent wrap Xeno yurt zoom " )
 
 dictWords = []
-nwords = len(dict)
+nwords = len(dictWords)
 w1 = ""
 
 width = 40
@@ -358,6 +359,9 @@ def processOptions() -> argparse.Namespace:
         "--missing", action="store_true",
         help="List methods that are on str but not StrBuf.")
     parser.add_argument(
+        "--partDft", type=int, default=512,
+        help="Size prefereance for separate blocks of a string.")
+    parser.add_argument(
         "--partMax", type=int, default=1024,
         help="Size limit for separate blocks of a string.")
     parser.add_argument(
@@ -389,7 +393,8 @@ for _i in range(100):
     words = re.split(r"\s+", src)
     nwords = len(words)
 
-sBase = StrBuf(w1, args.partMax, args.partDft)
+sBase = StrBuf(w1)
+#sBase.setSizes(partMax=args.partMax, partDft=args.partDft)
 
 smoketest(sBase.copy())
 

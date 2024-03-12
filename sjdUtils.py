@@ -1514,11 +1514,17 @@ class sjdUtils:
     ###########################################################################
     # Miscellaneous
     #
+    # TODO: Will probably need to update this for 3.12
+    #
     def try_module(self, moduleName:str, quiet=False):
-        import importlib
+        import importlib.util
         try:
-            importlib.find_module(moduleName)
-        except ImportError:
+            #importlib.find_module(moduleName)  # OBS as of 3.3
+            modSpec = importlib.util.find_spec(moduleName)
+            if (modSpec):
+                module = importlib.util.module_from_spec(modSpec)
+                modSpec.loader.exec_module(module)
+        except ModuleNotFoundError:  # nee ImportError:
             if (not quiet): sys.stderr.write(
                 "sjdUtils.try_module(): Can't find module '%s'." % (moduleName))
             return(False)

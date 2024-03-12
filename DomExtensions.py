@@ -206,7 +206,7 @@ Python lists.
 If the fourth child is not a `p` element, `IndexError` is raised, just as for
 any other "not found" case. Unfortunately, "in" has no way to test more than
 the simplest condition, just as in Python you can't ask `[1:2] in myList`.
-It may be more Pythonic to do it the following way, which works fine:
+It may be more Pythonic the following way, which works fine:
 
     try:
         myStuff = myNode['p':3]
@@ -707,11 +707,13 @@ Possible additions:
 
 *** Rename all nodeplus args to nodeSel. Check other naming consistency.
 
+*** Rename all "Attribute" to "Attr"?
+
 Add "tagToRuby".
 
 Reduce redundancy in traversers and generators.
 
-Rename to 'maxidom'?
+Rename to 'maxidom' or DOMPP?
 
 Option to test/return nodeName always as localname or qname?
 
@@ -819,7 +821,7 @@ Generate SAX.
 * 2021-03-17: Add getContentType().
 * 2021-07-08: Add some methods omitted from patchDom(). Add checking for such.
 Type-hinting. Proof and sort patchDom list vs. reality.
-* 2021-07-20: Fix eachNode to do attribute nodes, too. Add removeNodesByNodeType().
+* 2021-07-20: Fix eachNode for attribute nodes. Add removeNodesByNodeType().
 * 2022-01-27: Fix various annoying bugs with NodeTypes Enum. Remember that the Document
 element is really an element. Improve handling for bool and for multi-token values
 in getAttributeAs(). Turn off default of appending id comment in getEndTag().
@@ -988,7 +990,7 @@ class XMLStrings:
         @param base: 10 for decimal, 16 for hexadecimal.
         @param htmlNames: If True, use HTML 4 named entities when applicable.
         """
-        # TO DO: What is the right type to use for mat? _sre.SRE_Match ?
+        # TODO: What is the right type to use for mat? _sre.SRE_Match ?
         def escASCIIFunction(mat:Match) -> str:
             """Turn all non-ASCII chars to character refs.
             """
@@ -1211,7 +1213,7 @@ def isLeafType(node:Node):
 
 
 ###############################################################################
-# Methods to patch onto DOM Node.
+# Methods to patch on DOM Node.
 #
 #try:
 #    from BaseDom import BaseDom
@@ -1830,7 +1832,7 @@ def getXPointer(self:Node, textOffset:int=None, idAttrName:NMToken=None) -> str:
     there's not enough text -- then treat as if no `textOffset` was given.
     If it's exactly 1 greater, point just after the last content character.
 
-    TODO: Extend to do full-fledged ranges.
+    TODO: Extend to full-fledged ranges.
     """
     if (textOffset is None):
         return getXPointerToNode(self, idAttrName=idAttrName)
@@ -1910,8 +1912,8 @@ def findTextByOffset(self:Node, textOffset:int=0):
 
 def getTextNodesIn(node:Node) -> list:
     """Return just the text nodes under the specified starting node.
-    By default, includes descendant text nodes; should add option to do
-    just direct ones.
+    By default, includes descendant text nodes; should add option to
+    only consider direct ones.
     See https://stackoverflow.com/questions/298750/
     TODO: Just use eachTextNode
     """
@@ -2240,6 +2242,14 @@ def removeAttributeToken(self:Node, attrName:NMToken, token:str) -> bool:
         return True
     return False
 
+def hasAttributeToken(self:Node, attrName:NMToken, token:str, ignoreCase:bool=False) -> bool:
+    """Return whether the given attribute exists and contains a (space-separated)
+    token matching 'token'.
+    """
+    assertElement(self)
+    attrValue = self.getAttribute(attrName)
+    return re.search(r"\b%s\b" % (token), attrValue, flags=re.I if ignoreCase else 0)
+
 ####### Node removers
 
 def removeWhiteSpaceNodes(self:Node) -> None:
@@ -2353,7 +2363,7 @@ def isWSN(self:Node):
 
 ###############################################################################
 # Node creation/insertion/mod methods.
-# To do: Let caller supply attribute, too.
+# TODO: Let caller supply attribute, too.
 #
 def renameByTagName(root:Node, oldName:NMToken, newName:NMToken) -> None:
     """Change the name for all elements of a given element type name.
@@ -2516,8 +2526,6 @@ def eachNodeCB(self:Node, callbackA:Callable=None, callbackB:Callable=None, dept
     Callbacks are allowed to be None if not needed.
     If a callback returns True, stop traversing.
     """
-    #if (not (self)): return 1
-    #name = self.nodeName
     if (callbackA):
         if (callbackA(self)): return 1
     if (self.hasChildNodes()):
@@ -2536,7 +2544,6 @@ def eachNode(self:Node, wsn:bool=True, attributeNodes:bool=True, depth:int=1) ->
     @param attributeNodes: If False, skip attribute nodes.
     TODO: Upgrade this and similar, to use NodeKind/NodeSel.
     """
-    if (not self): return
     yield self
 
     # TODO Check, this isn't quite how to iterate through attribute *nodes*
@@ -2681,7 +2688,7 @@ def collectAllText(self:Node, delim:str=" ", depth:int=1) -> str:
     @param depth: Just tracks the recursion level.
     TODO Option to collect only *directly* contained textnodes?
 
-    *** Might be nicer to do like BaseDom.py (nee RealDOM.py), and define
+    *** Might be nicer to be like BaseDom.py (nee RealDOM.py), and define
     tostring() separately for each subclass of Node.
     """
     if (not (self)): return ""
@@ -3482,7 +3489,7 @@ class DomExtensions:
 
             toPatch.getAllDescendants       = getAllDescendants
 
-            # TABLES (support moved to DOMTableTools.py)
+            # TABLES (support moved to be in DOMTableTools.py)
 
             toPatch.normalizeAllSpace       = normalizeAllSpace
             toPatch.normalize               = normalize

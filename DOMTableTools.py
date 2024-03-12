@@ -39,6 +39,8 @@ __metadata__ = {
 __version__ = __metadata__["modified"]
 
 descr = """
+UNFINISHED
+
 =Description=
 
 This add-on for DOM provides many tools to make it easier to deal with
@@ -466,12 +468,12 @@ def CreateTableFromCSV(self, path:str, hasHeader:bool=True, fsplitArgs:Dict=None
     # Process the head
     colIds = None
     if (hasHeader):
-        colIds, colTypes = self.doCSVHeader(ifh, fsplitArgs)
+        colIds, _colTypes = self.doCSVHeader(ifh, fsplitArgs)
 
     # Process the data
-    recnum = 1
+    recNum = 1
     for rec in ifh.readlines():
-        recnum += 1
+        recNum += 1
         fds = fsplit(rec, fsplitArgs)
         dataRow = self.ownerDocument.createElement(self.topt.TR)
         self.tbl.appendChild(dataRow)
@@ -609,12 +611,8 @@ def eliminateSpans(self):
             cs = int(cs)
             node.setAttribute(self.topt.COLSPAN, 1)
             nn = node.nodeName
-            row = node.parentNode
-            while (cs > 1):
-
-                cs -= 1
-
-            for i in range(int(cs)):
+            #row = node.parentNode
+            for _i in range(int(cs)):
                 newNode = theDoc.createElement(nn)
                 node.insertFollowingSibling(newNode)
 
@@ -670,8 +668,7 @@ def ensureColumnIdents(self:TableOptions, colNum:int, ) -> list:
         thisColId = theIDs.append(self.getAttribute(row, self.topt.CLASS))
         if (not thisColId): badCoords.append( (0, colNum) )
 
-    for colNum, col in enumerate(self.generateColumns()):
-        colId = None
+    for colNum, _col in enumerate(self.generateColumns()):
         for rowNum in range(1, self.getNumRows()):
             cell = self.getCellByRowColumn(rowNum, colNum=colNum)
             thisColId = cell.getAttribute(self.topt.CLASS)
@@ -702,15 +699,15 @@ def getColumn(self:Node, onlyChild:str="tbody", colNum:int=1, colSpanAttr:str=No
         cells.append(row.getCellOfRow(colNum=colNum, colSpanAttr=colSpanAttr))
     return cells
 
-def generateColumn(self):
-    assert False
+#def generateColumn(self):  # TODO: Implement
+#    assert False
 
 def getCellOfRow(self:TableOptions, row:Node, colNum:int=1, colSpanAttr:str=None) -> Node:
     """Pretty much like getElementChild(), but can account for horizontal
     spans (this does not yet adjust for vertical/row spans!).
     """
     found = 0
-    for ch in self.childNodes:
+    for ch in row.childNodes:
         if (ch.nodeType != Node.ELEMENT_NODE): continue
         found += 1
         if (found == colNum): return ch
@@ -718,6 +715,22 @@ def getCellOfRow(self:TableOptions, row:Node, colNum:int=1, colSpanAttr:str=None
             cspan = int(ch.getAttribute(colSpanAttr))
             if (cspan > 1): found += cspan-1
     return None
+
+
+###############################################################################
+#
+class SORTTYPE(Enum):
+    """Basic ways to sort by a given column. Far from complete...
+    Perhaps add: whitespace or unicode norm; dictionary style; human-numeric;
+    date/time/datetime; version numbers; Mac auto-split. Cf *nix 'sort'.
+    """
+    STR = 0
+    CASELESS = 1
+    TOKENS = 2     # Tokenize at \W+, then sort tokenwise
+    MACFILE = 3    # Tokenize by alpha vs. numeric
+    INT = 10
+    FLOAT = 11
+    CASH = 12      # Strip whitespace and currency chars, then as float.
 
 
 ###############################################################################
@@ -795,10 +808,12 @@ class NormTable:
             self.removeChild(self.tbl.firstChild)
         return self
 
-    def sortBy(self, keyCols:List):
-        """How best to specify keys?
-        """
-        assert False
+#    def sortBy(self, keyCols:List):
+#        """Sort the rows by some column(s)
+#        TODO: Implement. How best to specify keys?
+#            [ (colNum|colName, SORTTYPE, reverse)+ ]
+#        """
+#        assert False
 
     def transpose(self, replace:bool=False):
         """This makes a transposed copy of the table.
@@ -844,25 +859,35 @@ class NormTable:
         if (h): return getChildByName(h, self.nc.TR)
         return None
 
-    def addHead(self, labels:List=None, fromAttr:str=None,
-        numbered:str=None, moveRow:bool=False):
+    def addHead(self, labels:List=None,
+        numbered:str=None, moveRow:bool=False) -> None:
         """Add a table head and head row, and hopefully column labels.
-        If there's already a thead, do nothing and return None.
+        If there's already a thead, do nothing.
         Labels can be sourced from:
             * labels: A list of strings
-            * moveRow: moving the first row into the new THEAD
-            * fromAttr: Copying this attribute from each cell of the first row
             * numbered: This string plus a number
-            * [otherwise]: Do nothing
+            * moveRow: moving the first row into the new THEAD
+            * [otherwise]: Fail.
+        TODO: Labels vs. contents vs. @CLASS; may want to set all.
         """
         if (self.getHead()): return None
         thead = self.tbl.ownerDocument.createElement(self.topt.THEAD)
         self.tbl.insertBefore(self.tbl.childNodes[0], thead)
         if (labels):
             for lab in labels:
-                thead.appendChild(self.makeElement(self.topt.TH, text=lab))
+                newCell = self.makeElement(self.topt.TH, text=lab)
+                newCell.setAttribute("label", lab)
+                thead.appendChild(newCell)
+        elif (numbered):
+            for i, in range(self.tbl.countColumns()):
+                newCell = self.makeElement(self.topt.TH, text=lab)
+                newCell.setAttribute("label", numbered+str(i))
+                thead.appendChild(newCell)
         elif moveRow:
             theRow = self.tbl.getRow(0)
+            thead.appendChild(theRow)
+        else:
+            assert False, "None of labels, numbers, or moveRow was given."
 
     def getcolIds(self:Node) -> List:
         colIds = []
@@ -889,7 +914,13 @@ class NormTable:
         token if not already there, and any prior tokens remain.
         """
         theCol = self.getColumn(col)
-        theCol.setAttribute(self.topt.CLASS, name)
+        if (alone):
+            theCol.setAttribute(self.topt.CLASS, name)
+        else:
+            buf = theCol.setAttribute(self.topt.CLASS)
+            if (buf): buf += " "
+            buf += name
+            theCol.setAttribute(self.topt.CLASS, buf)
 
     def getBody(self):
         return getChildByName(self.tbl, self.topt.TBODY)
@@ -941,7 +972,8 @@ class NormTable:
 
 
     ##################################################### COLUMN OPERATIONS
-
+    # These actually operate on whole columns -- not just one cell in a column.
+    #
     def getColHeader(self, n:Union[int, str]) -> Node:
         """Can find by name or number.
         """
@@ -961,28 +993,78 @@ class NormTable:
         else:
             raise TypeError("getColHeader: must be string or int.")
 
-    def insertColBefore(self, n:Union[int, str], ident:str):
-        assert False
-
-    def appendCol(self, ident:str):
+    def insertColBefore(self, colNum:int, ident:str, label:str=None, theCells:List=None):
+        """Insert an entire column. If theCells is a list of cells, use them;
+        otherwise construct empty ones (plus a header one containing label).
+        """
         thead = self.getHead()
-        th = self.makeElement(
-            self.topt.TH, { self.topt.CLASS:ident }, text=ident)
-        thead.appendChild(th)
+        if (theCells):
+            newCell = theCells[0]
+        else:
+            newCell = self.makeElement(self.topt.TH, { self.topt.CLASS:ident }, text=label)
+        refCell = self.getCellOfRow(row=thead, colNum=colNum)
+        thead.insertBefore(newCell, refCell)
+        for rowNum, row in enumerate(self.generateRows()):
+            if (theCells):
+                newCell = theCells[rowNum+1]
+            else:
+                newCell = self.makeElement(self.topt.TD, text=label)
+            newCell.setAttribute("label", ident)
+            refCell = self.getCellOfRow(row=rowNum, colNum=colNum)
+            row.insertBefore(newCell, refCell)
 
-        for row in self.generateRows():
-            cell = self.makeElement(self.topt.TD, { self.topt.CLASS:ident })
-            row.appendChild(cell)
+    def appendCol(self, ident:str, label:str=None, theCells:List=None):
+        thead = self.getHead()
+        if (theCells):
+            newCell = theCells[0]
+        else:
+            newCell = self.makeElement(
+             self.topt.TH, { self.topt.CLASS:ident }, text=label)  # TODO ???
+        thead.appendChild(newCell)
+
+        for rowNum, row in enumerate(self.generateRows()):
+            if (theCells):
+                newCell = theCells[rowNum+1]
+            else:
+                newCell = self.makeElement(
+                    self.topt.TD, { self.topt.CLASS:ident}, text=label )
+            row.appendChild(newCell)
         return
 
-    def deleteCol(self, n:Union[int, str]):
-        assert False
+    # TODO: Add copyCol()
+
+    def deleteCol(self, colNum:int) -> List:
+        """Delete an entire column.
+        Returns the list of deleted cells.
+        Better not be any spans, this only covers normalized tables.
+        """
+        # TODO: Add test for normalized tableness.
+        deletedCells = []
+        thead = self.getHead()
+        theCell = self.getCellOfRow(row=thead, colNum=colNum)
+        deletedCells.append(thead.removeChild(theCell))
+        for rowNum, row in enumerate(self.generateRows()):
+            theCell = self.getCellOfRow(row=rowNum, colNum=colNum)
+            deletedCells.append(row.removeChild(theCell))
+        return deletedCells
 
     def moveColBefore(self, fromCol:Union[int, str], toCol:Union[int, str]):
-        assert False
+        """Move a column to another location in the column order.
+        fromCol is the current column position; toCol is where it will be
+        once done (considering the column deletion, which matters).
+        TODO: For the moment, this doesn't take column names, only numbers.
+        """
+        theCells = self.deleteCol(fromCol)
+        self.insertColBefore(toCol, theCells)
 
     def swapCol(self, fromCol:Union[int, str], toCol:Union[int, str]):
-        assert False
+        if (fromCol == toCol): return
+        if (fromCol > toCol):
+            tmp = toCol; toCol = fromCol; fromCol = tmp
+        originalRightCells = self.deleteCol(toCol)
+        originalLeftCells = self.deleteCol(fromCol)
+        self.insertColBefore(fromCol, originalRightCells)
+        self.insertColBefore(toCol, originalLeftCells)
 
     def setColIdent(self:Node, colNum:int, newColId:str, alone:bool=True):
         """Given a list of names, assign them by setting the given attribute
@@ -1042,9 +1124,9 @@ class NormTable:
     # TODO: col num<>name > dtype <cell
     def getColHeaderForCell(self, node:Node) -> Node:
         assert node.nodeName == self.topt.TD
-        cnum = self.getColNum()
+        colNum = self.getColNum()
         # Or node.getAttribute(self.topt.CLASS)...
-        return self.getColHeader(cnum)
+        return self.getColHeader(colNum)
 
     def getColNumOfCell(self:Node) -> int:
         # TODO: rowspans
@@ -1060,13 +1142,6 @@ class NormTable:
                 except ValueError:
                     n += 1
         return n
-
-
-    def _insertCellBefore(self, n:Union[int, str], ident:str):
-        """This should only be called by insertColBefore.
-        """
-
-        assert False
 
 
     ###########################################################################
@@ -1096,23 +1171,74 @@ class NormTable:
     ###########################################################################
     # Manipulate existing tables toward norm
     #
-    def nukeThead(self:Node, promote:bool=True):
-        """If 'promote' is True, move any thead row into tbody.
-        Otherwise, delete them.
+    def removeThead(self:Node, _promote:bool=True):
+        """TODO: Support 'promote' to move any thead rows into tbody.
         Then remove the thead itself.
         """
-        raise NotImplementedError
+        for thead in self.table.getElementsByTagName(self.topt.THEAD):
+            thead.parent.removeElement(thead)
 
-    def nukeTfoot(self:Node, promote:bool=True):
-        raise NotImplementedError
+    def removeTfoot(self:Node, _promote:bool=True):
+        for tfoot in self.table.getElementsByTagName(self.topt.TFOOT):
+            tfoot.parent.removeElement(tfoot)
 
-    def attrToCol(self:Node, attrName:str, colIdent:str, colNum:int):
+    def attrToCol(self:Node, colNum:int, attrName:str, ident:str, label:str=None):
         """Promote one attribute of cells in a column, to form a new column.
+        TODO: Add way to put it on target attribute vs. content (see addToCell()).
         """
-        raise NotImplementedError
+        theCells = []
+        for cell in self.generateCellsOfCol(colNum):
+            attrVal = cell.getAttribute(attrName)
+            newCell = self.makeElement(self.topt.TH, text=attrVal)
+            if (ident): newCell.setAttribute(self.topt.CLASS, ident)
+            theCells.append(newCell)
+        self.insertColBefore(colNum=colNum, ident=ident, label=label, theCells=theCells)
 
-    def colToAttr(self:Node, colIdent:str, attrName:str):
-        raise NotImplementedError
+    #def colToAttr(self:Node, attrName:str, ident:str, label=label):
+        """Remove a column, and move something from into into another column.
+        Take: Text Content or an attribute(s) (see DomExtensions choices)
+        Put: Before/after/as Content or an attribute.
+        TODO: Implement using addToCell().
+        """
+
+    def addToCell(self, cell:Node, text:str, locus:str="#TEXT",
+        disp:str="REPLACE", sep:str=" "):
+        """Attach the given 'text' to the given 'cell', in a certain place:
+            locus: If #TEXT, in content, otherwise on the named attribute.
+            disp: One of
+                REPLACE -- replace all of the existing text or attrvalue (if any)
+                BEFORE -- prepend
+                AFTER -- append
+                UNION -- only for tokenized attributes like HTML @CLASS; this
+                    appends if the same token isn't there, else does nothing.
+            Except for #TEXT or REPLACE, put 'sep' in as a separator.
+        """
+        # TODO: This may create adjacent text nodes.
+        if (locus == "#TEXT"):
+            newCell = self.makeTextNode(text)
+            if (disp == "REPLACE"):
+                while (cell.childNodes): cell.delete(cell.childNodes[-1])
+                cell.appendChild(newCell)
+            elif (disp == "BEFORE"):
+                cell.insertChildBefore(newCell, cell.childNodes[0])
+            elif (disp == "AFTER"):
+                cell.appendChild(newCell)
+            else:
+                assert False, "DISP must be one of REPLACE, BEFORE, AFTER."
+            cell.appendChild(newCell)
+        elif (DomExtensions.isXmlName(locus)):
+            val = cell.getAttribute(locus) or ""
+            if (disp == "REPLACE"): val = text
+            elif (disp == "BEFORE"): val = text + sep + val
+            elif (disp == "AFTER"): val = val + sep + text
+            elif (disp == "UNION"):
+                if (not cell.hasAttributeToken(text)): return
+                val = val + sep + text
+            else:
+                assert False, "DISP must be one of REPLACE, BEFORE, AFTER, UNION."
+            cell.setAttribute(val)
+        else:
+            assert False, "locus must be #TEXT or an attribute name"
 
 
     ###########################################################################
@@ -1129,30 +1255,17 @@ class NormTable:
         """
         raise NotImplementedError
 
-    def moveCol(self:Node, colToMove, target):
-        """Move a column, identified by number or @class name, to a new place.
-        """
-        raise NotImplementedError
-
     def clearCellsByContent(self:Node, expr:str=None, nbIsSpace:bool=True):
         """Clear content of cells
         """
         raise NotImplementedError
 
+    def deleteRow(self:'NormTable', rowNum:int):     # By number
+        theRow = self.getRow(rowNum)
+        assert theRow
+        self.table.removeChild(theRow)  # TODO: Mr. tbody?
 
-    def InsertCol(self:'NormTable'):  # As number N, or before/after name?
-        raise NotImplementedError
-
-    def DeleteCol(self:'NormTable'):  # By number or name
-        raise NotImplementedError
-
-    def DeleteRow(self:'NormTable'):     # By number
-        raise NotImplementedError
-
-    def InsertRow(self:'NormTable'):     # As number N
-        raise NotImplementedError
-
-    def CreateTable(self, nRows:int, nCols:int, cellClasses:list=None):
+    def createTable(self, nRows:int, nCols:int, cellClasses:list=None):
         """Make an entire n*m table.
         If cellClasses is given it must be a list of length nCols, and its values
         must be strings to be put into @CLASS of the respective cell elements.
@@ -1179,7 +1292,7 @@ class NormTable:
         self.tbl = t2
         return t2
 
-    def InsertRowBefore(self, before:Union[Node, int]) -> Node:
+    def insertRowBefore(self, before:Union[Node, int]) -> Node:
         """Create a row with nCols cells, all empty, and insert it before
         the given row (specified by reference or rowNum).
         """
@@ -1198,7 +1311,7 @@ class NormTable:
         self.tbl.insertBefore(newRow, refRow)  # TODO: Check order vs. DOM
         return newRow
 
-    def ListList2Table(self, data:list) -> Node:
+    def listList2Table(self, data:list) -> Node:
         """Make a new table from a list of lists of data. Better be rectangular.
         """
         nCols=len(data[0])
@@ -1210,31 +1323,32 @@ class NormTable:
                 cell.innerHTML = str(rowData[j])
         return t2
 
-    def DeleteTable(self:'NormTable'):  # TODO: Drop?
+    def deleteTable(self:'NormTable'):  # TODO: Drop?
         raise NotImplementedError
 
-    def SetCol(self:'NormTable'):  # TODO: Drop? Or change to SetColDatatype?
+    def setCol(self:'NormTable'):  # TODO: Drop? Or change to SetColDatatype?
         raise NotImplementedError
 
-    def RenameTable(self:'NormTable'):  # TODO: Drop?
+    def renameTable(self:'NormTable'):  # TODO: Drop?
         raise NotImplementedError
 
-    def RenameCol(self:'NormTable'):  # TODO: Drop?
+    def renameCol(self:'NormTable'):  # TODO: Drop?
         raise NotImplementedError
 
 
 ###########################################################################
 # Do SQL on these
 #
-class SQLTable(NormTable):
-    """Add basic RDB operations.
-    See various other methods above, like sortBy, transpose, insertCol...
-    """
+class JoinTypes(Enum):
     INNER = 1
     OUTER = 2
     LEFT  = 3
     RIGHT = 4
 
+class SQLTable(NormTable):
+    """Add basic RDB operations.
+    See various other methods above, like sortBy, transpose, insertCol...
+    """
     def project(self:'NormTable', cols:List):
         """Extract the given columns, in the given order.
         """
@@ -1250,7 +1364,7 @@ class SQLTable(NormTable):
 
     def join(
         self:'NormTable', other:'NormTable',
-        selfCols:list, otherCols:list, joinType:int=SQLTable.INNER):
+        selfCols:list, otherCols:list, joinType:int=JoinTypes.INNER):
         """Given two tables, generate the result of joining them....
         What's the easiest way to pass a join condition?
         Probably start with a list of field-name pairs, and compare ops?
@@ -1324,6 +1438,7 @@ if __name__ == "__main__":
 
         args0 = parser.parse_args()
         return(args0)
+
 
     ###########################################################################
     #

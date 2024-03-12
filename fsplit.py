@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # fsplit.py: A better (I hope) str.split() or csv package.
-# 2020-02-28: Written. Copyright by Steven J. DeRose.
+# 2020-02-28: Written by Steven J. DeRose.
 #
 #pylint: disable=W0603,W0511
 #
@@ -20,8 +20,6 @@ import unicodedata
 
 import logging
 from Datatypes import Datatypes
-
-#import pdb  # pdb.set_trace()
 
 lg = logging.getLogger()
 dt = Datatypes()

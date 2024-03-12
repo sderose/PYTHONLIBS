@@ -855,9 +855,6 @@ if __name__ == "__main__":
     statFormat0 = "-%Hu%Mu%Lu%Hg%Mg%Lg%Ho%Mo%Lo  %8su %8sg %6ds %12sm %sn"
     timeFormat0 = "%Y-%m-%dT%H:%M:%S %Z"
     import argparse
-    def anyInt(x):
-        return int(x, 0)
-
     def processOptions():
         try:
             from BlockFormatter import BlockFormatter

@@ -3,7 +3,6 @@
 # TokensEN.py: English-specific reference data for use with Tokenizers.
 # 2012-08-22: Extracted and ported from Tokenizer.pm by Steven J. DeRose.
 #
-from __future__ import print_function
 import regex as re  # Adds support for \p{}
 
 __metadata__ = {

@@ -3,7 +3,6 @@
 # Homogeneous.py: Implement homogeneous subclasses of list, dict, etc.
 # 2020-02-19: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import argparse
 
