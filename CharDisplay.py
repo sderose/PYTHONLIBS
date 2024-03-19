@@ -36,7 +36,7 @@ __metadata__ = {
 }
 __version__ = __metadata__["modified"]
 
-descr="""
+descr = """
 =Description=
 
 Display detailed information about a single Unicode character.
@@ -379,16 +379,17 @@ assert len(macRomanData) == 128
 # TODO: Move to separate test process
 for i in sorted(macRomanData.keys()):
     if (i<128 or i>255 or len(macRomanData[i]) != 3):
-        lg.critical("macRomanData table error, entry %d is %s" % (i, repr(macRomanData[i])))
+        lg.critical("macRomanData table error, entry %d is %s", i, repr(macRomanData[i]))
         sys.exit()
     ucp, ent, nam = macRomanData[i]
     if ((not isinstance(ucp, int)) or ucp < 0XA0 or ucp > 0xFB02):
-        raise ValueError("macRomanData[%04x]: Unicode equivalent %04x out of range." % (i, ucp))
+        raise ValueError(
+            "macRomanData[%04x]: Unicode equivalent %04x out of range." % (i, ucp))
     if (ent):
         cpOfEntity = name2codepoint[ent]
         if (cpOfEntity != ucp):
             raise ValueError(
-                "macRomanData[%04x]: entity '%s' maps to %04x which is '%s', not %04x." %
+                "macRomanData[%04x]: entity '%s' maps to %04x ('%s'), not %04x." %
                 (i, ent, cpOfEntity, codepoint2name[cpOfEntity], ucp))
     if (not re.match(r"[- A-Z0-9]{5,}$", nam)):
         raise ValueError("macRomanData for %04x: bad name '%s'." % (i, nam))
@@ -543,7 +544,7 @@ ASCII = [
 
 for i in range(0, 128):
     if (ASCII[i][0] != i or len(ASCII[i]) != 6):
-        lg.error("ASCII table error, entry %d is %s" % (i, repr(ASCII[i])))
+        lg.error("ASCII table error, entry %d is %s", i, repr(ASCII[i]))
         sys.exit()
 
 C0Names = [  # Not in unicodedata.name...
@@ -660,7 +661,7 @@ unicodeCategories = {  # Replaces categoryAbbr2Name
     "Zs":  "Separator, Space",
 }
 if (len(unicodeCategories) != 38):
-    lg.critical("Bad item count for unicodeCategories: %d." % (len(unicodeCategories)))
+    lg.critical("Bad item count for unicodeCategories: %d.", len(unicodeCategories))
     sys.exit()
 
 _blocks = []
@@ -1458,15 +1459,15 @@ script_data = {
 # Sanity-check
 nsn = len(script_data["scriptNames"])
 if (nsn != 102):
-    lg.critical("Bad entry count for scriptNames: %d." % (nsn))
+    lg.critical("Bad entry count for scriptNames: %d.", nsn)
     sys.exit()
 ncn = len(script_data["categoryAbbrs"])
 if (ncn != 25):
-    lg.critical("Bad entry count for categoryAbbrs: %d." % (ncn))
+    lg.critical("Bad entry count for categoryAbbrs: %d.", ncn)
     sys.exit()
 nidx = len(script_data["idx"])
 if (nidx != 1637):
-    lg.critical("Bad entry count for idx: %d." % (nidx))
+    lg.critical("Bad entry count for idx: %d.", nidx)
     sys.exit()
 
 
@@ -1736,7 +1737,7 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
     else:
         try:
             charInfo["UNAME" ] = unicodedata.name(literal)
-        except Exception as e:
+        except ValueError:
             lg.critical("unicodedata.name() failed for '%s'.", literal)
             charInfo["UNAME" ] = "???"
     assert charInfo["UNAME"]
@@ -1813,7 +1814,7 @@ def getCharInfo(n:int):  # TODO Cut over to use strfchr CharInfo object
         buf = "CharInfo for U+%05x:\n" % (n)
         for k, v in charInfo.items():
             buf += "    %-16s %s\n" % (k, v)
-        lg.info(buf+"    =======\n\n")
+        lg.info("%s    =======\n\n", buf)
     return charInfo
 
 def makeDisplay(n:int, full=True) -> str:
@@ -1824,7 +1825,6 @@ def makeDisplay(n:int, full=True) -> str:
         charInfo = getCharInfo(n)
     except ValueError as e:
         raise ValueError from e  #("getCharInfo() failed: %s" % (e))
-        return "???"
 
     try:
         msg = "\n".join([
@@ -1887,7 +1887,7 @@ def makeDisplay(n:int, full=True) -> str:
     if (n in cp1252ToUnicode):
         lg.info("CP1252 warning for %d.", n)
         msg += ("\n    WARNING: May be intended as CP1252. If so use U+%05x (%s)."
-            % (cp1252ToUnicode[n], unicodedata.name(cp1252ToUnicode[n])))
+            % (cp1252ToUnicode[n], unicodedata.name(chr(cp1252ToUnicode[n]))))
     elif (n == 0xFF): msg += (
         "\n    WARNING: 0XFF may be DELETE or LATIN SMALL LETTER Y WITH DIAERESIS")
 
@@ -2081,7 +2081,7 @@ if __name__ == "__main__":
                 nam = unicodedata.name(c0)
             except ValueError:
                 if (args.verbose): lg.info(
-                    "No name for char '%s' (U+%05x)\n" % (c0, codePoint))
+                    "No name for char '%s' (U+%05x)\n", c0, codePoint)
                 continue
             if (args.python):
                 print("    ( 0x%05x, '%s',\t\"%s\" )," % (codePoint, c0, nam))

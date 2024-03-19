@@ -112,7 +112,7 @@ def testModify(s1:StrBuf):
     s1.append(s2)
     #s1.appendShort(pnum, s)  ######## __?
     #s1.prependShort(pnum, s)  ######## __?
-    s3 = s1.copy().insert(100, s2)
+    #s3 = s1.copy().insert(100, s2)
     insertAt = 100
     s1.addString(insertAt, s2)
 
@@ -133,7 +133,7 @@ def testPartStuff1(s1:StrBuf):
 
 def testNormalize(s1:StrBuf):
     s2 = "Hello\tto\t\tall\tthish...."
-    s3 = s2.expandtabs(4)
+    s3 = s1.expandtabs(4)
     s3.clear()
     print(s3)
     s2.strip("Hh.")
@@ -161,7 +161,6 @@ def testInfo(s1:StrBuf):
         assert s1[i] == w1[i]
 
 def testPartStuff2(s1:StrBuf):
-    return
     #s1.availInPart(pnum, forDft)
     s1.getPackingFactor()
     s1.__coalesce__(3)
@@ -171,6 +170,7 @@ def testPartStuff2(s1:StrBuf):
     #s1.getChars(st, fin)
     #s1.getChar(tgt)
     #s1.findCharN(tgt)
+    return
 
 def testProperties(s1:StrBuf, fillchar:str="*", inplace:bool=True):
     s1max = s1.max()
@@ -223,10 +223,10 @@ def testInPlace(inplace:bool=True):
 # Main
 #
 def genText(path:str="/usr/share/dict/words", n:int=20000):
-    global dictWords, nwords
+    global nwords
     if not dictWords:
         with codecs.open(path, "rb", encoding="utf-8") as ifh:
-            dictWords = [ x.strip() for x in ifh.readlines() ]
+            dictWords.append([ x.strip() for x in ifh.readlines() ])
         nwords = len(dictWords)
         print("Loaded %d words from %s." % (nwords, path))
     s = ""
@@ -234,7 +234,7 @@ def genText(path:str="/usr/share/dict/words", n:int=20000):
         s += dictWords[random.randint(0, nwords)] + " "
     return s
 
-def smoketest(s1:StrBuf):
+def smoketest(_s1:StrBuf):
     global w1
     if (args.smokeLength):
         w1 += genText(n=args.smokeLength)
@@ -308,7 +308,8 @@ def reportMissing():
 
 def timer(maxPower: int, partMax: int):
     print("\nTesting StrBuf")
-    s = StrBuf(partMax=partMax)  # "", partMax=partMax
+    s = StrBuf("")
+    s.setSizes(partMax=partMax)
     for p in range(maxPower+1):
         print("\n\n================= 2**%d" % (p))
         gc.collect()
@@ -407,7 +408,7 @@ testPartStuff1(sBase.copy())
 testNormalize(sBase.copy())
 testRemove(sBase.copy())
 testInfo(sBase.copy())
-testPartStuff2(sBase.copy())
+#testPartStuff2(sBase.copy())  # TODO Add
 testProperties(sBase.copy())
 testInPlace(sBase.copy())
 

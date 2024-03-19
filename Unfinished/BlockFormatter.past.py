@@ -9,16 +9,16 @@ import sys, re, codecs
 import argparse
 
 __metadata__ = {
-    'title'        : "BlockFormatter",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2013-04-18",
-    'modified'     : "2020-03-04",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/",
-    'description'  :
+    "title"        : "BlockFormatter",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2013-04-18",
+    "modified"     : "2020-03-04",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/",
+    "description"  :
         'Simple formatter class for Python argparse.',
 }
 __version__ = __metadata__['modified']
@@ -67,15 +67,15 @@ There is a class variable `BlockFormatter._options`, which is a dict that
 defaults to:
 
     _options = {
-        'verbose':     0,
-        'showInvis':   False,
-        'tabStops':    4,
-        'hangIndent':  2,
-        'xescapes':    False,
-        'uescapes':    False,
-        'entities':    False,
-        'breakLong':   False,
-        'altFill':     None,
+        "verbose":     0,
+        "showInvis":   False,
+        "tabStops":    4,
+        "hangIndent":  2,
+        "xescapes":    False,
+        "uescapes":    False,
+        "entities":    False,
+        "breakLong":   False,
+        "altFill":     None,
     }
 
 There is not yet an API to change or set these, but you can set them
@@ -221,15 +221,15 @@ class BlockFormatter(argparse.HelpFormatter):
                     _fill_text(self, text, width, indent)
     """
     _options = {
-        'verbose':     0,         # Extra messages?
-        'showInvis':   False,     # Replace invisible chars
-        'tabStops':    4,         # Expand tabs per this interval
-        'hangIndent':  2,         # Add to non-first lines of list items etc.
-        'xescapes':    False,     # Recognize \xFF codes
-        'uescapes':    False,     # Recognize \uFFFF codes
-        'entities':    False,     # Recognize &#65; &#x41; &bull; etc.
-        'breakLong':   False,     # Can split inside long tokens (like URLs)
-        'altFill':     None,      # Replacement for _fill_text().
+        "verbose":     0,         # Extra messages?
+        "showInvis":   False,     # Replace invisible chars
+        "tabStops":    4,         # Expand tabs per this interval
+        "hangIndent":  2,         # Add to non-first lines of list items etc.
+        "xescapes":    False,     # Recognize \xFF codes
+        "uescapes":    False,     # Recognize \uFFFF codes
+        "entities":    False,     # Recognize &#65; &#x41; &bull; etc.
+        "breakLong":   False,     # Can split inside long tokens (like URLs)
+        "altFill":     None,      # Replacement for _fill_text().
     }
 
     def _fill_text(self, text, width, indent):
@@ -250,7 +250,7 @@ class BlockFormatter(argparse.HelpFormatter):
             block = blocks[i]
             items = [ ]
             # Divide block at newlines followed by punct or indentation
-            for item in re.split(r'\n(?=[ \t*=#•])', block,  re.UNICODE):
+            for item in re.split(r'\n(?=[ \t*=#â¢])', block,  re.UNICODE):
                 vMsg(2, "ITEM: %s" % (item))
                 srcIndent = ""
                 mat = re.match(r'^([ \t]+)', item)

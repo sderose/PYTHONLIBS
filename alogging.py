@@ -3,7 +3,7 @@
 # alogging: messaging, logging, and statistics features from sjdUtils.py.
 # Fairly close to Python's Logging package (and moving closer),
 # but adds color and -v levels like many *nix utilities.
-# Written 2011-12-09 by Steven J. DeRose
+# 2011-12-09 : Written by Steven J. DeRose.
 #
 # pylint: disable=W1406
 #

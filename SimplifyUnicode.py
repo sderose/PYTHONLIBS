@@ -7,16 +7,16 @@ import re
 import unicodedata
 
 __metadata__ = {
-    'title'        : "SimplifyUnicode",
-    'description'  : "Compatibility mapping on steroids.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2010-11-19ff",
-    'modified'     : "2020-09-23",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "SimplifyUnicode",
+    "description"  : "Compatibility mapping on steroids.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2010-11-19ff",
+    "modified"     : "2020-09-23",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 
@@ -203,26 +203,26 @@ class SimplifyUnicode:
     def __init__(self, **kwargs):
         self.version       = "2015-08-15"
         self.options = {
-            'entities'       : 0,
-            'uriEscapes'     : 0,
+            "entities"       : 0,
+            "uriEscapes"     : 0,
 
-            'dashes'         : 0,
-            'keepMdash'      : 0,
-            'halfWidths'     : 0,
-            'ligaturesAll'   : 0,
-            'spaces'         : 0,
+            "dashes"         : 0,
+            "keepMdash"      : 0,
+            "halfWidths"     : 0,
+            "ligaturesAll"   : 0,
+            "spaces"         : 0,
 
-            'bQuotes'        : 0,
-            'dQuotes'        : 0,
-            'sQuotes'        : 0,
-            'quotes'         : 0,
+            "bQuotes"        : 0,
+            "dQuotes"        : 0,
+            "sQuotes"        : 0,
+            "quotes"         : 0,
 
-            'accents'        : "unchanged",
-            'ligatures'      : "unchanged",
-            'maths'          : "unchanged",
-            'numbers'        : "unchanged",
-            'supers'         : "unchanged",
-            'subs'           : "unchanged",
+            "accents"        : "unchanged",
+            "ligatures"      : "unchanged",
+            "maths"          : "unchanged",
+            "numbers"        : "unchanged",
+            "supers"         : "unchanged",
+            "subs"           : "unchanged",
         }
 
         if (kwargs):

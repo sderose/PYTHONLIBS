@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # Datatypes.py: Verify datatypes represented by string data.
-# Written 2012-05-07 by Steven J. DeRose.
+# 2012-05-07: Written by Steven J. DeRose.
 #
 #pylint: disable=W0703
 #
@@ -9,16 +9,16 @@ import sys
 import re
 
 __metadata__ = {
-    'title'        : "Datatypes",
-    'description'  : "Provide basic type-checking, conversions, formatting.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2012-08-12",
-    'modified'     : "2020-08-19",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "Datatypes",
+    "description"  : "Provide basic type-checking, conversions, formatting.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2012-08-12",
+    "modified"     : "2020-08-19",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 

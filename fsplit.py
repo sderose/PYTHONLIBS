@@ -24,9 +24,6 @@ from Datatypes import Datatypes
 lg = logging.getLogger()
 dt = Datatypes()
 
-def info2(msg, *nargs):
-    lg.log(logging.INFO-2, msg, *nargs)
-
 __metadata__ = {
     "title"        : "fsplit",
     "description"  : "A better (I hope) str.split() or csv package.",
@@ -1077,7 +1074,7 @@ class DialectX:
             for oname in self.__OptionTypes__.keys():
                 setattr(self, oname, getattr(dialect, oname))
 
-        #info2("Default options:\n" + self.tostring())
+        #lg.info("Default options:\n" + self.tostring())
         if (argNS): self.applyargs(argNS, prefix="")
         self.applykwOptions(kwargs)
         self.problemChars = self.getProblemChars()
@@ -1678,7 +1675,7 @@ class reader:
 
             self.rec_num += 1
             if (nPhysical > 1):
-                info2("Logical record included %d physical records.", nPhysical)
+                lg.info("Logical record included %d physical records.", nPhysical)
 
             # If this was the header, handle it and go around again for data.
             if (self.rec_num==1):
@@ -2126,7 +2123,7 @@ def parseEntity(s: str) -> (str, int):
     """
     from html import unescape
     mat = re.match(r"&(#\d+|#x[\da-f]+|\w[\d\w]*);", s, flags=re.I|re.U)
-    #info2("Match against '%s':\n%s" % (s, mat))
+    #lg.info("Match against '%s':\n%s" % (s, mat))
     if (not mat): return None, 0
     result = unescape(mat.group(0))
     return result, len(mat.group(0))
@@ -2880,19 +2877,19 @@ def fsplit(
     tokens = [ "" ]
     while (i < sLen):
         c = s[i]
-        info2("At char %dx: '%s' U+%04x", i, c, ord(c))
+        lg.info("At char %dx: '%s' U+%04x", i, c, ord(c))
 
         if (c == dx.escapechar):
-            info2("    Got escape char.")
+            lg.info("    Got escape char.")
             escResult, escLength = Escaping.decodeEscape(s, i, tokens[-1], dx=dx)
             tokens[-1] += escResult
             i += escLength - 1
 
         elif (pendingQuote):
             if (c == pendingQuote):
-                info2("    Got close quote '%s'.", c)
+                lg.info("    Got close quote '%s'.", c)
                 if (dx.doublequote and len(s) > i+1 and s[i+1] == pendingQuote):
-                    info2("    BUT quote is doubled.")
+                    lg.info("    BUT quote is doubled.")
                     tokens[-1] += pendingQuote
                     i += 1
                 else:
@@ -2901,7 +2898,7 @@ def fsplit(
                 tokens[-1] += c
 
         elif (dx.entities and c == "&"):  # TODO Should this work outside quotes?
-            info2("    Got entity start.")
+            lg.info("    Got entity start.")
             entExpansion, charsUsed = parseEntity(s[i:])
             if (entExpansion is not None):
                 tokens[-1] += entExpansion
@@ -2910,14 +2907,14 @@ def fsplit(
                 syntaxError(s, i, tokens[-1], "Ill-formed character reference", strict=dx.strict)
 
         elif (c in currentQuoteMap):
-            info2("    Got open quote '%s'", c)
+            lg.info("    Got open quote '%s'", c)
             if (tokens[-1] != ""):
                 syntaxError(s, i, tokens[-1], "quote not at start of field", strict=dx.strict)
             pendingQuote = currentQuoteMap[c]
 
         # Delimiters are odd: single-char; multi-char; any-of; cycling; repeatable; \s+
         elif (isinstance(thisDelim, re.Pattern) and re.match(thisDelim, s[i:])):
-            info2("Matched delimiter regex /%s/ at offset %d." % (thisDelim, i))
+            lg.info("Matched delimiter regex /%s/ at offset %d." % (thisDelim, i))
             mat = re.match(thisDelim, s[i:])
             i += len(mat.group(0)) - 1
             tokens.append("")
@@ -2925,7 +2922,7 @@ def fsplit(
 
         elif (not isinstance(thisDelim, re.Pattern) and
               c == thisDelim[0] and s[i:].startswith(thisDelim)):
-            info2("Got str delimiter '%s' at offset %d." % (thisDelim, i))
+            lg.info("Got str delimiter '%s' at offset %d." % (thisDelim, i))
             i += len(thisDelim)
             if (dx.delimiterrepeat):
                 while (s[i:].startswith(thisDelim)):  # TODO: Factor this out, it's lame.

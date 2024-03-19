@@ -297,14 +297,6 @@ or [https://github.com/sderose].
 =Options=
 """
 
-def log(lvl:int, msg:str) -> None:
-    if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
-def info0(msg:str) -> None: log(0, msg)
-def info1(msg:str) -> None: log(1, msg)
-def info2(msg:str) -> None: log(2, msg)
-def error(msg:str) -> None: log(0, msg)
-def fatal(msg:str) -> None: log(0, msg); sys.exit()
-
 
 ###############################################################################
 #

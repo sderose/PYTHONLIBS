@@ -78,7 +78,7 @@ __metadata__ = {
 __version__ = __metadata__["modified"]
 
 
-descr="""
+descr = """
 =Description=
 
 PowerWalk is similar to Python's built-in `os.walk()`, but offers many

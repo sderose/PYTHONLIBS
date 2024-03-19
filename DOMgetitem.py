@@ -7,27 +7,23 @@
 #
 import sys
 import re
-#import codecs
 from enum import Enum
 from typing import List, Union
-#import xml.dom, xml.dom.minidom
 from xml.dom.minidom import Node, Document  #, NamedNodeMap
-
-#from html.entities import codepoint2name, name2codepoint
 
 from DomExtensions import XMLStrings
 
 __metadata__ = {
-    'title'        : "DomGetitem",
-    'description'  : "Make xml.dom.minidom.Node and ts subclass much more Pythonic.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2010-01-10",
-    'modified'     : "2021-07-21",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "DomGetitem",
+    "description"  : "Make xml.dom.minidom.Node and ts subclass much more Pythonic.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2010-01-10",
+    "modified"     : "2021-07-21",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 
@@ -139,7 +135,7 @@ class NodeSelKind(Enum):
     This has two main uses:
         1: given one of the 3 args to __getitem__, identify it.
            Often these will be ints, which is why that's here.
-        2: Helping interpret the similar arg to many selection/navigation 
+        2: Helping interpret the similar arg to many selection/navigation
            methods, e.g., selectChild("#pi", n=1). In that case, the
            arg can also be a regex, which specifies matching element names.
 
@@ -147,7 +143,7 @@ class NodeSelKind(Enum):
             '#space' for white-space-only text nodes,
             '#realtext' for non-white-space-only text nodes,
             union of text, element, and cdata
-            
+
     The model here is:
         There are BRANCHES and LEAVES.
         BRANCHES have a name, attribute dict, and child list.
@@ -166,7 +162,7 @@ class NodeSelKind(Enum):
     ARG_PI        = 0x040  # #pi
     ARG_COMMENT   = 0x080  # #comment
     ARG_CDATA     = 0x100  # #cdata
-    
+
     @staticmethod
     def getKind(someArg:Union[str, int]) -> 'NodeSelKind':  # nee def argType()
         """Categorize one of the arguments to __getitem__().
@@ -265,7 +261,7 @@ class PyNode(Node):
 
     def len(self):
         return len(self.childNodes)
-        
+
     def what(self):
         """Avoid the confusing distinction of nodeType vs. nodeName vs. element type/name,
         by putting everything into a common space.
@@ -278,7 +274,7 @@ class PyNode(Node):
         if (self.nodeType == Node.CDATA_NODE):     return "#CDATA"
         if (self.nodeType == Node.PROCESSING_INSTRUCTION_NODE): return "#PI"
         else: return None
-        
+
     def DEcontains(self:Node, nodeName:str) -> bool:
         """Test whether the node has a direct child of the given element type.
         """

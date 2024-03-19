@@ -19,16 +19,16 @@ except ImportError:
     gotMath = False
 
 __metadata__ = {
-    'title'        : "BlockFormatter",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2013-04-18",
-    'modified'     : "2020-08-13",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/",
-    'description'  :
+    "title"        : "BlockFormatter",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2013-04-18",
+    "modified"     : "2020-08-13",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/",
+    "description"  :
         'Simple formatter class for Python argparse.',
 }
 __version__ = __metadata__['modified']
@@ -90,17 +90,17 @@ There is a class variable in BlockFormatter, `_options`, which is a dict that
 defaults to:
 
     _options = {
-        'verbose':     0,
-        'inlines':     True,
-        'showInvis':   False,
-        'tabStops':    4,
-        'hangIndent':  2,
-        'xescapes':    False,
-        'uescapes':    False,
-        'entities':    False,
-        'breakLong':   False,
-        'altFill':     None,
-        'quotes':      '""',
+        "verbose":     0,
+        "inlines":     True,
+        "showInvis":   False,
+        "tabStops":    4,
+        "hangIndent":  2,
+        "xescapes":    False,
+        "uescapes":    False,
+        "entities":    False,
+        "breakLong":   False,
+        "altFill":     None,
+        "quotes":      '""',
     }
 
 There is not yet an API to change or set these, but you can set them
@@ -422,16 +422,16 @@ uint = int
 class Options:
     optionDefs = {
         # name         type  default
-        'verbose':    (uint, 0),      # Extra messages?
-        'inlines':    (bool, True),   # Support inline MarkDown?
-        'showInvis':  (bool, False),  # Replace invisible chars
-        'tabStops':   (uint, 4),      # Expand tabs per this interval
-        'hangIndent': (int,  2),      # non-first lines of list items.
-        'xescapes':   (bool, False),  # Recognize \xFF codes
-        'uescapes':   (bool, False),  # Recognize \uFFFF codes
-        'entities':   (bool, False),  # Expand &#65; &#x41; &bull; etc.
-        'breakLong':  (bool, False),  # split long tokens (like URLs)
-        'altFill':    (callable, None), # Replacement for _fill_text().
+        "verbose":    (uint, 0),      # Extra messages?
+        "inlines":    (bool, True),   # Support inline MarkDown?
+        "showInvis":  (bool, False),  # Replace invisible chars
+        "tabStops":   (uint, 4),      # Expand tabs per this interval
+        "hangIndent": (int,  2),      # non-first lines of list items.
+        "xescapes":   (bool, False),  # Recognize \xFF codes
+        "uescapes":   (bool, False),  # Recognize \uFFFF codes
+        "entities":   (bool, False),  # Expand &#65; &#x41; &bull; etc.
+        "breakLong":  (bool, False),  # split long tokens (like URLs)
+        "altFill":    (callable, None), # Replacement for _fill_text().
     }
 
     def __init__(self):
@@ -676,16 +676,16 @@ class StyleSpec:
             pass
 
     styleProps = {
-        'border':         ( ),  #[ 0, 0, 0, 0]
-        'color':          ( ),  #None
-        'bgcolor':        ( ),  #None
-        'display':        ( ),  #StyleSpec.displayValues['BLOCK']
-        'fontFamily':     ( ),  #StyleSpec.unicodeFakeFontInfos['PLAIN']
-        'fontStyle':      ( ),  #StyleSpec.fontStyleValues['normal']
-        'fontWeight':     ( ),  #StyleSpec.fontWeightValues['medium']
-        'margin':         ( ),  #[ 0, 0, 0, 0]
-        'textAlign':      ( ),  #StyleSpec.textAlignmentValues['LEFT']
-        'textDecoration': ( ),  #False
+        "border":         ( ),  #[ 0, 0, 0, 0]
+        "color":          ( ),  #None
+        "bgcolor":        ( ),  #None
+        "display":        ( ),  #StyleSpec.displayValues['BLOCK']
+        "fontFamily":     ( ),  #StyleSpec.unicodeFakeFontInfos['PLAIN']
+        "fontStyle":      ( ),  #StyleSpec.fontStyleValues['normal']
+        "fontWeight":     ( ),  #StyleSpec.fontWeightValues['medium']
+        "margin":         ( ),  #[ 0, 0, 0, 0]
+        "textAlign":      ( ),  #StyleSpec.textAlignmentValues['LEFT']
+        "textDecoration": ( ),  #False
    }
 
     globalValues = {
@@ -727,29 +727,29 @@ class StyleSpec:
     }
 
     displayValues = {
-        'NONE'         : 0,   #
-        'INLINE'       : 11,  #
-        'BLOCK'        : 22,  #
+        "NONE"         : 0,   #
+        "INLINE"       : 11,  #
+        "BLOCK"        : 22,  #
         'TABLE_CELL'   : 36,  #
     }
 
     fontFamilyValues = {
-        'PLAIN'        : 0,
+        "PLAIN"        : 0,
         'SANS-SERIF'   : 1,
-        'FRAKTUR'      : 2,
-        'SCRIPT'       : 3,
-        'MONOSPACE'    : 4,
+        "FRAKTUR"      : 2,
+        "SCRIPT"       : 3,
+        "MONOSPACE"    : 4,
     }
 
     fontStyleValues = {
-        'normal'       : 0,
-        'italic'       : 1,
+        "normal"       : 0,
+        "italic"       : 1,
     }
 
     fontWeightValues = {
-        'medium'       : 0,
-        'demibold'     : 1,
-        'bold'         : 2,
+        "medium"       : 0,
+        "demibold"     : 1,
+        "bold"         : 2,
     }
 
     listStyleTypeValues = {
@@ -805,9 +805,9 @@ class StyleSpec:
     }
 
     textDecorationValues = {
-        'none'          : 0,
-        'underline'     : 1,
-        'strike'        : 2,
+        "none"          : 0,
+        "underline"     : 1,
+        "strike"        : 2,
     }
 
     verticalAlignValues = {
@@ -856,9 +856,9 @@ class StyleSpec:
     UNEGA = 0x8000
 
     UFakeFontInfos = {
-        'PLAIN'                   : (UNONE           , 'ULD'),
-        'BOLD'                    : (UBOLD           , 'ULD'),
-        'ITALIC'                  : (UITAL           , 'UL-'),
+        "PLAIN"                   : (UNONE           , 'ULD'),
+        "BOLD"                    : (UBOLD           , 'ULD'),
+        "ITALIC"                  : (UITAL           , 'UL-'),
         'BOLD_ITALIC'             : (UBOLD | UITAL   , 'UL-'),
 
         'SANS_SERIF'              : (USANS           , 'ULD'),
@@ -866,25 +866,25 @@ class StyleSpec:
         'SANS_SERIF_ITALIC'       : (USANS | UITAL   , 'UL-'),
         'SANS_SERIF_BOLD_ITALIC'  : (USANS | UBOLD | UITAL , 'UL-'),
 
-        'FRAKTUR'                 : (UFRAK           , 'UL-'),
+        "FRAKTUR"                 : (UFRAK           , 'UL-'),
         'BOLD_FRAKTUR'            : (UFRAK | UBOLD   , 'UL-'),
 
-        'SCRIPT'                  : (USCRP           , 'UL-'),
+        "SCRIPT"                  : (USCRP           , 'UL-'),
         'BOLD_SCRIPT'             : (USCRP | UBOLD   , 'UL-'),
 
-        'MONOSPACE'               : (UMONO           , 'ULD'),
+        "MONOSPACE"               : (UMONO           , 'ULD'),
 
         'DOUBLE_STRUCK'           : (UDOUB           , 'ULD'),
-        'FULLWIDTH'               : (UWIDE           , 'ULD'),
+        "FULLWIDTH"               : (UWIDE           , 'ULD'),
 
-        'CIRCLED'                 : (UCIRC           , 'ULD'),
+        "CIRCLED"                 : (UCIRC           , 'ULD'),
         'NEGATIVE_CIRCLED'        : (UCIRC | UNEGA   , 'U--'),
-        'SQUARED'                 : (USQUA           , 'U--'),
+        "SQUARED"                 : (USQUA           , 'U--'),
         'NEGATIVE_SQUARED'        : (USQUA | UNEGA   , 'U--'),
-        'PARENTHESIZED'           : (UPARE           , 'ULD'),  # (no 0)
+        "PARENTHESIZED"           : (UPARE           , 'ULD'),  # (no 0)
 
-        'SUBSCRIPT'               : (USUB            , '--D'),
-        'SUPERSCRIPT'             : (USUP            , '--D'),
+        "SUBSCRIPT"               : (USUB            , '--D'),
+        "SUPERSCRIPT"             : (USUP            , '--D'),
 
         #'REGIONAL_INDICATOR_SYMBOL': (1  , 'U--'),
     }
@@ -956,25 +956,25 @@ class TextStyle:
 
     textProps = {
         # fonts etc.
-        'bold'        : (bool,  False),
-        'italic'      : (bool,  False),
-        'sans'        : (bool,  False),
-        'mono'        : (bool,  False),
-        'underline'   : (bool,  False),
-        'strike'      : (bool,  False),
-        'super'       : (bool,  False),
-        'sub'         : (bool,  False),
-        'ufont'       : (MFont,  None),
+        "bold"        : (bool,  False),
+        "italic"      : (bool,  False),
+        "sans"        : (bool,  False),
+        "mono"        : (bool,  False),
+        "underline"   : (bool,  False),
+        "strike"      : (bool,  False),
+        "super"       : (bool,  False),
+        "sub"         : (bool,  False),
+        "ufont"       : (MFont,  None),
 
         # color etc.
-        'color'       : (Color, None),
-        'bgcolor'     : (Color, None),
-        'effect'      : (Effect,None),
+        "color"       : (Color, None),
+        "bgcolor"     : (Color, None),
+        "effect"      : (Effect,None),
 
         # hypertext
-        'before'      : (Transclusion, None),
-        'after'       : (Transclusion, None),
-        'hot'         : (bool, False)
+        "before"      : (Transclusion, None),
+        "after"       : (Transclusion, None),
+        "hot"         : (bool, False)
     }
 
     def __init__(self):
@@ -984,17 +984,17 @@ class TextStyle:
 
 class BlockStyle(TextStyle):  # TODO: Later
     blockProps = {
-        'marginTop'     : None,
-        'marginBottom'  : None,
-        'marginLeft'    : None,
-        'marginRight'   : None,
-        'marginFirst'   : None,
+        "marginTop"     : None,
+        "marginBottom"  : None,
+        "marginLeft"    : None,
+        "marginRight"   : None,
+        "marginFirst"   : None,
 
-        'textAlignment' : None,
-        'whitespace'    : None,    # wrap, trunc, hang
-        'marker'        : None,
-        'markerPos'     : None,
-        'border'        : (BorderType, None),
+        "textAlignment" : None,
+        "whitespace"    : None,    # wrap, trunc, hang
+        "marker"        : None,
+        "markerPos"     : None,
+        "border"        : (BorderType, None),
         "border-collapse": None,
         "padding"       : None,
 
@@ -1072,36 +1072,36 @@ class BlockStyle(TextStyle):  # TODO: Later
 dv = StyleSpec.displayValues
 
 StylableThings = {
-    'P':        { 'display':dv['BLOCK'], },
-    'H1':       { 'display':dv['BLOCK'], },
-    'H2':       { 'display':dv['BLOCK'], },
-    'H3':       { 'display':dv['BLOCK'], },
-    'H4':       { 'display':dv['BLOCK'], },
-    'H5':       { 'display':dv['BLOCK'], },
-    'H6':       { 'display':dv['BLOCK'], },
-    'ULI':      { 'display':dv['BLOCK'], },
-    'OLI':      { 'display':dv['BLOCK'], },
-    'DLI':      { 'display':dv['BLOCK'], },
-    'PRE':      { 'display':dv['BLOCK'], },
-    'TROW':     { 'display':dv['BLOCK'], },
-    'TCELL':    { 'display':dv['BLOCK'], },
-    'EBNF':     { 'display':dv['BLOCK'], },
-    'HR':       { 'display':dv['BLOCK'], },
+    "P":        { 'display':dv['BLOCK'], },
+    "H1":       { 'display':dv['BLOCK'], },
+    "H2":       { 'display':dv['BLOCK'], },
+    "H3":       { 'display':dv['BLOCK'], },
+    "H4":       { 'display':dv['BLOCK'], },
+    "H5":       { 'display':dv['BLOCK'], },
+    "H6":       { 'display':dv['BLOCK'], },
+    "ULI":      { 'display':dv['BLOCK'], },
+    "OLI":      { 'display':dv['BLOCK'], },
+    "DLI":      { 'display':dv['BLOCK'], },
+    "PRE":      { 'display':dv['BLOCK'], },
+    "TROW":     { 'display':dv['BLOCK'], },
+    "TCELL":    { 'display':dv['BLOCK'], },
+    "EBNF":     { 'display':dv['BLOCK'], },
+    "HR":       { 'display':dv['BLOCK'], },
     #
     # cf htmlMap, below
     #
-    'BOLD':     { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'ITAL':     { 'display':dv['INLINE'], },           # '''md''', POD I, <i>
-    'MONO':     { 'display':dv['INLINE'], },           # `md`, POD C, <tt>
-    'LINK':     { 'display':dv['INLINE'], },           # [md], POD L, <a>
-    'STRIKE':   { 'display':dv['INLINE'], },           # [md], POD L, <a>
-    'SUB':      { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'SUP':      { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    "BOLD":     { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    "ITAL":     { 'display':dv['INLINE'], },           # '''md''', POD I, <i>
+    "MONO":     { 'display':dv['INLINE'], },           # `md`, POD C, <tt>
+    "LINK":     { 'display':dv['INLINE'], },           # [md], POD L, <a>
+    "STRIKE":   { 'display':dv['INLINE'], },           # [md], POD L, <a>
+    "SUB":      { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    "SUP":      { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
 
-    'VAR':      { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'Q':        { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'ACRONYM':  { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
-    'ABBR':     { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    "VAR":      { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    "Q":        { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    "ACRONYM":  { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
+    "ABBR":     { 'display':dv['INLINE'], },           # ''md'', POD B, <b>
 }
 
 
@@ -1119,21 +1119,21 @@ class Inlines:
     #
     styleKeywordMap = {
         # input name    prop  value
-        'bold':         { 'weight':BOLD },
-        'italic':       { 'style':ITAL },
-        'underline':    { 'textDecoration':UNDL },
+        "bold":         { 'weight':BOLD },
+        "italic":       { 'style':ITAL },
+        "underline":    { 'textDecoration':UNDL },
 
         # font 'familyies'
-        'fullwidth':    { 'fontFamily':WIDE},
-        'doubleStrick': { },
+        "fullwidth":    { 'fontFamily':WIDE},
+        "doubleStrick": { },
         # Block props
-        'rule':         { },
-        'quote':        { },
-        'center':       { },
-        'case':         { },
-        'inverted':     { },
-        'turned':       { },
-        'struck':       { },
+        "rule":         { },
+        "quote":        { },
+        "center":       { },
+        "case":         { },
+        "inverted":     { },
+        "turned":       { },
+        "struck":       { },
 
         #sup/sub
         #strike (unicode solidus overlay?)
@@ -1142,14 +1142,14 @@ class Inlines:
     }
 
     colorKeywords = {
-        'red':          (),
-        'green':        (),
-        'blue':         (),
-        'cyan':         (),
-        'magenta':      (),
-        'yellow':       (),
-        'white':        (),
-        'black':        (),
+        "red":          (),
+        "green":        (),
+        "blue":         (),
+        "cyan":         (),
+        "magenta":      (),
+        "yellow":       (),
+        "white":        (),
+        "black":        (),
     }
 
 

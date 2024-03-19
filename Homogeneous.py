@@ -7,16 +7,16 @@ import sys
 import argparse
 
 __metadata__ = {
-    'title'        : "Homogeneous",
-    'description'  : "Implement homogeneous subclasses of list, dict, etc.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2020-02-19",
-    'modified'     : "2020-02-19",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "Homogeneous",
+    "description"  : "Implement homogeneous subclasses of list, dict, etc.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2020-02-19",
+    "modified"     : "2020-02-19",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 

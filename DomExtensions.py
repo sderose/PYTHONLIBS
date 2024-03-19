@@ -9,7 +9,7 @@ import sys
 import re
 import codecs
 from enum import Enum
-from typing import List, IO, Callable, Any, Union, Match
+from typing import List, IO, Callable, Any, Union, Match, Iterable
 from collections import namedtuple
 
 import xml.dom
@@ -23,16 +23,16 @@ from html.entities import codepoint2name, name2codepoint
 def cmp(a, b): return ((a > b) - (a < b))
 
 __metadata__ = {
-    'title'        : "DomExtensions",
-    'description'  : "A bunch of (hopefully) useful additions to the DOM API.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2010-01-10",
-    'modified'     : "2021-07-08",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "DomExtensions",
+    "description"  : "A bunch of (hopefully) useful additions to the DOM API.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2010-01-10",
+    "modified"     : "2021-07-08",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 
@@ -1739,7 +1739,8 @@ def getDepth(self:Node) -> int:
         cur = cur.parentNode
     return d
 
-def getFQGI(self:Node, sep:str="/", leaf:bool=False, levelMax:int=0, prefix:bool=True) -> Union[str, list]:
+def getFQGI(self:Node, sep:str="/", leaf:bool=False, levelMax:int=0,
+    prefix:bool=True) -> Union[str, list]:
     """Return the sequence of element type names of all ancestors, in
     document order, separated by `sep`.
     If `sep` is falsish ("", None, etc), return a list, outermost first.
@@ -3575,17 +3576,27 @@ class DomExtensions:
         """
         if (not classes): classes = [ Node ]
         elif (isinstance(classes, type)): classes = [ classes ]
-        nMissing = 0
+        nFails = 0
         #sys.stderr.write("checkPatch: 'classes' is %s\n" % (type(classes)))
-        for toPatch in classes:
-            sys.stderr.write("checkPatch: Patching '%s' (%s)\n" % (toPatch.__name__, type(toPatch)))
-            inPatch = toPatch.__dict__.keys()
-            for k, v in DomExtensions.__dict__.items():
-                if (not callable(v)): continue
-                if (k.startswith("__") or k.startswith("patch")): continue
-                if (k in inPatch): continue
-                sys.stderr.write("checkPatch: Did not get into patch: '%s'.\n" % (k))
-                nMissing += 1
+        if (isinstance(classes, Iterable)):
+            for toPatch in classes:
+                nFails += DomExtensions.checkPatchForOne(toPatch)
+        else:
+            nFails += DomExtensions.checkPatchForOne(classes)
+        return nFails
+
+    @staticmethod
+    def checkPatchForOne(toPatch) -> int:
+        sys.stderr.write("checkPatch: Checking '%s' (%s)\n" %
+            (toPatch.__name__, type(toPatch)))
+        inPatch = toPatch.__dict__.keys()
+        nMissing = 0
+        for k, v in DomExtensions.__dict__.items():
+            if (not callable(v)): continue
+            if (k.startswith("__") or k.startswith("patch")): continue
+            if (k in inPatch): continue
+            sys.stderr.write("checkPatch: Did not get into patch: '%s'.\n" % (k))
+            nMissing += 1
         return nMissing
 
 

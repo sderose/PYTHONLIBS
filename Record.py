@@ -9,16 +9,16 @@ from enum import Enum
 from typing import Union, Any, Dict
 
 __metadata__ = {
-    'title'        : "Record",
-    'description'  : "A cross between namedtuple and dict.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2018-06-09",
-    'modified'     : "2020-10-21",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "Record",
+    "description"  : "A cross between namedtuple and dict.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2018-06-09",
+    "modified"     : "2020-10-21",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 
