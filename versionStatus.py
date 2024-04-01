@@ -5,6 +5,7 @@
 #
 import sys
 import os
+import re
 from enum import Enum
 from subprocess import check_output, CalledProcessError
 import logging
@@ -33,22 +34,33 @@ descr = """
 Given a file or directory, see if it's under version control, and what system,
 and what state.
 
-Returns or prints the particular VCS (as a VCS_Type Enum), and if it known, a
+Returns or prints the particular VCS name, and if it supported, a
 file status (values mostly based on git).
-
-Only git, Mercurial, and SVN have any support yet, and mainly git.
+Quite a few VCSes can be identified, but
+only git, Mercurial, and SVN have support beyond that yet.
 
 
 ==Usage as a command==
 
     versionStatus.py [options] [files]
 
-==Usage form Python==
+For example:
+
+    versionStatus.py --longStat --head *.cc
+
+could display:
+    git          CLEAN      myFile.cc
+    git          UNMERGED   myOtherFile.cc
+    git          UNTRACKED  temp.cc
+
+See '--help-codes' for a list of VCS names and status codes.
+
+==Usage from Python==
 
     from versionStatus import getVersionStatus
     systemName, status = getVersionStatus(path)
 
-The systemName is an Enum called VCS_Type, and the status is an Enum called gitStatus
+The systems known are listed in '' is a string called VCS_Type, and the status is an Enum called gitStatus
 (even though the codes are all as for git).
 
 
@@ -62,12 +74,11 @@ My 'backup', which has slight knowledge of git states.
 =Known bugs and Limitations=
 
 There are very many more versioning systems out there. I've only done a few.
-If you'd like to add some, feel free, and send me the patch.
+If you'd like to add some, feel free, and please send me the patch.
 
 
 =To do=
 
-* Option to spell out status instead of using single-char codes.
 * A non-existent file is not considered to be in any version control
 system, even if its directory is in scope for one.
 * Add colors?
@@ -76,7 +87,8 @@ system, even if its directory is in scope for one.
 =History=
 
 * 2022-09-29: Written by Steven J. DeRose.
-
+* 2024-03-19: Add --help-codes, --head. Catch FileNotFoundError.
+Identify a couple more VCS systems, clean up how it's done.
 
 =Rights=
 
@@ -94,36 +106,6 @@ or [https://github.com/sderose].
 
 ###############################################################################
 #
-class VCS_Type(Enum):
-    """An Enum of version-control systems, based on
-    https://en.wikipedia.org/wiki/List_of_version-control_software.
-    I haven't list proprietary ones, but wouldn't mind adding them.
-    """
-    NONE        = 0
-
-    # Local
-    RCS         = 1
-    SCCS        = 2
-
-    # Client-server
-    CVS         = 11
-    SVN         = 12  ##
-    Vesta       = 13
-
-    # Open-source distribute
-    ArX         = 101
-    Bazaar      = 102
-    BitKeeper   = 103
-    Darcs       = 104
-    DCVS        = 105
-    Fossil      = 106
-    Git         = 107  ##
-    GNU_arch    = 108
-    Mercurial   = 109  ##
-    Monotone    = 110
-    Perforce    = 111
-    Pijul       = 112
-
 class gitStatus(Enum):
     # Most of the symbols are what you get from 'git status --porcelain'....
     # (exceptions: E, \\u2205, X, =.
@@ -132,7 +114,8 @@ class gitStatus(Enum):
     ERROR       = "E"
     NO_FILE     = "\u2205"  # EMPTY SET symbol
 
-    NOT_MINE    = "X"       # Not in this VCS (cf UNTRACKED) TODO: SVN "X" = "present b/c of externals"
+    NOT_MINE    = "X"       # Not in this VCS (cf UNTRACKED)
+    ### TODO: SVN "X" = "present b/c of externals"
 
     UNTRACKED   = "?"
     IGNORED     = "!"       # TODO: vs. SVN "I"
@@ -195,7 +178,7 @@ def getGitStatus(path:str) -> gitStatus:
     lg.warning("Unknown code '%s' from git status for '%s'.", buf0, path)
     return gitStatus.ERROR
 
-def getMercurialStatus(path):
+def getMercurialStatus(path:str):
     """Really don't know how this behaves...
     See https://book.mercurial-scm.org/read/app-svn.html?highlight=status
     See https://lists.mercurial-scm.org/pipermail/mercurial/2014-March/046784.html
@@ -211,11 +194,11 @@ def getMercurialStatus(path):
     """
     try:
         rc = check_output([ "hg", "status", path ])
-    except CalledProcessError:
+    except (CalledProcessError, FileNotFoundError):
         return gitStatus.ERROR
     return rc[0]
 
-def getSVNStatus(path):
+def getSVNStatus(path:str):
     """Really don't know how this behaves...
     See https://svnbook.red-bean.com/en/1.8/svn.ref.svn.c.status.html
         ' ' = No modifications.
@@ -241,21 +224,75 @@ def getSVNStatus(path):
 
 ###############################################################################
 #
-def getVersionStatus(path:str) -> (VCS_Type, gitStatus):
-    """Read and deal with one individual file.
+NO_VCS_NAME = "*UNKNOWN*"
+
+VCSInfos = [
+    # name          command  magic           callable
+    ( "git",        "git",  ".git",          getGitStatus),
+    ( "Mercurial",  "hg",   ".hg",           getMercurialStatus ),
+    ( "SVN",        "svn",  ".svn",          getSVNStatus ),
+    ( "CVN",        "cvs",  "CVS",           None ),
+    ( "Bazaar",     "bzr",  ".bzr",          None ),
+    ( "Darcs",      "",     "_darcs",        None ),
+    ( "Fossil",     "",     ".fslckout",     None ),
+    ( "Monotone",   "",     "_MTN",          None ),
+    ( "Perforce",   "",     ".p4config",     None ),
+    ( "Plastic",    "SCM",  ".plastic",      None ),
+    ( "TFVC",       "TFVC", "$tf",           None ),
+    ( "Vault",      "",     "_sgbak",        None ),
+    ( "Veracity",   "",     "_veracitylogs", None ),
+]
+
+
+###############################################################################
+#
+def findOwningVCS(path:str) -> str:
+    """Return the name of the owning VCS (if we can find one).
+    TODO: Switch to returning whole tuple or index or something.
     """
-    if (not os.path.exists(path)):            # Exists at all?
-        return VCS_Type.NONE, gitStatus.NO_FILE
-    rc = getGitStatus(path)
-    if (rc != gitStatus.NOT_MINE):            # In git?
-        return VCS_Type.Git, rc
-    rc = getMercurialStatus(path)
-    if (rc != gitStatus.NOT_MINE):            # In Mercurial?
-        return VCS_Type.Mercurial, rc
-    rc = getSVNStatus(path)
-    if (rc != gitStatus.NOT_MINE):            # In SVN?
-        return VCS_Type.SVN, rc
-    return VCS_Type.NONE, gitStatus.ERROR
+    for tup in VCSInfos:
+        sys.stderr.write("Trying: %s (key file '%s')\n" % (tup[0], tup[2]))
+        if (anyParentHasThis(path, tup[2])): return tup[0]
+    return NO_VCS_NAME
+
+def anyParentHasThis(path:str, keyDirName:str) -> bool:
+    """Scan upwards from a starting file or dir, seeing if it (if a dir) or
+    any containing dir, contains a dir named by keyDirName.
+    """
+    fullPath = os.path.abspath(path)
+    if (not os.path.isdir(fullPath)):
+        curPath, _tail = os.path.split(fullPath)
+        lg.info("    Real %s\n      to %s", fullPath, curPath)
+    else:
+        curPath = path
+    while (curPath):
+        tgt = os.path.join(curPath, keyDirName)
+        lg.info("    Try: %s\n", tgt)
+        if (os.path.isdir(tgt)): return True
+        curPath = re.sub(r"/[^/]*$", "", curPath)
+    return False
+
+def doCmd(s:str, _path:str) -> str:
+    try:
+        buf = check_output(s, shell=True)
+    except Exception as e:
+        lg.error("Exception running: %s:\n    %s", s, e)
+        return None
+    return buf
+
+def getVersionStatus(path:str, vcsName:str) -> gitStatus:
+    """Read and deal with one individual file. Assuming it exists,
+    poll various VCS to see who's active and/or owns it.
+    """
+    if (not os.path.exists(path)):
+        return NO_VCS_NAME, gitStatus.NO_FILE
+    if (vcsName == "git"):
+        return getGitStatus(path)
+    elif (vcsName == "Mercurial"):
+        return getMercurialStatus(path)
+    elif (vcsName == "SVN"):
+        return getSVNStatus(path)
+    return gitStatus.ERROR
 
 
 ###############################################################################
@@ -276,10 +313,16 @@ if __name__ == "__main__":
             "--color", action="store_true",
             help="Colorize paths to show status.")
         parser.add_argument(
-            "--longStat", action="store_true",
+            "--headings", action="store_true",
+            help="Show column headings.")
+        parser.add_argument(
+            "--helpcodes", "--help-codes", action="store_true",
+            help="Display the VCS names and status codes.")
+        parser.add_argument(
+            "--longstatus", "--long-status", action="store_true",
             help="Show words for file status, not just single characters.")
         parser.add_argument(
-            "--noclean", action="store_true",
+            "--noclean", "--no-clean", action="store_true",
             help="Do not list unchanged/clean files.")
         parser.add_argument(
             "--nosystem", action="store_true",
@@ -305,7 +348,10 @@ if __name__ == "__main__":
             help="Path(s) to input file(s)")
 
         args0 = parser.parse_args()
-        #if (args0.verbose): lg.setVerbose(args0.verbose)
+        if (lg and args0.verbose):
+            logging.basicConfig(level=logging.INFO-args0.verbose,
+                format='%(message)s')
+
         return(args0)
 
 
@@ -318,17 +364,35 @@ if __name__ == "__main__":
     else:
         cm = None
 
+    if (args.helpcodes):
+        print("Version control system codes (otherwise '%s'):" % (NO_VCS_NAME))
+        for vi in VCSInfos:
+            print("    %-12s" % (vi[0]))
+        print("(mainly git) Status codes:")
+        for name, mem in gitStatus.__members__.items():
+            print("    %-12s %s" % (name, gitStatus[name].value))
+
     if (len(args.files) == 0):
         lg.warning("versionStatus.py: No files specified....")
         sys.exit()
 
+    if (args.headings):
+        if (args.nosystem):
+            print("%-10s %s" % ("Status", "Path"))
+        else:
+            print("%-12s %-10s %s" % ("VCSystem", "Status", "Path"))
+
     for path0 in args.files:
-        vcs, status = getVersionStatus(path0)
+        vcsName0 = findOwningVCS(path0)
+        if (vcsName0 is not NO_VCS_NAME):
+            _vcs, status = getVersionStatus(path0, vcsName0)
+        else:
+            status = gitStatus.NOT_MINE
         if (args.noclean and status==gitStatus.CLEAN): continue
         if (args.color):
             path0 = cm.colorize(path0, colorMap[status])
-        printStat = status.name if args.longStat else status.value
+        printStat = status.name if args.longstatus else status.value
         if (args.nosystem):
-            print("%-12s %s" % (printStat, path0))
+            print("%-10s %s" % (printStat, path0))
         else:
-            print("%-12s %-10s %s" % (vcs.name, printStat, path0))
+            print("%-12s %-10s %s" % (vcsName0, printStat, path0))
