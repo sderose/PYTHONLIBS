@@ -149,6 +149,7 @@ want the real keys still around, and keeping them in the "real" dict seems clear
 * Add `items()` variant that hands back actual vs. normalized key?
 * Perhaps add notion of explicit aliases (say, separate dict that just maps?)
 In the meantime, callers could build that into a custom normalization function.
+* Option to distinguish case, but fall back on failed lookup?
 
 
 =History=

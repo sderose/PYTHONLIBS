@@ -33,7 +33,7 @@ just the end, where changes are already very fast in Python).
 
 The concept is simple: Big strings are kept as a list of parts, each of a
 maximum size (set when constructed). Parts can grow and shrink without
-having to do anything to other parts, until they grow past the limit (when
+doing anything to other parts, until they grow past the limit (when
 a new part is inserted), or drop to size zero (when they are deleted). For
 simplicity there is always at least one part, even for the empty string).
 
@@ -79,7 +79,7 @@ See
 =Known bugs and Limitations=
 
 Some methods known to `str` are simply missing, such as encode/decode,
-things like rfind, etc.
+things like rfind, etc. (see list under [#To Do]).
 
 Most of the operators, such as +=, *, contains, etc. are not yet
 implemented.
@@ -94,19 +94,28 @@ involved.
 
 A very few methods are partially working. For example:
 
-** `title()` (make each word have single initial uppercase or titlecase
+* `title()` (make each word have single initial uppercase or titlecase
 character) doesn't yet check whether each part boundary is really also a
 word boundary. Thus, a word split across a part boundary will end up with 2
 capitals.
 
-** the `start` and `end` arguments to `find()` are not entirely working;
-mainly, `end` will stop the search at the end of the correct part, but not
+* `find()` has `start` and `end` arguments;
+`end` will stop the search at the end of the correct part, but not
 ignore the excess text within that last part (if any).
 
 Not all methods that should support `inplace`, do.
 
 
 =To do=
+
+* Maybe rename as mstr or mutablestr or some such.
+
+* Test this with the std Python test cases from
+[https://github.com/python/cpython/blob/main/Lib/test/test_str.py]
+** Methods that produce a single string as result should have an
+inplace:bool=False argument.
+** Methods that produce a string(s) as result, should have a way to say
+whether to return regular str or StrBug.
 
 * Write packParts(self, fillFactor=1.0, breakAtWords=False), and/or notice
 when a deletion makes a chunkm small enough to coalesce with neighbors, and
@@ -135,16 +144,16 @@ do so.
     __setattr__          inherit
 
     count                non-overlapping occurrence of substring
-    encode               just do parts (could overset, though
-    format
+    encode              inplace? just do parts (could overset, though
+    format              inplace?
     format_map
     maketrans            inherit
-    replace
+    replace              inplace
     rfind
     rindex
-    rpartition           pre, match, post
-    rsplit
-    split
+    rpartition          Make str or StrBuf? pre, match, post
+    rsplit              Make str or StrBuf?
+    split               Make str or StrBuf?
 
 Add __getstate__() and __setstate__() for pickle. Should it save just
 the raw string, or keep the partitioning information, too?
@@ -279,7 +288,7 @@ class StrBuf(str):
 
     # Searching for various content
     #
-    def splitlines(self, keepends: bool = False):
+    def splitlines(self, keepends: bool = False):  # No inplace
         """The Python method splits on a whole mess of possibilities.
         """
         prev = None
@@ -444,7 +453,7 @@ class StrBuf(str):
         self.append(s, fillTo=self.partDft, pnum=pnum)
         return
 
-    def join(self, iterable: Iterable):
+    def join(self, iterable: Iterable):  # No inplace???
         """Join is called on the inserted delimiter, not the iterable. So the
         iterable might contain strings or StrBufs or whatever. For the moment,
         we always construct a StrBuf for the result, on the theory that if
@@ -506,12 +515,14 @@ class StrBuf(str):
         self.parts = [ "" ]
         self.lens = [ 0 ]
 
-    def strip(self, chars: str = ""):  # TODO: inplace?
+    def strip(self, chars: str = "", inplace: bool = False):  # TODO: inplace
+        assert not inplace
         self.lstrip(chars)
         self.rstrip(chars)
         return self
 
-    def lstrip(self, chars: str = ""):  # TODO: inplace?
+    def lstrip(self, chars: str = "", inplace: bool = False):  # TODO: inplace
+        assert not inplace
         while (len(self.parts)>0 and self.lens[0]>0):
             trimmed = self.parts[0].ltrim(chars)
             if (trimmed!=""):
@@ -521,7 +532,8 @@ class StrBuf(str):
             self.deletePart(0)
         return self
 
-    def rstrip(self, chars: str = "") -> 'StrBuf':  # TODO: inplace?
+    def rstrip(self, chars: str = "", inplace: bool = False) -> 'StrBuf':  # TODO: inplace
+        assert not inplace
         while (len(self.parts)>0 and self.lens[-1]>0):
             trimmed = self.parts[-1].rtrim(chars)
             if (trimmed!=""):
@@ -531,19 +543,22 @@ class StrBuf(str):
             self.deletePart(-1)
         return self
 
-    def removeprefix(self, affix: str):  # Add inplace
+    def removeprefix(self, affix: str, inplace: bool = False):  # Add inplace
+        assert not inplace
         if (not self.startswith(affix)): return self
         self.delete(0, len(affix))
         return self
 
-    def removesuffix(self, affix: str):  # Add inplace
+    def removesuffix(self, affix: str, inplace: bool = False):  # Add inplace
+        assert not inplace
         if (not self.endswith(affix)): return self
         self.delete(-len(affix), -1)
         return self
 
-    def delete(self, st: int, fin: int) -> None:
+    def delete(self, st: int, fin: int, inplace: bool = False) -> None:  # Add inplace
         """Delete a range of characters (negatives accepted).
         """
+        assert not inplace
         pnum0, offset0 = self.findCharN(st)
         pnum1, offset1 = self.findCharN(fin)
         self.__delByPairs__(pnum0, offset0, pnum1, offset1)
@@ -560,12 +575,13 @@ class StrBuf(str):
             self.parts[pnum1] = self.parts[pnum1:]
         # TODO: Add __coalesce__
 
-    def deletePart(self, pnum: int) -> bool:
+    def deletePart(self, pnum: int, inplace: bool = False) -> bool:  # Add inplace
         """Delete a *part* in its entirety.
         This should really only happen when the part is already empty.
         Oh, and never truly delete the very last part.
         Accepts negative part numbers.
         """
+        assert not inplace
         assert pnum>=0 and pnum<len(self.parts)
         if (len(self.parts)==1):
             self.parts[0] = ""
@@ -640,7 +656,7 @@ class StrBuf(str):
         """See if the given part will fit into its neighbors (if any), with
         enough left over; and if so, split it into them (balancing the
         leftover space as specified), and delete the part.
-        TODO Better name. Write similar to do global pack to [minPct..maxPct].
+        TODO Better name. Write similar code for global pack to [minPct..maxPct].
         Better than absolute pack, more often avoids copying.
         """
         availL = self.partMax - self.lens[pnum-1] if pnum>0 else 0
@@ -757,16 +773,19 @@ class StrBuf(str):
         return self.ljust(n, fillchar="0", inplace=inplace)
 
     def ljust(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: inplace
+        assert not inplace
         needed = width - len(self)
         if (needed > 0): self += fillchar * needed
         return self
 
     def rjust(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: inplace
+        assert not inplace
         needed = width - len(self)
         if (needed > 0): self.insert(0, fillchar * needed)
         return self
 
     def center(self, width: int, fillchar: str = " ", inplace: bool = True):  # TODO: inplace
+        assert not inplace
         needed = width - len(self)
         if (needed > 0):
             self.insert(0, fillchar * math.floor(needed/2.0))
@@ -805,7 +824,7 @@ class StrBuf(str):
         return True
 
     # The following operate in place instead of copying so you can
-    # avoid copying mongo strings. But there's an option to do actual copying
+    # avoid copying mongo strings. But there's an option for actual copying
     # like the str versions.
     #
     def capitalize(self, inplace: bool = True):
@@ -815,12 +834,16 @@ class StrBuf(str):
         if (toChange.lens[0] > 0):
             toChange.parts[0][0] = toChange.parts[0][0].capitalize()
         return toChange
+
     def casefold(self, inplace: bool = True):
         return self.applyToAllParts(str.casefold, inplace=inplace)
+
     def lower(self, inplace: bool=True):
         return self.applyToAllParts(str.lower, inplace=inplace)
+
     def swapcase(self, inplace: bool = True):
         return self.applyToAllParts(str.swapcase, inplace=inplace)
+
     # title -- matters whether part boundary is word boundary!  TODO fix edge case
     def title(self, inplace: bool = True):
         return self.applyToAllParts(str.title, inplace=inplace)
@@ -832,6 +855,7 @@ class StrBuf(str):
         for pnum, part in enumerate(toChange.parts):
             toChange.parts[pnum] = str.translate(part, table)
         return toChange
+
     def upper(self, inplace: bool = True):
         return self.applyToAllParts(str.upper, inplace=inplace)
 
@@ -932,7 +956,7 @@ if __name__ == "__main__":
     def timer(maxPower: int, partMax: int):
         print("\nTesting StrBuf")
         s = StrBuf("")
-        maxRand = math.floor(args.partMax*1.5)
+        maxRand = math.floor(partMax*1.5)
 
         for p in range(maxPower+1):
             print("\n\n================= 2**%d" % (p))
