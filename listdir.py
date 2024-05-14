@@ -96,11 +96,6 @@ def listdir(path, exts:str=None, abspaths=False, dirs=False, hidden=False):
 if __name__ == "__main__":
     import argparse
 
-    def warn(lvl, msg):
-        if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
-        if (lvl < 0): sys.exit()
-
-
     def processOptions():
         try:
             from BlockFormatter import BlockFormatter
@@ -132,8 +127,7 @@ if __name__ == "__main__":
             help='Display version information, then exit.')
 
         parser.add_argument(
-            'files', type=str,
-            nargs=argparse.REMAINDER,
+            'files', type=str, nargs=argparse.REMAINDER,
             help='Path(s) to input file(s)')
 
         args0 = parser.parse_args()
@@ -145,7 +139,8 @@ if __name__ == "__main__":
     args = processOptions()
 
     if (len(args.files) == 0):
-        warn(-1, "listdir.py: No files specified....")
+        sys.stderr.write("listdir.py: No files specified....\n")
+        sys.exit()
 
     for path0 in args.files:
         print("******* Top-level item '%s':" % (path0))

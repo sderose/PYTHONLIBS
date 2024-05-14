@@ -266,11 +266,9 @@ Thanks to Anthon van der Neut for help on integrating with `argparse`. Also:
 
 def log(lvl, msg):
     if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
-def warning0(msg): log(0, msg)
+def warning(msg): log(0, msg)
 def warning1(msg): log(1, msg)
 def warning2(msg): log(2, msg)
-def warning3(msg): log(3, msg)
-def fatal(msg): log(0, msg); sys.exit()
 
 
 ##############################################################################
@@ -361,7 +359,7 @@ class BlockFormatterPlus(argparse.HelpFormatter):
         NOTE: 'indent' expects a string, not a number of columns.
         """
 
-        warning0("_fill_text called for %d chars." % (len(text)))
+        warning("_fill_text called for %d chars." % (len(text)))
         if (not BlockFormatterPlus.cm):
             BlockFormatterPlus.cm = ColorManager.ColorManager()
 
@@ -373,7 +371,7 @@ class BlockFormatterPlus(argparse.HelpFormatter):
             warning2("\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
             item, istring = BlockFormatterPlus.doSpecialChars(blocks[i])
 
-            #warning0("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
+            #warning("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
             #    (width, indent, ind, mat.group(1), mat.group(2)))
             # _fill_text return a string with newlines, not a list.
 
@@ -381,14 +379,14 @@ class BlockFormatterPlus(argparse.HelpFormatter):
             else: indParam = indent
 
             if (callable(self._altFillMethod)):
-                #warning0("_fill_text: via altFill")
+                #warning("_fill_text: via altFill")
                 withNewlines = self._altFillMethod(item, width, indParam)
             elif (callable(self._fill_despite_color)):
-                #warning0("_fill_text: via _fill_despite_color")
+                #warning("_fill_text: via _fill_despite_color")
                 withNewlines = self._fill_despite_color(
                     item, width, indParam)
             else:
-                #warning0("_fill_text: via super")
+                #warning("_fill_text: via super")
                 withNewlines = super(BlockFormatterPlus, self)._fill_text(
                     item, width, indParam)
 
@@ -453,7 +451,7 @@ class BlockFormatterPlus(argparse.HelpFormatter):
                     if (blocks[-1] != ""): blocks[-1] += " "
                     blocks[-1] += t
                     blockType = "TEXT CONTINUE"
-            warning3("+%s: %s" % (blockType, blocks[-1]))
+            warning2("+%s: %s" % (blockType, blocks[-1]))
         warning1("******* DONE makeBlocks |%d|\n\n" % (len(blocks)))
         return blocks
 
@@ -495,7 +493,7 @@ class BlockFormatterPlus(argparse.HelpFormatter):
         for x in re.finditer(
             r"\s*(\S.{,%d}(?=[-/\s]))" % (width-len(indentString)-2),
             item, re.MULTILINE):
-            warning0("Wrap trial: '%s'" % (x.group(1)))
+            warning("Wrap trial: '%s'" % (x.group(1)))
             lines.append(indentString + x.group(1))
         return "\n".join(lines)
 
@@ -1497,32 +1495,32 @@ if __name__ == "__main__":
     if (args.altFill):
         BlockFormatterPlus.setAltFill(BlockFormatterPlus._alt_fill)
 
-    warning0("*** Testing BlockFormatterPlus.py (level 2) ***\n")
+    warning("*** Testing BlockFormatterPlus.py (level 2) ***\n")
 
     if (len(args.files) == 0):
         tfile = "/tmp/BlockFormatterPlus.md"
-        warning0("No files specified, copying own help text to %s" % (tfile))
+        warning("No files specified, copying own help text to %s" % (tfile))
         fh = codecs.open(tfile, "wb", encoding=args.iencoding)
         fh.write(descr)
         fh.close()
         args.files.append(tfile)
 
     for path0 in args.files:
-        warning0("\n******* Starting test file '%s'" % (path0))
+        warning("\n******* Starting test file '%s'" % (path0))
         fh0 = codecs.open(path0, "rb", encoding=args.iencoding)
         testText = fh0.read()
         if (args.split):
-            warning0("*** Just splitting")
+            warning("*** Just splitting")
             lenSoFar = 0
             for i0, t0 in enumerate(
                 re.split(r"\n", testText, flags=re.MULTILINE | re.UNICODE)):
 
-                warning0("%04d (%6d)==>%s<==\n" % (i0, lenSoFar, t0))
+                warning("%04d (%6d)==>%s<==\n" % (i0, lenSoFar, t0))
                 lenSoFar += len(t0)
             sys.exit()
 
         hf = BlockFormatterPlus(None)
         print(hf._format_text(testText))
 
-    warning0("*** DONE ***")
+    warning("*** DONE ***")
     sys.exit()

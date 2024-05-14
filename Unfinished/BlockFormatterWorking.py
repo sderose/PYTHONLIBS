@@ -388,7 +388,7 @@ specialChars = {
 
 latestBF = None
 
-def warn(level, msg):
+def warning(msg):
     if (lastBF._options.get('verbose') >= level):
         sys.stderr.write(msg+'\n')
 
@@ -485,7 +485,7 @@ class BlockFormatter(argparse.HelpFormatter):
         # Divide at blank lines line breaks to keep
         blocks = BlockFormatter.makeBlocks(text)
         for i in range(len(blocks)):
-            warn(2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
+            warning("\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
             item, istring = BlockFormatter.doSpecialChars(blocks[i])
 
             #print("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
@@ -505,7 +505,7 @@ class BlockFormatter(argparse.HelpFormatter):
                 withNewlines = withNewlines[hang:]  # Un-hang first line
 
             blocks[i] = withNewlines
-        warn(2, "\n******* FORMATTING DONE *******\n")
+        warning("\n******* FORMATTING DONE *******\n")
         return "\n".join(blocks)
 
     @staticmethod
@@ -1202,7 +1202,7 @@ class Inlines:
             cfpath = ''
         cfpath = ':' + self.pathVar
         for dirName in cfpath.split(sep=':'):
-            warn(1, "Trying for config file in '%s'" % (dirName))
+            warning("Trying for config file in '%s'" % (dirName))
             if (not os.path.isdir(dirName)): continue
             cfile = os.path.join(dirName, 'blockFormatter.cfg')
             if (not os.path.exists(cfile)): continue
@@ -1211,7 +1211,7 @@ class Inlines:
                 if (rec.startswith('#')): continue
                 mat = re.match(Inlines.configLineExpr, rec)
                 if (not mat):
-                    warn(0, "Config file line %d: Bad syntax: %s" %
+                    warning("Config file line %d: Bad syntax: %s" %
                         (i, rec))
                     continue
                 self.addMap(*(mat.groups))
@@ -1304,7 +1304,7 @@ if __name__ == "__main__":
     print("*** Testing BlockFormatter.py ***\n")
 
     if (len(args.files) == 0):
-        warn(0, "No files specified, using own help text...")
+        warning("No files specified, using own help text...")
         tfile = "/tmp/BlockFormatter.md"
         fh = codecs.open(tfile, "wb", encoding=args.iencoding)
         fh.write(descr)
@@ -1312,11 +1312,11 @@ if __name__ == "__main__":
         args.files.append(tfile)
 
     for path0 in args.files:
-        warn(0, "\n******* Starting test file '%s'" % (path0))
+        warning("\n******* Starting test file '%s'" % (path0))
         fh0 = codecs.open(path0, "rb", encoding=args.iencoding)
         testText = fh0.read()
         hf = BlockFormatter()
         print(hf._format_text(testText))
 
-    warn(0, "*** DONE ***")
+    warning("*** DONE ***")
     sys.exit()

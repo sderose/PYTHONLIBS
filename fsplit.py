@@ -15,6 +15,7 @@ from enum import Enum
 import ast
 import html
 import datetime
+import uuid
 import array
 import unicodedata
 
@@ -200,9 +201,9 @@ to a FieldSchema.
 for particular fields via `FieldSchema`. Parsed values can then be tested and
 cast as appropriate. The class also has `autoType()`, which will cast a value
 to the most specific type it fits (for example, "9" to int, but "9.1" to float).
-You can set `boolCasterFunc` to function, to which `autoType()` will pass the
-string value that was parsed. It should return True or False, or raise ValueError,
-which `autoType()` will catch and go on to try other types.
+You can set `reserved` to a Dict, which `autoType()` will search for the
+string value that was parsed (minus whitespace). If it is found, the value
+from the dict is returned. Otherwise `autoType()` will go on to try other types.
 
 ===A wider range of syntax options===
 
@@ -406,6 +407,8 @@ these constants, whose names and values are intended to be the same as in `csv`
     fsplit.QUOTING.NONNUMERIC = 2  # quote all non-numeric fields.
     fsplit.QUOTING.NONE       = 3  # never quote fields, but use escapechar
 
+Python csv does NONNUMERIC by type, so still quotes digit-strings. See [#To do].
+
 * ''skipinitialspace'':bool = False -- If set, records (not fields)
 have any initial (Unicode) whitespace stripped before parsing.
 
@@ -493,15 +496,15 @@ fields. The syntax and meanings are similar to Python type hints:
     name:type=default,name2:type2,name3=default3,...
 
 The types are shown in these examples:
-    obsolete:bool       "1" or "0" (see below to use other values like T or F)
-    age:int             decimal integer
-    cookie:xint         hexadecimal integer
-    perm:oint           octal integer
-    quant:anyint        accepts octal, decimal, or hex
-    balance:float       floating-point number
-    root:complex        python notation
-    lastName:str        string (this doesn't do much).
-    dob:datetime        datetime (ISO 8601)
+    myFlag:bool       "1" or "0" (see below to use other values like T or F)
+    age:int           decimal integer
+    cookie:xint       hexadecimal integer
+    perm:oint         octal integer
+    quant:anyint      accepts octal, decimal, or hex
+    balance:float     floating-point number
+    root:complex      python notation
+    lastName:str      string (this doesn't do much).
+    dob:date          date (ISO 8601)
 
 Other types will likely be added
 (see https://www.w3.org/TR/xmlschema-2/#built-in-primitive-datatypes).
@@ -516,7 +519,7 @@ other data in the file):
 A ''normalizer'' name can be specified immediately after the type name,
 separated by "|". Underneath, a normalizer is a function that takes the
 field value (after unescaping and unquoting if applicable), and returns a
-string (or raises ValueError on failure). They can be used for
+string (or raises an error on failure). They can be used for
 case-folding, detecting special "reserved" values (such as "-" for Not
 Applicable, which one might map to None), etc.
 
@@ -528,8 +531,8 @@ The following named normalizers are predefined, and can be given in the header::
     NFKD, NFKC, NFC, NFD -- apply that Unicode normalization form
     XSP -- apply XML space normalization (just space, TAB, CR, LF)
     USP -- Unicode space normalization (all \\s)
-    TF -- fields beginning with [Tt] go to 1, [Ff] go to 0 (if the field is declared
-to be type bool, those will then be recognized and cast to True and False.
+    TF -- fields beginning with [TtYy] go to 1, [FfNn] go to 0 (if the field is
+declared type bool, those will then be recognized and cast to True and False.
     ASCII -- non-ASCII characters to \\x, \\u, \\x{} escapes
 
 A value ''constraint'' can also be included in [] immediately after the datatype
@@ -540,13 +543,13 @@ future addition is to give the actual strings to be used for False and True,
 since practice for these varies so much.
 * int: the constraint can have 2 (possibly-signed) decimal integers, separated
 by a comma, that are the minimum and maximum values allowed. These values
-are inclusive bounds. The first defaults to 0, the second to sys.maxsize
-(sometimes 2**63).
+are inclusive bounds. The first defaults to 0, the second to the parsing
+system's preferred maximum unsgigned integer value (sometimes 2**63 - 1).
 * float: similar to those for int, but the minimum and maximum values are floats
 (as always, be careful about roundoff errors). These values are inclusive bounds.
 * complex: Not currently applicable.
 * str: the constraint is a (Python-style) regular expression that each value
-must match in its entirety. Such constraint commonly require escaping.
+must match in its entirety. Such constraints commonly require escaping.
 These constraints can be used to implement other things, such as enums:
     compass:str[N|E|W|S|NE|NW|SE|SW]=N
     province:str[NL|PE|NS|NB|QC|ON|MB|SK|AB|BC|YT|NT|NU]!
@@ -560,8 +563,9 @@ When a ''type'' is specified, raw field values are cast to that type
 for return (for example, by reader() and DictReader()).
 When a field is empty and a default value
 was set, the default value is cast to the specified type and returned.
-Fields with no type hint in the header default to type 'str', and no default
-(which amounts to "").
+Fields with no type hint in the header default to type 'str'.
+Fields with no default set in the header get "" when omitted (which may then
+be cast as needed for the datatype, for example to 0).
 
 ==What if there's no header record?==
 
@@ -579,39 +583,36 @@ or with argument or type, constraint, required, and so on).
 FieldInfo objects offer extra features such
 as mapping reserved strings (say, "True", "False", "N/A", etc. to values.
 
-A field for which no type is set is returned as a literal stringn unless
+A field for which no type is set is returned as a literal string unless
 'autotype' is turned on (see next section).
 
 ===autoTyping===
 
 If `autotype` is set on the DialextX, then any field which does not have an explicit
-type set (via header, options, or API as described above), is passed to a function which
-tries to cast it to an appropriate type.
+type set (via header, options, or API as described above), is passed to
+a function which tries to cast it to an appropriate type.
 
-This has potential problems. Some data uses "1" and "0" for booleans, which could also be
-ints (or perhaps floats). Other data might use reserved words such as "True", "T", or "#T",
-which could of course be strings. Any int could also be a float.
-Anything at all could be a string.
-Because of this, autotyping never decides something is a boolean, unless
+This has potential problems. Some data uses "1" and "0" for booleans, which
+could also be ints (or perhaps floats). Other data might use reserved
+words such as "True", "T", or "#T",
+which could of course be strings.
+Because of this, autotyping never decides something is a boolean.
+Similarly, any int could also be a float. Anything at all could be a string.
 
 Leading and trailing whitespace is stripped before testing types.
 However, items that remain as strings are returned with the whitespace intact
 (unless the `skipinitialspace` or `skipfinalspace` option is also set).
 
-If `boolCaster` is supplied, it must take a string argument (the token,
-with leading and trailing whitespace intact), and return True or False,
-or raise ValueError if the value is not an acceptable string representation of
-a boolean (by whatever rules the implementer likes). By default no such
-function is used, and so autoTyping never casts anything to type `bool`.
-Python's `bool()` function takes any non-empty string as True, even
-'0', '0.0', 'False', etc.
+If `reserved` is supplied, it must a dict of what to return for any special
+values -- say, "--" for NaN, "#T" for True, or "999" for None, etc.
 
 If `specialFloats` is set, then the strings "NaN", "inf", "-inf", and "+inf"
 (all case-sensitive) are recognized as floats (otherwise they are strings).
+TODO: -0 should also be distinguished in this case.
 
 Complex numbers must be of the Python form "1+1j".
 
-Numbers are taken as ints if and only if they contain Latin decimal
+Numbers are taken as ints if, after space stripping, they contain Latin decimal
 digits and nothing else (see Python str.isdigit(). Thus, "1." and "1.0" and
 "1.1" and "1E+2" are all returned as floats.
 
@@ -627,7 +628,7 @@ Anything not recognized as one of the types just described, is a string.
 
 '''Note''': Autotyping is not used if you pass a list of types to
 the `fsplit()` option `types`. With a list, each token is explicitly cast to
-the nth type (which may fail). In that case, remember that Python `bool()`
+the given type (which may fail). Remember that Python `bool()`
 takes any non-empty string as True, even "0" or "False".
 
 
@@ -683,11 +684,6 @@ known escapes (other than [xuU] is Escaping.escape2char. It can be modified, tho
 success is not guaranteed especially if you add entries that collide with
 other special characters, such as quotes, delimiters, etc.
 
-For `bool` the default test is whether the field's value begins with [tT1]
-or [fF0]. Other initial characters raise ValueError. Change this via normaliztion.
-There is also a `boolCaster()` function for helping with the variety of ways
-booleans are expressed, but it's not connected.
-
 What's the right rule for a quote not immediately following a delimiter?
 As in
     1, "two", 3, 4"five"5, 6
@@ -701,6 +697,9 @@ month is 30 days.
 
 
 =To do=
+
+* Add a QUOTING option like NONNUMERIC, but that treats strings of digits
+as numerics, rather than going by type.
 
 * Add a convention for putting metasyntax in first record. Maybe like below
 (though what is ok for escaping in values?
@@ -759,6 +758,7 @@ Don't forget leap seconds.
 * Sync regex constraints w/ auto-anchored XSD approach.
 
 * Support XSD regex \\#x and \\p{prop}?
+
 
 =History=
 
@@ -1011,6 +1011,13 @@ class QUOTING(Enum):
     NONNUMERIC    = 2  # quote all non-numeric fields.
     NONE          = 3  # never quote fields, but use escapechar if defined
 
+    @staticmethod
+    def fromstring(s:str, default:"Quoting"=0):
+        try:
+            return QUOTING.__members__[s]
+        except KeyError:
+            return default
+
 class DELIM_PATTERN(Enum):  # TODO Not yet?
     """Try to support all the delimiter conventions out there (man pages for
     these often do not define "space"; perhaps that should be settable here?).
@@ -1195,7 +1202,7 @@ class DialectX:
             help="What character to use to quote fields that need it.")
         parser.add_argument(
             pre+"quoting", type=str, default="MINIMAL",
-            choices=[ "ALL", "MINIMAL", "NONNUMERIC", "NONE"],
+            choices=[ "ALL", "MINIMAL", "NONNUMERIC", "NONE"],  # Add NONNUMLIKE
             help="When should fields be quoted?.")
         parser.add_argument(
             pre+"skipinitialspace", action="store_true",
@@ -1251,6 +1258,8 @@ class DialectX:
         addargs), to the current instance.
         """
         for k in DialectX.__OptionTypes__:
+            if (k == "quoting" and not isinstance(theArgs.__dict__[k], QUOTING)):
+                theArgs.__dict__[k] = QUOTING.fromstring(theArgs.__dict__[k])
             if (k in theArgs.__dict__ and theArgs.__dict__[k] is not None):
                 self.__dict__[k] = theArgs.__dict__[prefix+k]
 
@@ -1532,7 +1541,7 @@ class DictReader:
         if (not mat):
             raise ValueError("Cannot parse header item: <<<%s>>>" % (hfield))
         else:
-            fname = mat.groups(1) or ""
+            fname = mat.groups(1) or ""  ####### TODO FIX!!!!
             fnorm = mat.groups(3) or ""
             ftype = mat.groups(4) or ""
             fcons = mat.groups(5) or ""
@@ -1737,7 +1746,9 @@ class DictWriter:
         self.fieldNames   = fieldNames
         self.restval      = restval
         self.extrasaction = extrasaction
-        self.dialect      = predefinedDialects[dialect]
+        self.dialect      = None
+        if (dialect in predefinedDialects):
+            self.dialect  = predefinedDialects[dialect]
         self.disp_None    = disp_None
 
         if (fieldNames):
@@ -1760,7 +1771,7 @@ class DictWriter:
             self.writerow(row)
         return rnum
 
-    def writerow(self, row: dict) -> None:
+    def writerow(self, row: Dict) -> None:
         #nDelims = len(self.dialect.delimiter)  # For rotating delims a la *paste*
         buf = ""
         if (self.fieldNames is None):
@@ -1872,7 +1883,7 @@ class DictWriterXSV(DictWriter):
             self.writerow(row)
         return rnum
 
-    def writerow(self, row: dict) -> None:
+    def writerow(self, row: Dict) -> None:
         buf = ""
         if (self.fieldNames is None):
             self.fieldNames = sorted(row.keys())
@@ -1892,6 +1903,7 @@ class DictWriterXSV(DictWriter):
     @staticmethod
     def makeAttr(k:str, v:Any):
         return ' %s="%s"' % (k, Escaping.escapeXmlAttribute(v))
+
 
 ###############################################################################
 #
@@ -1976,10 +1988,12 @@ class SAXreader:
         if (self.dialect.header):  # TODO: XSD, RelaxNG...
             if (SAXEvent.Doctype) in self.callBacks:
                 self.callBacks[SAXEvent.Doctype]()
-            self.callBacks[SAXEvent.Element](self.names["Table"], "(%s)+" % (self.names["Table"]))
+            self.callBacks[SAXEvent.Element](self.names["Table"], "(%s)+" % (
+                self.names["Table"]))
             for fi in self.schema:
                 # Map types more specifically than #CDATA
-                self.callBacks[SAXEvent.Attlist](fi.fname, "CDATA", fi.fdefault or '""')
+                self.callBacks[SAXEvent.Attlist](
+                    fi.fname, "CDATA", fi.fdefault or '""')
                 # TODO: Coalesce
             if (SAXEvent.DoctypeFin) in self.callBacks:
                 self.callBacks[SAXEvent.DoctypeFin]()
@@ -2047,7 +2061,7 @@ def writer(csvfile:IO, dialect='excel', **formatParams) -> FsplitWriter:
 
 ###############################################################################
 #
-UQuotePairs = {  # From my 'UnicodeSpecials'
+UQuotePairs = {  # From my Charsets/UnicodeLists/quote.py.
     "SINGLE": ( 0x0027, 0x0027, "APOSTROPHE" ),
     "DOUBLE": ( 0x0022, 0x0022, "QUOTATION MARK" ),
     "BACKP":  ( 0x0060, 0x0027, "GRAVE ACCENT, APOSTROPHE" ),
@@ -2150,6 +2164,8 @@ class DatatypeHandler:
     floatExpr = r"^" + floatPart + r"$"
     complexExpr = r"^" + floatPart + r"\+" + floatPart + r"[ij]$"
     vectorExpr = r"^\[\s*%s(\s*,\s*%s)*\]$" % (floatPart, floatPart)
+    uuidExpr = r"[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$"
+
     #identExpr = r"^\w+$"
 
     @staticmethod
@@ -2163,9 +2179,11 @@ class DatatypeHandler:
         assert isinstance(caster, Callable)
         dtHandler.KnownTypes[hintName] = ( theType, -len(dtHandler.KnownTypes, caster) )
 
+    # Python recognizes these ignoring case
     reservedFloats = [ "nan", "inf", "-inf", "+inf", "-0" ]
 
     def __init__(self,
+        reserved: Dict=None,
         specialFloats: bool=False
         ):
         """
@@ -2173,6 +2191,7 @@ class DatatypeHandler:
             If set, "NaN" and (optionally signed) "inf" count as floats.
         """
         self.setupDefaultTypes()
+        self.reserved = reserved
         self.specialFloats = specialFloats
 
     def setupDefaultTypes(self):
@@ -2188,13 +2207,13 @@ class DatatypeHandler:
         DT = datetime.datetime
         NOCON = None
         self.KnownTypes = {
-            # hint name:  DTDef(targetDT, caster, constrainer, XSDName )
-            "BOOL":       DTDef(bool, self.boolCaster,     NOCON,   "boolean"),
+            # hint name:  DTDef(targetDT, caster,    constrainer,   XSDName )
+            "BOOL":       DTDef(bool,     None,            NOCON,   "boolean"),
 
             "INT":        DTDef(int, lambda x: int(x, 10), NOCON,   "integer"),
             "XINT":       DTDef(int, lambda x: int(x, 16), NOCON,   None),
             "OINT":       DTDef(int, lambda x: int(x, 8),  NOCON,   None),
-            "ANYINT":     DTDef(int, int,                  NOCON,   None),
+            "ANYINT":     DTDef(int, lambda x: int(x, 0),  NOCON,   None),
 
             "FLOAT":      DTDef(float, float,              NOCON,   "float"),
             "PROB":       DTDef(float, complex,            NOCON,   None),
@@ -2221,6 +2240,8 @@ class DatatypeHandler:
             "IDENT":      DTDef(str, str,                  NOCON,   "NCName"),
             # TODO? XSD NOTATION
             "URI":        DTDef(str, str,                  NOCON,   "anyURI"),
+            "UUID":       DTDef(uuid.UUID,
+                lambda x: uuid.UUID(hex=x),                NOCON,   None),
         }
 
     # TODO: XSD Derived datatypes (https://www.w3.org/TR/xmlschema-2/#built-in-derived)
@@ -2434,38 +2455,33 @@ class DatatypeHandler:
             return datetime.time(s)
         raise ValueError("String cannot be parsed as date and/or time: '%s'" % (s))
 
-    @staticmethod
-    def boolCaster(s: str) -> bool:
-        """Return True or False if the value is whatever the data uses for boolean
-        values, Otherwise it should raise ValueError, in which case we
-        go on to try other types.
-        """
-        if (s.strip in [ "False", "True", False, True ]):
-            return bool(DatatypeHandler.stripSpace(s))
-        raise ValueError
-
     def autoType(self, tok: str) -> Any:
         """Convert a string to the most specific type we can.
+
+        Values which (after space-stripping) exactly match entries in
+        self.reserved, are returned as their value in that Dict. This is
+        perhaps most useful for handling Boolean values (#T, nil, etc).
 
         Complex uses the Python "1+1j" (not "1+1i"!) form.
         Leading and trailing whitespace are stripped for testing, but
         not for returned string values.
 
+        TODZO: uuidm url
         """
         if (not isinstance(tok, str)):
             return tok
 
         tok2 = DatatypeHandler.stripSpace(tok)
 
+        if (tok2 in self.reserved):
+            return self.reserved[tok2]
         if (tok2 == ""):
             return tok
-        try: return self.boolCaster(tok2)
-        except ValueError: pass
+        if (tok2.isdigit()):
+            return int(tok2)
         if (self.specialFloats and
             tok2.lower() in self.reservedFloats):
             return float(tok)
-        if (tok2.isdigit()):
-            return int(tok2)
         try: return self.datetimeCaster(tok2)
         except ValueError: pass
         try: return int(tok2, 0)
@@ -2490,10 +2506,10 @@ class DatatypeHandler:
 
         tok2 = DatatypeHandler.stripSpace(tok)
 
+        if (tok2 in self.reserved):
+            return self.reserved[tok2]
         if (tok2 == ""):
             return "None", None
-        try: return "bool", self.boolCaster(tok2)
-        except ValueError: pass
         # Prevent "float" from catching these when not wanted:
         if (not self.specialFloats and tok2 in ("NaN", "inf", "-inf", "+inf")):
             return "str", tok2
@@ -2516,19 +2532,34 @@ class DatatypeHandler:
         return array.array, array.array('f', [ float(x) for x in values ])
 
     @staticmethod
-    def checkTypeList(typeList: List) -> None:
+    def checkTypeList(typeList: List) -> bool:
         """OBSOLETE -- check whether a list of field types is legit.
         Replaced by FieldSchema support.
         """
-        if (not isinstance(typeList, list)): return
+        if (not isinstance(typeList, list)): return False
         for i, t in enumerate(typeList):
             if (isinstance(t, type)): continue
             if (dt.isADatatype(t)): continue
             if (callable(t)): continue
-            raise ValueError(
-                "Type %d is not a Python or Datatypes type, or callable: %s"
+            sys.stderr.write(
+                "Type %d is not a Python or Datatypes type, or callable: %s\n"
                 % (i, repr(t)))
+            return False
+        return True
 
+    @staticmethod
+    def checkUUID(u:str, strict:bool=False) -> bool:
+        """Check whether this is the hex-string normative form of a UUID.
+        Python constructor (used if not 'strict') ignores hyphens, "urn:uuid:"...
+        """
+        if (not (isinstance(u, str))): return False
+        if (strict):
+            return re.match(DatatypeHandler.uuidExpr, u)
+        try:
+            _uuidObj = uuid.UUID(hex=u)
+        except ValueError:
+            return False
+        return True
 
 DTH = DatatypeHandler(specialFloats=True)
 
@@ -2651,6 +2682,8 @@ class FieldInfo:
             else:
                 raise ValueError("Invalid float range constraint '%s'." % (fconstraint))
         elif (ftype == complex):
+            pass
+        elif (ftype == uuid):
             pass
         elif (ftype == array):
             pass  # TODO: Unfinished. Any fconstraints for vectors?
@@ -2914,7 +2947,7 @@ def fsplit(
 
         # Delimiters are odd: single-char; multi-char; any-of; cycling; repeatable; \s+
         elif (isinstance(thisDelim, re.Pattern) and re.match(thisDelim, s[i:])):
-            lg.info("Matched delimiter regex /%s/ at offset %d." % (thisDelim, i))
+            lg.info("Matched delimiter regex /%s/ at offset %d.", thisDelim, i)
             mat = re.match(thisDelim, s[i:])
             i += len(mat.group(0)) - 1
             tokens.append("")
@@ -2922,7 +2955,7 @@ def fsplit(
 
         elif (not isinstance(thisDelim, re.Pattern) and
               c == thisDelim[0] and s[i:].startswith(thisDelim)):
-            lg.info("Got str delimiter '%s' at offset %d." % (thisDelim, i))
+            lg.info("Got str delimiter '%s' at offset %d.", thisDelim, i)
             i += len(thisDelim)
             if (dx.delimiterrepeat):
                 while (s[i:].startswith(thisDelim)):  # TODO: Factor this out, it's lame.
@@ -3365,14 +3398,14 @@ if __name__ == "__main__":
             "lname", "fname", "dob", "age", "zip", "APR", "torque", "is_nice" ]
         dx0 = FieldSchema(fNames)
         header1 = ",".join(fNames)
-        dx1 = FieldSchema(header1)
+        dx0 = FieldSchema(header1)
         header2 = ("lname:str[\\w+], fname:str|NKFC[(le |de )?[A-Z][a-z]+],"
             "dob:DATE, age:int, "
             "zip:str, APR:float, torque:complex, is_nice:bool")
-        dx2 = parseHeaderStrToSchema(header2, theDialect)
+        dx0 = parseHeaderStrToSchema(header2, theDialect)
         header3 = ("lname:str!, fname:str=Smith, dob:DATE!, age:int, "
             "zip:str[[0-9]{5}]!, APR:float=3.14, torque:complex, is_nice:bool=1")
-        dx3 = parseHeaderStrToSchema(header3, theDialect)
+        dx0 = parseHeaderStrToSchema(header3, theDialect)
 
         # TODO: Add tests to *use* them.
 

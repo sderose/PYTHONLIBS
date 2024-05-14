@@ -77,7 +77,7 @@ to keep and report error statistics
     ...
 
     lg.warning(msg)
-    lg.vMsg(2, msg1, msg2, color="red", stat='Input too long')
+    lg.vMsg(2, msg1, msg2, color="red")
 
 `warning`, `info`, `error`, `fatal`, `exception`, and `critical` work
 like in Python `logging.warn()`, except that there is only one context,
@@ -349,6 +349,8 @@ These items can be filled in by a message format:
 
 ==Statistics-keeping methods==
 
+[OBSOLETE, DEPRECATED]
+
 This package maintains a list of named "statistics". Typically, each
 one has just a counter, which you increment by passing the static name
 to the `stat"` parameter of any of the messaging calls described in the
@@ -364,7 +366,7 @@ main program ends). For example:
         recnum += 1
         if (len(rec) > 999):
             lg.error("Line %d too long (%d characters)." % (recnum, len(rec)),
-                    stat="Too long")
+                stat="tooLong")
     lg.setOption('plineWidth', 45)  # Allow space for long stat names
     lg.showStats()
 
@@ -869,27 +871,20 @@ class ALogger:
     # The type-specific calls handles statistic-updating, because that should
     # happen whether or not the level filters out actual display.
     #
-    def log(self, level, msg, stat=None, **kwargs):  # ARGS!
-        if (stat): self.bumpStat(stat)
+    def log(self, level, msg, **kwargs):  # ARGS!
         if (self.options["verbose"] < level): return
         self.directMsg(msg, **kwargs)
-    def debug(self, msg, stat=None, **kwargs):         # level = 10
-        if (stat): self.bumpStat(stat)
+    def debug(self, msg, **kwargs):         # level = 10
         self.directMsg(msg, **kwargs)
-    def info(self, msg, stat=None, **kwargs):          # level = 20
-        if (stat): self.bumpStat(stat)
+    def info(self, msg, **kwargs):          # level = 20
         self.directMsg(msg, **kwargs)
-    def warning(self, msg, stat=None, **kwargs):       # level = 30
-        if (stat): self.bumpStat(stat)
+    def warning(self, msg, **kwargs):       # level = 30
         self.directMsg(msg, **kwargs)
-    def error(self, msg, stat=None, **kwargs):         # level = 40
-        if (stat): self.bumpStat(stat)
+    def error(self, msg, **kwargs):         # level = 40
         self.directMsg(msg, **kwargs)
-    def exception(self, msg, stat=None, **kwargs):     # level = 40
-        if (stat): self.bumpStat(stat)
+    def exception(self, msg, **kwargs):     # level = 40
         self.directMsg(msg, **kwargs)
-    def critical(self, msg, stat=None, **kwargs):      # level = 50
-        if (stat): self.bumpStat(stat)
+    def critical(self, msg, **kwargs):      # level = 50
         self.directMsg(msg, **kwargs)
 
 
@@ -899,14 +894,10 @@ class ALogger:
     def info0(self, msg, **kwargs): self.log(0, msg, **kwargs)
     def info1(self, msg, **kwargs): self.log(1, msg, **kwargs)
     def info2(self, msg, **kwargs): self.log(2, msg, **kwargs)
-    def info3(self, msg, **kwargs): self.log(3, msg, **kwargs)
-    def info4(self, msg, **kwargs): self.log(4, msg, **kwargs)
 
     def warning0(self, msg, **kwargs): self.log(0, msg, **kwargs)
     def warning1(self, msg, **kwargs): self.log(1, msg, **kwargs)
     def warning2(self, msg, **kwargs): self.log(2, msg, **kwargs)
-    def warning3(self, msg, **kwargs): self.log(3, msg, **kwargs)
-    def warning4(self, msg, **kwargs): self.log(4, msg, **kwargs)
 
     def directMsg(self, msg, **kwargs) -> None:
         """Pretty much everything ends up here.
@@ -931,10 +922,9 @@ class ALogger:
 
     # Add fatal(): level 60, and raise exception after.
     #
-    def fatal(self, msg, stat=None, **kwargs) -> None:
-        if (stat): self.bumpStat(stat)
+    def fatal(self, msg, **kwargs) -> None:
         self.log(60, msg, *kwargs)
-        raise Exception("*** Logged message is fatal ***")
+        raise SystemExit("*** Logged message is fatal ***")
 
     # The following message methods and types are treated
     #     as subtypes of info() messages. So they only appear if you
@@ -1117,7 +1107,7 @@ class ALogger:
         if (stat in self.msgStats):
             self.msgStats[stat] += amount
         elif (self.options["noMoreStats"]):
-            self.error(0, "alogging.bumpStat: unknown stat '%s'." % stat)
+            self.error("alogging.bumpStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = amount
 
@@ -1127,7 +1117,7 @@ class ALogger:
         if (stat in self.msgStats):
             self.msgStats[stat].append(datum)
         elif (self.options["noMoreStats"]):
-            self.error(0, "alogging.appendStat: unknown stat '%s'." % stat)
+            self.error("alogging.appendStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = [ datum ]
 
@@ -1137,7 +1127,7 @@ class ALogger:
         if (stat in self.msgStats):
             self.msgStats[stat] = value
         elif (self.options["noMoreStats"]):
-            self.error(0, "alogging.setStat: unknown stat '%s'." % stat)
+            self.error("alogging.setStat: unknown stat '%s'." % stat)
         else:
             self.msgStats[stat] = value
 
@@ -1847,7 +1837,7 @@ if __name__ == "__main__":
 
     lg = ALogger(1)
 
-    lg.info("sjd alogging.ALogger library.", stat="infoStat")
+    lg.info("sjd alogging.ALogger library.")
     lg.warning("A warning message")
     lg.error("An error message")
 
@@ -1858,7 +1848,7 @@ if __name__ == "__main__":
 
     print("Trying formatRec:")
     frec = FormatRec()
-    foo = {
+    sampleRec = {
         "key1": 3,
         "key2": -2.0E-12,
         "key3": 3.14+1j,
@@ -1872,6 +1862,6 @@ if __name__ == "__main__":
         "aFunc": frec.formatRec,
         "aClass": ALogger,
     }
-    print(frec.formatRec(foo))
+    print(frec.formatRec(sampleRec))
     lg.bumpStat("infoStat", 100)
     lg.showStats()

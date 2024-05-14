@@ -264,7 +264,7 @@ files, each passed back with its full path and an open file handle, do this:
         nrecs = len(fh.readlines)
         print("%6d lines in %s" % (nrecs, path))
 
-`what` will be a `PWType` Enum, one of:
+`what` is a `PWType` Enum, one of:
     PWType.OPEN  -- Issued when a container (tar, directory, etc.) opens.
     PWType.LEAF  -- Issued when a file-like item is returned.
     PWType.IGNORE -- Issued (only if requested), for items ignored.
@@ -349,7 +349,7 @@ alphabetical list below.
 
 Create a PowerWalk instance, which can traverse all the specified
 items. If `topLevelItems` is None, the current directory is used;
-if it is a list, all the named files and/or directories will be used;
+if it is a list, all the named files and/or directories are used;
 otherwise, it should be a string path to one named file or directory.
 
 `options` is a dict of option name:value pairs. For example, to
@@ -531,12 +531,12 @@ encapsulate a URL): IGNORE, RETURN, or FOLLOW. For FOLLOW, the file will
 be fetched, saved in the directory specified by the `--tempFileDir` option,
 and returned as if it had been local.
 
-* "openGzip": If True (the default), `gzip` files will be opened as if they were
-directories, and the individual items within them will be returned.
+* "openGzip": If True (the default), `gzip` files are opened as if they were
+directories, and the individual items within them are returned.
 
-* "openTar": If True (the default), `tar` files will be opened as containers
+* "openTar": If True (the default), `tar` files are opened as containers
 (optionally generating PWType.OPEN and PWType.CLOSE events),
-and the individual items within them will be returned.
+and the individual items within them are returned.
 
 
 ===Reading options===
@@ -561,7 +561,7 @@ regardless of how the `open` option is set.
 * `absolute`:  Always map returned paths to absolute form.
 
 * `containers` (default True): If True,
-then open and close events will be generated
+then open and close events are generated
 for each container (such as a directory, gzip, or tar file) that is entered.
 The third member of the returned tuple (`what`) is PWType.OPEN and
 PWType.CLOSE, respectively.
@@ -570,11 +570,11 @@ PWType.CLOSE, respectively.
 "files": sort files before directories; "mix": leave them intermixed (default).
 
 * `exceptions` (default False): If True, then containers (and ignorable
-files (if `ignorables` is also set) will be signaled by raising exceptions
-rather than returning regular events. The exceptions will be of types
+files (if `ignorables` is also set) are signaled by raising exceptions
+rather than returning regular events. The exception types are
 ItemOpening, ItemClosing, and ItemIgnorable.
 
-* `ignorables` (default False): If True, then events will be generated
+* `ignorables` (default False): If True, then events are generated
 even for items (containers and leaves) that are filtered out -- such as
 hidden files or directories, etc. Such events will have `what`
 returned as PWType.IGNORE.
@@ -620,15 +620,15 @@ Default: "none" (just use whatever `os.listdir` returns). Other choices:
 Generate a sequence of chosen files (and if requested, pseudo-files,
 such as items
 from a zip, tar, or other container). Each iteration returns a tuple of
-(path, fh), where `fh` is a readable. For regular files this is as returned
-by `codecs.open()` with the `mode` and `encoding` specified as options
-(if the `open` option is in effect; otherwise fh is returned as None).
-For items within tar, gzip, or other supported archive types, it will be
-the readable interface from the corresponding package (regardless of whether
+(path, fh), where `fh` is a readable. If the `open` option is in effect,
+then regular files are opened by `codecs.open()`.
+Otherwise fh is returned as None/
+For items within tar, gzip, or other supported archive types, the readable
+interface from the corresponding package is returned (regardless of whether
 `open` is set).
 
-Ignored items (such as backups if the `backups` option has not
-been set), are quietly skipped unless the `ignorables` options is set.
+Ignored items (such as backups if the `backups` option is not
+set) are quietly skipped unless the `ignorables` options is set.
 
 Containers such as directories and archive files generate start and end
 events with the appropriate path, but the file handle is returned as None,
@@ -1365,7 +1365,7 @@ class PowerWalk:
         argparse instance. Use applyOptionsFromArgparse() after, to
         copy them back here from the argparse result, ignoring any others.
         @param prefix: Put this before all names to avoid name conflicts.
-            You can include leading "--", but it will be added if not included.
+            You can include leading "--", but it is added if not included.
         @param singletons: If set, include single-char synonyms (which, btw,
             do *not* get prefixed).
         """

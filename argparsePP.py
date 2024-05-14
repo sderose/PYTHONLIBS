@@ -499,10 +499,10 @@ class ArgumentParserPP(argparse.ArgumentParser):
         hyphenConvention:str    = "gnu",  # cf prefix_chars
         negationPrefix:str      = "no-",
         showDefaults:bool       = True,
-        shortMetavars           = True,
-        pager                   = None,
-        gnuStyle                = True,
-        entailments             = None
+        shortMetavars:bool      = True,
+        pager:str               = None,  # command name, path, or callable?
+        gnuStyle:bool           = True,  # ???
+        entailments:bool        = None   # options that force others?
         ):
 
         if (formatter_class is None):
@@ -511,15 +511,6 @@ class ArgumentParserPP(argparse.ArgumentParser):
                 self.formatter_class = BlockFormatter
             except ImportError:
                 pass
-
-        self.ignoreCase         = ignoreCase
-        self.hyphenConvention   = hyphenConvention
-        self.negationPrefix     = negationPrefix
-        self.showDefaults       = showDefaults
-        self.shortMetavars      = shortMetavars
-        self.pager              = pager
-        self.gnuStyle           = False
-        self.entailments        = {}
 
         super(ArgumentParserPP, self).__init__(
             prog                = prog,
@@ -534,6 +525,15 @@ class ArgumentParserPP(argparse.ArgumentParser):
             conflict_handler    = conflict_handler,
             add_help            = add_help
         )
+
+        self.ignoreCase         = ignoreCase
+        self.hyphenConvention   = hyphenConvention
+        self.negationPrefix     = negationPrefix
+        self.showDefaults       = showDefaults
+        self.shortMetavars      = shortMetavars
+        self.pager              = pager
+        self.gnuStyle           = False
+        self.entailments        = {}
 
     def add_argument(
         self,
@@ -573,7 +573,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
         """Display the args with types and values.
         """
         print("Args:\n%s")
-        argDict = self.__dict__  # TODO: Check
+        argDict = self.__dict__
         for k0 in sorted(argDict.keys()):
             print("    %-20s %-12s %s" %
                 (k0, type(argDict[k0]).__name__, argDict[k0]))
@@ -665,17 +665,17 @@ class ArgumentParserPP(argparse.ArgumentParser):
     okPagers = [ "less", "more", ]
 
     def print_help(self, file=None):
-        """Override argparse version, to respond to "pager" option.
+        """Override argparse method to respond to "pager" option.
         """
-        if (self.pager and self.pager in self.okPagers):
-            cmdPath = "/usr/bin/"+self.pager
-            if (os.path.exists(cmdPath)):
-                subprocess.run(
-                    [ "/usr/bin/less" ],
-                    input=self.format_help(),
-                    check=True
-                )
-                return
+        if (self.pager):
+            if (self.pager == "$EDITOR"):
+                self.pager = os.environ["PAGER"]
+            if (self.pager in self.okPagers):  # TODO Too strict?
+                cmdPath = "/usr/bin/"+self.pager
+                if (os.path.exists(cmdPath)):
+                    subprocess.run(
+                        [ cmdPath ], input=self.format_help(), check=True)
+                    return
         super().print_help(file=file)
 
 

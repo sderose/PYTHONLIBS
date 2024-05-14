@@ -10,7 +10,7 @@ import argparse
 import random
 import time
 import math
-from typing import Any, List
+from typing import Any, List, Dict
 import unicodedata
 
 import ColorManager
@@ -685,7 +685,7 @@ class sjdUtils:
     Includes pretty-printing XML and JSON, times and dates, lorem text,
     escaping and unescaping special characters, etc.
     """
-    def __init__(self, verbose=0, colors=1, logger=None, old=True):
+    def __init__(self, verbose:int=0, colors=1, logger=None, old:bool=False):
         self.version        = __version__
         self.localeInfo     = None
         self.htmlp          = None
@@ -693,8 +693,9 @@ class sjdUtils:
         # Define some of the logger's methods locally, for backward
         # compatibility:
         if (old):
-            self.vMsg           = self.lg.vMsg
-            self.eMsg           = self.lg.vMsg
+            #self.vMsg           = self.lg.vMsg
+            #self.eMsg           = self.lg.vMsg
+            raise ValueError("Unexpected 'old' option to sjdUtils.")
 
         self.showStats      = self.lg.showStats
 
@@ -857,7 +858,7 @@ class sjdUtils:
     def getVersion(self):
         return(self.version)
 
-    def setVerbose(self, v:int):
+    def setVerbose(self, v:int) -> int:
         """Tell the logger to set the level of message to be reported.
         """
         if (self.lg): self.lg.setVerbose(v)
@@ -873,8 +874,8 @@ class sjdUtils:
     # XML stuff
     #
     def indentXML(
-        self, s:str, iString:str="  ", maxIndent=0,
-        breakAttrs=0, elems=None, html=False) -> str:
+        self, s:str, iString:str="  ", maxIndent:int=0,
+        breakAttrs:bool=False, elems:Dict=None, html:bool=False) -> str:
         """Breaks before start-tags and end-tags, etc.
         Puts in spurious breaks if "<" occurs within PI, comment, CDATA MS.
         If you want it really right, use my DomExtensions::collectAllXml().
@@ -897,8 +898,8 @@ class sjdUtils:
     ]
 
     def indentXml(
-        self, s:str, iString:str="  ", maxIndent=0,
-        breakAttrs=0, elems=None, html=False) -> str:
+        self, s:str, iString:str="  ", maxIndent:int=0,
+        breakAttrs:bool=False, elems:Dict=None, html:bool=False) -> str:
         """Insert newlines and indentation in an XML string. Does not use
         an actual parser, but is quick and pretty reliable.
         @param iString: String to repeat to make indentation
@@ -980,7 +981,7 @@ class sjdUtils:
 
     ###########################################################################
     #
-    def getJsonIndent(self, level, maxIndent, iString:str=None) -> str:
+    def getJsonIndent(self, level:int, maxIndent:int, iString:str=None) -> str:
         """Internal. Return a newline plus indentation for indentJson>().
         """
         if (iString is None): iString = self.options["iString"]
@@ -988,7 +989,7 @@ class sjdUtils:
         if (maxIndent and level>maxIndent): effLevel = maxIndent
         return("\n" + (iString * effLevel))
 
-    def indentJson(self, s:str, iString:str="    ", maxIndent=0) -> str:
+    def indentJson(self, s:str, iString:str="    ", maxIndent:int=0) -> str:
         buf = ""
         level = 0
         inQuote = False
@@ -1033,21 +1034,22 @@ class sjdUtils:
     ###########################################################################
     # Format strings and numbers for nicer printing.
     #
-    def rpad(self, s:str, width=0, padChar:str=" ", quoteChar:str="") -> str:
+    def rpad(self, s:str, width:int=0, padChar:str=" ", quoteChar:str="") -> str:
         """Like ljust(), but can also quote before padding.
         """
         if (not isinstance(s, str)): s = str(s)
         if (quoteChar): s = quoteChar[0] + str(s) + quoteChar[-1]
         return(s.ljust(width, padChar))
 
-    def lpad(self, s:str, width=0, padChar:str="0", quoteChar:str="") -> str:
+    def lpad(self, s:str, width:int=0, padChar:str="0", quoteChar:str="") -> str:
         """Like rjust(), but can also quote before padding.
         """
         if (not isinstance(s, str)): s = str(s)
         if (quoteChar): s = quoteChar[0] + s + quoteChar[-1]
         return(s.rjust(width, padChar))
 
-    def lpadc(self, s:str, width=0, padChar:str="0", quoteChar:str="", sepChar:str=",") -> str:
+    def lpadc(self, s:str, width:int=0, padChar:str="0",
+        quoteChar:str="", sepChar:str=",") -> str:
         """Like lpad(), but inserting `sepChar` every three digits.
         (Python 3 has that feature in `format`).
         Can also quote before padding.
@@ -1072,7 +1074,8 @@ class sjdUtils:
             needed -= 1
         return(buf)
 
-    def align(self, mylist, delim:str=',', stripTrail=True, maxLen=None, padChar:str=' ') -> str:
+    def align(self, mylist:List, delim:str=',', stripTrail:bool=True,
+        maxLen:int=None, padChar:str=' ') -> str:
         """Pad sub-items (of the members of 'mylist'), to line them up.
         @todo: ignore delim if in quotes, or backslashed?
         @todo: Avoid quoting in all-numeric columns.
@@ -1111,7 +1114,7 @@ class sjdUtils:
             paddedList.append(buf)
         return paddedList
 
-    def toHNumber(self, n, base=1000) -> str:
+    def toHNumber(self, n:int, base:int=1000) -> str:
         """Convert a number to human-readable form, like several *nix commands.
         For example, "123456789" would become "123M".
         """
@@ -1126,7 +1129,7 @@ class sjdUtils:
                 break
         return(rc)
 
-    def fromHNumber(self, n:str, base=1000):
+    def fromHNumber(self, n:str, base:int=1000):
         """Undo toHNumber() notation. For example, "123M" would become
         "123000000". Round-trip conversions lose precision.
         """
@@ -1139,7 +1142,7 @@ class sjdUtils:
                 return(float(n[0:-1]) * self.multipliers[i][col])
         return(rc)
 
-    def unquote(self, s:str, fancy=False) -> str:
+    def unquote(self, s:str, fancy:bool=False) -> str:
         """Remove single or double quotes from around a string, if present.
         A quote all by itself, remains.
         Deals with most but not all Unicode quotes.
@@ -1220,7 +1223,8 @@ class sjdUtils:
             print("getUTF8: UnicodeDecodeError in '%s': %s" % (c, e))
         return(u)
 
-    def makePrintable(self, c, mode:str="DFT", spaceAs=None, lfAs=None) -> str:
+    def makePrintable(self, c:str, mode:str="DFT",
+        spaceAs:str=None, lfAs:str=None) -> str:
         spaceChar = " "
         if (spaceAs and spaceAs in spaceCodes):
             spaceChar = spaceCodes[spaceAs]
@@ -1461,7 +1465,8 @@ class sjdUtils:
         return("{0:02d}:{1:02d}:{2:02d}".format(h, m, s))
 
     # Should vary it if it needs to be repeated.
-    def lorem(self, length=79, loremType:str="a", mode:str="frequency", xtab=None) -> str:
+    def lorem(self, length:int=79, loremType:str="a",
+        mode:str="frequency", xtab=None) -> str:
         """Return a given length of sample text, either by replicating
         the 'loremText' option value (which defaults to the usual), or
         by generating it randomly. In either case, you can also have it
@@ -1486,7 +1491,8 @@ class sjdUtils:
         if (xtab): buf = buf.translate(xtab)
         return(buf)
 
-    def getRandomXtab(self, fromChars:str="aeiouAEIOU", uMin=0x00A1, uMax=0x2FF):
+    def getRandomXtab(self, fromChars:str="aeiouAEIOU",
+        uMin:int=0x00A1, uMax:int=0x2FF):
         """Translate the fromChars passed, to random Unicode code points
         from the given range.
         """
@@ -1516,7 +1522,7 @@ class sjdUtils:
     #
     # TODO: Will probably need to update this for 3.12
     #
-    def try_module(self, moduleName:str, quiet=False):
+    def try_module(self, moduleName:str, quiet:bool=False):
         import importlib.util
         try:
             #importlib.find_module(moduleName)  # OBS as of 3.3
@@ -1573,7 +1579,7 @@ class sjdUtils:
     def localize(self):
         self.lg.error("sjdUtils: localize() not yet supported.")
 
-    def toUTF8(self, s:str, srcEncoding=None):
+    def toUTF8(self, s:str, srcEncoding:str=None):
         if (isinstance(s, str)):
             s.encode('utf-8')
         elif (srcEncoding):

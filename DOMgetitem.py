@@ -231,7 +231,7 @@ class PyNode(Node):
             if (typ1 == PyNode.ARG_INT):                              # [0]
                 return self.childNodes[n1]
             if (typ1 == PyNode.ARG_ATTRIBUTE):                        # ['@id']
-                warn(0, "Getting attr, arg 1 is '%s'." % (n1))
+                warning("Getting attr, arg 1 is '%s'." % (n1))
                 return self.getAttribute(n1[1:])
             return self._getChildNodesByName_(n1)              # ['p'] ['#text'] ['*']
 
@@ -313,8 +313,8 @@ class PyNode(Node):
 if __name__ == "__main__":
     import argparse
 
-    def warn(lvl:int, msg:str) -> None:
-        if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
+    def warning(msg:str) -> None:
+        sys.stderr.write(msg + "\n")
 
     def processOptions() -> argparse.Namespace:
         try:
@@ -342,7 +342,7 @@ if __name__ == "__main__":
     #
     args = processOptions()
 
-    warn(0, "Patching extensions onto xml.dom.minidom.Node...")
+    warning("Patching extensions onto xml.dom.minidom.Node...")
     Node.__getitem__ = PyNode.__getitem__
     Node._getChildNodesByName_ = PyNode._getChildNodesByName_
     Node. _getListItemsByName_ = PyNode. _getListItemsByName_
@@ -367,4 +367,4 @@ if __name__ == "__main__":
         print("ch %d: type '%s'" % (i, body[i].nodeName))
         print("    id: %s" % (body[i]["@id"]))
 
-    warn(0, "Done.")
+    warning("Done.")

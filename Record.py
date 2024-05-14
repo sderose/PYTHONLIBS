@@ -25,6 +25,8 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
+This is similar to TypedDict as in PEP 589, which you might want to consider.
+
 ''UNFINISHED''
 
 The "Record" class is a collection of data items, that conform to certain
@@ -49,7 +51,7 @@ applicable RecordDef as an argument to the constructor.
 Record is a subclass of ''dict'', but adds properties of ordereddict,
 namedtuple, defaultdict, and object:
 
-* Like a regular ''dict'', Records are mutable, and the members are unordered.
+* Like a regular ''dict'', records are mutable, and the members are unordered.
 
 * Somewhat like ''ordereddict', a reliable order of fields is available.
 But it is the order of definition, not last set, so is consistent across all
@@ -199,6 +201,8 @@ You can make these ahead of time, or just pass in lists or tuples of the 4 featu
 
 
 =Related Commands=
+
+Python class TypeDict.
 
 `Homogeneous.py`, `LooseDict.py`.
 
