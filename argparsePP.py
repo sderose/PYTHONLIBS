@@ -3,7 +3,7 @@
 # argparsePP.py: An extended `argparse`.
 # By Steven J. DeRose, started ~2014-06.
 #
-#pylint: disable=W0613, W0212, W0622, W0123
+#pylint: disable=W0622, W0123  # redefining, eval
 #
 import sys
 import os
@@ -53,6 +53,9 @@ Python's `argparse` [https://docs.python.org/3/library/argparse.html].
 =Known bugs and limitations=
 
 Unfinished.
+
+"pager" option doesn't work. Override for print_message() never called.
+Maybe try monkey-patching it onto the base class instead?
 
 
 =To do=
@@ -500,9 +503,9 @@ class ArgumentParserPP(argparse.ArgumentParser):
         negationPrefix:str      = "no-",
         showDefaults:bool       = True,
         shortMetavars:bool      = True,
-        pager:str               = None,  # command name, path, or callable?
-        gnuStyle:bool           = True,  # ???
-        entailments:bool        = None   # options that force others?
+        #gnuStyle:bool           = True,  # ???
+        #entailments:bool        = None,   # options that force others?
+        pager:str               = None   # command name, path, or callable?
         ):
 
         if (formatter_class is None):
@@ -517,7 +520,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
             usage               = usage,
             description         = description,
             epilog              = epilog,
-            parents             = parents,
+            parents             = list(),
             formatter_class     = formatter_class,
             prefix_chars        = prefix_chars,
             fromfile_prefix_chars = fromfile_prefix_chars,
@@ -534,6 +537,19 @@ class ArgumentParserPP(argparse.ArgumentParser):
         self.pager              = pager
         self.gnuStyle           = False
         self.entailments        = {}
+
+    def print_message(self, message, file=None):
+        """Override to respond to "pager" option.
+        """
+        sys.stderr.write("In argparsePP.print_message.")
+        if (self.pager):
+            if (self.pager == "*"): p = os.environ.get("PAGER", "less")
+            elif (re.match(r"[\w/.]*$", self.pager)): p = self.pager
+            else: assert False, "Can't use pager '%s'." % (self.pager)
+            proc = subprocess.Popen(p, stdin=subprocess.PIPE, shell=True)
+            proc.communicate(message.encode())
+        else:
+            super().print_help(file=file)
 
     def add_argument(
         self,
@@ -553,10 +569,10 @@ class ArgumentParserPP(argparse.ArgumentParser):
         dest        = None
         """
         basename = theArgs[0].strip(" \t-_")
-        if (self.showDefaults and kwargs["default"] is not None):
-            help=""
-            if (kwargs["help"] is not None):
-                help += " Default: " + str(kwargs["default"])
+        #if (self.showDefaults and kwargs["default"] is not None):
+        #    help=""
+        #    if (kwargs["help"] is not None):
+        #        help += " Default: " + str(kwargs["default"])
         if ("metavar" in kwargs and kwargs["metavar"] is None):
             kwargs["metavar"] = basename.upper()
             if (self.shortMetavars):
@@ -567,7 +583,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
         # For gnu style, always add "-" synonym for "--" form
         if (theArgs[0].startswith("--") and self.gnuStyle):
             super().add_argument(theArgs, kwargs)
-        return super().add_argument(theArgs, kwargs)
+        return super().add_argument(*theArgs, **kwargs)
 
     def showSettings(self):
         """Display the args with types and values.
@@ -584,7 +600,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
         name:str    = None,  # name without "no-" or similar part
         default     = None,
         help:str    = None,
-        metavar:str = None,
+        #metavar:str = None,
         dest:str    = None
         ):
         """Add both sides of an invertible boolean option. This method:
@@ -592,7 +608,7 @@ class ArgumentParserPP(argparse.ArgumentParser):
             Adds the opposite option with action="store_true":
                 Uses negationPrefix to name it, such as "--no-" + name
                 Makes up as cross-reference as help.
-                Applies the same default, dest, and metavar.
+                Applies the same default and dest; but no metavars for these.
         """
         if (not name.startswith("--")):
             sys.stderr.write("add_toggle: option doesn't start with '--'.")
@@ -602,15 +618,13 @@ class ArgumentParserPP(argparse.ArgumentParser):
             name,
             action="store_true",
             dest=name[2:],
-            metavar=metavar,
             default=default,
             help=help
         )
         self.add_argument(
-            self.negationPrefix+basename,
+            "--"+self.negationPrefix+basename,
             action="store_false",
             dest=dest or basename,
-            metavar=metavar,
             default=default,
             help="See '"+name+"'."
         )
@@ -662,37 +676,23 @@ class ArgumentParserPP(argparse.ArgumentParser):
     #    Rfile = argparse.FileType("r")
     #    Wfile = argparse.FileType("w")
 
-    okPagers = [ "less", "more", ]
-
-    def print_help(self, file=None):
-        """Override argparse method to respond to "pager" option.
-        """
-        if (self.pager):
-            if (self.pager == "$EDITOR"):
-                self.pager = os.environ["PAGER"]
-            if (self.pager in self.okPagers):  # TODO Too strict?
-                cmdPath = "/usr/bin/"+self.pager
-                if (os.path.exists(cmdPath)):
-                    subprocess.run(
-                        [ cmdPath ], input=self.format_help(), check=True)
-                    return
-        super().print_help(file=file)
-
 
 ###############################################################################
 # Main
 #
 if __name__ == "__main__":
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = ArgumentParserPP(
+            description=descr, formatter_class=BlockFormatter, pager="*")
+        #parser = argparse.ArgumentParser(
+        #    description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
+
     def processOptions():
         """I'm so meta, even this acronym...
         """
-        try:
-            from BlockFormatter import BlockFormatter
-            parser = argparse.ArgumentParser(
-                description=descr, formatter_class=BlockFormatter)
-        except ImportError:
-            parser = argparse.ArgumentParser(description=descr)
-
         parser.add_argument(
             "--color", # Don't default. See below.
             help="Colorize the output.")
@@ -739,5 +739,10 @@ if __name__ == "__main__":
     #
     fileCount = 0
     args = processOptions()
+
+    print("Parser class is: %s" % (parser.__class__))
+    parser.add_enum("--enu", type=str, choices=[ "aaa", "bbb", "ccc" ],
+        help="An enum the cool way.")
+    parser.add_toggle("--tog", help="Toggleable.")
 
     print("Driver not yet implemented.")

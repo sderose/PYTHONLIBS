@@ -19,8 +19,9 @@ from html.entities import codepoint2name, name2codepoint
 
 import logging
 lg = logging.getLogger("DomExtensions.py")
+lg.setLevel(logging.INFO)
 
-def cmp(a, b): return ((a > b) - (a < b))
+def cmp(a, b) -> int: return ((a > b) - (a < b))
 
 __metadata__ = {
     "title"        : "DomExtensions",
@@ -363,18 +364,18 @@ This does not yet handle ranges, but will when I get around to it. In the
 meantime, you can fetch XPointers for the two ends and combine them in
 the caller.
 
-* '''XPointerCompare'''(x1, x2)
+* '''compareXPointer'''(x1, x2)
 
 Compare two XPointer child-sequences (see ''getXPointer'')
 for relative document order, returning -1, 0, or 1.
 This does not require actually looking at a document, so no document or
 node is passed.
 
-* '''XPointerInterpret'''(document, x)
+* '''interpretXPointer'''(document, x)
 
 Interpret the XPointer child sequence in the string
 ''x'', in the context of the given ''document'',
-and return the node it identifies (or undef if there is no such node).
+and return the node it identifies (or None if there is no such node).
 
 * '''getEscapedAttributeList'''(node, sortAttributes=False, quoteChar='"')
 
@@ -528,10 +529,10 @@ putting ''delimiter'' (default: space) in between.
 ** `strip`: Whether to strip leading and trailing whitespace from texst nodes.
 
 `emitter' can be an instance of class Emitter (also defined here), which
-will get passed the generated result strings in document order. The provided
-class has options to write them to a path or file handle, collect them in
-a string buffer, or call some other callback for each. By default, the result
-is collected in a string and passed back whole.
+will get passed the generated result strings in document order.
+The provided class has options to write them to a path or file handle,
+collect them in a string buffer, or call some other callback for each.
+By default, the result is collected in a string and passed back whole.
 
 * '''collectAllXml''' (node, delim=" ", indentString='    ',
     emitter=None, schemaInfo=None)
@@ -745,12 +746,8 @@ I think the culprits are (see https://github.com/python/cpython/blob/main/Lib/xm
     Make: class XNode(Node), class DOMImplementation(DOMImplementation)
     Subclass all the subclasses of Node, to be based on XNode
     Change all the methods that construct, like:
-        def createThing(self):
-            myType = type(self)
-            newThing = myType()
-            return newThing
     *Except* that these are methods on (e.g.) Document, that create OTHER classes....
-    So probably easiest is just to explicitly construct XTextNode, etc -- though that
+    So maybe easier to explicitly construct XTextNode, etc -- though that
     doesn't really solve the general problem.
 
 * Support negative 'n' for rest of axis selects.
@@ -789,6 +786,8 @@ speeches, etc.?
 
 
 =Related commands=
+
+`JSLIBS/DomExtension.js` -- obsolete but similar Javascript version.
 
 `DOMTableTools.py` -- DOM additions specifically for tables.
 
@@ -856,7 +855,9 @@ Balisage Series on Markup Technologies, vol. 13 (2014).
 _regexType = type(re.compile(r'a*'))
 
 class XMLStrings:
-
+    """This class contains static methods and variables for basic XML
+    operations such as testing syntax forms, escaping strings, etc.
+    """
     _xmlSpaceExpr = r"[ \t\n\r]+"
 
     _xmlSpaceChars = " \t\r\n"
@@ -1105,7 +1106,7 @@ class Axes(Enum):
     ANCESTOR        = 0x002  # ..
     CHILD           = 0x004  # /
     DESCENDANT      = 0x008  # //
-    PSIBLING        = 0x010  # <
+    PSIBLING        = 0x010  # <  # or arrows?
     FSIBLING        = 0x020  # >
     PRECEDING       = 0x040  # <<
     FOLLOWING       = 0x080  # >>
@@ -1118,8 +1119,10 @@ class Axes(Enum):
 ###############################################################################
 #
 class DOCUMENT_POSITIONS(Enum):
-    """Like DOM's compareDocumentPosition, but more complete.
+    """Like DOM's compareDocumentPosition but more complete.
+    See DOM Node.Node.DOCUMENT_POSITION_xxx.
     """
+    DOCPOS_EQUAL = 0  # Not defined in DOM, bit 0 is what you get....
     DOCPOS_DISCONNECTED = 1
     DOCPOS_PRECEDING = 2
     DOCPOS_FOLLOWING = 4
@@ -1128,7 +1131,6 @@ class DOCUMENT_POSITIONS(Enum):
     #
     DOCPOS_IMPLEMENTATION_SPECIFIC = 32
     #
-    DOCPOS_EQUAL = 32 ^ 64
     DOCPOS_SWAPPABLE = 32 ^ 8 ^ 16  # Like <b><i>hello></i></b>
     DOCPOS_SEMI_PRECEDING = 32 ^ 2  # For overlap
     DOCPOS_SEMI_FOLLOWING = 32 ^ 4  # For overlap
@@ -1205,6 +1207,7 @@ class NodeSelKind(Enum):
 
 def isLeafType(node:Node) -> bool:
     """Return whether the node is of a nodeType that can only ever be a leaf.
+    Not to be confused with isLeaf().
     """
     return (node.nodeType in [
         Node.TEXT_NODE, Node.CDATA_SECTION_NODE, Node.COMMENT_NODE,
@@ -1298,8 +1301,8 @@ def DEgetitem(self:Node, n1, n2=None, n3=None) -> List:
 
 def containsKind(self:Node, nodeSel:NodeSel, orSelf:bool=False, direct:bool=False) -> bool:
     """Test whether the node contains a node of the given nodeSel kind.
-    If 'orSelf' is True, the node itself counts.
-    If 'direct' is True, indirect descendants do not count.
+    @param orSelf: If True, the node itself counts.
+    @param direct: If True, indirect descendants do not count.
     """
     if (orSelf):
         if (self.nodeMatches(nodeSel)): return True
@@ -1334,24 +1337,22 @@ def _getListItemsByKind_(self:Node, theList:list, nodeSel:NodeSel) -> list:
 ###############################################################################
 # Methods to make minidom (or whatever) look more like JS DOM.
 #
-breakEndTags = False  # Temporary....
+breakEndTags = False  # TODO: Temporary....
 
 def outerXML(self:Node, indent:str=None, usePretty:bool=False) -> str:
-    if (not usePretty):
-        #from io import StringIO
-        #buf = StringIO()
-        buf = (
-            self.getStartTag() + self.innerHTML(indent=indent) + self.getEndTag()
-        )
-        return buf
-    else:
+    """Collect the XML-serialized subtree, including the start and end tags.
+    @param indent: If set, pretty-print as we go.
+    @param usePretty: If set, apply alternate serializer toprettyxml().
+    """
+    if (usePretty):
         buf = self.toprettyxml()
         return buf.getvalue()
-    #t = self.getStartTag() + self.innerHTML(indent=indent) + self.getEndTag()
-    #return t
+
+    return self.getStartTag() + self.innerHTML(indent=indent) + self.getEndTag()
 
 def innerXML(self:Node, cOptions=None, indent:str=None, depth:int=0) -> str:
-    """Collect the subtree, possibly pretty-printing as we go.
+    """Collect the XML-serialized subtree, but not the start and end tags.
+    @param indent: If set, pretty-print as we go.
     """
     indentString = "" if (not indent) else ("\n" + indent*depth)
     t = ""
@@ -1398,7 +1399,7 @@ def innerText(self:Node, sep:str='', stripWS:bool=False) -> str:
     inserting something in between all the text nodes (typically a space,
     so text of list items etc. don't join up. But putting in spaces around
     HTML inlines like i and b may occasionally be wrong.
-    TODO: Should 'stripWS' only do XML WS?
+    TODO: Should 'stripWS' only do XML WS? Add option for inline-list?
     """
     if (self.nodeType == Node.TEXT_NODE or
         self.nodeType == Node.CDATA_SECTION_NODE):
@@ -1837,13 +1838,13 @@ def getXPointer(self:Node, textOffset:int=None, idAttrName:NMToken=None) -> str:
     there's not enough text -- then treat as if no `textOffset` was given.
     If it's exactly 1 greater, point just after the last content character.
 
-    TODO: Extend to full-fledged ranges.
+    TODO: Extend to full-fledged ranges?
     """
-    if (textOffset is None):
-        return getXPointerToNode(self, idAttrName=idAttrName)
+    assert isinstance(self, Node)
+    xp = getXPointerToNode(self, idAttrName=idAttrName)
+    if (textOffset is None): return xp
     assert textOffset >= 0
-    if (self.nodeType == Node.TEXT_NODE):  # Find the right text node first.
-        xp = getXPointerToNode(self, idAttrName=idAttrName)
+    if (self.nodeType == Node.TEXT_NODE):  # Find the right text node
         if (textOffset >= 0 and textOffset <= len()): xp += "#%d" % (textOffset)
         return xp
     theTextNode, localOffset = findTextByOffset(self, textOffset=textOffset)
@@ -1852,7 +1853,7 @@ def getXPointer(self:Node, textOffset:int=None, idAttrName:NMToken=None) -> str:
 
 def getXPointerToNode(self:Node, idAttrName:NMToken="id", nodeSel:NodeSel=None) -> str:
     """Get a simple XPointer to a node (no specific character points!). These
-    are just a sequence of child-numbers, e.g.  1/12/352/4/1.
+    are just a sequence of child-numbers, e.g.  /1/12/352/4/1.
         ==> These count text nodes, too, unless you set "whatToCount" to some
         specific selector, such as "*" (for just elements).
 
@@ -1865,11 +1866,10 @@ def getXPointerToNode(self:Node, idAttrName:NMToken="id", nodeSel:NodeSel=None) 
     while (cur and cur.nodeType != Node.DOCUMENT_NODE):
         idValue = cur.getAttribute(idAttrName) if idAttrName else ""
         if (idValue):
-            f = idValue + "/" + f
-            break
+            return idValue + "/" + f
         f = str(getChildNumber(cur, nodeSel)+1) + "/" + f
         cur = cur.parentNode
-    return f
+    return "/" + f
 
 def getXPathToNode(self:Node, idAttrName:NMToken="id",
     byType:bool=True, nodeSel:NodeSel=None) -> str:
@@ -1977,16 +1977,16 @@ def sameAs(self, other) -> bool:
 def compareDocumentPositionViaXPointer(self:Node, other:Node):
     """Compare two nodes for order. Return same as compareDocumentPosition.
     """
-    return self.XPointerCompare(self.getXPointer(), other.getXPointer())
+    return self.compareXPointer(self.getXPointer(), other.getXPointer())
 
-def XPointerCompare(self:Node, xp1:str, xp2:str) -> int:
+def compareXPointer(self:Node, xp1:str, xp2:str) -> int:
     """Compare two purely numeric XPointers for relative order.
     Does not support ones with IDs.
     """
-    if (not re.match(r'\d+(/\d+)*$', xp1)):
-        raise ValueError("Invalid XPointer cseq: '%s'." % (xp1))
-    if (not re.match(r'\d+(/\d+)*$', xp2)):
-        raise ValueError("Invalid XPointer cseq: '%s'." % (xp2))
+    if (not re.match(r'(/\d+)+$', xp1)):
+        raise ValueError("Invalid XPointer child sequence 1: '%s'." % (xp1))
+    if (not re.match(r'(/\d+)+$', xp2)):
+        raise ValueError("Invalid XPointer child sequence 2: '%s'." % (xp2))
     t1 = re.split(r'/', xp1)
     t2 = re.split(r'/', xp2)
     i = 0
@@ -2000,20 +2000,33 @@ def XPointerCompare(self:Node, xp1:str, xp2:str) -> int:
     elif (c > 0): return Node.DOCPOS_CONTAINED_BY
     else: return Node.DOCPOS_EQUAL
 
-def XPointerInterpret(self:Node, xp:str) -> Node:
+def interpretXPointer(self:Node, xp:str) -> Node:
     """Given an XPointer string, find the node (if it exists).
     """
-    document = self.ownerDocument()
-    node = document.getDocumentElement()
-    t = re.split(r'/', xp)
-    if (re.match(r'^\d+', t[0])):               # Leading ID:
-        idNode = document.getNamedNode(t[0])
-        if (not idNode): return None
-    i = 0
-    while (i<len(t)):
-        node = node.getChildAtIndex(t[i])
-        if (not node): return None
-        i = i + 1
+    lg.info("interpretXPointer for '%s'.", xp)
+    document = self.ownerDocument
+    node = document.documentElement
+    steps = re.split(r'/', xp)
+    if (steps[0] == ""): del steps[0]
+    if (not steps[0].isdigit()):  # Leading ID:
+        node = document.getElementById(steps[0])
+        lg.info("XPointer ID '%s' got node of type '%s'.",
+            steps[0], node.nodeName if node else "[NONE]")
+        if (not node):
+            lg.error("Reference to nonexistent ID in XPointer: %s", xp)
+            return None
+        del steps[0]
+    for i, step in enumerate(steps):
+        childNum = int(step)
+        lg.info("Trying XPointer step %d to #%d (from a %s).", i, childNum, node.nodeName)
+        if (node.nodeType not in [ Node.ELEMENT_NODE, Node.DOCUMENT_NODE ]):
+            lg.error("XPointer step %d (%s) from non-node in: %s", i, step, xp)
+            return None
+        nChildren = len(node.childNodes)
+        if (childNum<=0 or childNum>nChildren):
+            lg.error("XPointer step %d to #%d out of range (%d).", i, childNum, nChildren)
+            return None
+        node = node.childNodes[childNum-1]  # getChildAtIndex(step)
     return node
 
 
@@ -2358,7 +2371,7 @@ def normalize(self:Node):
                 ch.data += nxt.data
                 self.removeChild(nxt)
 
-def addElementSpaces(self:Node, exceptions=None):
+def addElementSpaces(self:Node, exceptions:Iterable=None):
     """Add spaces around all elements *except* those in list 'exceptions'.
     This is useful because most elements entail word-boundaries (say, things
     CSS would consider display:block). But little elements may not: such as
@@ -3144,11 +3157,11 @@ class Emitter:
 #
 class DomIndex(dict):
     """Index on an attribute.
-    Adds every element that has a given attribute, to a hash keyed on that
-    attribute's value. Raises IndexError if a value is not unique unless
-    'duplicates' is set to True.
+    Adds every element Node that has a given attribute, to a hash keyed on that
+    attribute's value (the values are thus lists).
+    @param unique: If set, duplicates raise IndexError (as you might want for IDs).
     """
-    def __init__(self, docOrNode:Node, aname:NMToken, duplicates:bool=False):
+    def __init__(self, docOrNode:Node, aname:NMToken, unique:bool=False):
         """Scan a document (or at least a subtree) and build a dict of the
         values found for a given attribute.
         @param document: Document or subtree head Node to scan.
@@ -3160,22 +3173,21 @@ class DomIndex(dict):
 
         if (docOrNode.nodeType == Node.DOCUMENT_NODE):
             self.document = docOrNode
-            self.rootNode = docOrNode.getDocumentElement()
+            self.rootNode = docOrNode.documentElement
         else:
             self.document = docOrNode.ownerDocument
-            self.rootNode = docOrNode
-        self.attrName = aname
+            self.rootNode = docOrNode.ownerDocument.documentElement
 
+        self.attrName = aname
         node = self.rootNode
         finalNode = node.rightBranch
         while (node):
             if (node.nodeType==Node.ELEMENT_NODE):
                 key = node.getAttribute(aname)
-                if (key):
-                    if (key in self and not duplicates):
-                        raise IndexError("Duplicate key '%s'." % (key))
-                    else:
-                        self[key] = node
+                if (not key): continue
+                if (key not in self): self[key] = [ node ]
+                elif (not unique): self[key].append(node)
+                else: raise IndexError("Duplicate key '%s'." % (key))
             if (node == finalNode): break
             node = node.getFollowing()
         return None
@@ -3498,8 +3510,8 @@ class DomExtensions:
                 toPatch.findTextByOffset    = findTextByOffset
                 toPatch.getXPointerToNode   = getXPointerToNode
                 toPatch.getXPathToNode      = getXPathToNode
-                toPatch.XPointerCompare     = XPointerCompare
-                toPatch.XPointerInterpret   = XPointerInterpret
+                toPatch.compareXPointer     = compareXPointer
+                toPatch.interpretXPointer   = interpretXPointer
 
             toPatch.nodeMatches             = nodeMatches
             toPatch.nodeSelMatches          = nodeSelMatches

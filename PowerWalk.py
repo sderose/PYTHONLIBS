@@ -696,6 +696,9 @@ should be separately settable for directories and files (and maybe other contain
 
 ==Most wanted==
 
+* Switch invokers to use parser.parse_known_args() instead of having to add
+all these and copy them back.
+
 * At top level, if it's a dir then issue an open event for it, and
 make sure we get all it's children. *******
 

@@ -39,7 +39,7 @@ defines
 a
 class that can be used with Python's
 `argparse` package in order to get better formatting.
-Mainly, in recognizes Markdown, POD, blank lines, and/or similar conventions,
+It recognizes Markdown, POD, blank lines, and/or similar conventions,
 and divides the input into paragraph-level blocks, within which text
 is wrapped.
 
@@ -56,7 +56,7 @@ the 'tabstops' option is set.
 
 Unindented lines are wrapped with preceding lines, except:
 * when the previous lines looks like a heading, horizontal rule, etc; or
-* when the current line start with a markdown-like block markup such as [*=\\d].
+* when the current line starts with a markdown-like block markup such as [*=\\d].
 
 If you set environment variable "BF_ENABLE", it will use ANSI terminal escapes
 to emphasize headings.
@@ -78,14 +78,19 @@ it does ''not'' wrap lines across blank lines. That is, blank lines stay there.
     or use MarkDown-like conventions (like asterisk at start of line) that
     will also preventing aggressive line-wrapping.
 
+    # This is just a (non-displayed) comment.
+
     * It's useful.
     * It's easy.
     * It's *upgradeable*.
     ...
     ""
 
+    BlockFormatter._options["comment"] = "#"
     parser = argparse.ArgumentParser(description=doc,
         formatter_class=BlockFormatter)
+
+Options are discussed below.
 
 ===To use it from Python in general===
 
@@ -116,11 +121,13 @@ defaults to:
         "breakLong":   False,
         "altFill":     None,
         "comment":     "//",
+        "pager":       None,
     }
 
 If you are using `BlockFormatter` via the command line, you can set these
-with options. If you are using it from Python code (such as with `argparse`,
-you can set them directly like:
+with options, such as "--showInvis" or "--tab 8".
+If you are using it from Python code (such as with `argparse`,
+you can set them directly, like:
     BlockFormatter._options["tabStops"] = 8
 
 "verbose" can be increased to generate debugging messages.
@@ -151,8 +158,32 @@ One such is provided: BlockFormatter._alt_fill (experimental).
 
 "comment" is a string that identifies comment lines (no space before).
 
+"page" is the path to a program to send output to, instead of the default.
+In the case of argparse,
+
 
 =Related commands and libraries=
+
+Python's "argparse". It interfaces by passing formatter_class=BlockFormatter
+to the constructor (however, I gather there is no promise that this will
+not change). Inside, it uses these methods:
+
+    def print_usage(self, file=None):
+        if file is None:
+            file = _sys.stdout
+        self._print_message(self.format_usage(), file)
+
+    def print_help(self, file=None):
+        if file is None:
+            file = _sys.stdout
+        self._print_message(self.format_help(), file)
+
+    def _print_message(self, message, file=None):
+        if message:
+            if file is None:
+                file = _sys.stderr
+            file.write(message)
+
 
 ==This series of formatters==
 
@@ -394,7 +425,8 @@ class Block:
 #
 class BlockFormatter(argparse.HelpFormatter):
     """A formatter for argparse. This differs from the default formatter, in
-    that it does *not* wrap lines across blank or indented lines.
+    that it does *not* wrap lines across blank or indented lines, but recognizes
+    and responds to simple markup.
 
     Sequence seems to be:
         _format_text(self, txt)
@@ -414,6 +446,7 @@ class BlockFormatter(argparse.HelpFormatter):
         "altFill":     None,      # Replacement for _fill_text().
         "comment":     "$",       # Comment indicator
         "externalParser": None,
+        "pager":       None,      # Send result to this program (say, "less").
     }
 
     def __init__(self, prog=None):

@@ -556,8 +556,8 @@ or [https://github.com/sderose].
 
 verbose = 0
 
-def warn(lvl:int, msg:str) -> None:
-    if (verbose>=lvl): sys.stderr.write(msg+"\n")
+def warning(msg:str) -> None:
+    sys.stderr.write(msg+"\n")
 
 
 ###############################################################################
@@ -639,7 +639,7 @@ class XmlOutput:
         self.xmlVersion = version
 
         if (isinstance(pathOrHandle, str)):
-            #warn(0, "setOutput for path '%s'" % (pathOrHandle))
+            #warning("setOutput for path '%s'" % (pathOrHandle))
             try:
                 self.outputFH = codecs.open(
                     pathOrHandle, "wb", encoding=self.getOption("encoding"))
@@ -649,7 +649,7 @@ class XmlOutput:
                 return False
         else:
             # https://stackoverflow.com/questions/4374455/
-            #warn(0, "setOutput for handle '%s'" % (pathOrHandle))
+            #warning("setOutput for handle '%s'" % (pathOrHandle))
             succeeded = False
             try:
                 self.outputFH = pathOrHandle
@@ -923,7 +923,7 @@ class XmlOutput:
                 out += self.getIndentString()
             out += " " + attrs
         out += self.getQueuedAttributes()
-        #warn(0, "\n***** %s *****" % (out))
+        #warning("\n***** %s *****" % (out))
 
         self.clearQueuedAttributes()
 
@@ -1182,7 +1182,7 @@ class XmlOutput:
     #
     def doPrint(self, x):
         assert (self.outputFH is not None)
-        #warn(0, "%s==>%s<==" % (self.outputFH, x))
+        #warning("%s==>%s<==" % (self.outputFH, x))
         if (self.getDepth()):
             fqgi = self.getCurrentFQGI()
             for gi in (re.split(r"/", fqgi)):
@@ -1196,12 +1196,12 @@ class XmlOutput:
                 "Illegal C0 control character 0x%02x in '%s' (encoding: '%s')."
                     % (ord(mat.group(1)), x, self.options["encoding"]))
         if (self.outputFH):
-            #warn(0, "doPrint passed %s." % (type(x)))
+            #warning("doPrint passed %s." % (type(x)))
             if (not isinstance(x, str)):
                 warning("Attempting to write non-string (type %s)." %
                     (type(x)))
                 x = x.encode("utf-8")
-            #warn(0, "after test: %s." % (type(x)))
+            #warning("after test: %s." % (type(x)))
             if (self.outputFH == sys.stdout):
                 self.outputFH.print(x)
             else:

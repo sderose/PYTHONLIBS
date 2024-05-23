@@ -541,8 +541,8 @@ def subtest_XPointer(doc):
     # x = getXPointerToNode(doc, idAttrName="id")
     # x = getXPointer(doc, textOffset=None)
     # TODO: support comparison w/o document if no IDs, or IDs equal?
-    # x = XPointerCompare(doc, xp1, xp2)
-    # x = XPointerInterpret(doc,  xp)
+    # x = compareXPointer(doc, xp1, xp2)
+    # x = interpretXPointer(doc,  xp)
     # x = __init__(self, where, arg=None)
     # x = emit(self, text)
     # x = lastCharEmitted(self)
