@@ -187,7 +187,7 @@ just "i" and "e", and a hyphen may be used instead of camel-case for
 these options.
 
   ** `--includeNames` and `--excludeNames` are
-like grep `-include` and `-exclude`, but take full regexes to match against.
+like grep `-include` and `-exclude`, but take full regexes to match against (not globs).
 ''Note'': matches may occur anywhere within the name (including the extension).
 To require a match to the complete name, start the regex with "^" and end it
 with "$".
@@ -591,7 +591,7 @@ items do not count).
 
 * `minSize`
 
-* `notify`: Display a message as each new file starts. Default: False
+* `notify`: Display a message as each new file starts, or is rejected. Default: False
 
 * `recursive` (default False): Traverse through subdirectories?
 
@@ -1072,8 +1072,13 @@ class TraversalState(list):
             raise ValueError("No stat named '%s'." % (name))
         self.stats[name] += n
 
-    def indent(self) -> str:
-        return self.iString * self.depth
+    def indent(self, msg:str="", level:int=2) -> str:
+        """If msg is provided, display it (indented) and return.
+        Otherwise just return the current indentation spaces.
+        """
+        ind = self.iString * self.depth
+        if (msg): warning(level, ind + msg)
+        return ind
 
 
     ###########################################################################
@@ -1112,7 +1117,7 @@ class TraversalState(list):
         Files that are filtered out don't even get here. But for containers,
         we mightgenerate events or excpetions (see options["containers")
         """
-        warning(2, "handleLeaf: %s" % (path))
+        warning(3, "handleLeaf: %s" % (path))
         thePWFrame = PWFrame(path, fh, PWType.LEAF, inode=0)
         assert isPWFrameOK(thePWFrame)
         self.bump("leafs")
@@ -1586,7 +1591,7 @@ class PowerWalk:
             warning(1, "\n******* Starting top-level item '%s'." % (tl))
             for tsf in self.ttraverse(tl, trav):
                 trav.bump("nodesTried")
-                warning(2, "tried %d, max %d." %
+                warning(3, "tried %d, max %d." %
                     (trav.stats["nodesTried"], self.options["maxFiles"]))
                 if (self.options["maxFiles"] and
                     trav.stats["nodesTried"] > self.options["maxFiles"]): break
@@ -1599,7 +1604,7 @@ class PowerWalk:
         """Recurse as needed.
         @param path: The path as accumulated down any recursion.
         """
-        warning(2, "%sttraverse at '%s'" % ("  "*len(trav), path))
+        warning(3, "%sttraverse at '%s'" % ("  "*len(trav), path))
 
         if (self.options["maxDepth"] > 0 and               # MAXDEPTH REACHED
             len(trav) > self.options["maxDepth"]):
@@ -1629,7 +1634,7 @@ class PowerWalk:
             # TODO Check inode vs. stack to see if we're circular
 
             trav.bump("directory")
-            self.recordEvent(trav, "directory")
+            self.recordItemType(trav, "directory")
             # If a dir was specified explicit at the top level, that seems
             # special, and we should look in it (at least for things like
             # ".", and counting files. But always? not sure.
@@ -1655,7 +1660,7 @@ class PowerWalk:
                 if (tsf): yield tsf
 
         elif (False and tarfile.is_tarfile(path)):         # TAR FILE
-            self.recordEvent(trav, "tar")
+            self.recordItemType(trav, "tar")
             if (not self.options["openTar"]):
                 tsf = trav.handleIgnorable(path)
                 if (tsf): yield tsf
@@ -1670,7 +1675,7 @@ class PowerWalk:
                         if (self.options["close"] and fh2):
                             fh2.close()
                     elif (tfMember.isdir()):
-                        self.recordEvent(trav, "tarSubdir")
+                        self.recordItemType(trav, "tarSubdir")
                         # TODO: add tar internal recursion!
                     else:  # also issyn, islnk, ischr, isblk, isfifo, isdev
                         warning(0, "Non-file, non-dir) in tar file.")
@@ -1679,7 +1684,7 @@ class PowerWalk:
                 if (tsf): yield tsf
 
         elif (path.endswith(".gz")):                       # GZIP FILE
-            self.recordEvent(trav, "gzip")
+            self.recordItemType(trav, "gzip")
             if (not self.options["openGzip"]):
                 tsf = trav.handleIgnorable(path)
                 if (tsf): yield tsf
@@ -1793,11 +1798,11 @@ class PowerWalk:
         (_, extPart) = os.path.splitext(tail)
         extPart = extPart.strip(". \t\n\r")
 
-        warning(1, "Checking filters for '%s', ext '%s' (exclExt '%s')." %
-            (tail, extPart, self.options["excludeExtensions"]))
+        trav.indent("Checking filters for '%s', ext '%s' (exclExt '%s')." %
+            (tail, extPart, self.options["excludeExtensions"]), level=1)
 
-        passes = False  # Assume the worst for now...
-
+        passes = False  # Matching any of these test is a fail/reject.
+        #
         if (not self.passesType(path, theStat)):
             self.recordEvent(trav, "ignoredByType")
         elif (self.permOptions and
@@ -1843,7 +1848,7 @@ class PowerWalk:
             self.recordEvent(trav, "regular")
             passes = True
 
-        warning(2, "%s filter: %s" % ("PASS" if passes else "FAIL", tail))
+        trav.indent("%s filters: %s" % ("PASS" if passes else "FAIL", tail))
         return passes
 
     def passesType(self, _path:str, theStat:os.stat_result) -> bool:
@@ -2027,18 +2032,28 @@ class PowerWalk:
         chList.sort(key=theLambda, reverse=reverse)
         return chList
 
-    def recordEvent(self, theStack:list, thing:str) -> None:
-        """Count the kind of thing, and maybe say something.
+    def recordItemType(self, trav:TraversalState, testName:str) -> None:
+        self.recordEvent(trav, testName, isTest=False)
+
+    def recordEvent(self, trav:TraversalState, testName:str, isTest:bool=True) -> None:
+        """Count the kind of testName, and maybe say report.
+        Mainly called for user conditions (with a mnemonic)
+        when it fails (causing item to be rejected).
+        Also called when a kind of thing (dir, tar, file, etc.) is
+        detected (with the kind), but those cases should set isItemType.
         """
-        self.travState.bump(thing)
-        if (len(theStack) == 0):
-            warning(2, "%s  Trying: empty stack (%s)" %
-                ("  "*len(theStack), thing))
-            return
+        trav.bump(testName)
+        #if (len(trav) == 0):
+        #    warning(2, "Trying: empty stack (%s)" % (testName))
+        #    return
         if (self.options["notify"]):
-            frame = theStack[-1]
-            warning(2, "Trying %s: '%s' (cont=%s)" %
-                (thing, frame.path, frame.what))
+            frame = trav[-1]
+            if (not isTest):
+                trav.indent("Trying item of type %s: '%s' (cont=%s)"
+                    % (testName, frame.path, frame.what))
+            else:
+                trav.indent("Item failed test '%x': %s."
+                    % (testName, frame.path))
         return
 
     #import io
@@ -2153,7 +2168,7 @@ def xset(path:str, prop:str, val:Any) -> None:
 
 
 ###############################################################################
-# TODO: Move out to separate driver.
+# TODO: Move OutputFormatter out to separate driver?
 #
 if __name__ == "__main__":
     class OutputFormatter:
@@ -2577,7 +2592,6 @@ if __name__ == "__main__":
                 xset(tgtPath, "kmdItemWhereFroms", "file://"+fromPath)
 
     def itemExec(path:str, cmd:str, magic:str="{}"):
-        # TODO: Add option to change {}?
         if (magic in cmd): cmd.replace(magic, path)
         else: cmd += " " + path
         try:
@@ -2607,6 +2621,9 @@ if __name__ == "__main__":
         parser.add_argument(
             "--exec", metavar="CMD", type=str,
             help='Run CMD on each selected item (like "find --exec").')
+        parser.add_argument(
+            "--execMagic", metavar="S", type=str, default="{}",
+            help="With --exec, replace this instead of {} with the path.")
         parser.add_argument(
             "--maxBasenameLength", metavar="N", type=int, default=0,
             help="Report files only ig basename is shorter than this.")
@@ -2744,7 +2761,7 @@ if __name__ == "__main__":
                     itemCopy(fromPath=abspath0, tgtDir=args.copyTo,
                         serialFormat=args.serializeFormat, serial=leafNum)
                 if (args.exec):
-                    itemExec(path0, args.exec)
+                    itemExec(path0, args.exec, args.execMagic)
 
             elif (what0 == PWType.CLOSE):
                 if (args.type and "d" not in args.type): continue

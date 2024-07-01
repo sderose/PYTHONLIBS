@@ -4,20 +4,17 @@
 # Perl original written 2010-12-22 by Steven J. DeRose.
 # Port to Python: 2012-01-10 sjd.
 #
-# Allow the PY2 compatibility block below:
-#pylint: disable=E0401, E0602
-#
 import sys
 import re
 import codecs
 import string
-#import xml
 
-from typing import IO, Dict, Union
+from typing import IO, Dict, Union, List, Any
+
+from xml.dom.minidom import Node
+from xml.dom.minidom import Document
 from html.entities import codepoint2name
 #from html.parser import HTMLParser
-
-PY2 = sys.version_info[0]
 
 __metadata__ = {
     "title"        : "XmlOutput",
@@ -27,7 +24,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2012-01-10",
-    "modified"     : "2021-07-20",
+    "modified"     : "2024-06-18",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -197,8 +194,8 @@ Return the element type name of the innermost open element.
 
 * ''getCurrentFQGI''()
 
-Return the sequence of the types of all open elements, from the top down.
-For example, `html/body/div/div/ul/li/p/i`.
+Return the sequence of the types of all open elements, from the top down,
+separated by slashes. For example, `html/body/div/div/ul/li/p/i`.
 
 * ''getCurrentLanguage''()
 
@@ -219,24 +216,29 @@ If an attribute called '''named''' is already queued, replace it.
 
 * ''getQueuedAttributes''()
 
-Return all queued attributes (if any) as an attribute string.
-They are not cleared. This is typically only called internally.
+Return all queued attributes (if any) as an attribute string (see ''dictToAttrs()'').
+They are not cleared (methods than output start-tags do clear them after using).
+This is typically only called internally.
+Pending attributes are kept in XmlOutput.queuedAttribtutes.
 
 * ''clearQueuedAttributes() ''
 
 Discard any queued attributes. This happens automatically when they are
-issued, for example via an '''openElement()''' call.
+issued, for example via an '''openElement()''' call (but not just makeStartTag()).
 
 * ''dictToAttrs(dct, sortAttrs=False, normValues=False)''
 
 This is used by `openElement` etc., if they are passed attributes
 as a Python dict rather than an attribute string. It turns the dict
-into a string attribute list. The values are escaped as needed (there is no
-provision for telling it '''not''' to escape them), and assembled with a
-single space before each attribute (even the first!), no spaces around "=",
-and double quotes around the values. If '''sortAttrs''' is True,
-the attributes are concatenated in alphabetical order.
-If '''normValues''' is True, each value is processed by '''normalizeSpace'''().
+into a string attribute list. Queued attributes should have been added to the
+dict already if they are to be used. The values are:
+
+* escaped as needed (there is no provision for telling it '''not''' to escape them),
+* assembled with a single space before each attribute (even the first!), no spaces around "=",
+and double quotes around the values.
+* if ''breakAttrs' is true, a newline and indentation is added ''after'' each
+* if '''sortAttrs''' is True, the attributes are concatenated in alphabetical order.
+* if '''normValues''' is True, each value is processed by '''normalizeSpace'''().
 
 
 ==XML element creation methods==
@@ -525,8 +527,9 @@ illegal control characters. self.encoding vs. options['oencoding']!
 * 2020-09-09: Better i/f and error-checking for openElements().
 Add closeElements(). Improve help. Fix bugs in setEmpty(). Catch errors on
 reconfigure for encoding, and warn instead of dieing.
-Start `makeDOM` class. Add tests for legit XML NAMEs from XmlRegexes.py.
+Start `makeDOM` class. Add tests for legit XML NAMEs from XMLRegexes.py.
 * 2021-07-20: Add typehinting, normalize a few names, drop Python 2 accommodations.
+* 2024-06-18: Drop remaining Py2. More type hints.
 
 
 =To do=
@@ -537,6 +540,7 @@ Start `makeDOM` class. Add tests for legit XML NAMEs from XmlRegexes.py.
 * Finish div interpolation? See cleanMediaWiki.py:DivWrapper.
 * MECS or TAG option with extended open/close semantics? See multiXML.
 * Add an '''insertFile'''(escape=True) method?
+*  Make openElements() accept names a *args.
 
 
 =Rights=
@@ -547,8 +551,7 @@ Creative Commons Attribution-Share-alike 3.0 unported license.
 For further information on this license, see
 [https://creativecommons.org/licenses/by-sa/3.0].
 
-For the most recent version, see [http://www.derose.net/steve/utilities]
-or [https://github.com/sderose].
+For the most recent version, see [https://github.com/sderose].
 
 
 =Options=
@@ -792,40 +795,38 @@ class XmlOutput:
         """
         return(len(self.tagStack))
 
-    def getIndentString(self, newline: bool=True, offset=0):
-        """Return and newline and indent.
+    def getIndentString(self, newline: bool=True, offset:int=0):
+        """Return a newline and indent for the current nesting depth.
         To get just the spaces, pass newline=False.
+        If 'offset' is used, it may be signed, and is used to shift the
+        indentation level away from the actual nesting level.
         """
         if (not self.options["indent"]): return("")
         level = self.getDepth() + offset
-        nl = ""
-        if (newline): nl = "\n"
+        if (level <= 0): level = 0
+        nl = "\n" if (newline) else ""
         return(nl + (self.options["iString"] * level))
 
-    def howManyAreOpen(self, giList=None):
+    def howManyAreOpen(self, giList:Union[List, str]=None):
         """Return the number of instances that are open, of any of the
-        element types listed in "giList" (which may be a Python list, or
+        element types listed in "giList" (which may be a Python list or
         a string of whitespace-separated names). If omitted or None,
         returns the same thing as getDepth().
         """
         if (not giList):
             return(self.getDepth())
-
         if (isinstance(giList, str)):
             giList = re.split(r"\s+", giList)
         nOpen = 0
         for i in (range(0, self.getDepth())):
-            for j in (range(0, len(giList))):
-                if (giList[j] == self.tagStack[i]):
-                    nOpen += 1
-                    break
+            if (self.tagStack[i] in giList): nOpen += 1
         return(nOpen)
 
 
     ###########################################################################
     # ATTRIBUTE QUEUEING
     #
-    def queueAttribute(self, aname, avalue) -> None:
+    def queueAttribute(self, aname:str, avalue:Any) -> None:
         """Add an attribute-value pair, to be issued with the next generated
         start-tag (in addition to any that are passed at that time. After
         being issued, the queued attributes are cleared.
@@ -842,18 +843,20 @@ class XmlOutput:
 
     def getQueuedAttributes(self):
         """Return an attribute string including all the queued attributes
-        (if any), plus a leading space.
+        (if any), plus a leading space. This just gets them, so you could
+        in principle duplicate one from another source. To iterate through
+        them, just access the dict self.queuedAttributes.
         """
         return self.dictToAttrs(self.queuedAttributes)
 
     def clearQueuedAttributes(self) -> None:
-        self.queuedAttributes = {}
+        self.queuedAttributes.clear()
 
 
     ###########################################################################
     ####### OPEN
     #
-    def openElements(self, theList) -> None:
+    def openElements(self, theList:List) -> None:
         """Call openElement() for each item of theList.
         @param theList represents a list of elements to open. It can be
             * a string, which is split into a list of tokens.
@@ -888,21 +891,32 @@ class XmlOutput:
                     makeEmpty=stuff[2], nobreak=stuff[3])
             else:
                 raise ValueError("Item %d is length %d, not in 0...4."
-                    % (len(stuff)))
+                    % (i, len(stuff)))
         return
 
-    def openElement(self, gi, attrs=None, makeEmpty: bool=False, nobreak: bool=False) -> None:
+    def openElementUnlessOpen(self, gi:str, attrs:Union[str, Dict]="",
+        nobreak: bool=False) -> None:
+        if (self.howManyAreOpen(gi) > 0): return
+        self.openElement(gi, attrs, nobreak)
+
+    def openElementUnlessCurrent(self, gi:str, attrs:Union[str, Dict]="",
+        nobreak: bool=False) -> None:
+        if (self.getCurrentElementName() == gi): return
+        self.openElement(gi, attrs, nobreak)
+
+    def openElement(self, gi, attrs:Union[str, Dict]=None, makeEmpty: bool=False,
+        nobreak: bool=False) -> None:
         """Start a new XML element by issuing the start-tag. Add to stack.
         "attrs" may be a string or a dict.
         With "makeEmpty" or an element that has been declared always empty
         (via setEmpty()), make it an empty element.
         "nobreak" suppresses any newline after the start-tag.
         """
-        if (not self.syntax.isXmlName(gi)):
-            raise ValueError("'%s' is not a legit XML NAME." % (gi))
         if (gi in self.cantRecurse):
             while(self.howManyAreOpen(gi) > 0):
                 self.closeElement()
+
+        # Figure out desired whitespace
         extra = 0
         if (gi in self.spaceSpecs):
             extra = self.spaceSpecs[gi]
@@ -910,48 +924,40 @@ class XmlOutput:
             pass
         elif (self.options["breakSTAGO"] or self.options["indent"]):
             extra = 1
-        if (extra>0):
-            self.doPrint(("\n " * extra) + self.getIndentString(newline=False))
+        self.doPrint(("\n " * extra) + self.getIndentString(newline=False))
 
-        out = ""
-        if (self.options["indent"]): out += self.getIndentString()
-        out = "<" + gi
-        if (isinstance(attrs, dict)):
-            attrs = self.dictToAttrs(attrs)
-        if (attrs):
-            if (self.options["breakAttrs"]):
-                out += self.getIndentString()
-            out += " " + attrs
-        out += self.getQueuedAttributes()
-        #warning("\n***** %s *****" % (out))
-
+        tag = self.makeStartTag(gi=gi, attrs=attrs, empty=makeEmpty)
         self.clearQueuedAttributes()
 
-        if (makeEmpty or gi in self.empties):
-            out += "/>"
-        else:
-            out += ">"
-            self.tagStack.append(gi)
-            if (len(self.langStack)==0): self.langStack = ["en"]
-            self.langStack.append(self.langStack[-1])
+        self.tagStack.append(gi)
+        if (len(self.langStack)==0): self.langStack = [args.defaultLang]
+        self.langStack.append(self.langStack[-1])
 
-        if (self.options["breakSTAGC"] and gi not in self.inlines
-            and not nobreak):
-            out += "\n"
-        self.doPrint(out)
+        if (self.options["breakSTAGC"] and gi not in self.inlines and not nobreak):
+            tag += "\n"
+        self.doPrint(tag)
 
-    def openElementUnlessOpen(self, gi, attrs="", nobreak: bool=False) -> None:
-        if (self.howManyAreOpen(gi) > 0): return
-        self.openElement(gi, attrs, nobreak)
+    def makeStartTag(self, gi:str, attrs:Union[str, Dict]="", empty:bool=False):
+        # TODO: Doesn't check for queuedAttribute w/ same name as one in attrs,
+        # or intersort them, if the attrs are passed as a string, not dict.
+        if (not self.syntax.isXmlName(gi)):
+            raise ValueError("'%s' is not a legit XML NAME." % (gi))
+        tag = "<%" + gi
+        if (attrs):
+            if (isinstance(attrs, str)):
+                tag += " " + attrs.strip()
+                if (self.queuedAttributes): tag += " " + self.queuedAttributes
+            else:
+                dcopy = self.queuedAttributes if self.queuedAttributes else {}
+                for k, v in attrs: dcopy[k] = v
+                tag += self.dictToAttrs(attrs, sortAttributes=True)
+        tag += "/>" if empty else ">"
+        return tag
 
-
-    def openElementUnlessCurrent(self, gi, attrs="", nobreak: bool=False) -> None:
-        if (self.getCurrentElementName() == gi): return
-        self.openElement(gi, attrs, nobreak)
-
-
-    def dictToAttrs(self, dct, sortAttributes: bool=None, sortAttrs: bool=None, normValues: bool=False):
-        """Turn a dict into an attribute list.
+    def dictToAttrs(self, dct, sortAttributes: bool=None,
+        sortAttrs: bool=None, normValues: bool=False):
+        """Turn a dict into a serialized attribute list (possibly sorted
+        and/or space-normalized). Escape as needed.
         """
         # Backward-compatible naming, for the moment:
         if (sortAttributes is None): sortAttributes = sortAttrs
@@ -970,12 +976,15 @@ class XmlOutput:
             v = dct[a]
             if (normValues): v = self.normalizeSpace(v)
             attrString += "%s%s=\"%s\"" % (sep, a, self.escapeXmlAttribute(v))
+            # This spaces at end, so close pointy gets its own line.
+            if (self.options["breakAttrs"]): attrString += self.getIndentString()
         return attrString
+
 
     ###########################################################################
     ####### CLOSE
     #
-    def closeElements(self, theList) -> None:
+    def closeElements(self, theList:Union[str, List]) -> None:
         if (isinstance(theList, str)):
             theList = re.split(r"\s+", theList)
         if (not isinstance(theList, list)):
@@ -990,7 +999,7 @@ class XmlOutput:
                     % (i, type(stuff)))
         return
 
-    def closeElement(self, gi="", nobreak=0):
+    def closeElement(self, gi:str="", nobreak:bool=False):
         """Close the current XML element and remove from the stack.
         If "gi" is passed, it must match the element to be closed.
         A warning is issued if any attributes remain queued.
@@ -1028,7 +1037,7 @@ class XmlOutput:
         while (self.getDepth()):
             self.closeElement(nobreak=nobreak)
 
-    def closeToElement(self, gi, nobreak: bool=False):
+    def closeToElement(self, gi:str, nobreak: bool=False):
         """Close elements up to but not including the "gi" specified.
         If more than one of "gi" is open, close only to the innermost.
         """
@@ -1037,12 +1046,12 @@ class XmlOutput:
             if (self.getCurrentElementName() == gi): break
             self.closeElement(nobreak=nobreak)
 
-    def closeElementIfOpen(self, gi="", nobreak: bool=False):
+    def closeElementIfOpen(self, gi:str="", nobreak: bool=False):
         """Close through element "gi" if there is one open, else do nothing.
         """
         self.closeThroughElement(gi, nobreak)
 
-    def closeThroughElement(self, gi, nobreak: bool=False):
+    def closeThroughElement(self, gi:str, nobreak: bool=False):
         """Close elements up to AND including the innermost "gi" specified.
         """
         if (self.howManyAreOpen(gi) == 0): return
@@ -1060,7 +1069,7 @@ class XmlOutput:
         while (self.howManyAreOpen(giList)>0):
             self.closeElement(nobreak=nobreak)
 
-    def adjustToRank(self, target):
+    def adjustToRank(self, target:int):
         """Close and/or open DIVs or similar elements, in order to get all set
         to issue a heading at a given (numbered) level (counting from 0).
         """
@@ -1077,7 +1086,7 @@ class XmlOutput:
     ###########################################################################
     # OTHER CONSTRUCTS
     #
-    def startDocument(self, documentElement, publicID="", systemID="", xmlDecl: bool=True):
+    def startDocument(self, documentElement, publicID:str="", systemID:str="", xmlDecl: bool=True):
         self.makeXMLDeclaration()
         self.makeDoctype(documentElement=documentElement,
             publicID=publicID, systemID=systemID, xmlDecl=xmlDecl)
@@ -1095,7 +1104,7 @@ class XmlOutput:
         self.doPrint("<?xml%s%s?>" % (ver, enc))
         self.didXMLDcl = True
 
-    def makeDoctype(self, documentElement, publicID="", systemID="", xmlDecl: bool=True):
+    def makeDoctype(self, documentElement, publicID:str="", systemID:str="", xmlDecl: bool=True):
         if (xmlDecl and not self.didXMLDcl):
             self.makeXMLDeclaration()
         if (publicID is None and systemID is None):  # Hack for HTML5.
@@ -1104,21 +1113,21 @@ class XmlOutput:
             self.doPrint('<!DOCTYPE %s PUBLIC "%s" "%s" []>' %
                 (documentElement, publicID, systemID))
 
-    def makeEmptyElement(self, gi, attrs=""):
+    def makeEmptyElement(self, gi:str, attrs=""):
         self.openElement(gi, attrs, 1)
 
-    def makeSmallElement(self, gi, attrs="", text=""):
+    def makeSmallElement(self, gi:str, attrs="", text:str=""):
         if (attrs and not re.match(r"""\w+\s*=\s*('[^']*'|"[^"]*")""", attrs)):
             warning("Bad attribute string arg to makeSmallElement: '" + attrs + "'")
         self.openElement(gi, attrs=attrs, nobreak=1)
         self.makeText(text)
         self.closeElement(gi)
 
-    def makeComment(self, text):
+    def makeComment(self, text:str):
         self.doPrint(self.getIndentString() + "<!-- %s -->" %
             (self.escapeXmlComment(text)))
 
-    def makeText(self, text):
+    def makeText(self, text:str):
         if (self.options["suppressWSN"] and re.match(r"\s*", text)):
             return
         if (self.options["normalizeText"]):
@@ -1127,20 +1136,20 @@ class XmlOutput:
             text = self.escapeXmlContent(text)
         self.doPrint(text)
 
-    def makeRaw(self, text):
+    def makeRaw(self, text:str):
         """If you really, really want to just dump a string into the output
         with no escaping or checking, you can.
         """
         self.doPrint(text)
 
-    def makePI(self, target, text):
+    def makePI(self, target:str, text:str):
         self.doPrint(self.getIndentString() +
             "<?%s %s?>" % (target, self.escapeXmlPi(text)))
 
     def makeCharRef(self, nameOrNumber, printIt: bool=True):
         """Make an entity or named character reference.
         """
-        if (type(nameOrNumber) == int or re.match(r"\d+$", nameOrNumber)):
+        if (isinstance(nameOrNumber, int) or re.match(r"\d+$", nameOrNumber)):
             n = int(nameOrNumber)
             if (self.options["entityBase"] == 10): rc = "&#%04d;" % (n)
             else: rc = "&#%04x;" % (n)
@@ -1158,14 +1167,14 @@ class XmlOutput:
     #
     xcObj = None
 
-    def normalizeTag(self, tag):
+    def normalizeTag(self, tag:str):
         """Turn a tag into Canonical XML form. This is a perhaps-useful
         utility, but doesn't connect all that much with others.
-        See XmlRegexes.py for regexes.
+        See XMLRegexes.py for regexes.
         """
         if (XmlOutput.xcObj is None):
-            from XmlRegexes import XmlRegexes
-            XmlOutput.xcObj = XmlRegexes()
+            from XMLRegexes import XMLRegexes
+            XmlOutput.xcObj = XMLRegexes()
         if (not re.match(XmlOutput.xcObj.x["stag"], tag)):
             raise ValueError("Not an XML start-tag: '%s'." % (tag))
         mat = re.match(r"<(\S+)", tag)
@@ -1180,7 +1189,7 @@ class XmlOutput:
     ###########################################################################
     # All XML output goes through here.
     #
-    def doPrint(self, x):
+    def doPrint(self, x:str):
         assert (self.outputFH is not None)
         #warning("%s==>%s<==" % (self.outputFH, x))
         if (self.getDepth()):
@@ -1188,8 +1197,6 @@ class XmlOutput:
             for gi in (re.split(r"/", fqgi)):
                 if (gi in self.suppressed):
                     return
-        if (PY2 and self.options["encoding"]):
-            x = x.encode(self.options["encoding"])
         if (self.options["checkCharset"]):
             mat = re.search(r"([\x00-\x08\x0b\x0c\x0e-\x1F])", x)
             if (mat): raise ValueError(
@@ -1211,7 +1218,7 @@ class XmlOutput:
     ###########################################################################
     # ESCAPING
     #
-    def fixName(self, name):
+    def fixName(self, name:str):
         """Turn a string into a valid XML name (imperfect char set).
         """
         name = re.sub(r"[^-:._\w\d]", "_", name, re.UNICODE)
@@ -1219,7 +1226,7 @@ class XmlOutput:
             name = "A." + name
         return(name)
 
-    def normalizeSpace(self, s):
+    def normalizeSpace(self, s:str):
         """This is slightly more aggressive than the normalization defined
         in the XML spec -- it also catches other whitespace characters,
         such as nonbreaking, em, en, and thin spaces.
@@ -1230,7 +1237,7 @@ class XmlOutput:
         s = re.sub(r"\s+", " ", s, re.UNICODE)
         return(s)
 
-    def escapeXmlContent(self, s):
+    def escapeXmlContent(self, s:str):
         """Don't use for escaping attribute values, that's different, see below).
         Quietly deletes any prohibited control characters!
         """
@@ -1242,10 +1249,10 @@ class XmlOutput:
             s = self.escapeNonASCII(s)
         return(s)
 
-    def escapeXml(self, s):
+    def escapeXml(self, s:str):
         self.escapeXmlContent(s)
 
-    def escapeURI(self, s):
+    def escapeURI(self, s:str):
         s = re.sub(r'([^-!\$\'()*+.0-9:;=?\@A-Z_a-z])',
                    self.charToURIFunction, s)
         return(s)
@@ -1261,7 +1268,7 @@ class XmlOutput:
             buf = "%{0:02x}".format(ord(c))
         return(buf)
 
-    def escapeXmlAttribute(self, s="", apostrophes=0):
+    def escapeXmlAttribute(self, s:str="", apostrophes:bool=False):
         """Escape as need for quoted attributes.
         Quietly deletes any non-XML control characters!
         """
@@ -1279,7 +1286,7 @@ class XmlOutput:
             s = self.escapeURI(s)
         return(s)
 
-    def escapeXmlPi(self, s):
+    def escapeXmlPi(self, s:str):
         """Escape as needed for processing instructions.
         XML doesn't define a standard escaping for this, so I chose one.
         """
@@ -1289,7 +1296,7 @@ class XmlOutput:
             s = self.escapeNonASCII(s)
         return(s)
 
-    def escapeXmlComment(self, s):
+    def escapeXmlComment(self, s:str):
         """Escape as needed for comment.
         XML doesn't define a standard escaping for this, so I chose one.
         """
@@ -1299,7 +1306,7 @@ class XmlOutput:
             s = self.escapeNonASCII(s)
         return(s)
 
-    def escapeNonASCII(self, s):
+    def escapeNonASCII(self, s:str):
         """Turn anything but ASCII printable characters into HTML entity
         references (if available), or numeric character references.
         """
@@ -1320,39 +1327,44 @@ class XmlOutput:
 
 
 ###############################################################################
-# makeDOM
-#
+# makeDOM [UNFINISHED]
 class makeDOM:
-    from xml.dom.minidom import Node
-    from xml.dom.minidom import Document
-    from xml.dom import minidom  # noqa: F821
-
+    # This still wants you to create in order.
+    # Needs: queued support
+    # Factor the main class so you can plug in either this or it, and
+    # the other stuff on top just works (?)
+    #
     def __init__(self):
         self.theDOM = Document()
-        self.domStack = []
+        self.tagStack = []
         raise NotImplementedError("Direct DOM construction is still a TODO.")
 
-    def openElement(self, eName: str, attrs: Union[Dict, None]=None) -> None:
+    def openElement(self, eName: str, attrs: Union[Dict, None]=None,
+        empty:bool=False) -> None:
         newNode = self.theDOM.createElement(eName)
         for k, v in attrs:
-            newNode.addAttribute(k, v)
-        self.domStack[-1].appendChild(newNode)
-        self.domStack.append(newNode)
+            newNode.setAttribute(k, v)
+        self.tagStack[-1].appendChild(newNode)
+        if (not empty): self.tagStack.append(newNode)
 
     def closeElement(self, eName: str=None) -> None:
-        if (self.domStack[-1].nodeType != Node.ELEMENT_NODE or
-            (eName and self.domStack[-1].nodeName!=eName)):
+        if (self.tagStack[-1].nodeType != Node.ELEMENT_NODE or
+            (eName and self.tagStack[-1].nodeName!=eName)):
             warning("CloseElement is for '%s', but DOM is at '%s'." %
-                (eName, self.domStack[-1].nodeType))
-        self.domStack.pop()
+                (eName, self.tagStack[-1].nodeType))
+        self.tagStack.pop()
 
     def makeComment(self, txt: str) -> None:
         newNode = self.theDOM.createComment(txt)
-        self.domStack[-1].appendChild(newNode)
+        self.tagStack[-1].appendChild(newNode)
 
-    def makePI(self, tgt: str, txt: str) -> None:
+    def makeTextNode(self, txt: str) -> None:
+        newNode = self.theDOM.createTextNode(txt)
+        self.tagStack[-1].appendChild(newNode)
+
+    def makePI(self, tgt:str, txt:str) -> None:
         newNode = self.theDOM.createProcessingInstruction(tgt, txt)
-        self.domStack[-1].appendChild(newNode)
+        self.tagStack[-1].appendChild(newNode)
 
     def getDOM(self):
         return self.theDOM
@@ -1360,9 +1372,9 @@ class makeDOM:
 
 ###########################################################################
 # Type-checks (excerpted from
-# [https://github.com/sderose/XML.git/PARSERS/blob/master/XmlRegexes.py])
+# [https://github.com/sderose/XML.git/PARSERS/blob/master/XMLRegexes.py])
 # TODO: Cut this over to use
-#     https://github.com/sderose/XML.git/PARSERS/blob/master/XmlRegexes.py
+#     https://github.com/sderose/XML.git/PARSERS/blob/master/XMLRegexes.py
 #
 class XmlSyntax:
     def __init__(self, check: bool=True):
@@ -1511,6 +1523,7 @@ class XmlSyntax:
 #
 if __name__ == "__main__":
     import argparse
+    import html5lib
 
     def processOptions():
         try:
@@ -1521,8 +1534,11 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
+            "--defaultLang", type=str, default="en",
+            help="Assume this starting value for xml:lang.")
+        parser.add_argument(
             "--encoding", "--oencoding", type=str, default="utf-8",
-            help="What character encoding to use for the input.")
+            help="What character encoding to use.")
         parser.add_argument(
             "--quiet", "-q", action="store_true",
             help="Suppress most messages.")
@@ -1624,10 +1640,6 @@ if __name__ == "__main__":
         #x.closeThroughElement(gi, nobreak=0)
         #x.adjustToRank(target)
         return
-
-
-    from xml.dom.minidom import Node
-    import html5lib
 
     xo = XmlOutput()
 

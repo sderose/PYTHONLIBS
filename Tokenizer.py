@@ -4,12 +4,13 @@
 # 2012-08-22: Written by Steven J. DeRose.
 #
 import sys
-import regex as re  # Adds support for \p{}. See https://pypi.org/project/regex/
 import codecs
 import unicodedata
 import urllib
 import html
-from html.parser import HTMLParser
+#from html.parser import HTMLParser
+
+import regex as re  # Adds support for \p{}. See https://pypi.org/project/regex/
 
 def unicode(s, encoding="utf-8", errors="strict"):
     if (not isinstance(s, str)): return str(s, encoding, errors)
@@ -1415,7 +1416,8 @@ class HeavyTokenizer:
         zone     = r"\s?[ECMP][SD]T"                       # Time zone
         self.regexes["T_TIME"]      = r"\b%s\s*%s(%s)?\b" % (tim, ampm, zone)
         # Also '60s 60's 60s
-        self.regexes["T_DATE"]      = r'\b('+yr+r'".\'[-\/][0-3]?\d[-\/][0-3]?\d)|('+yr+' ?'+era+r')\b'
+        self.regexes["T_DATE"]      = (
+            r'\b('+yr+r'".\'[-\/][0-3]?\d[-\/][0-3]?\d)|('+yr+' ?'+era+r')\b')
 
         ###################################################### NUMERICS
         # Also float, exp, 1,234,567, 5'6", roman numerals, Europen punctuation

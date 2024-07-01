@@ -698,31 +698,34 @@ month is 30 days.
 
 =To do=
 
-* Add a QUOTING option like NONNUMERIC, but that treats strings of digits
-as numerics, rather than going by type.
+===Format variations===
 
 * Add a convention for putting metasyntax in first record. Maybe like below
 (though what is ok for escaping in values?
     #CSVPP: (optname=value)+
 
-* Add smoke tests for datetimes, autotype, quotednewline, normalizers,
-constraints, complex headers.
-
-* Lose remaining refs to args from inside classes.
-
-* Way to distinguish only-precise-to-the-hour from on-the-hour, etc.
-
-* Per RC4081 complain about rec-final delimiter if not quoted.
+* Add a QUOTING option like NONNUMERIC, but that treats strings of digits
+as numerics, rather than going by type.
 
 * Delimiter as "whitespace to nonspace transition" (like awk, column, sort).
+
+* Support for a wider range of formats (probably via separate
+packages or subclasses with much the same API), such as:
+    ** HTML and XML tables (but see my `htmlTable2csv.py`.
+    ** MediaWiki and MarkDown tables (but see my `markdown2Xml.py`).
+    ** XSV (but see my xsv2others.py).
+    ** JSON cases (but see my `json2xml.py`).
+    ** s-expressions and perhaps CONLL (but see my `sexp2xml`).
+    ** SQL INSERT statements, and generation of table def from schema, v/v.
+    ** Tables extracted straight from a SQL API
+    ** Fixed column widths, maybe via scanf?
+
+===Functional additions
 
 * Some kind of hysteresis for autotyping? Like, if this field has always been int
 and we see "", make it 0; if always float and we see 12, make it 12.0.
 
 * Option to create NamedTuple or tuple instead of list or dict?
-
-* Add a way to get at the last raw record (since reader() parses it),
-and the logical/physical record numbers.
 
 * Should regex constraints be enclosed not by {}, but by // or by any \\W?
 
@@ -732,25 +735,27 @@ Maybe something more for Unicode spaces, esp. hard-space per se?
 * Add predefined dialects: RFC4081, Excel, and any that Python `csv` provides.
 Also eponymous ones for each relevant *nix command?
 
-* Make sure it can just take a csv.Dialect for the DialectX arguments.
-
-* Support for a wider range of formats (probably via separate
-packages or subclasses with much the same API), such as:
-    ** HTML and XML tables (but see my `htmlTable2csv.py`.
-    ** MediaWiki and MarkDown tables (but see my `markdown2Xml.py`).
-    ** XSV (but see my xsv2others.py).
-    ** JSON cases (but see my `json2xml.py`).
-    ** s-expressions and perhaps CONLL (but see my `sexp2xml`).
-    ** SQL INSERT statements
-    ** Tables extracted straight from a SQL API
-    ** Fixed column widths, maybe via scanf?
-
 * Way to change the set of backslash codes, such as \\b for BEL, etc.?
 
-* Perhaps support Python \\N{unicode-name}?
+* Way to distinguish only-precise-to-the-hour from on-the-hour, etc.
 
 * Add way to control case treatment of string constraints (and how does
 constraint relate to normalization?)
+
+===Testing===
+
+* Add smoke tests for datetimes, autotype, quotednewline, normalizers,
+constraints, complex headers.
+
+* Make sure it can just take a csv.Dialect for the DialectX arguments.
+
+===Coding stuff===
+
+* Lose remaining refs to args from inside classes.
+
+* Per RC4081 complain about rec-final delimiter if not quoted.
+
+* Perhaps support Python \\N{unicode-name}?
 
 * Allow years >9999, etc. See https://www.w3.org/TR/xmlschema-2/#isoformats
 Don't forget leap seconds.
@@ -758,6 +763,9 @@ Don't forget leap seconds.
 * Sync regex constraints w/ auto-anchored XSD approach.
 
 * Support XSD regex \\#x and \\p{prop}?
+
+* Add a way to get at the last raw record (since reader() parses it),
+and the logical/physical record numbers.
 
 
 =History=
