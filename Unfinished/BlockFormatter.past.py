@@ -7,6 +7,9 @@
 #
 import sys, re, codecs
 import argparse
+import logging
+
+lg = logging.getLogger("BlockFormatter")
 
 __metadata__ = {
     "title"        : "BlockFormatter",
@@ -182,11 +185,6 @@ specialChars = {
     "lt": '<', "gt": '>', "apos": "'", "quo": '"', "amp": '&',
 }
 
-def vMsg(level, msg):
-    if (BlockFormatter._options['verbose'] < level): return
-    if (msg.startswith("====")): sys.stderr.write("\n" + "*" * 79 + '\n')
-    sys.stderr.write(msg+'\n')
-
 def makeVis(s):
     return re.sub(r'([\x01-\x0F\x11-\x1F])', toPix, s)  # NOT NEWLINE!
 
@@ -246,12 +244,12 @@ class BlockFormatter(argparse.HelpFormatter):
         blocks = re.split(r'\n[ \t]*\n', text, re.MULTILINE | re.UNICODE)
         blocks[0] = blocks[0].lstrip("\n")
         for i in range(len(blocks)):
-            vMsg(2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
+            lg.log(logging.INFO-2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
             block = blocks[i]
             items = [ ]
             # Divide block at newlines followed by punct or indentation
             for item in re.split(r'\n(?=[ \t*=#â¢])', block,  re.UNICODE):
-                vMsg(2, "ITEM: %s" % (item))
+                lg.log(logging.INFO-2, "ITEM: %s" % (item))
                 srcIndent = ""
                 mat = re.match(r'^([ \t]+)', item)
                 if (mat):
@@ -287,7 +285,7 @@ class BlockFormatter(argparse.HelpFormatter):
 
                 items.append(withNewlines)
             blocks[i] = "\n".join(items)
-        vMsg(2, "\n******* FORMATTING DONE *******\n")
+        lg.log(logging.INFO-2, "\n******* FORMATTING DONE *******\n")
         return "\n\n".join(blocks)
 
     @staticmethod
@@ -352,7 +350,7 @@ if __name__ == "__main__":
     print("*** Testing BlockFormatter.py ***\n")
 
     if (len(args.files) == 0):
-        vMsg(0, "No files specified, using own help text...")
+        lg.log(logging.INFO-0, "No files specified, using own help text...")
         tfile = "/tmp/BlockFormatter.md"
         fh = codecs.open(tfile, "wb", encoding=args.iencoding)
         fh.write(descr)
@@ -360,11 +358,11 @@ if __name__ == "__main__":
         args.files.append(tfile)
 
     for path0 in args.files:
-        vMsg(0, "\n******* Starting test file '%s'" % (path0))
+        lg.log(logging.INFO-0, "\n******* Starting test file '%s'" % (path0))
         fh0 = codecs.open(path0, "rb", encoding=args.iencoding)
         testText = fh0.read()
         hf = BlockFormatter(None)
         print(hf._format_text(testText))
 
-    vMsg(0, "*** DONE ***")
+    lg.log(logging.INFO-0, "*** DONE ***")
     sys.exit()

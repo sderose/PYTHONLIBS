@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 #
-# Homogeneous.py: Implement homogeneous subclasses of list, dict, etc.
+# homogeneous: Implement homogeneous subclasses of list, dict, etc.
 # 2020-02-19: Written by Steven J. DeRose.
 #
 import sys
 import argparse
 
 __metadata__ = {
-    "title"        : "Homogeneous",
+    "title"        : "homogeneous",
     "description"  : "Implement homogeneous subclasses of list, dict, etc.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
@@ -99,9 +99,9 @@ values.
 
 [https://github.com/sderose/PYTHONLIBS/blob/master/Record.py]: Similar
 to Python `namedtuple`, but supporting type contraints similer to those
-of `Homogeneous.py`, as well as value defaults
+of `homogeneous.py`, as well as value defaults
 
-[https://github.com/sderose/PYTHONLIBS/blob/master/LooseDict.py]:
+[https://github.com/sderose/PYTHONLIBS/blob/master/loosedict.py]:
 A subclass of `dict` that includes key normalization. For example, matching
 string keys via case-folding or Unicode normalization, or
 numeric values with rounding, etc.
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     ###########################################################################
     #
     args = processOptions()
-    print("Testing Homogeneous.py...")
+    print("Testing homogeneous.py...")
 
     ld = hdict()
     ld['foobar'] = 12

@@ -204,7 +204,7 @@ You can make these ahead of time, or just pass in lists or tuples of the 4 featu
 
 Python class TypeDict.
 
-`Homogeneous.py`, `LooseDict.py`.
+`homogeneous.py`, `loosedict.py`.
 
 
 =Known bugs and limitations=

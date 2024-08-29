@@ -11,13 +11,17 @@ import sys, re, codecs
 import argparse
 from enum import Enum, Flag
 from collections import namedtuple
+import logging
 
 import ColorManager
+
 try:
     from mathAlphanumerics import mathAlphanumerics
 except ImportError as e:
     sys.stderr.write("Could not load mathAlphanumerics:\n    %s\nTried: %s" %
         (e, "\n    ".join(sys.path)))
+
+lg = logging.getLogger("BlockFormatterPlus")
 
 __metadata__ = {
     "title"        : "BlockFormatterPlus",
@@ -264,12 +268,6 @@ Thanks to Anthon van der Neut for help on integrating with `argparse`. Also:
 =Options=
 """
 
-def log(lvl, msg):
-    if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
-def warning(msg): log(0, msg)
-def warning1(msg): log(1, msg)
-def warning2(msg): log(2, msg)
-
 
 ##############################################################################
 #
@@ -359,7 +357,7 @@ class BlockFormatterPlus(argparse.HelpFormatter):
         NOTE: 'indent' expects a string, not a number of columns.
         """
 
-        warning("_fill_text called for %d chars." % (len(text)))
+        lg.info( "_fill_text called for %d chars." % (len(text)))
         if (not BlockFormatterPlus.cm):
             BlockFormatterPlus.cm = ColorManager.ColorManager()
 
@@ -368,10 +366,10 @@ class BlockFormatterPlus(argparse.HelpFormatter):
         # Divide at blank lines
         blocks = BlockFormatterPlus.makeBlocks(text)
         for i in range(len(blocks)):
-            warning2("\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
+            lg.log(logging.INFO-2, "\n******* BLOCK %d (len %d) *******" % (i, len(blocks[i])))
             item, istring = BlockFormatterPlus.doSpecialChars(blocks[i])
 
-            #warning("### width %s, indent '%s', ind %s:\n    |%s|%s|" %
+            #lg.info( "### width %s, indent '%s', ind %s:\n    |%s|%s|" %
             #    (width, indent, ind, mat.group(1), mat.group(2)))
             # _fill_text return a string with newlines, not a list.
 
@@ -379,14 +377,14 @@ class BlockFormatterPlus(argparse.HelpFormatter):
             else: indParam = indent
 
             if (callable(self._altFillMethod)):
-                #warning("_fill_text: via altFill")
+                #lg.info( "_fill_text: via altFill")
                 withNewlines = self._altFillMethod(item, width, indParam)
             elif (callable(self._fill_despite_color)):
-                #warning("_fill_text: via _fill_despite_color")
+                #lg.info( "_fill_text: via _fill_despite_color")
                 withNewlines = self._fill_despite_color(
                     item, width, indParam)
             else:
-                #warning("_fill_text: via super")
+                #lg.info( "_fill_text: via super")
                 withNewlines = super(BlockFormatterPlus, self)._fill_text(
                     item, width, indParam)
 
@@ -394,8 +392,8 @@ class BlockFormatterPlus(argparse.HelpFormatter):
                 withNewlines = withNewlines[hang:]  # Un-hang first line
 
             blocks[i] = withNewlines
-            warning2("=======> WRAPPED TO:\n%s\n" % (blocks[i]))
-        warning2("\n******* FORMATTING DONE *******\n")
+            lg.log(logging.INFO-2, "=======> WRAPPED TO:\n%s\n" % (blocks[i]))
+        lg.log(logging.INFO-2, "\n******* FORMATTING DONE *******\n")
         blocks.append(self.getSignature())
         return "\n".join(blocks)
 
@@ -451,8 +449,8 @@ class BlockFormatterPlus(argparse.HelpFormatter):
                     if (blocks[-1] != ""): blocks[-1] += " "
                     blocks[-1] += t
                     blockType = "TEXT CONTINUE"
-            warning2("+%s: %s" % (blockType, blocks[-1]))
-        warning1("******* DONE makeBlocks |%d|\n\n" % (len(blocks)))
+            lg.log(logging.INFO-2, "+%s: %s" % (blockType, blocks[-1]))
+        lg.log(logging.INFO-1, "******* DONE makeBlocks |%d|\n\n" % (len(blocks)))
         return blocks
 
     @staticmethod
@@ -488,12 +486,12 @@ class BlockFormatterPlus(argparse.HelpFormatter):
 
         _fill_text won't suffice at this level, because color escape....
         """
-        if (item): warning2("\n******* In _alt_fill")
+        if (item): lg.log(logging.INFO-2, "\n******* In _alt_fill")
         lines = []
         for x in re.finditer(
             r"\s*(\S.{,%d}(?=[-/\s]))" % (width-len(indentString)-2),
             item, re.MULTILINE):
-            warning("Wrap trial: '%s'" % (x.group(1)))
+            lg.info( "Wrap trial: '%s'" % (x.group(1)))
             lines.append(indentString + x.group(1))
         return "\n".join(lines)
 
@@ -510,7 +508,7 @@ class BlockFormatterPlus(argparse.HelpFormatter):
         # OR: make fn to move the color escapes aside, then back.
         ncItem = self.cm.uncolorize(item)
         withBreaks = self._alt_fill(item, width, indentString)
-        warning1("color len %d, uncolored len %d, broke to %d lines." %
+        lg.log(logging.INFO-1, "color len %d, uncolored len %d, broke to %d lines." %
             (len(item), len(withBreaks), len(re.split(r"\n", withBreaks))))
         if (ncItem == item): return withBreaks
 
@@ -975,7 +973,7 @@ class InlineMapper:
         global theStyle
         theStyle = self
         for matchTuple in self.theMap:
-            warning1("Matched inline '%s'." % (mat.group(0)))
+            lg.log(logging.INFO-1, "Matched inline '%s'." % (mat.group(0)))
             regex, _, theStyle = matchTuple
             b = re.sub(regex, theStyle.applyViaMatchObject, b)
         return b
@@ -1212,7 +1210,7 @@ class TextStyle(dict):
                 (propName, typeNeeded, type(val)))
 
     def applyViaMatchObject(self, mat):
-        warning1("inline match on '%s', applying..." % (mat.group(0)))
+        lg.log(logging.INFO-1, "inline match on '%s', applying..." % (mat.group(0)))
         txt = mat.group(1)
         return self.applyProperties(txt)
 
@@ -1486,6 +1484,10 @@ if __name__ == "__main__":
             help="Path(s) to input file(s)")
 
         args0 = parser.parse_args()
+
+        if (lg and args0.verbose):
+            logging.basicConfig(level=logging.INFO - args0.verbose)
+
         return(args0)
 
     ###########################################################################
@@ -1495,32 +1497,32 @@ if __name__ == "__main__":
     if (args.altFill):
         BlockFormatterPlus.setAltFill(BlockFormatterPlus._alt_fill)
 
-    warning("*** Testing BlockFormatterPlus.py (level 2) ***\n")
+    lg.info( "*** Testing BlockFormatterPlus.py (level 2) ***\n")
 
     if (len(args.files) == 0):
         tfile = "/tmp/BlockFormatterPlus.md"
-        warning("No files specified, copying own help text to %s" % (tfile))
+        lg.info( "No files specified, copying own help text to %s" % (tfile))
         fh = codecs.open(tfile, "wb", encoding=args.iencoding)
         fh.write(descr)
         fh.close()
         args.files.append(tfile)
 
     for path0 in args.files:
-        warning("\n******* Starting test file '%s'" % (path0))
+        lg.info( "\n******* Starting test file '%s'" % (path0))
         fh0 = codecs.open(path0, "rb", encoding=args.iencoding)
         testText = fh0.read()
         if (args.split):
-            warning("*** Just splitting")
+            lg.info( "*** Just splitting")
             lenSoFar = 0
             for i0, t0 in enumerate(
                 re.split(r"\n", testText, flags=re.MULTILINE | re.UNICODE)):
 
-                warning("%04d (%6d)==>%s<==\n" % (i0, lenSoFar, t0))
+                lg.info( "%04d (%6d)==>%s<==\n" % (i0, lenSoFar, t0))
                 lenSoFar += len(t0)
             sys.exit()
 
         hf = BlockFormatterPlus(None)
         print(hf._format_text(testText))
 
-    warning("*** DONE ***")
+    lg.info( "*** DONE ***")
     sys.exit()

@@ -638,7 +638,7 @@ in Oct. 2015 from `sjdUtils.py`,
 which in turn was ported from Perl version in Dec. 2011,
 which was assembled from pieces in others of my scripts in Mar. 2011.
 All those works are by the same author and are licensed under the same license
-(CCLI Attribution-Sharealike 3.0 unported).
+(Creative Commons Attribution-Sharealike 3.0 unported).
 
 
 =Options=

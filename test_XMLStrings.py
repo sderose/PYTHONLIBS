@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 #
-# Unit tests for XMLStrings.py.
+# Unit tests for xmlstrings package.
 # 2024-08-14: Written by Steven J. DeRose.
 #
 #pylint: disable=W0613, W0212, E1101
 #
 import unittest
 
-from XMLStrings import XMLStrings
+from xmlstrings import XMLStrings
 
 x = XMLStrings
 
@@ -36,7 +36,7 @@ class TestXMLStrings(unittest.TestCase):
         self.assertFalse(x.isXmlPName("12"))
         self.assertFalse(x.isXmlPName("abc,foo"))
         self.assertFalse(x.isXmlPName("n**2"))
-        self.assertFalse(x.isXmlPName("#TEXT"))
+        self.assertFalse(x.isXmlPName("#text"))
         self.assertFalse(x.isXmlPName(".foo"))
 
         self.assertTrue(x.isXmlNmtoken("-hellö-"))

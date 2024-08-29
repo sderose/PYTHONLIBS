@@ -9,15 +9,17 @@ import sys
 import re
 import codecs
 from enum import Enum
-from typing import List, IO, Callable, Any, Union, Match, Iterable
+from typing import List, IO, Callable, Any, Union, Iterable
 from collections import namedtuple
+import logging
 
 import xml.dom
 import xml.dom.minidom
 from xml.dom.minidom import Node, NamedNodeMap, Element, Document
-from html.entities import codepoint2name, name2codepoint
+#from html.entities import codepoint2name, name2codepoint
 
-import logging
+from xmlstrings import XMLStrings
+
 lg = logging.getLogger("DomExtensions.py")
 lg.setLevel(logging.INFO)
 
@@ -571,63 +573,10 @@ This is similar to the XSLT 'key' feature.
 * '''find'''(value)
 
 
-==Character stuff (internal methods)==
+==Character stuff==
 
-* '''escapeAttribute'''(string, quoteChar='"')
-
-Escape the string as needed for it to
-fit in an attribute value (amp, lt, and quot).
-
-* '''escapeText'''(string)
-
-Escape the string as needed for it to
-fit in XML text content (amp, lt, and gt when following "]]").
-
-* '''escapeCDATA'''(string)
-
-Escape the string as needed for it to
-fit in a CDATA marked section (only gt when following ']]').
-XML does not specify a way to escape this. The result produced here is "]]&gt;".
-
-* '''escapeComment'''(string)
-
-Escape the string as needed for it to
-fit in a comment ('--').
-XML does not specify a way to escape this. The result produced here is "-&#x002d;".
-
-* '''escapePI'''(string)
-
-Escape the string as needed for it to
-fit in a processing instruction (just '?>').
-XML does not specify a way to escape this. The result produced here is "]]&gt;".
-
-* '''escapeASCII'''(s, width=4, base=16, htmlNames=True))
-
-Escape the string as needed for it to fit in XML text content,
-''and'' recodes and non-ASCII characters as XML
-entities and/or numeric character references.
-`width` is the minimum number of digits to be used for numeric character references.
-`base` must be 10 or 16, to choose decimal or hexadecimal references.
-If `htmlNames` is True, HTML 4 named entities are used when applicable,
-with numeric character references used otherwise.
-
-* '''unescapeXml'''(string)
-
-Change XML numeric character references, as
-well as references to the 5 pre-defined XML named entities and the usual
-HTML 4 ones, into the corresponding literal characters.
-
-* '''normalizeSpace'''(self, s, allUnicode=False)
-
-Do the usual XML white-space normalization on the string ''s''.
-If ''allUnicode'' is set, include not just the narrow set of `[ \t\r\n]`,
-but all Unicode whitespace (which, in Python regexes with re.UNICODE,
-does not include ZERO WIDTH SPACE U+200b).
-
-* '''stripSpace'''(self, s, allUnicode=False)
-
-Like `normalizeSpace`, but only remove leading and trailing whitespace.
-Internal whitespace is left unchanged.
+The various escapers (escapeText, etc.) and isa tests (isXmlName, etc.)
+have been moved to a separate package, `XMLStrings`.
 
 
 =Known bugs and limitations=
@@ -657,8 +606,8 @@ This makes accessing a DOM a lot more like using XPath, but stays in the
 
 So, there are methods to retrieve items from along each XPath axis.
 
-There is not a full filtering language like XPath, but when retrieving node,
-you can specify very common constraints, such as:
+There is not a full filtering language like XPath, but when retrieving nodes
+you can specify constraints such as:
 
 * whether you want elements, attributes, text nodes, PIs, comments, etc.
 * restrictions on the element types wanted (by string or regex)
@@ -674,9 +623,9 @@ can handle both strings and integers, you can say any of these:
     myNode["li"] gets all the child elements of type "li"
     myNode["@class"] gets the class attribute.
 
-There are a few special values. "#text", "#pi", and "#comment" get just
+There are a few special values: "#text", "#pi", and "#comment" get just
 the child nodes of those types, and
-    myNode["*"] gets all the element children (very often needed)
+    myNode["*"] gets just element children.
 
 You can also combine them and/or slice:
     myNode["p", 3] gets the 4th child element of type "p"
@@ -689,8 +638,7 @@ using operators instead of compareDocumentPosition.
 * insertBefore and appendChild are just list splicing
 * cloneNode becomes copy
 * compareDocumentPosition becomes <, >, <=, >=, in, and contains.
-Possibly PEP 465 infix matrix mult operator "@"? or // __floordiv__ or ** for descendant.
-<< and >> for psib/fsib
+<< and >> for psib/fsib?
 * countOF for # of a in b
 * Could overload elem @ "attrname"
 * indexof
@@ -698,13 +646,16 @@ Possibly PEP 465 infix matrix mult operator "@"? or // __floordiv__ or ** for de
 * isEqualNode and isSameNode become == and is
 * attributes can be referenced by ["@class"] etc.
 
-Possible additions:
-* += and -= may be mapped to preceding/following sibling n
-*
 
 =To do=
 
-*** In patchDom(), test to make sure we don't overwrite anything already there.
+*** In patchDom(), don't overwrite anything already there.
+Test that patched nodes end up working ok.
+
+*** Profile
+
+Allow callable for first arg to __getitem__, which is a filter: takes
+a node, returns a bit.
 
 *** Rename all nodeplus args to nodeSel. Check other naming consistency.
 
@@ -713,10 +664,6 @@ Possible additions:
 Add "tagToRuby".
 
 Reduce redundancy in traversers and generators.
-
-Rename to 'maxidom' or DOMPP?
-
-Option to test/return nodeName always as localname or qname?
 
 For canonical XML, make getEscapedAttributeList() put namespace attrs first,
 and escape CR and all > in content.
@@ -742,20 +689,11 @@ I think the culprits are (see https://github.com/python/cpython/blob/main/Lib/xm
     Document._create_entity
     Document._create_notation
 
-** E.g.:
-    Make: class XNode(Node), class DOMImplementation(DOMImplementation)
-    Subclass all the subclasses of Node, to be based on XNode
-    Change all the methods that construct, like:
-    *Except* that these are methods on (e.g.) Document, that create OTHER classes....
-    So maybe easier to explicitly construct XTextNode, etc -- though that
-    doesn't really solve the general problem.
-
-* Support negative 'n' for rest of axis selects.
+* Support negative 'n' for rest of axis selects?
 * Allow creating nodes with no ownerDocument; they get attached when inserted.
 * Implement splitNode and wrap/surround(see help)
 * Let appendChild, insertBefore, insertAfter, etc. take lists.
 * Change eachTextNode, etc. to be real generators.
-* Finish type-hinting.
 * Add access for items in NamedNodeMaps via [] notation.
 * Option for innerXml/outerXml to guarantee Canonical result (in progress).
 * Promote attribute to element type?
@@ -765,7 +703,6 @@ I think the culprits are (see https://github.com/python/cpython/blob/main/Lib/xm
 * Add insertParent
 * Possibly support myNode[["P"]] to scan all descendants (by analogy
 with XPath "//" operator).
-* Possibly support entire XPath (though other solution integrate it, so maybe not).
 * Add a way to turn off all indenting for collectAllXml2 with one option.
 * Implement a few useful BS4 bits (see class BS4Features) (and add to help).
 * String to tag converter, like for quotes?
@@ -851,225 +788,14 @@ Balisage Series on Markup Technologies, vol. 13 (2014).
 
 
 ###############################################################################
-#
-_regexType = type(re.compile(r'a*'))
-
-class XMLStrings:
-    """This class contains static methods and variables for basic XML
-    operations such as testing syntax forms, escaping strings, etc.
-    """
-    _xmlSpaceExpr = r"[ \t\n\r]+"
-
-    _xmlSpaceChars = " \t\r\n"
-    _xmlSpaceRegex = re.compile("[%s]+" % (_xmlSpaceChars))
-    _xmlSpaceOnlyRegex = re.compile("^[%s]*$" % (_xmlSpaceChars))
-
-
-    # This excludes colon (":"), since we want to distinguish QNames.
-    _nameStartChar = str("[_A-Za-z" +
-        "\u00C0-\u00D6" + "\u00D8-\u00F6" + "\u00F8-\u02FF" +
-        "\u0370-\u037D" + "\u037F-\u1FFF" + "\u200C-\u200D" +
-        "\u2070-\u218F" + "\u2C00-\u2FEF" + "\u3001-\uD7FF" +
-        "\uF900-\uFDCF" + "\uFDF0-\uFFFD" +
-        "\u10000-\uEFFFF" +
-        "]")
-    _nameChar  = re.sub(
-        "^\\[", "[-.0-9\u00B7\u0300-\u036F\u203F-\u2040", _nameStartChar)
-    _justName = _nameStartChar + _nameChar + "*"
-    _xmlName  = r"^%s$" % (_justName)
-    _xmlQName = r"^(%s:)?%s$" % (_xmlName, _xmlName)
-    _xmlPName = r"^(%s:)%s$" % (_xmlName, _xmlName)
-
-    @staticmethod
-    def isXmlName(s:str) -> bool:
-        """Return True for a NON-namespace-prefixed    (aka) local name.
-        """
-        if (re.match(XMLStrings._xmlName, s, re.UNICODE)): return True
-        return False
-
-    @staticmethod
-    def isXmlQName(s:str) -> bool:
-        """Return True for a namespace-prefixed OR unprefixed name.
-        """
-        if (re.match(XMLStrings._xmlQName, s, re.UNICODE)): return True
-        return False
-
-    @staticmethod
-    def isXmlPName(s:str) -> bool:
-        """Return True only for a namespace-prefixed name.
-        """
-        if (re.match(XMLStrings._xmlPName, s, re.UNICODE)): return True
-        return False
-
-    @staticmethod
-    def isNodeKindChoice(s:str) -> bool:
-        """Check whether the token is one of our node kind selector arguments.
-        These don't take qualifiers unless they're element names). This unifies
-        node types into one space (rather than one for type and one for name).
-        Almost like DOM nodeType, except attributes are prefixed with "@",
-        and PIs are "#pi".
-            * element:  same as XmlQName
-            * attribute: "@" + XmlName (so you can name attrs relative to an elem)
-            * document root:  #document
-            * pi: #PI
-            * comment: #COMMENT
-            * text: #PI (should there be a non-white-space-only textnode selector?)
-            * and we allow "*" to mean any element
-        fragment, namespace, etc. are just special cases of more basic types.
-        """
-        if (XMLStrings.isXmlQName(s)): return True
-        if (s in [ "*", "#text", "#comment", "#cdata", "#pi" ]): return True
-        if (s[0] == "@" and XMLStrings.isXmlName(s[1:])): return True
-        return False
-
-    @staticmethod
-    def isXmlNumber(s:str) -> bool:
-        """Check whether the token is a NUMTOKEN.
-        """
-        return bool(re.match(r"\d+$", s))
-
-
-    ###########################################################################
-    # GENERAL METHODS ON STRINGS
-    #
-    @staticmethod
-    def escapeAttribute(s:str, quoteChar:str='"') -> str:
-        """Turn characters special in (double-quoted) attributes, into char refs.
-        Set to "'" if you prefer single-quoting your attributes, in which case
-        that character is replaced by a character reference instead.
-        This always uses the predefined XML named special character references.
-        """
-        s = XMLStrings.nukeNonXmlChars(s)
-        s = s.replace('&', "&amp;")
-        s = s.replace('<', "&lt;")
-        if (quoteChar == '"'): s = s.replace('"', "&quot;",)
-        else: s = s.replace("'", "&apos;")
-        return s
-    escapeXmlAttribute = escapeAttribute
-
-    @staticmethod
-    def escapeText(s:str, escapeAllGT:bool=False) -> str:
-        """Turn things special in text content, into char refs.
-        This always uses the predefined XML named special character references.
-        """
-        s = XMLStrings.nukeNonXmlChars(s)
-        s = s.replace('&',   "&amp;")
-        s = s.replace('<',   "&lt;")
-        if (escapeAllGT): s = s.replace('>', "&gt;")
-        else: s = s.replace(']]>', "]]&gt;")
-        return s
-
-    escapeXmlText = escapeText
-
-    @staticmethod
-    def escapeCDATA(s:str, replaceWith:str="]]&gt;") -> str:
-        """XML Defines no particular escaping for this, we use char-ref syntax.
-        """
-        s = XMLStrings.nukeNonXmlChars(s)
-        s = s.replace(']]>', replaceWith)
-        return s
-
-    @staticmethod
-    def escapeComment(s:str, replaceWith:str="-&#x002d;") -> str:
-        """XML Defines no particular escaping for this, we use char-ref syntax.
-        """
-        s = XMLStrings.nukeNonXmlChars(s)
-        s = s.replace('--', replaceWith)
-        return s
-
-    @staticmethod
-    def escapePI(s:str, replaceWith:str="?&gt;") -> str:
-        """XML Defines no particular escaping for this, we use char-ref syntax.
-        """
-        s = XMLStrings.nukeNonXmlChars(s)
-        s = s.replace(r'\?>', replaceWith)
-        return s
-
-    @staticmethod
-    def escapeASCII(s:str, width:int=4, base:int=16, htmlNames:bool=True) -> str:
-        """Turn all non-ASCII characters into character references.
-        @param width: zero-pad numbers to at least this many digits.
-        @param base: 10 for decimal, 16 for hexadecimal.
-        @param htmlNames: If True, use HTML 4 named entities when applicable.
-        """
-        # TODO: What is the right type to use for mat? _sre.SRE_Match ?
-        def escASCIIFunction(mat:Match) -> str:
-            """Turn all non-ASCII chars to character refs.
-            """
-            code = ord(mat.group[1])
-            nonlocal width, base, htmlNames
-            if (htmlNames and code in codepoint2name):
-                return "&%s;" % (codepoint2name[code])
-            if (base == 10):
-                return "&#%*d;" % (width, code)
-            return "&#x%*x;" % (width, code)
-
-        s = XMLStrings.nukeNonXmlChars(s)
-        s = re.sub(r'([^[:ascii:]])r', escASCIIFunction, s)
-        s = XMLStrings.escapeText(s)
-        return s
-
-    @staticmethod
-    def nukeNonXmlChars(s:str) -> str:
-        """Remove the C0 control characters not allowed in XML.
-        Unassigned Unicode characters higher up are left unchanged.
-        """
-        return re.sub("[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(s))
-
-    @staticmethod
-    def unescapeXml(s:str) -> str:
-        """Escape as needed for XML content: lt, amp, and ]]>.
-        """
-        return re.sub(r'&(#[xX])?(\w+);', XMLStrings.unescapeXmlFunction, s)
-
-    @staticmethod
-    def unescapeXmlFunction(mat:Match) -> str:
-        """Convert HTML entities and numeric character references to literal chars.
-        """
-        if (len(mat.group(1)) == 2):
-            return chr(int(mat.group[2], 16))
-        elif (mat.group(1)):
-            return chr(int(mat.group[2], 10))
-        elif (mat.group(2) in name2codepoint):
-            return name2codepoint[mat.group(2)]
-        else:
-            raise ValueError("Unrecognized entity: '%s'." % (mat.group(0)))
-
-    @staticmethod
-    def normalizeSpace(s:str, allUnicode:bool=False) -> str:
-        """By default, this only normalizes *XML* whitespace,
-        per the XML spec, section 2.3, grammar rule 3.
-
-        NOTE: Most methods of removing Unicode whitespace in Python do not work
-        for Unicode. See https://stackoverflow.com/questions/1832893/
-
-        U+200B ZERO WIDTH SPACE is left untouched below.
-        """
-        if (allUnicode):
-            s = re.sub(r'(?u)\s+', " ", s, re.UNICODE)
-        else:
-            s = re.sub(XMLStrings._xmlSpaceRegex, " ", s)
-        s = s.strip(' ')
-        return s
-
-    @staticmethod
-    def stripSpace(s:str, allUnicode:bool=False) -> str:
-        """Remove leading and trailing space, but don't touch internal.
-        """
-        if (allUnicode):
-            s = re.sub(r'^(?u)\s+|(?u)\s+$', " ", s, re.UNICODE)
-        else:
-            s = re.sub(r'^%s|%s$' %
-                (XMLStrings._xmlSpaceRegex, XMLStrings._xmlSpaceRegex), "", s)
-        return s
-
-
-###############################################################################
-# A couple fake types, for type-hinting parameters.
+# A couple types, for type-hinting parameters.
 # Would be nicer but non-trivial to implement these as subclasses of str.
 #
+_regexType = type(re.compile(r'a*'))
 NMToken = str  # An XML name token (mainly for type hint readability)
-NodeSel = str  # Union(XMLQName, "@"+XMLQName, "*", "#text", "#comment", "#cdata", "#pi")
+NodeSel = str  # Union(XMLQName, "@"+XMLQName, "*", "#text",
+#    #comment, #cdata, #pi, #entref, #cdata, #frag, #notation
+#    or callable(Node)->bool
 
 
 ###############################################################################
@@ -1122,12 +848,12 @@ class DOCUMENT_POSITIONS(Enum):
     """Like DOM's compareDocumentPosition but more complete.
     See DOM Node.Node.DOCUMENT_POSITION_xxx.
     """
-    DOCPOS_EQUAL = 0  # Not defined in DOM, bit 0 is what you get....
+    DOCPOS_EQUAL = 0  # Not defined in DOM, but 0 is what you get....
     DOCPOS_DISCONNECTED = 1
     DOCPOS_PRECEDING = 2
     DOCPOS_FOLLOWING = 4
-    DOCPOS_CONTAINS = 8
-    DOCPOS_CONTAINED_BY = 16
+    DOCPOS_CONTAINS = 8  # dom also sets 2???
+    DOCPOS_CONTAINED_BY = 16  # dom also sets 4???
     #
     DOCPOS_IMPLEMENTATION_SPECIFIC = 32
     #
@@ -1137,6 +863,7 @@ class DOCUMENT_POSITIONS(Enum):
 
 
 ###############################################################################
+#  # Move to separate DOMgetitem.py
 #
 class NodeSelKind(Enum):
     """Major types of arguments for DEgetitem etc.
@@ -1359,7 +1086,7 @@ def innerXML(self:Node, cOptions=None, indent:str=None, depth:int=0) -> str:
     for curNode in self.childNodes:
         ty = curNode.nodeType
         if (ty == Node.TEXT_NODE):
-            #sys.stderr.write("#TEXT: %s" % (curNode.nodeValue))
+            #sys.stderr.write("#text: %s" % (curNode.nodeValue))
             t += curNode.nodeValue
         elif (ty==Node.DOCUMENT_NODE or
               ty==Node.DOCUMENT_FRAGMENT_NODE or
@@ -1428,7 +1155,7 @@ def NNM_iteritems(self:NamedNodeMap):
         yield (k, self[k])
 
 def NNM_getitem(self:NamedNodeMap, which):
-    """Allow accessing attributes by number.
+    """Allow accessing attributes by number or name.
     """
     if (isinstance(which, int)):
         return self.items()[which]
@@ -1932,27 +1659,27 @@ def getTextNodesIn(node:Node) -> list:
 
 ### Comparison operators for DOCUMENT ORDER
 #
-def __lt__(self, other):
+def __lt__(self, other:Node) -> bool:
     return (self.compareDocumentPosition(other) == Node.DOCPOS_CONTAINS or
            self.compareDocumentPosition(other) == Node.DOCPOS_PRECEDING)
-def __le__(self, other):
+def __le__(self, other:Node) -> bool:
     return (self is other or
         self.compareDocumentPosition(other) == Node.DOCPOS_CONTAINS or
         self.compareDocumentPosition(other) == Node.DOCPOS_PRECEDING)
-def __eq__(self, other):
+def __eq__(self, other:Node) -> bool:
     return self is other
-def __ge__(self, other):
+def __ge__(self, other:Node) -> bool:
     return (self is other or
         self.compareDocumentPosition(other) == Node.DOCPOS_CONTAINED_BY or
         self.compareDocumentPosition(other) == Node.DOCPOS_FOLLOWING)
-def __gt__(self, other):
+def __gt__(self, other:Node) -> bool:
     return (self.compareDocumentPosition(other) == Node.DOCPOS_CONTAINED_BY or
            self.compareDocumentPosition(other) == Node.DOCPOS_FOLLOWING)
 
-def  __contains__(self, other):
+def  __contains__(self, other:Node) -> bool:
     return self.compareDocumentPosition(other) == Node.DOCPOS_CONTAINS
 
-def sameAs(self, other) -> bool:
+def sameAs_OBS(self, other:Node) -> bool:
     """Test whether two nodes have the same tree, text, attrs.
     TODO: Worth adding a shallow version, or unordered, or options to
     ignore attrs,...?
@@ -1974,7 +1701,7 @@ def sameAs(self, other) -> bool:
 
     return True
 
-def compareDocumentPositionViaXPointer(self:Node, other:Node):
+def compareDocumentPositionViaXPointer(self:Node, other:Node) -> int:
     """Compare two nodes for order. Return same as compareDocumentPosition.
     """
     return self.compareXPointer(self.getXPointer(), other.getXPointer())
@@ -2166,18 +1893,17 @@ def getComment(self:Node) -> str:
 
 ####### Attributes
 #
-def getInheritedAttribute(self:Node, aname:NMToken) -> str:
-    """Search upward to find an assignment to an attribute, and return the
-    nearest non-empty one (or None if none is found).
-    The search starts with the node itself.
+def getInheritedAttribute(self:Node, aname:NMToken, default:Any=None) -> str:
+    """Search upward to find the attribute.
+    Return the first one found, otherwise the default.
     This is like the defined semantics of xml:lang.
+    For types attrs, should we use falsish (say, 0)?
     """
     cur = self
-    while (cur):
-        avalue = cur.getAttribute(aname)
-        if (avalue is not None and avalue!=''): return avalue
+    while (cur is not None):
+        if (cur.hasAttribute(aname)): return cur.getAttribute(aname)
         cur = cur.parentNode
-    return None
+    return default
 
 def getEscapedAttribute(self:Node, aname:NMToken, quoteChar:str='"') -> str:
     """Retrieve the value of a named attribute, and return it after escaping
@@ -2187,7 +1913,7 @@ def getEscapedAttribute(self:Node, aname:NMToken, quoteChar:str='"') -> str:
     return XMLStrings.escapeAttribute(avalue, quoteChar='"')
 
 def getCompoundAttribute(self:Node, name:NMToken, sep:str='#',
-    keepMissing:bool=False) -> str:  ### Not DOM
+    keepMissing:bool=False) -> str:
     """Return the concatenation of the values of the named attribute,
     from all ancestors (and self). Separate them with 'sep'.
     This facilitates a notion of compound keys (or hierarchical IDs).
@@ -2388,6 +2114,7 @@ def isWSN(self:Node):
     if (self.nodeValue.strip() == ""): return True
     return False
 
+
 ###############################################################################
 # Node creation/insertion/mod methods.
 # TODO: Let caller supply attribute, too.
@@ -2585,7 +2312,7 @@ def eachNode(self:Node, wsn:bool=True, attributeNodes:bool=True, depth:int=1) ->
     """Generate all descendant nodes (see also eachTextNode, eachElement)
     @param wsn: If False, skip white-space-only nodes.
     @param attributeNodes: If False, skip attribute nodes.
-    TODO: Upgrade this and similar, to use NodeKind/NodeSel.
+    TODO: Upgrade this and similar, to use NodeKind/NodeSel. Sync w/ BaseDOM.py.
     """
     yield self
 
@@ -2599,7 +2326,7 @@ def eachNode(self:Node, wsn:bool=True, attributeNodes:bool=True, depth:int=1) ->
         for ch in self.childNodes:
             if (not wsn and ch.nodeType==Node.TEXT_NODE and
                 self.nodeValue is not None and self.nodeValue.strip() == ''): continue
-            for chEvent in eachNode(ch, depth=depth+1):
+            for chEvent in ch.eachNode(wsn=wsn, attributeNodes=attributeNodes, depth=depth+1):
                 yield chEvent
     return
 
@@ -3236,8 +2963,7 @@ class BS4Features:
             Not clear if it can match across text node boundaries.
         @param limit: Max number of nodes to return.
         @param class_: Matches against any token in @class. But if there's a
-            space, search literally instead. To check multiple, you can't (BS)
-            pass a list, but must switch to CSS selector syntax with CssSelect().
+            space, search literally instead. To check multiple...?
         @param **kwargs: Filter for an attr of that name (value True matches
             any value for the named attribute (even null???) To use attrs
             whose names aren't Python identifiers, pass them in a dict passed
@@ -3288,22 +3014,6 @@ class BS4Features:
         """ Syntactic sugar.
         """
         return BS4Features.find_all(node, limit=1, **kwargs)
-
-    @staticmethod
-    def CssSelect(node):
-        """Pick elements via a CSS selector.
-        Supports:
-            element type
-            space for descendant
-            > for childNodes
-            - for sibling
-            . for class
-            # for ID
-            , for alternatives
-            [x] for attr exists
-            [x="y"] for attr value
-        """
-        raise NOT_SUPPORTED_ERR
 
     @staticmethod
     def select_one(node):

@@ -73,7 +73,7 @@ Maybe try monkey-patching it onto the base class instead?
 ==Misc==
 
 * Option to accept aliases that add/subtract internal hyphens/underscores
-(maybe use my LooseDict.py).
+(maybe use my loosedict.py).
 * Option to suppress an argument(s) from having their help displayed
 with default `-h`.
 Esp. useful for imported args, like PowerWalk.py's.
@@ -122,7 +122,7 @@ by a callback. But this really needs lazy evaluation -- you can only evaluate
 Issues:
     * case and regex comparison
     * case for `choices` values
-    * support case-ignore and unique-abbrevs for enums (see `LooseDict.py`)
+    * support case-ignore and unique-abbrevs for enums (see `loosedict.py`)
     * offer setting to regard case only for single-char options; or to
 fall back to ignore case.
     * set operations

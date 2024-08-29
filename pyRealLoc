@@ -22,7 +22,7 @@ __version__ = __metadata__["modified"]
 
 descr = """
 =Name=
-    """ +__metadata__["title"] + ": " + __metadata__["description"] + """
+pyRealLoc: Find where the controlling Python executable really is.
 
 
 =Description=

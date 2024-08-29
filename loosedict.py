@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# LooseDict.py: Enhance dict to handle case-ignoring, abbreviations,.....
+# loosedict: Enhance dict to handle case-ignoring, abbreviations,.....
 # 2018-09-04: Written by Steven J. DeRose.
 #
 import sys
@@ -10,7 +10,7 @@ import re
 from typing import Any, List, Callable
 
 __metadata__ = {
-    "title"        : "LooseDict",
+    "title"        : "loosedict",
     "description"  : "Enhance dict to handle case-ignoring, abbreviations,....",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
@@ -36,7 +36,7 @@ For example:
 
 prints "12". `lower` was specified here, so keys are normalized by
 passing them to `lower`(). This is also the default. Several other common
-normalizations are provided by LooseDict:
+normalizations are provided:
 
     * xmlSpace(s) -- per XML
     * unormalize(s, form:str, ignoreCase:bool) --- Unicode normalization forms
@@ -53,7 +53,7 @@ For example, you can get the normalized form of a key. This would print "foobar"
 
 ===Abbreviation finding===
 
-LooseDict also provides `findAbbrev(s)`, which checks if the string s is
+This package also provides `findAbbrev(s)`, which checks if the string s is
 a unique abbreviation of some key (after normalization). If so, it returns
 the actual key; if it abbreviates no actual keys, or is ambiguous, findAbbrev()
 returns None. This is a typical behavior for interpreting command-line options.

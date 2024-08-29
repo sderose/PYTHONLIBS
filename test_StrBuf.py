@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# StrBufTest.py: Basic testing for StrBuf.py.
+# test_strbuf: Basic testing for strbuf library.
 # 2021-08-03: Written by Steven J. DeRose.
 #
 #pylint: disable=W0221  # To allow added 'inplace' args.
@@ -20,13 +20,13 @@ import random
 
 import logging
 
-from StrBuf import StrBuf
+from strbuf import StrBuf
 
 lg = logging.getLogger()
 
 __metadata__ = {
-    "title"        : "StrBufTest",
-    "description"  : "Test driver.",
+    "title"        : "test_strbuf",
+    "description"  : "Test driver for strbuf library.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
     "type"         : "http://purl.org/dc/dcmitype/Software",

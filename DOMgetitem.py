@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 #
-# DomGetitem.py: Make xml.dom.minidom.Node and ts subclass much more Pythonic.
+# DomGetitem.py: Make xml.dom.minidom.Node and its subclasses much more Pythonic.
 # 2021-07-21: Extracted from DomExtensions.py, where it also is available.
 #
 #pylint: disable=W0613, W0212, E1101
 #
 import sys
-import re
 from enum import Enum
 from typing import List, Union
 from xml.dom.minidom import Node, Document  #, NamedNodeMap
 
 from DomExtensions import XMLStrings
+#import XmlStrings  # in XML/Dominus
 
 __metadata__ = {
     "title"        : "DomGetitem",
@@ -31,57 +31,71 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
-This defines a subclass of xml.minidom.Node, which adds a `__getitem__()` method that
-lets you get child nodes of all kinds (elements, comments, pis, attributes, text nodes)
-with the usual Python [] notation.
+This defines a subclass of xml.minidom.Node adding a `__getitem__()`
+method that lets you get child nodes of all kinds (elements, comments, pis,
+attributes, text nodes) with the usual Python [] notation.
 
-You can instantiate these "PyNode" objects directly, but it is probably better to simply
-add the __getitem__ method to the regular class. For one thing, that means that when
-you do createElement() or similar, the new Node will also benefit:
+You can instantiate these "PyNode" objects directly, but it is probably
+better to simply add the __getitem__ method to the regular class so
+that createElement() items also have it:
 
     xml.minidom.Node.__getitem__ = pyNode.__getItem__
 
-Like Python [] in general, this implementation accepts up to 3 values inside the [].
-For regular lists, the third argument specifies a "step", which allows you, for example,
-to get every other item from a list:
-    x[1:01:2]
+Like Python [] in general, this implementation accepts up to 3 values
+inside the []. The third argument specifies a "step",
+which allows you, for example, to get every other item from a list:
 
-Slicing with 1, 2, or 3 integer arguments can be done Here, selecting among the
-childNodes of the given Node. But in addition, the last item can be a string.
-That string is used to specify just what nodes you are selecting from. For example:
+    x[1:10:2]
 
-    myElement[0:-1:'p']       gets all child nodes that are element type 'p'
-    myElement[0::'p']         gets the first child node that is element type 'p'
+That works the same here, selecting among the childNodes of the given Node.
+But in addition, the first or last item can be a string.
+That string is used to limit the type and/or name of nodes you are selecting from.
+For example:
 
-Note that as in Python in general, and in DOM, the first child is [0].
+    myElement["p"]      gets all child nodes of nodeName "p"
+    myElement["p":2]    gets all child nodes of nodeName "p", then picks the third of those
+    myElement[2:10:"p"] gets child nodes 2 through 9, then picks out those of nodename 'p'
 
-Like Python slicing notation generally, [] with a single numeric argument returns
-the single (scalar) item; otherwise slicing returns a list.
+That is, the arguments can include a string filter and an integer range filter,
+in either order.
 
-Besides child elements, the last argument can be used to get other useful things:
+As in Python in general, and in DOM, the first child is [0].
 
-* If the string is "*", the slicing operates over all *element* children of the node,
-skipping any text nodes, PIs, comments, etc.
-
-* If the string is one of "#PI", "#COMMENT", or "#TEXT", child nodes of just that
-nodeType will be retrieved.
+Besides some nodename strings do other useful things:
 
 * If the string begins with "@", you get the named attribute:
 
-    myElement['@class']  get the 'class' attribute's value (no indexes!)
+    myElement['@class'] get the 'class' attribute's value
+
+* If the string is "*", the slicing operates over those child nodes
+ that are elements (skipping any text nodes, PIs, comments, etc.).
+
+* If the string is one of "#pi", "#comment", or "#text", the slicing operates
+over those child nodes of just that nodeType.
+
+* If the string is "#NWSN", slicing considers all child nodes that are
+NOT empty or whitespace-only text nodes. [TO BE ADDED]
 
 In all cases except attributes (which cannot be repeated on a single element),
-the one or two preceding integers pick from the chsen category of child nodes, in
-the usual Python fashion. With attributes, the integers (if present) choose among the
-space-separated tokens within the attribute value.
+one or two integers may precede the type filter. If the integers precede the type
+filter, they extract a range as usual for Python list, and then the type filters
+chooses nodes from that extracted range. If the integers instead follow
+the type filter, the filter picks nodes by type, and then members are picked
+from that list of node by integer range.
+
+If the first argument in brackets chooses an attribute, the integers are not
+also allowed (in future, they may be permitted in order to choose
+among space-separated tokens within the attribute value, as for
+example with HTML class attributes).
 
 Some additional examples:
-    myElement['p':2]     get the 3rd 'p' child
-    myElement[2:'p']     get 3rd child if it's a 'p'
-    myElement['p':2:8]   get the 3rd through 7th 'p' children
-    myElement[2:8]       get the 3rd through 7th children
-    myElement[2:8:'p']   of the 3rd through 7th children, get the 'p's
-    myElement[1:10:2]    get every other childNode from 1:10.
+    myElement["p":2]      get the 3rd "p" child
+    myElement[2:"p"]      get 3rd child if it"s a "p"
+    myElement["p":2:8]    get the 3rd through 7th "p" children
+    myElement[2:8]        get the 3rd through 7th children
+    myElement[2:8:"p"]    of the 3rd through 7th children, get the "p"s
+    myElement[1:10:2]     get every other childNode from 1:10.
+    myElement["@class"]   get the "class" attribute.
 
 
 =Related commands=
@@ -101,11 +115,10 @@ Balisage Series on Markup Technologies, vol. 13.
 
 =To Do=
 
+* Profile
 * Perhaps allow passing in a regex for the string arg?
 * Perhaps restrict the string arg to last position only?
-* With no filter arg, should we count or ignore wsn nodes? I'm thinking count, since
-we do have "*" for the other case, and so len() comes out consistent.
-* Should "@" or "@.*" get you all attributes?
+* Finish #NWSN.
 
 
 =History=
@@ -158,70 +171,82 @@ class NodeSelKind(Enum):
     ARG_REGEX     = 0x004  # A compiled regex, to match vs. element names
     ARG_ATTR      = 0x008  # @ + QName
     ARG_STAR      = 0x010  # "*"
-    ARG_TEXT      = 0x020  # #text
-    ARG_PI        = 0x040  # #pi
-    ARG_COMMENT   = 0x080  # #comment
-    ARG_CDATA     = 0x100  # #cdata
+    ARG_TEXT      = 0X020  # #text
+    ARG_PI        = 0X040  # #pi
+    ARG_COMMENT   = 0X080  # #comment
+    ARG_CDATA     = 0X100  # #CDATA
+    ARG_NWSN      = 0X200  # #NWSN
+
+    reservedWords = {
+        "#text":    ARG_TEXT,
+        "#pi":      ARG_PI,
+        "#comment": ARG_COMMENT,
+        "#CDATA":   ARG_CDATA,
+        "#NWSN":    ARG_NWSN,
+    }
+
+    @staticmethod
+    def isNodeKindChoice(s:str) -> bool:
+        """Check whether the token is one of our node kind selector arguments.
+        These don't take qualifiers unless they're element names). This unifies
+        node types into one space (rather than one for type and one for name).
+        Almost like DOM nodeType, except attributes are prefixed with "@",
+        and PIs are "#pi".
+            * element:  same as XmlQName
+            * attribute: "@" + XmlName (so you can name attrs relative to an elem)
+            * document root:  #document
+            * pi: #pi
+            * comment: #comment
+            * text: #pi (should there be a non-white-space-only textnode selector?)
+            * and we allow "*" to mean any element
+        fragment, namespace, etc. are just special cases of more basic types.
+        """
+        if (XMLStrings.isXmlQName(s)): return True
+        if (s in [ "*", "#text", "#comment", "#cdata", "#pi" ]): return True
+        if (s[0] == "@" and XMLStrings.isXmlName(s[1:])): return True
+        return False
 
     @staticmethod
     def getKind(someArg:Union[str, int]) -> 'NodeSelKind':  # nee def argType()
         """Categorize one of the arguments to __getitem__().
         """
-        if (someArg is None): return NodeSelKind.ARG_NONE
-        if (isinstance(someArg, int)): return NodeSelKind.ARG_INT
+        if (someArg is None):
+            return NodeSelKind.ARG_NONE
 
-        if (XMLStrings.isXmlName(someArg)): return NodeSelKind.ARG_NAME
-        if (someArg == "*"): return NodeSelKind.ARG_STAR
+        if (isinstance(someArg, int)):
+            return NodeSelKind.ARG_INT
 
-        if (someArg[0] == "@" and XMLStrings.isXmlName(someArg[1:])):
+        fchar = someArg[0]
+        if (fchar == "*"):
+            return NodeSelKind.ARG_STAR
+        elif (fchar == "@"):  # no combo with numeric slicing
+            assert XMLStrings.isXmlName(someArg[1:])
             return NodeSelKind.ARG_ATTR
-        # Next 3 can all be handled by _getListItemsByName_()
-        if (someArg == "#text"):
-            return NodeSelKind.ARG_TEXT
-        if (someArg ==  "#comment"):
-            return NodeSelKind.ARG_COMMENT
-        if (someArg == "#pi"):
-            return NodeSelKind.ARG_PI
-        if (someArg == "#cdata"):
-            return NodeSelKind.ARG_CDATA
-        #if (someArg == ".."): return NodeSelKind.ARG_ANCESTOR
-        raise ValueError("Bad argument type for '%s'." % (someArg))
+        elif (fchar == "#"):
+            return NodeSelKind.reservedWords[someArg]
+        else:
+            assert XMLStrings.isXmlName(someArg)
+            return NodeSelKind.ARG_NAME
 
 
 ###############################################################################
 #
 class PyNode(Node):
-    nameStartChar = str("[:_A-Za-z" +
-        "\u00C0-\u00D6" + "\u00D8-\u00F6" + "\u00F8-\u02FF" +
-        "\u0370-\u037D" + "\u037F-\u1FFF" + "\u200C-\u200D" +
-        "\u2070-\u218F" + "\u2C00-\u2FEF" + "\u3001-\uD7FF" +
-        "\uF900-\uFDCF" + "\uFDF0-\uFFFD" +
-        "\u10000-\uEFFFF" +
-        ']')
-    nameChar  = re.sub(
-        '^\\[', '[-.0-9\u00B7\u0300-\u036F\u203F-\u2040', nameStartChar)
-    xmlName = nameStartChar + nameChar + '*'
-
-    @staticmethod
-    def isXmlName(s:str) -> bool:
-        if (s is None): return False
-        #print("types: expr %s, s %s." % (type(PyNode.xmlName), type(s)))
-        if (re.match(PyNode.xmlName, s, re.UNICODE)): return True
-        return False
-
-    def __init__(self, *args9, **kwargs):
-        super(PyNode, self).__init__(self, *args9, **kwargs)
-
     def __getitem__(self:Node, n1:int, n2:int=None, n3:str=None) -> List:
         """Access nodes via Python list notation.
         """
-        typ1 = NodeSelKind.getKind(n1)
-        typ2 = NodeSelKind.getKind(n2)
-        typ3 = NodeSelKind.getKind(n3)
+        nargs = 0
+        typ1 = typ2 = typ3 = None
+        if (n1 is not None):
+            nargs = 1
+            typ1 = NodeSelKind.getKind(n1)
+            if (n2 is not None):
+                nargs = 2
+                typ2 = NodeSelKind.getKind(n2)
+                if (n3 is not None):
+                    nargs = 3
+                    typ3 = NodeSelKind.getKind(n3)
         print("getKinds are %s, %s, %s." % (typ1, typ2, typ3))
-        if (n3 is not None): nargs = 3
-        elif (n2 is not None): nargs = 2
-        else: nargs = 1
 
         if (typ2==PyNode.ARG_ATTRIBUTE or typ3==PyNode.ARG_ATTRIBUTE or
             (typ1==PyNode.ARG_ATTRIBUTE and nargs>1)):
@@ -263,44 +288,39 @@ class PyNode(Node):
         return len(self.childNodes)
 
     def what(self):
-        """Avoid the confusing distinction of nodeType vs. nodeName vs. element type/name,
-        by putting everything into a common space.
+        """Map from nodeTypes to our names (same as nodeName except for attrs).
         """
-        if (self.nodeType == Node.ELEMENT_NODE):   return self.nodeName
-        if (self.nodeType == Node.TEXT_NODE):      return "#TEXT"
-        if (self.nodeType == Node.DOCUMENT_NODE):  return "#DOC"
         if (self.nodeType == Node.ATTRIBUTE_NODE): return "@" + self.nodeName
-        if (self.nodeType == Node.COMMENT_NODE):   return "#COM"
-        if (self.nodeType == Node.CDATA_NODE):     return "#CDATA"
-        if (self.nodeType == Node.PROCESSING_INSTRUCTION_NODE): return "#PI"
-        else: return None
+        else: return self.nodeName
 
     def DEcontains(self:Node, nodeName:str) -> bool:
-        """Test whether the node has a direct child of the given element type.
+        """Test whether the node has a direct child of the given type.
         """
         if (nodeName[0] == '@'):
             return self.hasAttribute(nodeName)
         for ch in self.childNodes:
-            if (ch.nodeType == Node.ELEMENT_NODE and
-                (nodeName == '*' or nodeName == ch.nodeName)): return True
-            if (nodeName[0] == '#' and nodeName == self.nodeName): return True
-            return False
+            if (ch.nodeType == Node.ELEMENT_NODE):
+                if (nodeName == '*' or nodeName == ch.nodeName): return True
+            elif (nodeName[0] == '#' and nodeName == self.nodeName): return True
+        return False
 
     def _getChildNodesByName_(self:Node, name:str) -> list:
         """Return a list of this node's children of a given element name
         '*' gets all element children, but no pi, comment, text....
+        TODO: Add support for #NWSN
         """
         return self._getListItemsByName_(self.childNodes, name)
 
     def _getListItemsByName_(self:Node, theList:list, s:str) -> list:
         """This accepts element type names, #text etc., and "*".
         No attributes or ints here.
+        TODO: Add support for #NWSN
         """
         typ = NodeSelKind.getKind(s)
         if (typ not in [ PyNode.ARG_RESERVED, PyNode.ARG_STAR, PyNode.ARG_NAME ]):
             raise IndexError(
                 "Node index '%s' is not reserved, '*', or an element type name." % (s))
-        inodes = []
+        inodes = []  # TODO: Switch to NodeList per se.
         for item in theList:
             if (item.nodeType==Node.ELEMENT_NODE and (s=='*' or item._nodeName==s)):
                 inodes.append(item)

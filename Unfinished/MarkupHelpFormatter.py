@@ -9,6 +9,9 @@ import re
 import string
 import argparse
 import html
+import logging
+
+lg = logging.getLogger("MarkupHelpFormatter")
 
 __metadata__ = {
     "title"        : "MarkupHelpFormatter",
@@ -450,13 +453,6 @@ specialChars = {
     "lt": "<", "gt": ">", "apos": "'", "quo": '"', "amp": "&",
 }
 
-def vMsg(level, msg):
-    if (verbose<level): return
-    if (msg.startswith("====")):
-        sys.stderr.write("\n" + ("*"*79) +"\n")
-        msg = msg[4:]
-    sys.stderr.write(msg+"\n")
-
 def makeDispayedLines(lines):
     assert (isinstance(lines, list))
     buf = ""
@@ -632,7 +628,7 @@ class Loader:
         sys.stderr.write("*** Entering _format_text for instance %d, textlen %d.\n" %
             (self.whichInstanceAmI, len(txt)))
 
-        vMsg(1, ">>>In MarkupHelpFormatter._format_text()<<<")
+        lg.log(logging.INFO-1, ">>>In MarkupHelpFormatter._format_text()<<<")
         #buf = super(MarkupHelpFormatter, self)._format_text(txt))
         buf = self.format(txt)
         return(buf)
@@ -691,7 +687,8 @@ class Loader:
         """Recognize line-initial and line-internal markup from several
         systems. Layout with whitespace and color per options.
         """
-        vMsg(1, "====Entering MarkupHelpFormatter.format(), passed %s, len %d.\n" %
+        lg.log(logging.INFO-1,
+            "====Entering MarkupHelpFormatter.format(), passed %s, len %d.\n" %
             (type(s), len(s)))
         self.resetLists()
         # If needed set up entity decoding
@@ -704,23 +701,23 @@ class Loader:
         if (width <= 0):
             width = 80
             if ("WIDTH" in os.environ): width = os.environ["WIDTH"]
-        vMsg(1, "format called, width %d (input length %d)" % (width, len(s)))
+        lg.log(logging.INFO-1, "format called, width %d (input length %d)" % (width, len(s)))
 
         theLines = re.split(r"\r\n?|\n", s)
-        vMsg(1, "====Split got %d lines *******" % (len(theLines)))
+        lg.log(logging.INFO-1, "====Split got %d lines *******" % (len(theLines)))
 
         blocks = self.makeBlocks(theLines)
         if (verbose):
             msg = ""
             for b in blocks: msg += b.tostring() + "\n"
             if (verbose>=1):
-                vMsg(1, "====Before doing inlines (%d blocks):\n%s" %
+                lg.log(logging.INFO-1, "====Before doing inlines (%d blocks):\n%s" %
                     (len(blocks), msg))
                 for i, b in enumerate(blocks):
-                    vMsg(1, "#%03d: %s" % (i, b.tostring()))
+                    lg.log(logging.INFO-1, "#%03d: %s" % (i, b.tostring()))
 
         blocks = self.doInlines(blocks)
-        vMsg(1, "====After doing inlines (%d blocks):\n%s" %
+        lg.log(logging.INFO-1, "====After doing inlines (%d blocks):\n%s" %
             (len(blocks), makeDispayedLines(blocks)))
 
         # Break block-level objects to fit screen
@@ -728,10 +725,10 @@ class Loader:
         wrapped = []
         for i in range(0,len(blocks)):
             curWrap = self.wrap(blocks[i], width, marginLeft=self.podListLevel*4)
-            vMsg(1, "    Block #%3d made %d lines" % (i, len(curWrap)))
+            lg.log(logging.INFO-1, "    Block #%3d made %d lines" % (i, len(curWrap)))
             wrapped.extend(curWrap)
 
-        vMsg(1, "====After wrapping , %d entries)" % (len(wrapped)))
+        lg.log(logging.INFO-1, "====After wrapping , %d entries)" % (len(wrapped)))
 
         # Concat by hand to get precise locs of errors
         if (False):
@@ -740,7 +737,7 @@ class Loader:
                 try:
                     ww += "".join(wrapped)
                 except UnicodeDecodeError as e:
-                    vMsg(0, "******* UnicodeDecodeError: %s" % (e))
+                    lg.log(logging.INFO-0, "******* UnicodeDecodeError: %s" % (e))
                     ww += w.decode("utf-8")  # Should have happened earlier...
             return(ww)
         return "".join(wrapped)
@@ -773,7 +770,7 @@ class Loader:
         blanks = 0
         for i in range(0,len(inlines)):
             line = inlines[i]
-            vMsg(2, "LINE %3d: <<%s>>" % (i, line))
+            lg.log(logging.INFO-2, "LINE %3d: <<%s>>" % (i, line))
             line = line.expandtabs(tabSize)
             if (HTMLon):
                 line = re.sub(r"\s*<!--.*-->\s*$", "", line)
@@ -893,14 +890,14 @@ class Loader:
         """
         headLevel = 0
         blockType = None
-        vMsg(3, "      POD command '%s'" % (cmd))
+        lg.log(logging.INFO-3, "      POD command '%s'" % (cmd))
 
         if (cmd == "head"):
             blockType = "HEAD"
             mat2 = re.match(r"=head(\d)", line)
             if (mat2):
                 headLevel = int(mat2.group(1))
-                vMsg(3, "      POD heading, level %d" % (headLevel))
+                lg.log(logging.INFO-3, "      POD heading, level %d" % (headLevel))
                 line = line[7:]
             else:
                 headLevel = 1
@@ -1114,7 +1111,7 @@ class Block:
         t = re.sub(r"\s+$",       "", t)
         if (t.find(chr(27)) >= 0):
             if (not self.gaveEscMessage):
-                vMsg(0, "MarkupHelpFormatter: " +
+                lg.log(logging.INFO-0, "MarkupHelpFormatter: " +
                     "uncoloredLength() left some escape(s) in %s" % (repr(t)))
                 self.gaveEscMessage += 1
         return(len(s))
@@ -1152,7 +1149,7 @@ class Block:
                   re.search(r"https?://", token)):
                 avail = effWidth-lineLen-1
                 loc = token.rfind("/", 1, avail)
-                #vMsg(0,
+                #lg.log(logging.INFO-0,
                 #    "# Breaking URI, avail %d, token %d, / at %d: '%s'.\n"
                 #    % (avail, tokenLen, loc, token))
                 if (loc>-1): # break there
@@ -1188,7 +1185,7 @@ class ListManager:
         buf = (" " * ind)
         while (len(self.listCounts)<=depth): self.listCounts.append(1)
         self.listCounts[depth] += 1
-        vMsg(1, "In doListItem: code %-8s depth %d counts: %s." %
+        lg.log(logging.INFO-1, "In doListItem: code %-8s depth %d counts: %s." %
             (code, depth, str(self.listCounts)))
         if (code[-1] == "*"):
             buf += self.getULMarker(depth)
@@ -1616,7 +1613,7 @@ class outHTML:
         if (not tag):
             tag = self.tagStack[-1]
         elif (tag not in self.tagStack):
-            if (required): vMsg(1,
+            if (required): lg.log(logging.INFO-1,
                 "MarkupHelpFormatter: closing '%s' but stack is [ %s ]." %
                 (tag, "/".join(self.tagStack)))
             return(False)

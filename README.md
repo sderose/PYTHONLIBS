@@ -71,11 +71,11 @@ like red/white/bold (for bold red text on a white background).  [Moving]
 * `DomExtensions.py` -- Everything you always wanted to have in DOM, but were afraid
 to ask for. Has a method to monkey-patch it all onto a DOM implementation.  [Moving]
 
-* `Homogeneous.py` -- Defines 'hlist' and 'hdict', subclasses of list and dict
+* `homogeneous.py` -- Defines 'hlist' and 'hdict', subclasses of list and dict
 that let you constrain values (and/or keys for hdict) to certain types and/or
 values. Whether subclasses are ok, and whether None is ok, also controllable.
 
-* `LooseDict.py` -- A subclass of dict, that lets you attach a "normalization"
+* `loosedict.py` -- A subclass of dict, that lets you attach a "normalization"
 function for keys. For example, specifying lower() gives you a case-ignoring
 dictionary. Each entry stores both the normalized and (last-set) unnormalized key.
 

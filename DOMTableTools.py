@@ -1193,20 +1193,20 @@ class NormTable:
         TODO: Implement using addToCell().
         """
 
-    def addToCell(self, cell:Node, text:str, locus:str="#TEXT",
+    def addToCell(self, cell:Node, text:str, locus:str="#text",
         disp:str="REPLACE", sep:str=" "):
         """Attach the given 'text' to the given 'cell', in a certain place:
-            locus: If #TEXT, in content, otherwise on the named attribute.
+            locus: If #text, in content, otherwise on the named attribute.
             disp: One of
                 REPLACE -- replace all of the existing text or attrvalue (if any)
                 BEFORE -- prepend
                 AFTER -- append
                 UNION -- only for tokenized attributes like HTML @CLASS; this
                     appends if the same token isn't there, else does nothing.
-            Except for #TEXT or REPLACE, put 'sep' in as a separator.
+            Except for #text or REPLACE, put 'sep' in as a separator.
         """
         # TODO: This may create adjacent text nodes.
-        if (locus == "#TEXT"):
+        if (locus == "#text"):
             newCell = self.makeTextNode(text)
             if (disp == "REPLACE"):
                 while (cell.childNodes): cell.delete(cell.childNodes[-1])
@@ -1230,7 +1230,7 @@ class NormTable:
                 assert False, "DISP must be one of REPLACE, BEFORE, AFTER, UNION."
             cell.setAttribute(val)
         else:
-            assert False, "locus must be #TEXT or an attribute name"
+            assert False, "locus must be #text or an attribute name"
 
 
     ###########################################################################

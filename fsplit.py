@@ -639,7 +639,7 @@ Python `csv` [https://docs.python.org/3/library/csv.html].
 My `csv2xml.py` -- Obsolete precursor to `fsplit.py`, but has a number of
 possibly useful export formats.
 
-See "also my related scripts such as `Record.py`, `Homogeneous.py`,
+See "also my related scripts such as `Record.py`, `homogeneous.py`,
 `Datatypes.py` for some other features that may be added.
 
 There is also (in progress) a suite of command-line filters built on top.
@@ -2160,7 +2160,7 @@ class DatatypeHandler:
     """Check and cast among some types.
     See also: CSV/countData.TrivialTypes;
               PYTHONLIBS/Datatypes.py
-              PYTHONLIBS/Homogeneous.py
+              PYTHONLIBS/homogeneous.py
               XML/SCHEMAS/ElementManager.py:class AttrTypes
               alogging/formatRec
     """
@@ -2712,7 +2712,7 @@ class FieldSchema():
     """Keep track of the known fields, each as a FieldInfo.
     The list can be built manually or initialized from a header record, which
     may have just names or a syntax much like Python type-hints.
-    See also Homogeneous.py.
+    See also homogeneous.py.
 
     Usage:
         fs = FieldSchema()

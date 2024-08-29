@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# StrBuf.py: A mutable string buffer, fast changes even for big strings.
+# strbuf: A mutable string buffer, fast changes even for big strings.
 # 2021-08-03: Written by Steven J. DeRose.
 #
 #pylint: disable=W0221  # To allow added 'inplace' args.
@@ -69,8 +69,6 @@ mutable.
 
 
 =Related Commands=
-
-`StrBufTest.py`.
 
 See
 [https://stackoverflow.com/questions/7255655/how-to-subclass-str-in-python]

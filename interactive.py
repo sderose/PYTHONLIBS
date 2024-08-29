@@ -63,9 +63,7 @@ from xml.parsers import expat
 from html.entities import codepoint2name, name2codepoint
 import html5lib
 
-
 import DomExtensions
-from PowerWalk import PowerWalk, PWType
 import sjdUtils
 su = sjdUtils.sjdUtils()
 

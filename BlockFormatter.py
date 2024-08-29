@@ -15,6 +15,9 @@ import os
 import codecs
 import argparse
 from typing import Tuple, Dict, Any
+import logging
+
+lg = logging.getLogger("BlockFormatter")
 
 __metadata__ = {
     "title"        : "BlockFormatter",
@@ -312,14 +315,6 @@ specialChars.update(dashChars)
 specialChars.update(spaceChars)
 breakableExpr = r"[-\s%s]" % (specialChars)
 
-def warning0(msg:str):
-    if (msg.startswith("====")): sys.stderr.write("\n" + "="*79 + "\n")
-    sys.stderr.write(msg+"\n")
-def warning1(msg:str):
-    if (BlockFormatter._options["verbose"]>=1): warning0(msg)
-def warning2(msg:str):
-    if (BlockFormatter._options["verbose"]>=2): warning0(msg)
-
 def makeVis(s:str):
     """Turn control characters into Unicode Control Pictures.
     TODO: Make wrapping treat these as breakable?
@@ -475,7 +470,7 @@ class BlockFormatter(argparse.HelpFormatter):
             blocks = BlockFormatter.makeBlocks(text)
 
         for i in range(len(blocks)):
-            warning2("\n******* BLOCK %d (len %d): //%s//" %
+            lg.log(logging.INFO-2, "\n******* BLOCK %d (len %d): //%s//" %
                 (i, len(blocks[i]), blocks[i]))
             item, istring = BlockFormatter.doSpecialChars(blocks[i])
 
@@ -500,7 +495,7 @@ class BlockFormatter(argparse.HelpFormatter):
                 withNewlines = ansify(withNewlines)
 
             blocks[i] = withNewlines
-        warning2("\n******* FORMATTING DONE *******\n")
+        lg.log(logging.INFO-2, "\n******* FORMATTING DONE *******\n")
         return "\n".join(blocks)
 
     @staticmethod
@@ -675,14 +670,14 @@ if __name__ == "__main__":
 
     if (len(args.files) == 0):
         tfile = "/tmp/BlockFormatter.md"
-        warning0("No files specified, copying own help text to %s" % (tfile))
+        lg.info("No files specified, copying own help text to %s" % (tfile))
         fh = codecs.open(tfile, "wb", encoding=args.iencoding)
         fh.write(descr)
         fh.close()
         args.files.append(tfile)
 
     for path0 in args.files:
-        warning0("\n******* Starting test file '%s'" % (path0))
+        lg.info("\n******* Starting test file '%s'" % (path0))
         fh0 = codecs.open(path0, "rb", encoding=args.iencoding)
         testText = fh0.read()
         if (args.split):

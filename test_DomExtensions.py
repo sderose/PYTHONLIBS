@@ -275,11 +275,11 @@ def subtest_xml_strings(dom):
                       0, 1, 1,  0,  1),
         ( "html:li",  0, 1, 1,  0,  1),
     ]
-    for s, isName, isQName, isPName, isNUM, isNSA in x:
+    for s, isName, isXmlQName, isXmlPName, isNUM, isNSA in x:
         try:
             assert isName == XMLStrings.isXmlName(s)
-            assert isQName == XMLStrings.isXmlQName(s)
-            assert isPName == XMLStrings.isXmlPName(s)
+            assert isXmlQName == XMLStrings.isXmlQName(s)
+            assert isXmlPName == XMLStrings.isXmlPName(s)
             assert isNSA == (NodeSelKind.getKind(s) is not None) # allows initial [#@] and "*"
             assert isNUM == XMLStrings.isXmlNumber(s)
         except (AssertionError, ValueError):

@@ -27,7 +27,7 @@ __version__ = __metadata__["modified"]
 
 descr = """
 =Name=
-    """ +__metadata__["title"] + ": " + __metadata__["description"] + """
+versionStatus: Figure out what VCS a file belongs to, if any.
 
 =Description=
 

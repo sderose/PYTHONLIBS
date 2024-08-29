@@ -156,14 +156,14 @@ be specified as an option when defining each named pattern.
 
 [https://github.com/sderose/PYTHONLIBS/blob/master/Record.py]: Similar
 to Python `namedtuple`, but supporting type contraints similer to those
-of `Homogeneous.py`, as well as value defaults
+of `homogeneous.py`, as well as value defaults
 
-[https://github.com/sderose/PYTHONLIBS/blob/master/LooseDict.py]:
+[https://github.com/sderose/PYTHONLIBS/blob/master/loosedict.py]:
 A subclass of `dict` that includes key normalization. For example, matching
 string keys via case-folding or Unicode normalization, or
 numeric values with rounding, etc.
 
-[https://github.com/sderose/PYTHONLIBS/blob/master/Homogeneous.py]:
+[https://github.com/sderose/PYTHONLIBS/blob/master/homogeneous.py]:
 Type-checked lists ad dicts.
 
 
