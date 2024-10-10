@@ -107,7 +107,7 @@ See also the ''ColorManager'' class, described below.
 Surround XML content (not markup) with ANSI terminal codes to display
 it in the specified color. Default: the color for the "x" message type.
 
-''See XMLRegexes packge for relevant 'isa' functions for character classes.''
+''See XmlRegexes packge for relevant 'isa' functions for character classes.''
 
 
 ==JSON-related methods==
@@ -534,10 +534,10 @@ Split color to internal class. Add XMLExprs() class.
 Add quote/unquote methods. Remove teefile option. Implement try_module().
 Write unit tests and fix several bugs. Add HNumber 'base' arg.
 * 2016-09-09: Add strip_accents().
-* 2016-10-04: Move more stuff into XMLRegexes class (nee XMLExprs).
+* 2016-10-04: Move more stuff into XmlRegexes class (nee XMLExprs).
 * 2016-10-31: Move ColorManager out to be a separate package.
 * 2016-12-13: Add align().
-* 2018-01-11: Move XMLRegexes out to separate package.
+* 2018-01-11: Move XmlRegexes out to separate package.
 * 2018-03-20: Don't die if ColorManager not available.
 * 2018-08-16: Keep chr() defined even in Python 3.
 * 2018-09-25ff: Clean up more PY 2 vs. 3 details.

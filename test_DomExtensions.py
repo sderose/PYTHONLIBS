@@ -12,9 +12,10 @@ import logging
 from xml.dom import minidom
 #from xml.dom.minidom import Document, Node, Element
 
-from DomExtensions import DomExtensions as de
-from DomExtensions import XMLStrings, NodeSelKind
-from DomExtensions import NodeTypes
+from xmlstrings import XmlStrings
+from domgetitem import NodeSelKind
+from domextensions import NodeTypes
+from domextensions import DomExtensions
 
 lg = logging.getLogger("main")
 
@@ -240,17 +241,17 @@ def test_driver(fh=None):
 def subtest_meta(doc):
     nErrors = 0
     # x = enableBrackets(toPatch=Node)
-    de.patchDOM()
+    DomExtensions.patchDOM()
     # x = patchNamedNodeMap()
     # x = patchDomAuto(
-    assert de.checkPatch() == 0
+    assert DomExtensions.checkPatch() == 0
     return nErrors
 
 
 ###############################################################################
 # Basic constructs like strings, tokens, escaping. Things that don't actually
 # need a DOM document or node, but just work on strings.
-# Mostly, these are staticmethods in DomExtensions.XMLStrings.
+# Mostly, these are staticmethods in DomExtensions.XmlStrings.
 #
 def subtest_xml_strings(dom):
     nErrors = 0
@@ -277,11 +278,11 @@ def subtest_xml_strings(dom):
     ]
     for s, isName, isXmlQName, isXmlPName, isNUM, isNSA in x:
         try:
-            assert isName == XMLStrings.isXmlName(s)
-            assert isXmlQName == XMLStrings.isXmlQName(s)
-            assert isXmlPName == XMLStrings.isXmlPName(s)
+            assert isName == XmlStrings.isXmlName(s)
+            assert isXmlQName == XmlStrings.isXmlQName(s)
+            assert isXmlPName == XmlStrings.isXmlPName(s)
             assert isNSA == (NodeSelKind.getKind(s) is not None) # allows initial [#@] and "*"
-            assert isNUM == XMLStrings.isXmlNumber(s)
+            assert isNUM == XmlStrings.isXmlNumber(s)
         except (AssertionError, ValueError):
             print("Failed for candidate name '%s'." % (s))
             raise
@@ -303,8 +304,8 @@ def subtest_xml_strings(dom):
     for s, isInt, isName, isAttr, isStar, isReserved, isRegex in x:
         sKind = NodeSelKind.getKind(s)
         assert isInt      == bool(sKind == NodeSelKind.ARG_INT)
-        assert isName     == bool(sKind == NodeSelKind.ARG_NAME)
-        assert isAttr     == bool(sKind == NodeSelKind.ARG_ATTR)
+        assert isName     == bool(sKind == NodeSelKind.ARG_ELEMENT)
+        assert isAttr     == bool(sKind == NodeSelKind.ARG_ATTRIBUTE)
         assert isStar     == bool(sKind == NodeSelKind.ARG_STAR)
         assert isReserved == bool(sKind in [ NodeSelKind.ARG_COMMENT,
             NodeSelKind.ARG_TEXT, NodeSelKind.ARG_PI, NodeSelKind.ARG_CDATA ])
@@ -313,27 +314,27 @@ def subtest_xml_strings(dom):
     # On strings
     # TODO: options for ZML escaping, hex/dec/name entities, width, maybe TEX? Ents
     # TODO: escaping ]]> could be done in a lot of ways....
-    assert (XMLStrings.escapeAttribute("""hello 'ew' "ahh" <foo>""", quoteChar='"') ==
+    assert (XmlStrings.escapeAttribute("""hello 'ew' "ahh" <foo>""", quoteChar='"') ==
         """hello 'ew' &quot;ahh&quot; &lt;foo>""")
-    assert (XMLStrings.escapeAttribute("""hello 'ew' "ahh" <foo>""", quoteChar="'") ==
+    assert (XmlStrings.escapeAttribute("""hello 'ew' "ahh" <foo>""", quoteChar="'") ==
         """hello &apos;ew&apos; "ahh" &lt;foo>""")
 
     s = "hello <world> &noEnt; <?tgt foo?> <!--comment--> &#65; ]]> phew"
-    assert (XMLStrings.escapeText(s) ==
+    assert (XmlStrings.escapeText(s) ==
         "hello &lt;world> &amp;noEnt; &lt;?tgt foo?> &lt;!--comment--> ]]&gt; &amp;#65;phew")
-    assert (XMLStrings.escapeText(s, escapeAllGT=True) ==
+    assert (XmlStrings.escapeText(s, escapeAllGT=True) ==
         "hello &lt;world&gt; &amp;noEnt; &lt;?tgt foo?&gt; &lt;!--comment--&gt; ]]&gt; phew")
-    assert (XMLStrings.escapeCDATA(s) ==
+    assert (XmlStrings.escapeCDATA(s) ==
         "hello <world> &noEnt; <?tgt foo?> <!--comment--> ]]&gt; phew")
-    assert (XMLStrings.escapeComment(s, replaceWith="-&#x2d;") ==
+    assert (XmlStrings.escapeComment(s, replaceWith="-&#x2d;") ==
         "hello <world> &noEnt; <?tgt foo?> <!-&#x2d;comment-&#x2d;> ]]> phew")
-    assert (XMLStrings.escapePI(s, replaceWith="?&gt;") ==
+    assert (XmlStrings.escapePI(s, replaceWith="?&gt;") ==
         "hello <world> &noEnt; <?tgt foo?&gt <!--comment--> ]]>; phew")
 
     s = "alpha \u03b1 nbsp \xA0 sharp-s \xdf pilcrow \xB6 rpilcrow \u204B end"
-    assert (XMLStrings.escapeASCII(s, width=4, base=16, htmlNames=True) ==
+    assert (XmlStrings.escapeASCII(s, width=4, base=16, htmlNames=True) ==
         "alpha &#x03b1; nbsp &#x00A0; sharp-s &#x00df; pilcrow &#x00B6; rpilcrow &#x204B; end")
-    assert (XMLStrings.escapeASCII(s, base=10, htmlNames=False) ==
+    assert (XmlStrings.escapeASCII(s, base=10, htmlNames=False) ==
         "alpha \u03b1 nbsp \xA0 sharp-s \xdf pilcrow \xB6 rpilcrow \u204B end")
 
     # Check handling of prohibited C0 characters
@@ -343,14 +344,14 @@ def subtest_xml_strings(dom):
         if (i in [ 9, 10, 13 ]): continue  # These are ok
         bad += "and \\x%02x" % (i)
         ok += "and "
-    assert (XMLStrings.nukeNonXmlChars(bad) == ok)
+    assert (XmlStrings.dropNonXmlChars(bad) == ok)
     ents = "decimal &#64; and &#00000000065; and &#x43; and &#X0000044; and &#969; &#x3c9; &omega;"
     lits = "decimal A and B and C and D and \u03c9; \u03c9; \u03c9;"
-    assert (XMLStrings.unescapeXml(ents) == lits)
+    assert (XmlStrings.unescapeXml(ents) == lits)
 
     s = USpacesStr
-    assert (XMLStrings.normalizeSpace(s, allUnicode=True) == "")
-    assert (XMLStrings.stripSpace(s, allUnicode=True) == "")
+    assert (XmlStrings.normalizeSpace(s, allUnicode=True) == "")
+    assert (XmlStrings.stripSpace(s, allUnicode=True) == "")
 
     return nErrors
 

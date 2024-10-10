@@ -1908,7 +1908,7 @@ def protectDisplay(c, alt="[omitted]"):
     c may be a character or an int code point.
     """
     if isinstance(c, int): c = chr(c)
-    if (re.match(r"[\\s\\x00-\\x1F\\x80-\\x9F]", c, re.UNICODE)): return alt
+    if (re.match(r"[\\s\\x00-\\x1F\\x80-\\x9F]", c, flags=re.UNICODE)): return alt
     return c
 
 def stringToHex(x) -> str:

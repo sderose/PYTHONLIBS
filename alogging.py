@@ -1508,6 +1508,7 @@ class FormatRec:
                 fb.add(depth, self.closeList)
 
         elif (isinstance(obj, list)):                     # LIST
+            sys.stderr.write("It's a list, len %d" % (len(obj)))
             lenPart = self.getLenDisplay(typeName, obj)
             if (len(obj)):
                 buf += ind + lenPart + self.openList + "\n"

@@ -6,7 +6,7 @@
 
 import xml.dom
 import xml.dom.minidom
-from DomExtensions import DomExtensions
+from domextensions import DomExtensions
 
 from alogging import ALogger
 lg = ALogger(1)

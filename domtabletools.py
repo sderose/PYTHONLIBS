@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# DOMTableTools.py: Do fancy table stuff with *ML tables.
+# domtabletools.py: Do fancy table stuff with *ML tables.
 # 2022-01-30: Written by Steven J. DeRose.
 #
 #pylint: disable=E1101
@@ -16,7 +16,7 @@ from xml.dom.minidom import Node  # , Element, Document
 from xml.dom import minidom
 
 from fsplit import fsplit
-from DomExtensions import DomExtensions, XMLStrings
+from domextensions import DomExtensions, XmlStrings
 
 DomExtensions.patchDom()
 
@@ -25,7 +25,7 @@ lg = logging.getLogger()
 sys.stderr.write("Node.selectAncestor is %s." % (Node.selectAncestor))
 
 __metadata__ = {
-    "title"        : "DOMTableTools",
+    "title"        : "domtabletools",
     "description"  : "Do fancy table stuff with *ML tables.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
@@ -207,7 +207,7 @@ in those cells.
 
 ==Usage==
 
-    DOMTableTools.py [options] [files]
+    domtabletools.py [options] [files]
 
 XML:sexp::SQL:CSV
 
@@ -275,7 +275,7 @@ See [https://stackoverflow.com/questions/60560093/monkey-patching-class-with-inh
 =History=
 
 * 2022-01-30: Written by Steven J. DeRose (draft, really).
-* 2023-04-28: Move in table stuff from DomExtensions. Split out TableOptions class.
+* 2023-04-28: Move in table stuff from domextensions. Split out TableOptions class.
 Make main class a wrapper that owns a table Node and a TableOptions.
 Organize methods by components of a table. Decide to require clean (no nesting,
 always has thead/tbody, one thead/tr, no spans, co-indexed column members.
@@ -472,7 +472,7 @@ def CreateTableFromCSV(self, path:str, hasHeader:bool=True, fsplitArgs:Dict=None
         for i, fd in enumerate(fds):
             colElem = self.ownerDocument.createElement(self.topt.TD)
             colElem.setAttribute(self.topt.CLASS, colIds[i])
-            colElem.innerHtml = XMLStrings.escapeText(fd)
+            colElem.innerHtml = XmlStrings.escapeText(fd)
     return self.tbl
 
 def doCSVHeader(self, ifh, fsplitArgs):

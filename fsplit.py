@@ -698,6 +698,12 @@ month is 30 days.
 
 =To do=
 
+===Checking===
+
+* system for reporting number of fields off, fields not of datatypes.
+* generate header w/ typehints and maybe defaults, given data?
+* better tx of non-associating values and boolean codings
+
 ===Format variations===
 
 * Add a convention for putting metasyntax in first record. Maybe like below

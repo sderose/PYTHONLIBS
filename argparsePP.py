@@ -399,7 +399,7 @@ def t_datetime_8601(s:str):
 #
 NMSTART = r"[_.A-Z]"
 NMCHAR  = r"[-_.:\w]"
-NAME = NMSTART + NMCHAR + "*"   # Add Unicode! Cf. XML/PARSERS/XMLRegexes.py.
+NAME = NMSTART + NMCHAR + "*"   # Add Unicode! Cf. XML/PARSERS/XmlRegexes.py.
 
 def t_xml_lang(s:str):
     return checkRegex(r"\w{2,3}(\.\w{2,3})?$", s)

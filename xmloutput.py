@@ -47,7 +47,7 @@ and so on.
 
 ==Example==
 
-  from XmlOutput import XmlOutput
+  from xmloutput import XmlOutput
   x = XmlOutput()
   xo.setOption("indent", True)
   xo.setOption("breakETAGO", False)
@@ -527,7 +527,7 @@ illegal control characters. self.encoding vs. options['oencoding']!
 * 2020-09-09: Better i/f and error-checking for openElements().
 Add closeElements(). Improve help. Fix bugs in setEmpty(). Catch errors on
 reconfigure for encoding, and warn instead of dieing.
-Start `makeDOM` class. Add tests for legit XML NAMEs from XMLRegexes.py.
+Start `makeDOM` class. Add tests for legit XML NAMEs from xmlregexes.py.
 * 2021-07-20: Add typehinting, normalize a few names, drop Python 2 accommodations.
 * 2024-06-18: Drop remaining Py2. More type hints.
 
@@ -1153,7 +1153,7 @@ class XmlOutput:
             n = int(nameOrNumber)
             if (self.options["entityBase"] == 10): rc = "&#%04d;" % (n)
             else: rc = "&#%04x;" % (n)
-        elif (re.match(r"[-:.\w]+$", nameOrNumber, re.UNICODE)):
+        elif (re.match(r"[-:.\w]+$", nameOrNumber, flags=re.UNICODE)):
             rc = "&%s;" % (nameOrNumber)
         else:
             rc = "<!-- BAD ENTITY '%s' -->" % (nameOrNumber)
@@ -1170,11 +1170,11 @@ class XmlOutput:
     def normalizeTag(self, tag:str):
         """Turn a tag into Canonical XML form. This is a perhaps-useful
         utility, but doesn't connect all that much with others.
-        See XMLRegexes.py for regexes.
+        See XmlRegexes.py for regexes.
         """
         if (XmlOutput.xcObj is None):
-            from XMLRegexes import XMLRegexes
-            XmlOutput.xcObj = XMLRegexes()
+            from xmlregexes import XmlRegexes
+            XmlOutput.xcObj = XmlRegexes()
         if (not re.match(XmlOutput.xcObj.x["stag"], tag)):
             raise ValueError("Not an XML start-tag: '%s'." % (tag))
         mat = re.match(r"<(\S+)", tag)
@@ -1221,7 +1221,7 @@ class XmlOutput:
     def fixName(self, name:str):
         """Turn a string into a valid XML name (imperfect char set).
         """
-        name = re.sub(r"[^-:._\w\d]", "_", name, re.UNICODE)
+        name = re.sub(r"[^-:._\w\d]", "_", name, flags=re.UNICODE)
         if (name == "" or re.match(r"[-_:\d]", name)):
             name = "A." + name
         return(name)
@@ -1234,7 +1234,7 @@ class XmlOutput:
         if (not (s)):
             return("")
         s = s.rstrip().lstrip()
-        s = re.sub(r"\s+", " ", s, re.UNICODE)
+        s = re.sub(r"\s+", " ", s, flags=re.UNICODE)
         return(s)
 
     def escapeXmlContent(self, s:str):
@@ -1372,9 +1372,9 @@ class makeDOM:
 
 ###########################################################################
 # Type-checks (excerpted from
-# [https://github.com/sderose/XML.git/PARSERS/blob/master/XMLRegexes.py])
+# [https://github.com/sderose/XML.git/PARSERS/blob/master/XmlRegexes.py])
 # TODO: Cut this over to use
-#     https://github.com/sderose/XML.git/PARSERS/blob/master/XMLRegexes.py
+#     https://github.com/sderose/XML.git/PARSERS/blob/master/XmlRegexes.py
 #
 class XmlSyntax:
     def __init__(self, check: bool=True):

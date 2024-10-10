@@ -5,6 +5,7 @@
 #
 import sys
 import argparse
+from typing import Union, List, Callable, Tuple
 
 __metadata__ = {
     "title"        : "homogeneous",
@@ -14,7 +15,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2020-02-19",
-    "modified"     : "2020-02-19",
+    "modified"     : "2024-10-03",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -58,9 +59,6 @@ key constraints work the same way.
 * `valueType`: This should be a defined type, such as
 `int`, `float`, `complex`, `bool`, `str`, or a class name.
 
-* `valueSubs:bool`: If set to True (which is the default), then subclasses
-of the given type are also acceptable; otherwise not.
-
 * `valueNone:bool`: If set to True (which is ''not'' the default), then
 the value `None` is acceptable.
 
@@ -79,16 +77,16 @@ or
 
 =API=
 
-* class hlist(self, valueType:type=None, valueSubs:bool=True,
+* class hlist(self, valueType:Union[type, Tuple[type]]=None,
 valueNone:bool=False, valueTest=None)
 
-This is an extension of the normal Python `list` type, that can constrain
-all the values placed in the list to be of a certain type.
+This is an extension of the normal Python `list` type.
 
+Items in the list must be of one of the classes given as valueType.
+"None" is permitted as an item only if valueNone is set.
 * class hdict(self,
-keyType=None, keySubs:bool=True, keyNone:bool=False, keyTest=None,
-valueType:type=None, valueSubs:bool=True,
-valueNone:bool=False, valueTest=None)
+keyType=None, keyNone:bool=False, keyTest=None,
+valueType:Union[type, Tuple[type]]:type=None, valueNone:bool=False, valueTest=None)
 
 This is an extension of the norml Python `dict` type. You can constrain
 the type for keys (typically but not necessarily to `str`), and/or the
@@ -130,6 +128,8 @@ set, frozenset, defaultdict, dequeue, Counter, OrderedDict....
 
 2020-02-19: Written by Steven J. DeRose.
 2020-11-21: Better doc.
+2024-10-03: Remove keySubs/valueSubs. Support Tuples of keyType/valueType.
+Type-hint valueTest args.
 
 
 =Rights=
@@ -151,17 +151,27 @@ or [https://github.com/sderose].
 #
 class hlist(list):
     """A Python list, but with all values required to be same type.
+    @param valueType: what class(es) are allowed as members
+    @param valueNone: Is None allowed?
+    @param valueTest: a callback to check the values, in addition to
+    the type-check implied by valueType.
+
+    TODO It might be useful to permit constraining members to an exact
+    class, even excluding subclasses. Meh.
     """
-    def __init__(self, valueType:type=None, valueSubs:bool=True,
-        valueNone:bool=False, valueTest=None):
+    def __init__(self,
+        valueType:Union[type, List[type]]=None,
+        valueNone:bool=False,
+        valueTest:Callable=None
+        ):
         super(hlist, self).__init__()
+        if not isinstance(valueType, Tuple): valueType = tuple( [ valueType ] )
         self.valueType = valueType
-        self.valueSubs = valueSubs
         self.valueNone = valueNone
         self.valueTest = valueTest
 
     def __setitem__(self, n, value):
-        if (not self.valueNone and value is None):
+        if (value is None and not self.valueNone):
             raise TypeError("hlist requires non-None value.")
         if (self.valueType is not None and
             not isinstance(value, self.valueType)):
@@ -178,16 +188,20 @@ class hdict(dict):
     """A Python dict, but with all keys and/or items required to be same type.
     """
     def __init__(self,
-        keyType=None, keySubs:bool=True, keyNone:bool=False, keyTest=None,
-        valueType:type=None, valueSubs:bool=True,
-        valueNone:bool=False, valueTest=None):
+        keyType=None,
+        keyNone:bool=False,
+        keyTest=None,
+        valueType:type=None,
+        valueNone:bool=False,
+        valueTest=None
+        ):
         super(hdict, self).__init__()
+        if not isinstance(keyType, Tuple):keyType = tuple( [ keyType ] )
         self.keyType = keyType
-        self.keySubs = keySubs
         self.keyNone = keyNone
         self.keyTest = keyTest
+        if not isinstance(valueType, Tuple): valueType = tuple( [ valueType ] )
         self.valueType = valueType
-        self.valueSubs = valueSubs
         self.valueNone = valueNone
         self.valueTest = valueTest
 

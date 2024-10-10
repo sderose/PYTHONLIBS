@@ -44,28 +44,30 @@ import stat
 import string
 
 from collections import defaultdict, namedtuple, OrderedDict, deque, Counter
-from datetime import date, datetime
+import typing
+from typing import IO, Dict, List, Union, Any, Iterable, Callable, Type
 from enum import Enum
 from io import StringIO
 import subprocess
 from subprocess import check_output, CalledProcessError
+
+from datetime import date, datetime
 from time import time, ctime
-import typing
-from typing import IO, Dict, List, Union, Any, Iterable, Callable, Type
 
 import unicodedata
+
 import xml
-import xml.dom
-import xml.dom.minidom
-from xml.dom.minidom import Document, Node, Element, Text, NamedNodeMap
-import xml.sax
+from xml import dom
+from xml.dom import minidom
+from xml.dom.minidom import Document, Node, Element, Text
+from xml import sax
 from xml.parsers import expat
 from html.entities import codepoint2name, name2codepoint
 import html5lib
 
-import DomExtensions
-import sjdUtils
-su = sjdUtils.sjdUtils()
+#import DomExtensions
+#import sjdUtils
+#su = sjdUtils.sjdUtils()
 
 c = 1+1j
 f = 0.0
@@ -78,6 +80,16 @@ d = { 'a':1, 'b':2, 'c':3 }
 t = ( 1, 2, 3 )
 NT = namedtuple('NT', [ 'a', 'b', 'c' ])
 theNT = NT(1, 2, 3)
+
+impl = minidom.getDOMImplementation()
+doc = impl.createDocument("", "html", None)
+docEl = doc.documentElement
+
+for cnum in range(10):
+    newEl = doc.createElement("p")
+    newEl.appendChild(doc.createTextNode("for the snark was a boojum"))
+    newEl.setAttribute("n", str(cnum))
+    docEl.appendChild(newEl)
 
 def show():
     """Display the *relevant* items.
@@ -96,7 +108,7 @@ def show():
             continue
         if (isinstance(thing, (type, typing._GenericAlias, typing._SpecialForm))):
             continue
-        print("    %-12s %-30s %s" % (gkey, type(thing).__name__, thing))
+        print("    %-12s %-25s %s" % (gkey, type(thing).__name__, thing))
 
 class myClass(dict):
     myClassVar = 1
@@ -106,7 +118,9 @@ class myClass(dict):
         self.i = 1
 
 
-print("Vars: c, f, i j k, l, d, t, NT theNT, myClass")
+print("Vars: c, f, i j k, l, d, t, NT theNT, myClass.")
+print("Classes: collections[], argparse, codecs, inspect, logging, math.")
+print("Xml: impl, doc, docEl (html/p[10]), Document, Node, Element, Text,...")
 print("Ready. Use 'show()' to see available vars.")
 
 if (sys.argv[-1] == "-h"):

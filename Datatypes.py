@@ -169,7 +169,7 @@ Type-checked lists ad dicts.
 
 ==XSD-related==
 
-`XMLRegexes.py`: A collection of relevant regexes for XML.
+`XmlRegexes.py`: A collection of relevant regexes for XML.
 
 
 =Known bugs and limitations=
@@ -205,7 +205,7 @@ The X- types don't check properly with the driver (at least).
 * 2020-08-12: New layout. Add X-Probability. Much cleaner regexes.
 POD to MarkDown. Add methods for defining and applying specific
 regexes and enums. Distinguish "Regex" type from "Match".
-* 2020-09-02: Pull in accurate Unicode XML character sets from XMLRegexes.py.
+* 2020-09-02: Pull in accurate Unicode XML character sets from xmlregexes.py.
 * 2020-09-22: Improve test harness, fix several bugs.
 
 

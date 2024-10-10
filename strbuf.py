@@ -8,6 +8,7 @@
 import sys
 import re
 import math
+from collections import UserString
 from typing import Callable, Iterable  # IO, Dict, List, Union
 
 __metadata__ = {
@@ -188,7 +189,7 @@ def fatal(msg): log(0, msg); sys.exit()
 ###############################################################################
 # TODO: Should this be a subclass of str?
 #
-class StrBuf(str):
+class StrBuf(UserString):
     """A class to support mutable, big strings with operations anywhere
     (including splicing).
     Break the string into a list of moderate-sized chunks.
