@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 #
-# interactive.py: Set up packages and variables to speed up quick experiments.
+# pythonStartup.py: Set up packages and variables to speed up quick experiments.
 # 2021-09-08: Written by Steven J. DeRose
 #
 # Code to run when using python interctively, to import a lot and create example
 # instances of various types.
 # Run with:
-#     python -i -m interactive
+#     python -i -m pythonStartup.py
+# or set PYTHONSTARTUP to point here.
 #
 #pylint: disable=W0611,W0212
 # flake8: noqa
 # fmt:off
 #
 __metadata__ = {
-    "title"        : "interactive",
+    "title"        : "pythonStartup",
     "description"  : "Init various things for interactive Python.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2021-09-08",
-    "modified"     : "2021-09-17",
+    "modified"     : "2025-01-04",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -77,6 +78,15 @@ k = 3
 
 l = [ 1, 2, 3 ]
 d = { 'a':1, 'b':2, 'c':3 }
+
+class e(Enum):
+    NONE = 0
+    A = 1
+    B = 2
+    C = 3
+
+sio = StringIO("This is a small StringIO buffer.")
+
 t = ( 1, 2, 3 )
 NT = namedtuple('NT', [ 'a', 'b', 'c' ])
 theNT = NT(1, 2, 3)

@@ -5,7 +5,7 @@
 #
 import sys
 import argparse
-from typing import Union, List, Callable, Tuple
+from typing import Union, List, Tuple, Any, Callable, Iterable
 
 __metadata__ = {
     "title"        : "homogeneous",
@@ -77,16 +77,15 @@ or
 
 =API=
 
-* class hlist(self, valueType:Union[type, Tuple[type]]=None,
+* class hlist(self, valueType:type=None,
 valueNone:bool=False, valueTest=None)
 
-This is an extension of the normal Python `list` type.
-
-Items in the list must be of one of the classes given as valueType.
+This is an extension of the normal Python `list` type, that requires all
+members to be of the same type.
 "None" is permitted as an item only if valueNone is set.
-* class hdict(self,
-keyType=None, keyNone:bool=False, keyTest=None,
-valueType:Union[type, Tuple[type]]:type=None, valueNone:bool=False, valueTest=None)
+
+* class hdict(self, keyType=None, keyNone:bool=False, keyTest=None,
+valueType:type]:type=None, valueNone:bool=False, valueTest=None)
 
 This is an extension of the norml Python `dict` type. You can constrain
 the type for keys (typically but not necessarily to `str`), and/or the
@@ -130,6 +129,7 @@ set, frozenset, defaultdict, dequeue, Counter, OrderedDict....
 2020-11-21: Better doc.
 2024-10-03: Remove keySubs/valueSubs. Support Tuples of keyType/valueType.
 Type-hint valueTest args.
+2025-01-08: Tape the tuples of types back out. Implement keyTest and valueTest.
 
 
 =Rights=
@@ -151,35 +151,45 @@ or [https://github.com/sderose].
 #
 class hlist(list):
     """A Python list, but with all values required to be same type.
-    @param valueType: what class(es) are allowed as members
+    @param valueType: what class is allowed as members
     @param valueNone: Is None allowed?
     @param valueTest: a callback to check the values, in addition to
     the type-check implied by valueType.
-
-    TODO It might be useful to permit constraining members to an exact
-    class, even excluding subclasses. Meh.
     """
     def __init__(self,
-        valueType:Union[type, List[type]]=None,
+        valueType:type=None,
         valueNone:bool=False,
         valueTest:Callable=None
         ):
         super(hlist, self).__init__()
-        if not isinstance(valueType, Tuple): valueType = tuple( [ valueType ] )
         self.valueType = valueType
         self.valueNone = valueNone
         self.valueTest = valueTest
 
     def __setitem__(self, n, value):
-        if (value is None and not self.valueNone):
-            raise TypeError("hlist requires non-None value.")
-        if (self.valueType is not None and
-            not isinstance(value, self.valueType)):
-            raise TypeError("hlist requires values of type %s, but got %s." %
-                (self.valueType, type(value)))
-        if (self.valueTest is not None and not self.valueTest(value)):
-            raise TypeError("hlist value %s fails required test." % (value))
+        self._verifyValue(value)
         self[n] = value
+
+    def _verifyValue(self, value) -> None:
+        if value is None:
+            if self.valueNone: return
+            raise TypeError("hlist requires non-None value.")
+        if self.valueType is not None and not isinstance(value, self.valueType):
+            raise TypeError("hlist requires values of type %s, but got %s."
+                % (self.valueType.__name__, type(value).__name__))
+        if self.valueTest is not None and not self.valueTest(value):
+            raise TypeError("hlist value %s fails required test." % (value))
+        return
+
+    def append(self, value:Any) -> None:
+        self._verifyValue(value)
+        super().append(value)
+
+    def extend(self, values:Iterable) -> None:
+        for value in values: self._verifyValue(value)
+        super().extend(values)
+
+    #def insert  # TODO insert()
 
 
 ###############################################################################
@@ -196,63 +206,34 @@ class hdict(dict):
         valueTest=None
         ):
         super(hdict, self).__init__()
-        if not isinstance(keyType, Tuple):keyType = tuple( [ keyType ] )
         self.keyType = keyType
         self.keyNone = keyNone
         self.keyTest = keyTest
-        if not isinstance(valueType, Tuple): valueType = tuple( [ valueType ] )
         self.valueType = valueType
         self.valueNone = valueNone
         self.valueTest = valueTest
 
     def __setitem__(self, key, value):
+        self._verifyKeyAndValue(key, value)
         super(hdict, self).__setitem__(key, value)
-        if (not self.keyNone and key is None):
-            raise TypeError("hlist requires non-None key.")
-        if (self.keyType is not None and not isinstance(key, self.keyType)):
-            raise TypeError("hlist requires keys of type %s, but got %s." %
-                self.keyType, type(key))
-        if (not self.valueNone and value is None):
-            raise TypeError("hlist requires non-None value.")
-        if (self.valueType is not None and
-            not isinstance(value, self.valueType)):
-            raise TypeError("hlist requires values of type %s, but got %s." %
-                self.valueType, type(value))
-        self[key] = value
 
+    def _verifyKeyAndValue(self, key, value) -> None:
+        if key is None:
+            if not self.keyNone:
+                raise TypeError("hdict requires non-None key.")
+        elif self.keyType is not None and not isinstance(key, self.keyType):
+            raise TypeError("hdict requires keys of type %s, but got %s." %
+                (self.keyType.__name__, type(key).__name__))
+        if self.keyTest and not self.keyTest(key):
+            raise TypeError("hdict key '%s' does not pass keyTest." % (key))
 
-###############################################################################
-# Main (just a test driver)
-#
-if __name__ == "__main__":
-    def processOptions():
-        try:
-            from BlockFormatter import BlockFormatter
-            parser = argparse.ArgumentParser(
-                description=descr, formatter_class=BlockFormatter)
-        except ImportError:
-            parser = argparse.ArgumentParser(description=descr)
+        if value is None:
+            if not self.valueNone:
+                raise TypeError("hdict requires non-None value.")
+        elif self.valueType is not None and not isinstance(value, self.valueType):
+            raise TypeError("hdict requires values of type %s, but got %s." %
+                (self.valueType.__name__, type(value).__name__))
+        if self.valueTest and not self.valueTest(value):
+            raise TypeError("hdict value '%s' does not pass valueTest." % (value))
 
-        parser.add_argument(
-            "--quiet", "-q", action='store_true',
-            help='Suppress most messages.')
-        parser.add_argument(
-            "--verbose", "-v", action='count', default=0,
-            help='Add more messages (repeatable).')
-        parser.add_argument(
-            "--version", action='version', version=__version__,
-            help='Display version information, then exit.')
-
-        args0 = parser.parse_args()
-        return args0
-
-    ###########################################################################
-    #
-    args = processOptions()
-    print("Testing homogeneous.py...")
-
-    ld = hdict()
-    ld['foobar'] = 12
-
-    if (not args.quiet):
-        sys.stderr.write("Done.\n")
+        return
