@@ -23,7 +23,10 @@ from basedomtypes import SIO
 # from mutablestring import mstring
 # (str, bytes, list)
 
+mutableClasses = (StrBuf, array.array, SIO, list)
+
 lg = logging.getLogger()
+
 
 __metadata__ = {
     "title"        : "test_strbuf",
@@ -143,6 +146,8 @@ class testStrBuf(unittest.TestCase):
         self.s2 = makeOne(src)
         self.short = makeOne("Laughably short string")
 
+    def testTime(self):
+        timer(maxPower=8, partMax=512, words=dictWords)
     def testCast(self):
         self.assertIsInstance(bool(self.s1), bool)
         self.assertIsInstance(str(self.s1), str)
@@ -150,19 +155,22 @@ class testStrBuf(unittest.TestCase):
         self.assertEqual(bool(self.s1), True)
         self.assertEqual(str(self.s1), self.s1.getvalue())
 
-        with self.assertRaises(ValueError):
-            int(self.s1, 10)
-
-    @unittest.skip
     def testCompare(self):
-        other = self.short
-        self.assertFalse(self.s1 == other)
-        self.assertTrue(self.s1 >= other)
-        self.assertTrue(self.s1 > other)
-        self.assertFalse(self.s1 <= other)
-        self.assertFalse(self.s1 < other)
-        self.assertTrue(self.s1 != other)
-        self.assertEqual(self.s1.__cmp__(other), 1)
+        print("Testing compares.")
+        first = makeOne("this is a strinz.")
+        other = makeOne("this is a string.")
+
+        self.assertEqual(first[0], "t")
+        self.assertEqual(other[-2], "g")
+        self.assertEqual("is", other[5:7])
+
+        self.assertFalse(first == other)
+        self.assertTrue(first != other)
+        self.assertTrue(first >= other)
+        self.assertTrue(first > other)
+        self.assertFalse(first <= other)
+        self.assertFalse(first < other)
+        self.assertEqual(first.__cmp__(other), 1)
 
         self.assertEqual(len(self.s1.splitlines(keepends=True)), 1)
 
@@ -179,11 +187,44 @@ class testStrBuf(unittest.TestCase):
         self.assertEqual(self.s1.endswith(tgt2), True)
         with self.assertRaises(ValueError):
             self.s1.index(sub, 100, 2000)
-        self.assertEqual(self.s1 in tgt, False)
-        self.assertEqual("Paul" in str(self.s1), True)
-        self.assertNotEqual(self.s1.find("Paul"), None)
-        self.assertEqual("xyzzy0" in str(self.s1), False)
-        self.assertEqual(self.s1.find("xyzzy0"), -1)
+
+    def testInAndContains(self):
+        # These wonky.... For str, there is:
+        #     An "in" infix operator, but no "contains"
+        #     A "__contains__" dunder, but no "__in__"
+        #     And the one dunder, has to flips its args.
+        #     And TypeError refers to "left" operand!
+        #
+        bigStr = "aardvark"
+        tgtStr = "v"
+        bigObj = makeOne(bigStr)
+        tgtObj = makeOne(tgtStr)
+
+        # First, bypassing the dispatching from infix to dunder:
+        self.assertTrue(bigStr.__contains__(tgtStr))  # This sure better work
+        self.assertTrue(bigObj.__contains__(tgtStr))
+        self.assertTrue(bigObj.__contains__(tgtObj))
+
+        # Then try the dispatching
+        self.assertTrue(tgtStr in bigStr)
+        self.assertTrue(tgtStr in bigObj)
+        self.assertTrue(tgtObj in bigObj)
+
+        # These fail on "requires string as left operand, not SIO"  TODO
+        #self.assertTrue(bigStr.__contains__(tgtObj))
+        #self.assertTrue(tgtObj in bigStr)
+
+        aNum = SIO("93124")
+        self.assertEqual(int(str(aNum)), 93124)
+        self.assertEqual(aNum.__int__(), 93124)
+        self.assertEqual(int(aNum), 93124)
+        self.assertEqual(93124, int(aNum))
+        aNonNum = makeOne("93*124")
+        with self.assertRaises(ValueError):
+            int(aNonNum)
+        # TODO int() haas similar problem with non-str
+        #self.assertEqual(int(aNum, 10), 93124)
+
 
     def testInfo(self):
         self.assertEqual(len(self.s1), len(w1))
@@ -225,6 +266,30 @@ class testStrBuf(unittest.TestCase):
             self.assertEqual(sShort.isupper(),      wShort.isupper())
             #self.s1.isa(isaWhat)
 
+    def testCaseFoldersImmutable(self):
+        if not isinstance(self.s1, mutableClasses):
+            print("Skipping testCaseFolders for class %s." % (type(self.s1)))
+            return
+
+        wShort = "All THE words (73) are here."
+        sShort = makeOne(wShort)
+
+        # TODO Gotta make eq work, too.
+        self.assertTrue(str(sShort.casefold())   == wShort.casefold())
+        sShort = makeOne(wShort)
+        self.assertTrue(str(sShort.lower())      == wShort.lower())
+        sShort = makeOne(wShort)
+        self.assertTrue(str(sShort.capitalize()) == wShort.capitalize())
+        sShort = makeOne(wShort)
+        self.assertTrue(str(sShort.title())      == wShort.title())
+        sShort = makeOne(wShort)
+        self.assertTrue(str(sShort.swapcase())   == wShort.swapcase())
+
+        sShort = makeOne(wShort)
+        table = str.maketrans(string.ascii_lowercase, string.ascii_uppercase)
+        self.assertTrue(str(sShort.translate(table)) == wShort.translate(table))
+
+
     ##############################################################################
     ### Mutators
     ### Since a StrBuf is mutable, anything that produces a modified version has
@@ -232,7 +297,7 @@ class testStrBuf(unittest.TestCase):
     ### Those methods all take an optional 'inplace' argument.
     ###
     def testMutators(self):
-        if (not isinstance(self.s1, (StrBuf, array.array, list))):
+        if not isinstance(self.s1, mutableClasses):
             print("Skipping testMutators for class %s." % (type(self.s1)))
             return
 
@@ -240,23 +305,19 @@ class testStrBuf(unittest.TestCase):
         suf = w1[-10:]
 
         tmp = makeOne(w1)
-        tmp.removeprefix(suf, inplace=True)
-        self.assertEqual(str(tmp), w1)
+
+        self.assertEqual(str(tmp.removeprefix(suf)), w1)
         self.assertTrue(tmp.startswith(pre))
-        tmp.removeprefix(pre, inplace=True)
-        self.assertEqual(str(tmp), w1[10:])
+        self.assertEqual(str(tmp.removeprefix(pre)), w1[10:])
 
         tmp = makeOne(w1)
-        tmp.removesuffix(pre, inplace=True)
-        self.assertEqual(str(tmp), w1)
+        self.assertEqual(str(tmp.removesuffix(pre)), w1)
         self.assertEqual(w1[-10:], str(tmp[-10:]))
         self.assertTrue(tmp.endswith(suf))
-        tmp.removesuffix(suf, inplace=True)
-        self.assertEqual(str(tmp), w1[0:-10])
+        self.assertEqual(str(tmp.removesuffix(suf)), w1[0:-10])
 
         tmp = makeOne(w1)
-        tmp.delete(100, 200)
-        self.assertEqual(str(tmp), w1[0:100] + w1[100:])
+        self.assertEqual(str(tmp.delete(100, 200)), w1[0:100] + w1[100:])
 
         s2 = makeOne()
         s3 = s2.reversed()
@@ -265,25 +326,42 @@ class testStrBuf(unittest.TestCase):
 
         reps = 1000
         s2 = makeOne("")
-        for i in range(reps): s2.append(w1smoke)
+        for i in range(reps): s2 = s2.append(w1smoke)
         self.assertEqual(len(s2), reps * len(w1smoke))
         self.assertEqual(str(s2), w1smoke * reps)
 
     def testModify(self):
-        if (not isinstance(self.s1, (StrBuf, array.array, list))):
+        if not isinstance(self.s1, mutableClasses):
             print("Skipping testModify for class %s." % (type(self.s1)))
             return
 
-        s2 = genText(n=10000)
-        tgt = s2[100:200]
-        self.s1.partition(tgt)
-        self.s1.append(s2)
-        #self.s1.appendShort(pnum, s)  ######## __?
-        #self.s1.prependShort(pnum, s)  ######## __?
-        #s3 = self.s1.copy().insert(100, s2)
+        str0 = "aardvark " * 20
+        obj0 = makeOne(str0)
+        str1 = "anteater"
+        obj1 = makeOne(str1)
+        obj0.append(obj1)
+        self.assertEqual(str0+str1, str(obj0))
+        #s0.appendShort(pnum, s)  ######## __?
+        #s0.prependShort(pnum, s)  ######## __?
+
+        obj3 = obj0.copy()
+        self.assertEqual(str(obj0), str(obj3))
+        # self.assertEqual(obj0, obj3)          # TODO
+        obj3.insert(100, obj1)
+        self.assertEqual(str0[0:100]+str1+str0[100:], str(obj3))
+
+        obj4 = obj1.copy().pop(12)
+
+        obj5 = makeOne(w1)
         insertAt = 100
-        self.s1.addString(insertAt, s2)
-        self.assertEqual(self.s1, w1[0:insertAt] + s2 + w1[insertAt:])
+        obj5.insert(insertAt, str1)
+        self.assertEqual(obj5, w1[0:insertAt] + str1 + w1[insertAt:])
+
+        p1 = makeOne("docbook:para")
+        p2 = makeOne(":")
+        pre, colon, post = p1.partition(p2)
+        self.assertEqual(colon, ":")
+        self.assertEqual(pre+colon+post, p1)
 
         sJoiner = "###"
         tokens = [ dictWords[random.randint(0, nwords)] for i in range(1000) ]
@@ -293,12 +371,12 @@ class testStrBuf(unittest.TestCase):
         self.assertEqual(tjoined, sbtjoined)
 
     def testNormalizers(self):
-        if (not isinstance(self.s1, (StrBuf, array.array, list))):
+        if not isinstance(self.s1, mutableClasses):
             print("Skipping testNormalizers for class %s." % (type(self.s1)))
             return
 
         self.assertIsInstance(self.s1.tostring(), str)
-        self.assertEqual(self.s1.tostring(), self.s1)
+        self.assertEqual(self.s1.tostring(), str(self.s1))
 
         w2 = "Hello\tto\t\tall\tthish...."
         s2 = makeOne(w2)
@@ -307,12 +385,12 @@ class testStrBuf(unittest.TestCase):
         s2.strip("Hh.")
         print(s2)
         s2.lstrip("Hel")
-        self.assertEqual(s2, w2[4:])
+        self.assertEqual(str(s2), w2[4:])
         s2.rstrip("")
-        self.assertEqual(s2, w2[4:])
+        self.assertEqual(stR(s2), w2[4:])
 
-    def testCaseFolders(self):
-        if (not isinstance(self.s1, (StrBuf, array.array, list))):
+    def testCaseFoldersInplace(self):
+        if not isinstance(self.s1, StrBuf):
             print("Skipping testCaseFolders for class %s." % (type(self.s1)))
             return
 
@@ -393,6 +471,27 @@ class testStrBuf(unittest.TestCase):
 
         self.s1.__repack__()
         return
+
+    def testStrBufInplace(self):
+        if (not isinstance(self.s1, StrBuf)):
+            print("Skipping testStrBufInplace for class %s." % (type(self.s1)))
+            return
+
+        tmp = makeOne(w1)
+        tmp.removeprefix(suf, inplace=True)
+        self.assertEqual(str(tmp), w1)
+        self.assertTrue(tmp.startswith(pre))
+        tmp.removeprefix(pre, inplace=True)
+        self.assertEqual(str(tmp), w1[10:])
+
+        tmp = makeOne(w1)
+        tmp.removesuffix(pre, inplace=True)
+        self.assertEqual(str(tmp), w1)
+        self.assertEqual(w1[-10:], str(tmp[-10:]))
+        self.assertTrue(tmp.endswith(suf))
+        tmp.removesuffix(suf, inplace=True)
+        self.assertEqual(str(tmp), w1[0:-10])
+
 
 
 ###############################################################################

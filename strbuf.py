@@ -304,10 +304,11 @@ class StrBuf():
 
     ### Searching for various content
     ###
-    def __in__(self, tgt: str) -> bool:
-        return False if tgt.find(str(self)) == -1 else True
-
     def __contains__(self, sub: str) -> bool:
+        """Python calls this for the "in" infix operator, BUT it
+        calls it on the right-hand argument, not the left. So we
+        only get here if we're the target, not the container.
+        """
         return (self.find(sub) is not None)
 
     def startswith(self, tgt: str) -> bool:
