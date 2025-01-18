@@ -77,11 +77,15 @@ See
 
 =Known bugs and Limitations=
 
+It's really hard to do better than just using Python list for strings that
+are going to change a lot.
+I'll probably made a list subclass that adds all the string functions (I have
+one for StringIO already).
+
 Nearly all methods known to `str` are supported, at least by catching them
-as undefined here, casting to str, calling str's method, and
-(if the result is also a single string) casting back. This may not
-always be right. Additional methods may need to be added here
-for functionality or performance.
+via __getattr__, casting to str, calling str's method, and
+(if the result is also a single string) casting back.
+Additional methods may be needed for functionality or performance.
 
 With split(), if a long separator is used and an instance of it is split
 across more than just 2 StrBuf parts, it will be missed. Delimiters that

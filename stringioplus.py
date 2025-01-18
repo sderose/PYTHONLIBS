@@ -1,7 +1,23 @@
+#!/usr/bin/env python3
+#
+# stringioplus / SIO: StringIO with the string API added.
+# 2025-01: Written by Steven J. DeRose
+#
+from io import StringIO
+from typing import Callable, Any, Union
+
+
 ###############################################################################
 #
 class SIO(StringIO):
     """Make StringIO a lot more string-like.
+    The main remaining problems:
+        * int(SIO("99"0, base=10)
+        * SIO("x") == "x"
+        * "a" in SIO("aardvark")
+    Note: the StrBuf unittests can handle this, too.
+    This is actually slower than just list.append followed by str(list) for
+    building up buffers piecemeal.
     """
     def __getattr__(self, name) -> Callable:
         """Support rest of str's methods, by cast/call/cast-back. Some may be
@@ -84,7 +100,6 @@ class SIO(StringIO):
         return newOne
 
     def __add__(self, s:str) -> 'SIO':
-        # TODO inplace or not or optional?
         newOne = SIO(self.getvalue() + s)
         return newOne
 
@@ -164,7 +179,7 @@ class SIO(StringIO):
         if len(self) > commonLen: return 1
         if len(other) > commonLen: return -1
         return 0
-    __cmp__ = cmp  # TODO Why???
+    __cmp__ = cmp
 
     def __eq__(self, other) -> bool:
         return self.cmp(other) == 0
@@ -178,5 +193,3 @@ class SIO(StringIO):
         return self.cmp(other) > 0
     def __ge__(self, other) -> bool:
         return self.cmp(other) >= 0
-
-
