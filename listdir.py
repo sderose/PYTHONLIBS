@@ -105,25 +105,25 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--abspaths", action='store_true',
+            "--abspaths", action="store_true",
             help='Show absolute paths.')
         parser.add_argument(
-            "--dirs", action='store_true',
+            "--dirs", action="store_true",
             help='Also show directories.')
         parser.add_argument(
-            "--exts", type=str, action='append',
+            "--exts", type=str, action="append",
             help="Include files with this extension (repeatable). Don't include dot.")
         parser.add_argument(
-            "--hidden", action='store_true',
+            "--hidden", action="store_true",
             help='Also show dot-initial files.')
         parser.add_argument(
-            "--quiet", "-q", action='store_true',
+            "--quiet", "-q", action="store_true",
             help='Suppress most messages.')
         parser.add_argument(
-            "--verbose", "-v", action='count', default=0,
+            "--verbose", "-v", action="count", default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
-            "--version", action='version', version=__version__,
+            "--version", action="version", version=__version__,
             help='Display version information, then exit.')
 
         parser.add_argument(

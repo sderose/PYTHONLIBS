@@ -1036,7 +1036,7 @@ if __name__ == "__main__":
             "--deletePer", type=int, default=0,
             help="If set, do a random delection every N adds.")
         parser.add_argument(
-            "--iencoding", type=str, metavar="E", default="utf-8",
+            "--iencoding", "--input-encoding", type=str, metavar="E", default="utf-8",
             help="Assume this character coding for input. Default: utf-8.")
         parser.add_argument(
             "--maxPower", type=int, default=2,

@@ -47,7 +47,7 @@ import string
 from collections import defaultdict, namedtuple, OrderedDict, deque, Counter
 import typing
 from typing import IO, Dict, List, Union, Any, Iterable, Callable, Type
-from enum import Enum
+from enum import Enum, Flag, IntEnum
 from io import StringIO
 import subprocess
 from subprocess import check_output, CalledProcessError
@@ -85,6 +85,11 @@ class e(Enum):
     B = 2
     C = 3
 
+class flag(Flag):
+    A = 1 << 0
+    B = 1 << 1
+    C = 1 << 2
+
 sio = StringIO("This is a small StringIO buffer.")
 
 t = ( 1, 2, 3 )
@@ -105,7 +110,7 @@ def show():
     """Display the *relevant* items.
     TODO: How to test builtins that don't trigger isbuiltin()?
     """
-    print("Already defined:")
+    print("Already defined (via /Users/sderose/_sjdUtils/PYTHONLIBS/pythonStartup.py):")
     gkeys = sorted(globals().keys())
     for gkey in gkeys:
         if (gkey.startswith("_")):

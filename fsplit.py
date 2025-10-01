@@ -3469,7 +3469,7 @@ if __name__ == "__main__":
             "-c", action="store_true",
             help="Convert the input to a different CSV-ish format.")
         parser.add_argument(
-            "--iencoding", type=str, default="utf-8",
+            "--iencoding", "--input-encoding", type=str, default="utf-8",
             help="Character encoding for the input.")
         parser.add_argument(
             "--ifields", type=str,

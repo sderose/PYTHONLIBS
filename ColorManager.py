@@ -505,7 +505,7 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--bold", action='store_true',
+            "--bold", action="store_true",
             help='Show samples with bold foreground colors.')
         parser.add_argument(
             "--colorize", type=str, default=None,
@@ -515,19 +515,19 @@ if __name__ == "__main__":
             #choices=ColorManager.effectNumbers.keys(),
             help="Show sample only for the given effect(s).")
         parser.add_argument(
-            "--pack", action='store_true',
+            "--pack", action="store_true",
             help='Pack samples, instead of showing one per line.')
         parser.add_argument(
-            "--showAll", action='store_true',
+            "--showAll", action="store_true",
             help='Show samples of all combinations.')
         parser.add_argument(
-            "--testEffects", action='store_true',
+            "--testEffects", action="store_true",
             help='Show samples of all known effects.')
         parser.add_argument(
-            "--uncolorize", action='store_true',
+            "--uncolorize", action="store_true",
             help='Remove ANSI terminal color escapes from the input.')
         parser.add_argument(
-            "--version", action='version', version=__version__,
+            "--version", action="version", version=__version__,
             help='Display version information, then exit.')
 
         parser.add_argument(

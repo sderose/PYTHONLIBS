@@ -181,7 +181,7 @@ if __name__ == "__main__":
             "--color",  # Don't default. See below.
             help="Colorize the output.")
         parser.add_argument(
-            "--oencoding", type=str, metavar="E", default="utf-8",
+            "--oencoding", "--output-encoding", type=str, metavar="E", default="utf-8",
             help="Use this character coding for output. Default: utf-8.")
         parser.add_argument(
             "--quiet", "-q", action="store_true",

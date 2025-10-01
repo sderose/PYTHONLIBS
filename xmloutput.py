@@ -1537,7 +1537,7 @@ if __name__ == "__main__":
             "--defaultLang", type=str, default="en",
             help="Assume this starting value for xml:lang.")
         parser.add_argument(
-            "--encoding", "--oencoding", type=str, default="utf-8",
+            "--encoding", "--oencoding", "--output-encoding", type=str, default="utf-8",
             help="What character encoding to use.")
         parser.add_argument(
             "--quiet", "-q", action="store_true",

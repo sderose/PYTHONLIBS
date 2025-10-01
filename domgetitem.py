@@ -10,9 +10,8 @@ from enum import Enum
 from typing import List, Union
 from xml.dom.minidom import Node, Document  #, NamedNodeMap
 
-from nodetypes import NodeTypes
-
-from xmlstrings import XmlStrings
+from ragnaroktypes import NodeType
+from runeheim import XmlStrings
 
 __metadata__ = {
     "title"        : "DomGetitem",
@@ -154,7 +153,7 @@ class NodeArgs(Enum):
         "#comment" -> COMMENT_ARG
         "p"        -> ELEMENT_ARG
         "@id"      -> ATTRIBUTE_ARG
-    The values are based on the usual Node.nodeTypes, plus some extras:
+    The values are based on the usual Node.nodeType, plus some extras:
         * selection languages (XPath, CSS, etc.)
         * cover terms for sets of nodeTypes ("*" for element|cdata|text).
         * Python's usual int and slice for lists and such
@@ -209,13 +208,13 @@ class NodeArgs(Enum):
         "#fragment": DOCUMENT_FRAGMENT_ARG,  # unused
 
         "#main":     lambda n: n.nodeType in (
-            NodeTypes.ELEMENT_NODE, NodeTypes.TEXT_NODE, NodeTypes.CDATA_SECTION_NODE),
+            NodeType.ELEMENT_NODE, NodeType.TEXT_NODE, NodeType.CDATA_SECTION_NODE),
         "#notmain":  lambda n: n.nodeType not in (
-            NodeTypes.ELEMENT_NODE, NodeTypes.TEXT_NODE, NodeTypes.CDATA_SECTION_NODE),
-        "#wsn":      lambda n: n.nodeType == NodeTypes.TEXT_NODE and n.data.strip() == "",
+            NodeType.ELEMENT_NODE, NodeType.TEXT_NODE, NodeType.CDATA_SECTION_NODE),
+        "#wsn":      lambda n: n.nodeType == NodeType.TEXT_NODE and n.data.strip() == "",
         # TODO: Do we want text that's not just ws, or anything that's not ws text?
         # And do ws-only cdata count?
-        "#notwsn":   lambda n: n.nodeType != NodeTypes.TEXT_NODE or n.data.strip() != ""
+        "#notwsn":   lambda n: n.nodeType != NodeType.TEXT_NODE or n.data.strip() != ""
     }
 
     @staticmethod
@@ -370,7 +369,7 @@ class PyNode(Node):
         if (nodeName[0] == '@'):
             return self.hasAttribute(nodeName)
         for ch in self.childNodes:
-            if (ch.nodeType == NodeTypes.ELEMENT_NODE):
+            if (ch.nodeType == NodeType.ELEMENT_NODE):
                 if (nodeName == '*' or nodeName == ch.nodeName): return True
             elif (nodeName[0] == '#' and nodeName == self.nodeName): return True
         return False
@@ -404,35 +403,35 @@ class PyNode(Node):
 
         # Element and attribute name selectors
         elif (argKind == NodeArgs.ELEMENT_ARG):
-            if (nt == NodeTypes.ELEMENT_NODE and self.nodeName == arg): return True
+            if (nt == NodeType.ELEMENT_NODE and self.nodeName == arg): return True
         elif (argKind == NodeArgs.ATTRIBUTE_ARG):
-            if (nt == NodeTypes.ATTRIBUTE_NODE and self.name == arg): return True
+            if (nt == NodeType.ATTRIBUTE_NODE and self.name == arg): return True
 
         # Reserved word selectors that represent nodeTypes
         elif (argKind == NodeArgs.TEXT_ARG):
-            if (nt == NodeTypes.TEXT_NODE): return True
+            if (nt == NodeType.TEXT_NODE): return True
         elif (argKind == NodeArgs.CDATA_SECTION_ARG):
-            if (nt == NodeTypes.CDATA_SECTION_NODE): return True
+            if (nt == NodeType.CDATA_SECTION_NODE): return True
         elif (argKind == NodeArgs.ENTITY_REFERENCE_ARG):  # Unused
-            if (nt == NodeTypes.ENTITY_REFERENCE_NODE): return True
+            if (nt == NodeType.ENTITY_REFERENCE_NODE): return True
         elif (argKind == NodeArgs.ENTITY_ARG):  # Unused
-            if (nt == NodeTypes.ENTITY_NODE): return True
+            if (nt == NodeType.ENTITY_NODE): return True
         elif (argKind == NodeArgs.PROCESSING_INSTRUCTION_ARG):
-            if (nt == NodeTypes.PROCESSING_INSTRUCTION_NODE): return True
+            if (nt == NodeType.PROCESSING_INSTRUCTION_NODE): return True
         elif (argKind == NodeArgs.COMMENT_ARG):
-            if (nt == NodeTypes.COMMENT_NODE): return True
+            if (nt == NodeType.COMMENT_NODE): return True
         elif (argKind == NodeArgs.DOCUMENT_ARG):                # Name?
-            if (nt == NodeTypes.DOCUMENT_NODE): return True
+            if (nt == NodeType.DOCUMENT_NODE): return True
         elif (argKind == NodeArgs.DOCUMENT_TYPE_ARG):           # Name?
-            if (nt == NodeTypes.DOCUMENT_TYPE_NODE): return True
+            if (nt == NodeType.DOCUMENT_TYPE_NODE): return True
         elif (argKind == NodeArgs.DOCUMENT_FRAGMENT_ARG):
-            if (nt == NodeTypes.DOCUMENT_FRAGMENT_NODE): return True
+            if (nt == NodeType.DOCUMENT_FRAGMENT_NODE): return True
         elif (argKind == NodeArgs.NOTATION_ARG):                # Name?
-            if (nt == NodeTypes.NOTATION_NODE): return True
+            if (nt == NodeType.NOTATION_NODE): return True
 
         # Meta-selectors
         elif (argKind == NodeArgs.STAR_ARG):                    # "*" = any element
-            if (nt == NodeTypes.ELEMENT_NODE): return True
+            if (nt == NodeType.ELEMENT_NODE): return True
 
         # WSN, NWSN, MAIN, NMAIN
 
@@ -463,13 +462,13 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_NODEument(
-            "--quiet", "-q", action='store_true',
+            "--quiet", "-q", action="store_true",
             help='Suppress most messages.')
         parser.add_NODEument(
-            "--verbose", "-v", action='count', default=0,
+            "--verbose", "-v", action="count", default=0,
             help='Add more messages (repeatable).')
         parser.add_NODEument(
-            "--version", action='version', version=__version__,
+            "--version", action="version", version=__version__,
             help='Display version information, then exit.')
 
         args0 = parser.parse_NODEs()

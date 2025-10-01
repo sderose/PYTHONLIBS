@@ -61,6 +61,9 @@ returns None. This is a typical behavior for interpreting command-line options.
 For convenience, there is also `findByAbbrev(s)`, which does the same but
 returns the value instead of the normalized key (or None if ambiguous or not found).
 
+Note: I anticipate adding an option to make loosedict do this by default, rather
+than requiring a special lookup method.
+
 ==Managing real vs. normalized keys==
 
 LooseDict is a subclass of dict, and the "real" dict (owned by the parent class)
@@ -505,13 +508,13 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--quiet", "-q", action='store_true',
+            "--quiet", "-q", action="store_true",
             help='Suppress most messages.')
         parser.add_argument(
-            "--verbose", "-v", action='count', default=0,
+            "--verbose", "-v", action="count", default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
-            "--version", action='version', version=__version__,
+            "--version", action="version", version=__version__,
             help='Display version information, then exit.')
 
         args0 = parser.parse_args()

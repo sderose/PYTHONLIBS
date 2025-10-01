@@ -12,9 +12,8 @@ import logging
 from xml.dom import minidom
 #from xml.dom.minidom import Document, Node, Element
 
-from xmlstrings import XmlStrings
-from domgetitem import NodeSelKind
-from domextensions import NodeTypes
+from runeheim import XmlStrings
+from domextensions import NodeTypes, NodeSelKind
 from domextensions import DomExtensions
 
 lg = logging.getLogger("main")

@@ -3,9 +3,7 @@
 # homogeneous: Implement homogeneous subclasses of list, dict, etc.
 # 2020-02-19: Written by Steven J. DeRose.
 #
-import sys
-import argparse
-from typing import Union, List, Tuple, Any, Callable, Iterable
+from typing import Any, Callable, Iterable
 
 __metadata__ = {
     "title"        : "homogeneous",

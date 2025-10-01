@@ -866,45 +866,45 @@ if __name__ == "__main__":
         parser.add_argument(
             "--color",  # Don't default. See below.
             help='Colorize the output.')
-        # "flags", "-f", action='store_true',
+        # "flags", "-f", action="store_true",
         parser.add_argument(
-            "--oformat", "--outputFormat", "--output-format", type=str,
+            "--oformat", "--output-format", type=str,
             choices = [ "plain", "html", "xsv", "csv", "tsv" ],
             default="plain",
             help='Record/field syntax for output.')
         parser.add_argument(
-            "--human", "-H", action='store_true',
+            "--human", "-H", action="store_true",
             help='Show file size in human-readable form (KMGTP suffixes).')
-        # "ls-format", "-l", action='store_true',
-        # "link-per-se", "-L", action='store_true',
+        # "ls-format", "-l", action="store_true",
+        # "link-per-se", "-L", action="store_true",
         parser.add_argument(
             "--namedStatFormat", "--named-stat-format", type=str, default=None,
             choices=statFormats.keys(),
             help='Use a predefined stat formats, instead of --statFormat.')
         parser.add_argument(
-            "--no-newline", "-n", action='store_true',
+            "--no-newline", "-n", action="store_true",
             help='No newline to appear at the end of each piece of output.')
         parser.add_argument(
-            "--quiet", "-q", action='store_true',
+            "--quiet", "-q", action="store_true",
             help='Suppress most messages.')
         parser.add_argument(
-            "--raw", "-r", action='store_true',
+            "--raw", "-r", action="store_true",
             help="Display raw information, as decimal int fields.")
         parser.add_argument(
             "--statFormat", "--stat-format", "-s", type=str, default=statFormat0,
             help='stat-like percent-codes to determine output format.')
-        # "", "-s", action='store_true',
+        # "", "-s", action="store_true",
         parser.add_argument(
             "--timeFormat", "--time-format", "-t", type=str, default=timeFormat0,
             help='strftime-like percent-codes to determine time output format.')
         parser.add_argument(
-            "--verbose", "-v", action='count', default=0,
+            "--verbose", "-v", action="count", default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
-            "--version", action='version', version=__version__,
+            "--version", action="version", version=__version__,
             help='Display version information, then exit.')
         parser.add_argument(
-            "-x", action='store_true',
+            "-x", action="store_true",
             help="Output a more readable, but old, Linux-y format.")
 
         parser.add_argument(

@@ -478,16 +478,16 @@ if __name__ == "__main__":
             formatter_class=BlockFormatter
         )
         parser.add_argument(
-            "--list", action='store_true',
+            "--list", action="store_true",
             help='Show a list of the known types.')
         parser.add_argument(
-            "--quiet", "-q", action='store_true',
+            "--quiet", "-q", action="store_true",
             help='Suppress most messages.')
         parser.add_argument(
-            "--verbose", "-v", action='count', default=0,
+            "--verbose", "-v", action="count", default=0,
             help='Add more messages (repeatable).')
         parser.add_argument(
-            "--version", action='version',
+            "--version", action="version",
             version="%s (Python %s)" % (__version__, sys.version_info[0]),
             help='Display version information, then exit.')
 

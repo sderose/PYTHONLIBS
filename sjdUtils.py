@@ -1630,7 +1630,7 @@ if __name__ == "__main__":
         description=descr)
 
     parser.add_argument(
-        "--version", action='version', version=__version__,
+        "--version", action="version", version=__version__,
         help='Display version information, then exit.')
     args = parser.parse_args()
     sys.exit()
